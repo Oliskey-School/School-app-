@@ -174,16 +174,19 @@ export class OnboardingService {
             };
         });
 
-        try {
-            await VerificationService.createVerification(
-                result.adminUserId,
-                data.adminEmail,
-                data.adminName,
-                'email_verification'
-            );
-        } catch (otpError: any) {
+        // Send the verification OTP in the BACKGROUND — never block (or time out) the
+        // onboarding response on a slow/unreachable email provider. The school, branch
+        // and admin are already committed above; the OTP is best-effort and the owner
+        // can resend it. (Previously this was awaited, so a slow SMTP hung the whole
+        // "Create School" request.)
+        VerificationService.createVerification(
+            result.adminUserId,
+            data.adminEmail,
+            data.adminName,
+            'email_verification'
+        ).catch((otpError: any) => {
             console.error('[Onboarding] Failed to send OTP:', otpError.message);
-        }
+        });
 
         return {
             success: true,

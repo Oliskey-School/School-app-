@@ -87,7 +87,7 @@ const IVRLessonRecorder: React.FC = () => {
                 .limit(50);
 
             if (error) throw error;
-            setCalls(data || []);
+            setCalls(Array.isArray(data) ? data : []);
         } catch (error: any) {
             console.error('Error fetching calls:', error);
         }

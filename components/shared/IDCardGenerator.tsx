@@ -32,11 +32,56 @@ const IDCardGenerator: React.FC<IDCardGeneratorProps> = ({ user, userType }) => 
                 }
             }
 
-            const canvas = await html2canvas(cardRef.current, {
-                scale: 3, // Higher scale for better print quality
-                backgroundColor: '#ffffff',
-                useCORS: true
-            });
+            // html2canvas scatters the text if it captures the card while it sits inside
+            // the preview's `transform: scale()` wrapper (it reads the scaled bounding box
+            // but paints at intrinsic size) or before web fonts load. So: (1) wait for
+            // fonts, (2) neutralise the wrapper's scale to render the card at its true
+            // 856×540, capture, then restore, and (3) force the exact capture dimensions.
+            try { await (document as any).fonts?.ready; } catch { /* noop */ }
+
+            const wrapper = cardRef.current.parentElement as HTMLElement | null;
+            const prev = wrapper ? { transform: wrapper.style.transform, width: wrapper.style.width, height: wrapper.style.height } : null;
+            if (wrapper) {
+                wrapper.style.transform = 'none';
+                wrapper.style.width = '856px';
+                wrapper.style.height = '540px';
+            }
+
+            let canvas: HTMLCanvasElement;
+            try {
+                canvas = await html2canvas(cardRef.current, {
+                    scale: 3, // Higher scale for better print quality
+                    backgroundColor: '#ffffff',
+                    useCORS: true,
+                    width: 856,
+                    height: 540,
+                    windowWidth: 856,
+                    windowHeight: 540,
+                    scrollX: 0,
+                    scrollY: 0,
+                    onclone: (clonedDoc) => {
+                        // html2canvas clips the BOTTOM of large/bold text: it paints big
+                        // glyphs a touch lower than the browser, so with a tight line-height
+                        // inside an overflow:hidden box (the `truncate` utility) the letter
+                        // bottoms spill past the line box and get cut. Fix ONLY the off-screen
+                        // clone used for the capture — the on-screen card is never touched —
+                        // by giving the large text generous vertical headroom and letting it
+                        // breathe vertically (horizontal truncation is preserved by nowrap).
+                        const clonedCard = clonedDoc.querySelector('[data-id-card="true"]') as HTMLElement | null;
+                        clonedCard?.querySelectorAll<HTMLElement>('.text-3xl, .text-2xl, .text-lg, .text-base').forEach((node) => {
+                            node.style.lineHeight = '1.6';
+                            node.style.paddingBottom = '6px';
+                            node.style.overflowY = 'visible';
+                        });
+                    },
+                });
+            } finally {
+                if (wrapper && prev) {
+                    wrapper.style.transform = prev.transform;
+                    wrapper.style.width = prev.width;
+                    wrapper.style.height = prev.height;
+                }
+            }
 
             const imgData = canvas.toDataURL('image/png');
             const { jsPDF } = await import('jspdf');
@@ -78,14 +123,14 @@ const IDCardGenerator: React.FC<IDCardGeneratorProps> = ({ user, userType }) => 
         };
     }, []);
 
-    const qrData = JSON.stringify({
-        type: userType,
-        id: user.id,
-        name: user.name,
-        school: currentSchool?.name,
-        cardNumber: (user as any).school_generated_id || (user as any).schoolGeneratedId || user.id
-    });
+    const cardNumber = (user as any).school_generated_id || (user as any).schoolGeneratedId || user.id;
+    // A REAL, scannable verification link — opens this person's verify page when scanned
+    // (instead of an opaque JSON blob). Falls back to a relative path during SSR.
+    const qrData = typeof window !== 'undefined'
+        ? `${window.location.origin}/verify/${encodeURIComponent(String(cardNumber))}`
+        : `/verify/${cardNumber}`;
 
+    const schoolLogo = (currentSchool as any)?.logoUrl || (currentSchool as any)?.logo_url || (currentSchool as any)?.logo;
     const displayName = user.name;
     const displayId = (user as any).school_generated_id || (user as any).schoolGeneratedId || 'Pending';
 
@@ -96,7 +141,10 @@ const IDCardGenerator: React.FC<IDCardGeneratorProps> = ({ user, userType }) => 
                 <div
                     style={{
                         transform: `scale(${scale})`,
-                        transformOrigin: 'top center',
+                        // top-LEFT origin: the scaled card then occupies exactly
+                        // 856*scale × 540*scale from (0,0), so it fits its sized box and
+                        // is never clipped. (A 'center' origin offset it past the right edge.)
+                        transformOrigin: 'top left',
                         height: `${540 * scale}px`,
                         width: `${856 * scale}px`
                     }}
@@ -117,8 +165,8 @@ const IDCardGenerator: React.FC<IDCardGeneratorProps> = ({ user, userType }) => 
                         {/* School Logo/Header - REAL DATA */}
                         <div className="absolute top-8 left-10 flex items-center space-x-5">
                             <div className="w-20 h-20 bg-white rounded-2xl flex items-center justify-center shadow-xl overflow-hidden border-2 border-white/50">
-                                {currentSchool?.logoUrl ? (
-                                    <img src={currentSchool.logoUrl} alt="Logo" className="w-full h-full object-cover" />
+                                {schoolLogo ? (
+                                    <img src={schoolLogo} alt="Logo" className="w-full h-full object-cover" crossOrigin="anonymous" />
                                 ) : (
                                     <span className="text-4xl font-bold text-indigo-700">
                                         {currentSchool?.name?.charAt(0) || 'S'}
@@ -149,7 +197,7 @@ const IDCardGenerator: React.FC<IDCardGeneratorProps> = ({ user, userType }) => 
                                 <div className="relative">
                                     <div className="w-44 h-44 rounded-[32px] overflow-hidden bg-white shadow-2xl border-4 border-white">
                                         {user.avatarUrl ? (
-                                            <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
+                                            <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" crossOrigin="anonymous" />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-100 to-purple-100">
                                                 <span className="text-6xl font-bold text-indigo-700">{user.name.charAt(0)}</span>
@@ -165,50 +213,44 @@ const IDCardGenerator: React.FC<IDCardGeneratorProps> = ({ user, userType }) => 
                                 </div>
                             </div>
 
-                            {/* Details Grid */}
-                            <div className="flex-1 grid grid-cols-2 gap-y-6 gap-x-8 text-white pt-2">
-                                <div className="col-span-2">
+                            {/* Details Grid. ID gets a FULL-WIDTH row so it never truncates
+                                or runs into the QR; min-w-0 lets long values truncate cleanly. */}
+                            <div className="flex-1 min-w-0 grid grid-cols-2 gap-y-5 gap-x-8 text-white pt-2">
+                                <div className="col-span-2 min-w-0">
                                     <p className="text-[10px] opacity-70 uppercase font-black tracking-[0.2em]">Full Name</p>
-                                    <p className="text-3xl font-black truncate">{displayName}</p>
+                                    <p className="text-2xl font-black truncate">{displayName}</p>
+                                </div>
+
+                                <div className="col-span-2 min-w-0">
+                                    <p className="text-[10px] opacity-70 uppercase font-black tracking-[0.2em]">{userType === 'student' ? 'Student ID' : 'Staff ID'}</p>
+                                    <p className="text-lg font-bold truncate">{displayId}</p>
                                 </div>
 
                                 {userType === 'student' ? (
-                                    <>
-                                        <div>
-                                            <p className="text-[10px] opacity-70 uppercase font-black tracking-[0.2em]">Class / Grade</p>
-                                            <p className="text-xl font-bold">{getFormattedClassName((user as Student).grade, (user as Student).section)}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] opacity-70 uppercase font-black tracking-[0.2em]">Student ID</p>
-                                            <p className="text-xl font-bold tracking-wider">{displayId}</p>
-                                        </div>
-                                    </>
+                                    <div className="min-w-0">
+                                        <p className="text-[10px] opacity-70 uppercase font-black tracking-[0.2em]">Class / Grade</p>
+                                        <p className="text-lg font-bold truncate">{getFormattedClassName((user as Student).grade, (user as Student).section)}</p>
+                                    </div>
                                 ) : (
-                                    <>
-                                        <div>
-                                            <p className="text-[10px] opacity-70 uppercase font-black tracking-[0.2em]">Department</p>
-                                            <p className="text-xl font-bold">{(user as Teacher).subjects?.[0] || 'Academic'}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] opacity-70 uppercase font-black tracking-[0.2em]">Staff ID</p>
-                                            <p className="text-xl font-bold tracking-wider">{displayId}</p>
-                                        </div>
-                                    </>
+                                    <div className="min-w-0">
+                                        <p className="text-[10px] opacity-70 uppercase font-black tracking-[0.2em]">Department</p>
+                                        <p className="text-lg font-bold truncate">{(user as Teacher).subjects?.[0] || 'Academic'}</p>
+                                    </div>
                                 )}
 
-                                <div>
+                                <div className="min-w-0">
                                     <p className="text-[10px] opacity-70 uppercase font-black tracking-[0.2em]">Expiry Date</p>
-                                    <p className="text-xl font-bold">{new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toLocaleDateString()}</p>
+                                    <p className="text-lg font-bold">{new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toLocaleDateString()}</p>
                                 </div>
-                                
-                                <div>
+
+                                <div className="min-w-0">
                                     <p className="text-[10px] opacity-70 uppercase font-black tracking-[0.2em]">Blood Group</p>
-                                    <p className="text-xl font-bold">{(user as any).bloodGroup || 'N/A'}</p>
+                                    <p className="text-lg font-bold">{(user as any).bloodGroup || 'N/A'}</p>
                                 </div>
                             </div>
 
                             {/* QR Section */}
-                            <div className="flex-shrink-0 flex flex-col items-center pt-4">
+                            <div className="flex-shrink-0 flex flex-col items-center pt-4 pl-2">
                                 <div className="bg-white p-3.5 rounded-3xl shadow-2xl border-4 border-indigo-50">
                                     <QRCodeCanvas value={qrData} size={110} level="H" />
                                 </div>

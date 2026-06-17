@@ -99,17 +99,17 @@ export class UserService {
             delete data[field];
         }
 
+        // The id may be the UUID primary key OR the readable school_generated_id (e.g.
+        // OLISKEY_MAIN_ADM_0001 — demo tokens carry the readable id). Match either.
         // STRICT tenant scoping: only update if the target user belongs to the caller's school.
-        const result = await prisma.user.updateMany({
-            where: { id: userId, school_id },
-            data
-        });
+        const where = { OR: [{ id: userId }, { school_generated_id: userId }], school_id };
+        const result = await prisma.user.updateMany({ where, data });
 
         if (result.count === 0) {
             throw new Error('User not found or access denied');
         }
 
-        return await prisma.user.findUnique({ where: { id: userId } });
+        return await prisma.user.findFirst({ where });
     }
 
     /**

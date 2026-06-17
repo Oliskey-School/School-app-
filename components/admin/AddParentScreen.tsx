@@ -107,12 +107,19 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
         // Log all errors for easier debugging
         console.error('🔍 [AddParentScreen] Error Details for Mapping:', { msg, error });
 
+        // Email already taken in this branch — the backend already returns a clear,
+        // specific message (e.g. "This email is already registered to … Please use a
+        // different email"), so surface it directly instead of a generic error.
+        if (/already registered|already exists|duplicate key|unique constraint/i.test(msg)) {
+            return /already registered/i.test(msg)
+                ? msg
+                : 'This email is already registered to another account in this branch. Please use a different email.';
+        }
         if (msg.includes('not found')) return 'One or more of the student IDs provided were not found in this school.';
         if (msg.includes('permission denied')) return 'Administrative privileges required to perform this action.';
-        if (msg.includes('duplicate key')) return 'A parent with this email already exists.';
         if (msg.includes('network')) return 'Network connection issue. Please check your internet.';
         if (msg.includes('timeout')) return 'Request timed out due to slow connection. Please try again.';
-        
+
         console.warn('⚠️ [AddParentScreen] Unmapped error encountered:', msg);
         return 'An unexpected error occurred. Please try again.';
     };
@@ -130,7 +137,11 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
                 // race against timeout
                 return await Promise.race([fn(), timeoutPromise]);
             } catch (err: any) {
-                if (i === retries - 1) throw err; // throw if last retry
+                // Don't retry on client errors that will never succeed (e.g. duplicate
+                // email, validation, permission) — only retry transient timeouts/network.
+                const m = (err?.message || '').toLowerCase();
+                const nonRetryable = /already registered|already exists|duplicate|required|invalid|permission|not found|409|400/.test(m);
+                if (nonRetryable || i === retries - 1) throw err;
                 await delay(2000 * (i + 1)); // Increased backoff
             }
         }

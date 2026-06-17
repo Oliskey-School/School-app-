@@ -1,12 +1,13 @@
 import React from 'react';
 import { ShieldCheckIcon, CalendarIcon, DollarSignIcon, MegaphoneIcon, BriefcaseIcon, PaintBrushIcon, ChevronRightIcon, UserGroupIcon, UserIcon as ProfileIcon, ElearningIcon, ClockIcon, DocumentTextIcon } from '../../constants';
-import { UserPlus } from 'lucide-react';
+import { UserPlus, Sparkles } from 'lucide-react';
 
 interface SystemSettingsScreenProps {
   navigateTo: (view: string, title: string, props?: any) => void;
 }
 
 const settingsCategories = [
+  { view: 'appearanceSettings', title: 'Appearance & Theme', description: 'Switch Normal or Liquid Glass, and change the app accent colour.', icon: <Sparkles className="h-6 w-6" />, color: 'text-indigo-500 bg-indigo-100' },
   { view: 'studentList', title: 'Student Management', description: 'Manage student records and enrollment.', icon: <UserGroupIcon />, color: 'text-blue-500 bg-blue-100' },
   { view: 'teacherList', title: 'Manage Teachers', description: 'Manage teacher profiles and assignments.', icon: <ProfileIcon />, color: 'text-purple-500 bg-purple-100' },
   { view: 'parentList', title: 'Parent Management', description: 'Manage parent information and links.', icon: <UserGroupIcon />, color: 'text-orange-500 bg-orange-100' },

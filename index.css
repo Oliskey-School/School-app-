@@ -15,6 +15,115 @@ body {
   opacity: 0.06;
 }
 
+/* ============================================================
+   LIQUID GLASS — iOS-style translucent material (fully tunable)
+   ------------------------------------------------------------
+   Colors are NOT changed: the tint stays neutral white; only
+   translucency, blur, specular sheen, depth and saturation are
+   applied. Every value is a CSS variable so the Appearance
+   control can retune ALL glass surfaces live (and persist it).
+   Apply by adding the class `liquid-glass` (cards/panels) or
+   `liquid-glass-solid` (nav/toolbars) to any element — it keeps
+   the element's own border-radius.
+   ============================================================ */
+:root {
+  /* ACCENT palette (default = the original indigo). The Appearance control
+     swaps these to re-theme every accent across the whole app at once. */
+  --accent-50: 238 242 255;
+  --accent-100: 224 231 255;
+  --accent-200: 199 210 254;
+  --accent-300: 165 180 252;
+  --accent-400: 129 140 248;
+  --accent-500: 99 102 241;
+  --accent-600: 79 70 229;
+  --accent-700: 67 56 202;
+  --accent-800: 55 48 163;
+  --accent-900: 49 46 129;
+  --accent-950: 30 27 75;
+
+  --lg-blur: 18px;          /* backdrop blur radius          */
+  --lg-tint: 255 255 255;   /* glass tint (RGB) — kept white */
+  --lg-opacity: 0.62;       /* surface translucency          */
+  --lg-saturate: 180%;      /* backdrop saturation (vividness)*/
+  --lg-border: 0.6;         /* edge highlight opacity        */
+  --lg-sheen: 0.55;         /* specular top sheen strength   */
+  --lg-shadow: 0.12;        /* float shadow strength         */
+}
+
+/* ---- NORMAL mode (default): liquid-glass surfaces are plain & solid ---- */
+.liquid-glass {
+  background-color: #fff;
+  border: 1px solid rgb(229 231 235 / 0.9);
+  box-shadow: 0 1px 3px 0 rgb(15 23 42 / 0.06), 0 1px 2px -1px rgb(15 23 42 / 0.05);
+}
+.liquid-glass-solid {
+  background-color: #fff;
+  border: 1px solid rgb(229 231 235 / 0.9);
+  box-shadow: 0 1px 3px 0 rgb(15 23 42 / 0.05);
+}
+
+/* ============================================================
+   LIQUID GLASS mode — applied only when <html> has the `glass`
+   class (toggled by the Appearance control). In Normal mode none
+   of this runs, so surfaces stay solid (the original look).
+   ============================================================ */
+html.glass .liquid-glass {
+  background-color: rgb(var(--lg-tint) / var(--lg-opacity));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-saturate));
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-saturate));
+  border: 1px solid rgb(255 255 255 / var(--lg-border));
+  box-shadow:
+    inset 0 1px 0 0 rgb(255 255 255 / var(--lg-sheen)),
+    inset 0 -1px 1px 0 rgb(255 255 255 / calc(var(--lg-sheen) * 0.35)),
+    0 10px 30px -10px rgb(2 6 23 / var(--lg-shadow)),
+    0 2px 6px -2px rgb(2 6 23 / calc(var(--lg-shadow) * 0.7));
+}
+html.glass .liquid-glass-solid {
+  background-color: rgb(var(--lg-tint) / calc(var(--lg-opacity) + 0.22));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-saturate));
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-saturate));
+  border: 1px solid rgb(255 255 255 / var(--lg-border));
+  box-shadow:
+    inset 0 1px 0 0 rgb(255 255 255 / var(--lg-sheen)),
+    0 8px 24px -12px rgb(2 6 23 / var(--lg-shadow));
+}
+
+/* APP-WIDE AUTO-GLASS — upgrades the dominant solid-white card pattern to the
+   glass material on EVERY screen (glass mode only). Material ONLY — no layout
+   change. Opt a single element out with the class `no-glass`. */
+html.glass .bg-white.rounded-2xl:not(.liquid-glass):not(.liquid-glass-solid):not(.no-glass):not(button):not(a),
+html.glass .bg-white.rounded-3xl:not(.liquid-glass):not(.liquid-glass-solid):not(.no-glass):not(button):not(a),
+html.glass .bg-white.rounded-\[2rem\]:not(.liquid-glass):not(.liquid-glass-solid):not(.no-glass):not(button):not(a) {
+  background-color: rgb(var(--lg-tint) / var(--lg-opacity));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-saturate));
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-saturate));
+  box-shadow:
+    inset 0 1px 0 0 rgb(255 255 255 / var(--lg-sheen)),
+    0 10px 30px -10px rgb(2 6 23 / var(--lg-shadow)),
+    0 2px 6px -2px rgb(2 6 23 / calc(var(--lg-shadow) * 0.7));
+}
+
+/* Readable fallback when backdrop-filter isn't supported (glass mode). */
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  html.glass .liquid-glass, html.glass .liquid-glass-solid,
+  html.glass .bg-white.rounded-2xl:not(.no-glass),
+  html.glass .bg-white.rounded-3xl:not(.no-glass),
+  html.glass .bg-white.rounded-\[2rem\]:not(.no-glass) {
+    background-color: rgb(var(--lg-tint) / 0.92);
+  }
+}
+
+/* In print, all glass surfaces become plain solid white (no blur/shadow). */
+@media print {
+  .liquid-glass, .liquid-glass-solid,
+  .bg-white.rounded-2xl, .bg-white.rounded-3xl, .bg-white.rounded-\[2rem\] {
+    background-color: #fff !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    box-shadow: none !important;
+  }
+}
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;

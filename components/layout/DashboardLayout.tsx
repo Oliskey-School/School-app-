@@ -143,7 +143,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
         <div className="flex h-screen w-full overflow-hidden bg-gray-50">
             {/* Desktop Sidebar */}
             {!hideSidebar && (
-                <aside className="hidden lg:flex w-64 flex-col fixed inset-y-0 left-0 z-40 bg-white border-r border-gray-200">
+                <aside className="hidden lg:flex w-64 flex-col fixed inset-y-0 left-0 z-40 liquid-glass-solid border-r border-gray-200/70">
                     {getSidebar()}
                 </aside>
             )}

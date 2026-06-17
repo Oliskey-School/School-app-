@@ -2816,18 +2816,9 @@ class ExpressApiClient {
     // SCHOOL SETTINGS & POLICIES
     // ============================================
     // getSchoolPolicies is already implemented above (line 1341)
-
-    async getAcademicSettings(schoolId: string): Promise<any> {
-        try {
-            return await this.get(`/schools/${schoolId}/academic-settings`);
-        } catch (err) {
-            return {};
-        }
-    }
-
-    async updateAcademicSettings(schoolId: string, data: any): Promise<any> {
-        return this.put(`/schools/${schoolId}/academic-settings`, data);
-    }
+    // NOTE: academic settings live at getAcademicSettings/saveAcademicSettings near the
+    // top of this class (the /academic/settings endpoint). The old duplicate pair that
+    // hit a non-existent /schools/:id/academic-settings route was removed.
 
     async updateSchool(schoolId: string, data: any): Promise<any> {
         const endpoint = schoolId ? `/schools/${schoolId}` : '/schools';

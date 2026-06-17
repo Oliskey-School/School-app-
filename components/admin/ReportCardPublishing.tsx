@@ -170,11 +170,11 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
   return (
     <div className="flex flex-col h-full bg-gray-50 overflow-hidden">
       {/* Precision Controls Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-sm">
+      <div className="liquid-glass-solid sticky top-0 z-30">
         <div className="px-4 py-3 md:px-6 max-w-7xl mx-auto w-full space-y-4">
           {/* Branch Context Indicator - Responsive version */}
           <div className="animate-fade-in">
-            <div className="bg-gray-50/80 backdrop-blur-md border border-gray-100 rounded-2xl md:rounded-3xl p-3 md:p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 overflow-hidden relative group">
+            <div className="liquid-glass-solid rounded-2xl md:rounded-3xl p-3 md:p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 overflow-hidden relative group">
               <div className="relative z-10 flex items-center space-x-3 md:space-x-4">
                 <div className={`p-2.5 md:p-3 rounded-xl md:rounded-2xl ${currentBranchName ? 'bg-indigo-100' : 'bg-purple-100'} group-hover:scale-105 transition-transform duration-500`}>
                   <BuildingLibraryIcon className={`w-5 h-5 md:w-6 md:h-6 ${currentBranchName ? 'text-indigo-600' : 'text-purple-600'}`} />
@@ -278,12 +278,13 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
             {filteredStudents.map((student, idx) => (
               <div
                 key={student.id}
-                className="bg-white rounded-3xl md:rounded-[2rem] p-4 md:p-6 border border-gray-100 hover:border-indigo-200 transition-all duration-500 group flex flex-col h-full animate-scale-in hover:shadow-xl"
+                data-report-card="true"
+                className="liquid-glass rounded-3xl md:rounded-[2rem] p-4 md:p-6 hover:border-indigo-200 transition-all duration-500 group flex flex-col h-full animate-scale-in hover:-translate-y-1 overflow-hidden"
                 style={{ animationDelay: `${idx * 30}ms` }}
               >
                 {/* User Info Section */}
-                <div className="flex items-start justify-between mb-4 md:mb-6">
-                  <div className="flex items-center gap-3 md:gap-4">
+                <div className="flex items-start justify-between gap-2 mb-4 md:mb-6">
+                  <div className="flex items-center gap-3 md:gap-4 min-w-0 flex-1">
                     <div className="relative flex-shrink-0">
                       {student.avatarUrl ? (
                         <img
@@ -306,8 +307,13 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
                     </div>
                     <div className="min-w-0">
                       <h3 className="font-black text-gray-800 line-clamp-1 text-base md:text-lg group-hover:text-indigo-600 transition-colors uppercase tracking-tight">{student.name}</h3>
-                      <p className="text-[9px] md:text-[10px] font-black text-gray-400 uppercase tracking-widest mt-0.5">GRADE {student.grade}{student.section}</p>
+                      <p className="text-[9px] md:text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5 truncate">{student.school_generated_id || 'Student Report'}</p>
                     </div>
+                  </div>
+                  {/* Grade/Class badge — fixed on the right, never truncates */}
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50 border border-indigo-100 flex-shrink-0">
+                    <BookOpenIcon className="w-3 h-3 md:w-3.5 md:h-3.5 text-indigo-400 flex-shrink-0" />
+                    <span className="text-[9px] md:text-[10px] font-black text-indigo-700 uppercase tracking-wide whitespace-nowrap">GRADE {student.grade}{student.section}</span>
                   </div>
                 </div>
 
@@ -345,38 +351,38 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
                   </div>
                 </div>
 
-                {/* Precision Actions - Responsive buttons */}
-                <div className="mt-auto pt-4 md:pt-5 border-t border-gray-100 flex flex-col xs:flex-row gap-2 md:gap-3">
+                {/* Precision Actions — two equal columns that never overflow the card */}
+                <div className="mt-auto pt-4 md:pt-5 border-t border-gray-100 grid grid-cols-2 gap-2">
                   <button
                     onClick={() => handlePreview(student)}
-                    className="flex-1 p-2.5 md:p-3 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-gray-500 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 hover:text-gray-900 transition-all flex items-center justify-center gap-2 active:scale-95"
+                    className="min-w-0 px-2 py-2.5 text-[9px] md:text-[10px] font-black uppercase tracking-wide text-gray-500 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 hover:text-gray-900 transition-all flex items-center justify-center gap-1.5 active:scale-95"
                   >
-                    <EyeIcon className="w-3 md:w-4 h-3 md:h-4" />
-                    Preview
+                    <EyeIcon className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span className="truncate">Preview</span>
                   </button>
 
                   {student.status === 'Submitted' && (
                     <button
                       onClick={() => handlePublish(student.id, student.reportCards[0]?.id)}
-                      className="flex-1 p-2.5 md:p-3 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-white bg-indigo-600 rounded-xl hover:bg-indigo-500 shadow-lg shadow-indigo-900/40 transition-all flex items-center justify-center gap-2 active:scale-95"
+                      className="min-w-0 px-2 py-2.5 text-[9px] md:text-[10px] font-black uppercase tracking-wide text-white bg-indigo-600 rounded-xl hover:bg-indigo-500 shadow-lg shadow-indigo-900/40 transition-all flex items-center justify-center gap-1.5 active:scale-95"
                     >
-                      <PublishIcon className="w-3 md:w-4 h-3 md:h-4" />
-                      Publish
+                      <PublishIcon className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span className="truncate">Publish</span>
                     </button>
                   )}
                   {student.status === 'Published' && (
                     <button
                       onClick={() => handleUnpublish(student.id, student.reportCards[0]?.id)}
-                      className="flex-1 p-2.5 md:p-3 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-amber-500 bg-amber-50 border border-amber-100 rounded-xl hover:bg-amber-100 transition-all flex items-center justify-center gap-2 active:scale-95"
+                      className="min-w-0 px-2 py-2.5 text-[9px] md:text-[10px] font-black uppercase tracking-wide text-amber-500 bg-amber-50 border border-amber-100 rounded-xl hover:bg-amber-100 transition-all flex items-center justify-center gap-1.5 active:scale-95"
                     >
-                      <RefreshIcon className="w-3 md:w-4 h-3 md:h-4" />
-                      Unpublish
+                      <RefreshIcon className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span className="truncate">Unpublish</span>
                     </button>
                   )}
                   {student.status === 'Draft' && (
-                    <div className="flex-1 p-2.5 md:p-3 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-gray-400 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-center gap-2 opacity-60">
-                      <ClockIcon className="w-3 md:w-4 h-3 md:h-4" />
-                      Draft
+                    <div className="min-w-0 px-2 py-2.5 text-[9px] md:text-[10px] font-black uppercase tracking-wide text-gray-400 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-center gap-1.5 opacity-60">
+                      <ClockIcon className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span className="truncate">Draft</span>
                     </div>
                   )}
                 </div>

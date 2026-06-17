@@ -7,6 +7,7 @@ import './index.css';
 import './lib/i18n'; // initialize app-wide translations + RTL before first render
 import { startAutoTranslate } from './lib/i18n/autoTranslate'; // whole-app live translation
 import { initSentry } from './lib/sentry';
+import { initLiquidGlass } from './components/shared/LiquidGlassControl';
 // @ts-ignore
 // import { registerSW } from 'virtual:pwa-register';
 
@@ -29,6 +30,9 @@ if (typeof window !== 'undefined') {
 
 // Start crash reporting as early as possible (no-op unless VITE_SENTRY_DSN is set).
 initSentry();
+
+// Apply the owner's saved Liquid Glass appearance before first paint (no-op on defaults).
+initLiquidGlass();
 
 // Begin translating every rendered screen into the user's chosen language.
 // No-op while the language is English; activates the moment a language is picked.
