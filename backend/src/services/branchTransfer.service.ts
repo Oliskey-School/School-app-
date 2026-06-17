@@ -31,6 +31,28 @@ export async function getAuthorizedBranches(user: any) {
     const schoolId = user.school_id;
     if (!schoolId) return [];
 
+    // TEACHERS see a branch ONLY when they actually have a class assigned there (plus
+    // their own home branch). Being given a class in a branch is what grants a teacher
+    // access to it — not a standalone "allowed branches" list, and not the whole demo
+    // sandbox. This is what keeps a teacher's switcher to only their real branches.
+    if (String(user.role || '').toUpperCase() === 'TEACHER') {
+        const teacher = await prisma.teacher.findFirst({
+            where: { user_id: user.id },
+            include: { classes: { include: { class: { select: { branch_id: true } } } } },
+        });
+        const ids = new Set<string>();
+        if (user.branch_id) ids.add(user.branch_id);
+        for (const ct of (((teacher as any)?.classes) || [])) {
+            const b = ct?.class?.branch_id;
+            if (b) ids.add(b);
+        }
+        if (ids.size === 0) return [];
+        return prisma.branch.findMany({
+            where: { school_id: schoolId, id: { in: Array.from(ids) } },
+            orderBy: { is_main: 'desc' },
+        });
+    }
+
     // Demo session: the visitor's sandbox (root + the branches they created).
     const demoRoot = getDemoSessionRoot(user);
     if (demoRoot) {
