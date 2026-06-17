@@ -121,6 +121,7 @@ const TeacherListScreen: React.FC<TeacherListScreenProps> = ({ navigateTo, curre
                 status: t.status === 'Inactive' ? 'Inactive' : 'Active',
                 schoolGeneratedId: t.school_generated_id || t.schoolGeneratedId,
                 subjects: Array.isArray(t.subjects) ? t.subjects :
+                    Array.isArray(t.subject_specialty) ? t.subject_specialty :
                     (Array.isArray(t.teacher_subjects) ? t.teacher_subjects.map((s: any) => s.subject) : []),
                 department: t.department,
                 joinDate: t.joinDate || t.created_at,
