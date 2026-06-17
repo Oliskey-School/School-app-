@@ -14,6 +14,7 @@ import { useRealtimeSync } from './hooks/useRealtimeSync';
 import { useBranch } from './context/BranchContext';
 import { useAuth } from './context/AuthContext';
 import { useSubscriptionGate } from './hooks/useSubscriptionGate';
+import { setAIAllowed } from './lib/ai';
 import { requestBackgroundSync } from './lib/serviceWorkerRegistration';
 import { syncEngine } from './lib/syncEngine';
 import { lazyWithRetry } from './lib/lazyRetry';
@@ -97,6 +98,10 @@ const AuthenticatedApp: React.FC = () => {
   const { currentBranch } = useBranch();
   useRealtimeSync();
   const subscriptionGate = useSubscriptionGate();
+
+  // Gate every AI call to the Advanced plan: the AI client refuses to run unless this
+  // is set. Demo + active-Advanced schools get AI; Free/Basic do not.
+  useEffect(() => { setAIAllowed(subscriptionGate.isAIAllowed); }, [subscriptionGate.isAIAllowed]);
 
   // Version check: only ask the user to update when their running build is
   // genuinely OLDER than the latest known version — and always show the REAL

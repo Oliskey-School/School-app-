@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
+import AIFeatureLock from '../shared/AIFeatureLock';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { getAIClient, AI_MODEL_NAME, SchemaType as Type } from '../../lib/ai';
 import { api } from '../../lib/api';
@@ -143,6 +144,7 @@ const AIParentingTipsScreen: React.FC<AIParentingTipsScreenProps> = ({ student }
     }
 
     return (
+        <AIFeatureLock featureName="AI Parenting Tips">
         <div className="p-4 space-y-4 bg-gray-50">
             <div className="bg-green-50 p-4 rounded-xl text-center border border-green-200">
                 <SparklesIcon className="h-10 w-10 mx-auto text-green-400 mb-2" />
@@ -163,6 +165,7 @@ const AIParentingTipsScreen: React.FC<AIParentingTipsScreenProps> = ({ student }
                 </div>
             ))}
         </div>
+        </AIFeatureLock>
     );
 };
 
