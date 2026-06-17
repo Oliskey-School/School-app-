@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { getAIClient, AI_MODEL_NAME } from '../../lib/ai';
+import AIFeatureLock from '../shared/AIFeatureLock';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { CameraIcon } from '../../constants';
@@ -146,6 +147,7 @@ const StudyBuddy: React.FC = () => {
     };
 
     return (
+        <AIFeatureLock featureName="AI Study Buddy">
         <div className="flex flex-col h-full" style={{ backgroundImage: "url('https://i.pinimg.com/736x/8c/98/99/8c98994518b575bfd8c949e91d20548b.jpg')", backgroundRepeat: 'repeat', backgroundSize: 'auto' }}>
             {/* Chat Area */}
             <div ref={chatContainerRef} className="flex-grow p-4 space-y-4 overflow-y-auto">
@@ -197,6 +199,7 @@ const StudyBuddy: React.FC = () => {
                 </form>
             </div>
         </div>
+        </AIFeatureLock>
     );
 };
 
