@@ -43,7 +43,7 @@ const ReportCardView: React.FC<{ report: ReportCard, student?: Student, schoolNa
     const hasPsychomotor = report.psychomotor && Object.keys(report.psychomotor).length > 0;
 
     return (
-        <div ref={innerRef} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden" id="report-card-pdf">
+        <div ref={innerRef} className="no-glass bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden" id="report-card-pdf">
             {/* School Header */}
             <div className="text-center p-4 bg-gradient-to-b from-orange-50 to-white border-b border-orange-200">
                 <div className="flex justify-center items-center gap-2 mb-1">

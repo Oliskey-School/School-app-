@@ -47,6 +47,18 @@ test('Generate Student ID shows the FULL card, not clipped', async ({ page, base
     // And it renders at a real, readable size (not collapsed).
     expect(cardBox!.width, 'card rendered too small').toBeGreaterThan(300);
 
+    // Liquid Glass must NOT touch this official document: the white QR panel inside the
+    // card stays SOLID white with no backdrop blur, so the PDF capture is crisp.
+    const qrPanel = await page.evaluate(() => {
+        const el = document.querySelector('[data-id-card="true"] .bg-white.rounded-3xl') as HTMLElement | null;
+        if (!el) return null;
+        const cs = getComputedStyle(el);
+        return { bg: cs.backgroundColor, blur: cs.backdropFilter || (cs as any).webkitBackdropFilter || 'none' };
+    });
+    expect(qrPanel, 'no white panel found in the ID card').not.toBeNull();
+    expect(qrPanel!.bg, 'ID card white panel went translucent (glass leaked in)').toBe('rgb(255, 255, 255)');
+    expect(qrPanel!.blur, 'ID card white panel has a backdrop blur (glass leaked in)').toBe('none');
+
     // The card carries the student's identity content (proves it actually rendered).
     await expect(card.getByText(/Valid Identity Document/i)).toBeVisible();
     await expect(card.getByText(/Student ID/i)).toBeVisible();

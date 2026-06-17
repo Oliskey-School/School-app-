@@ -113,6 +113,22 @@ html.glass .bg-white.rounded-\[2rem\]:not(.liquid-glass):not(.liquid-glass-solid
   }
 }
 
+/* ============================================================
+   OFFICIAL DOCUMENTS — never glass.
+   Report cards (.printable-area), ID cards ([data-id-card]) and
+   anything marked .no-glass stay crisp & SOLID on screen, in print
+   AND in PDF capture. html2canvas can't render a backdrop blur, and
+   translucency would wash out an official document — so any glass
+   surface inside one is forced back to plain solid white.
+   ============================================================ */
+.printable-area :is(.liquid-glass, .liquid-glass-solid, .bg-white.rounded-2xl, .bg-white.rounded-3xl, .bg-white.rounded-\[2rem\]),
+[data-id-card] :is(.liquid-glass, .liquid-glass-solid, .bg-white.rounded-2xl, .bg-white.rounded-3xl, .bg-white.rounded-\[2rem\]),
+.no-glass :is(.liquid-glass, .liquid-glass-solid, .bg-white.rounded-2xl, .bg-white.rounded-3xl, .bg-white.rounded-\[2rem\]) {
+  background-color: #fff !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
 /* In print, all glass surfaces become plain solid white (no blur/shadow). */
 @media print {
   .liquid-glass, .liquid-glass-solid,

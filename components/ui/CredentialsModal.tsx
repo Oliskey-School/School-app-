@@ -224,7 +224,7 @@ Visit: https://your-school-app.com/login
     <div className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 ${fullscreen ? 'p-0' : 'p-3 sm:p-4'} overflow-y-auto`}>
       <div
         ref={modalRef}
-        className={`bg-white ${fullscreen ? 'rounded-none w-full h-full max-w-full max-h-full' : 'rounded-2xl w-full max-w-md sm:max-w-lg md:max-w-xl lg:max-w-2xl mx-auto max-h-[90vh]'} shadow-2xl overflow-hidden flex flex-col`}
+        className={`no-glass bg-white ${fullscreen ? 'rounded-none w-full h-full max-w-full max-h-full' : 'rounded-2xl w-full max-w-md sm:max-w-lg md:max-w-xl lg:max-w-2xl mx-auto max-h-[90vh]'} shadow-2xl overflow-hidden flex flex-col`}
       >
         {/* Header */}
         <div className="bg-gradient-to-r from-green-500 to-green-600 text-white p-4 sm:p-6">
