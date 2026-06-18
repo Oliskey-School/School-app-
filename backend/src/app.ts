@@ -3,7 +3,6 @@ import './config/env';
 import crypto from 'crypto';
 import express from 'express';
 import path from 'path';
-import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
@@ -33,71 +32,14 @@ app.use(compression({
 // legitimate API calls (large base64 photo uploads, JSON with rich text, etc.).
 app.use((_req, res, next) => { res.setHeader('X-App', 'oliskey-api'); next(); });
 
-// 1. CORS - MUST BE FIRST for proper preflight handling
-// Strict allowlist. Extra origins can be supplied via CORS_ALLOWED_ORIGINS (comma-separated).
-const STATIC_ALLOWED_ORIGINS = [
-    'http://localhost:3000',
-    'http://127.0.0.1:3000',
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
-    'http://localhost:5000',
-    'https://school-app-oliskeylee.vercel.app',
-    'https://school-app-git-main-oliskeylee.vercel.app',
-    'https://school-app-production-a59a.up.railway.app',
-    // Self-hosted deployment (Apache reverse proxy). Add your real domain(s) here or via
-    // CORS_ALLOWED_ORIGINS. The app is served same-origin behind the proxy, but the
-    // browser still sends an Origin header on POSTs, so the origin must be allow-listed.
-    'https://cipherlab.duckdns.org',
-];
-
-const ENV_ALLOWED_ORIGINS = (process.env.CORS_ALLOWED_ORIGINS || '')
-    .split(',')
-    .map(s => s.trim())
-    .filter(Boolean);
-
-const allowedOrigins = new Set([...STATIC_ALLOWED_ORIGINS, ...ENV_ALLOWED_ORIGINS]);
 const IS_PROD = process.env.NODE_ENV === 'production';
 
-/** Private-LAN / loopback hosts (e.g. self-hosted boxes on 10.x, 192.168.x, 172.16-31.x). */
-const isPrivateHostOrigin = (origin: string): boolean => {
-    try {
-        const h = new URL(origin).hostname;
-        return /^(10\.|127\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(h) || h === 'localhost';
-    } catch { return false; }
-};
-
-app.use(cors({
-    origin: (origin, callback) => {
-        // Same-origin / curl / native mobile: no Origin header
-        if (!origin) return callback(null, true);
-
-        if (allowedOrigins.has(origin)) {
-            return callback(null, true);
-        }
-
-        // Allow self-hosted boxes reached by their private LAN IP (e.g. http://10.10.10.3:8080)
-        // — same-origin behind the proxy, never the public internet. Opt out by setting
-        // CORS_BLOCK_PRIVATE_LAN=true if you only ever serve via a public domain.
-        if (process.env.CORS_BLOCK_PRIVATE_LAN !== 'true' && isPrivateHostOrigin(origin)) {
-            return callback(null, true);
-        }
-
-        // In non-prod, allow localhost variants (and host.docker.internal, which
-        // vite.config also allows) for developer flexibility / Docker-based testing.
-        if (!IS_PROD && (origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('host.docker.internal'))) {
-            return callback(null, true);
-        }
-
-        console.warn(`📡 [CORS] Blocked origin: ${origin}`);
-        return callback(new Error(`Origin ${origin} is not allowed by CORS policy`));
-    },
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-school-id', 'X-Branch-Id', 'x-branch-id', 'Accept', 'X-Requested-With', 'application-id', 'X-CSRF-Token'],
-    // Let the browser read the rotated single-use CSRF token off mutation responses.
-    exposedHeaders: ['X-CSRF-Token'],
-    credentials: true,
-    maxAge: 86400
-}));
+// 1. CORS — intentionally NOT handled here.
+// CORS / preflight / allowed-origins are terminated at the reverse proxy (nginx).
+// The backend sits behind the proxy and is reached same-origin, so it adds no
+// Access-Control-* headers itself (doing so would double-up / conflict with nginx).
+// If you ever run the API cross-origin without a proxy, add the `cors` middleware
+// back here.
 
 // 2. Core Middlewares
 app.use(cookieParser(config.jwtSecret));
