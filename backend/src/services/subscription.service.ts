@@ -18,6 +18,20 @@ export function calcTermAmount(plan: PlanType, studentCount: number): number {
     return PLAN_RATES[plan] * Math.max(0, studentCount);
 }
 
+/**
+ * What the school actually pays for a plan change THIS term. Upgrading Basic → Advanced
+ * credits what they already paid for Basic, so they only pay the difference
+ * (₦3,000 − ₦1,000 = ₦2,000 per child). Every other change pays the plan's full amount.
+ */
+export function calcChargeAmount(currentPlan: PlanType, newPlan: PlanType, studentCount: number): number {
+    const target = calcTermAmount(newPlan, studentCount);
+    if (currentPlan === 'basic' && newPlan === 'advanced') {
+        const credit = calcTermAmount('basic', studentCount);
+        return Math.max(0, target - credit);
+    }
+    return target;
+}
+
 interface PaystackVerifyResponse {
     status: boolean;
     data?: {
@@ -68,6 +82,11 @@ export async function activateSubscription(input: ActivateInput) {
     }
     if (!school_id) throw new Error('school_id is required');
 
+    // Current plan (server-trusted) so a Basic→Advanced upgrade is charged only the
+    // difference, not the full Advanced price.
+    const existing = await prisma.school.findUnique({ where: { id: school_id }, select: { plan_type: true } });
+    const currentPlan = (existing?.plan_type as PlanType) || 'free';
+
     // Free plan: no Paystack verification needed.
     let authCode: string | null = null;
     let customerCode: string | null = null;
@@ -80,7 +99,7 @@ export async function activateSubscription(input: ActivateInput) {
         customerCode = tx!.customer?.customer_code || null;
         amountPaid = Math.floor((tx!.amount || 0) / 100); // kobo → naira
 
-        const expected = calcTermAmount(plan_type, student_count);
+        const expected = calcChargeAmount(currentPlan, plan_type, student_count);
         if (amountPaid < expected) {
             throw new Error(`Amount paid (₦${amountPaid}) is less than required (₦${expected})`);
         }

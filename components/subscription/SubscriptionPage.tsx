@@ -81,7 +81,12 @@ const SubscriptionPage: React.FC<SubscriptionPageProps> = ({ navigateTo, handleB
     const [minStudents, setMinStudents] = useState<number>(Math.max(1, currentSchool?.student_count || 1));
 
     const selected = PLANS.find(p => p.key === selectedPlan)!;
-    const total = selected.rate * Math.max(0, studentCount);
+    // Upgrading Basic → Advanced credits what was already paid for Basic this term, so the
+    // school pays only the difference (₦3,000 − ₦1,000 = ₦2,000 / child).
+    const basicRate = PLANS.find(p => p.key === 'basic')!.rate;
+    const isUpgradeFromBasic = currentPlanKey === 'basic' && selectedPlan === 'advanced';
+    const effectiveRate = Math.max(0, selected.rate - (isUpgradeFromBasic ? basicRate : 0));
+    const total = effectiveRate * Math.max(0, studentCount);
 
     const goBack = () => {
         if (handleBack) return handleBack();
@@ -256,8 +261,13 @@ const SubscriptionPage: React.FC<SubscriptionPageProps> = ({ navigateTo, handleB
                                     className="w-full border border-slate-300 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                 />
                                 <p className="mt-2 text-xs text-slate-500">
-                                    {formatNaira(selected.rate)} × {studentCount} students = <strong>{formatNaira(total)}</strong> for one term
+                                    {formatNaira(effectiveRate)} × {studentCount} students = <strong>{formatNaira(total)}</strong> for one term
                                 </p>
+                                {isUpgradeFromBasic && (
+                                    <p className="mt-1 text-xs text-emerald-600 font-semibold">
+                                        Upgrade credit: your Basic payment ({formatNaira(basicRate)}/child) is deducted — you only pay the {formatNaira(selected.rate - basicRate)}/child difference.
+                                    </p>
+                                )}
                                 <p className="mt-1 text-xs text-slate-400">
                                     You currently have <strong>{minStudents}</strong> student{minStudents === 1 ? '' : 's'} — you must bill for at least this many. Add more now to avoid paying again later.
                                 </p>
