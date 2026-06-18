@@ -23,13 +23,67 @@ export function calcTermAmount(plan: PlanType, studentCount: number): number {
  * credits what they already paid for Basic, so they only pay the difference
  * (₦3,000 − ₦1,000 = ₦2,000 per child). Every other change pays the plan's full amount.
  */
-export function calcChargeAmount(currentPlan: PlanType, newPlan: PlanType, studentCount: number): number {
+export function calcChargeAmount(currentPlan: PlanType, newPlan: PlanType, studentCount: number, alreadyAiPaidUsers = 0): number {
     const target = calcTermAmount(newPlan, studentCount);
     if (currentPlan === 'basic' && newPlan === 'advanced') {
         const credit = calcTermAmount('basic', studentCount);
-        return Math.max(0, target - credit);
+        const base = Math.max(0, target - credit); // (Advanced − Basic) × students
+        // Credit the admin for users who already self-paid for AI this term: they are
+        // subtracted from the count the admin pays for (no refunds).
+        return Math.max(0, base - USER_AI_PRICE * Math.max(0, alreadyAiPaidUsers));
     }
     return target;
+}
+
+/** A single user tops up the Basic→Advanced difference to unlock AI for THEIR account. */
+export const USER_AI_PRICE = PLAN_RATES.advanced - PLAN_RATES.basic; // ₦2,000 per term
+
+function readSettings(school: any): any {
+    try {
+        return (typeof school?.settings === 'string' ? JSON.parse(school.settings) : school?.settings) || {};
+    } catch { return {}; }
+}
+
+/** How many users already self-paid for AI for the school's CURRENT term. */
+export function countSelfPaidAiForTerm(school: any): number {
+    const map = readSettings(school).ai_self_paid || {};
+    let n = 0;
+    for (const k of Object.keys(map)) {
+        const r = map[k];
+        if (r && String(r.term) === String(school?.current_term) && String(r.session) === String(school?.academic_session)) n += 1;
+    }
+    return n;
+}
+
+/**
+ * Record a single user (parent/student/teacher) buying AI for their own account for the
+ * current term. Only allowed while the school is on Basic (they pay the Advanced − Basic
+ * difference). Stored in school.settings.ai_self_paid so the per-user gate can read it.
+ */
+export async function recordUserAiPurchase(schoolId: string, userId: string, reference: string) {
+    if (!schoolId || !userId) throw new Error('schoolId and userId are required');
+    const school = await prisma.school.findUnique({ where: { id: schoolId } });
+    if (!school) throw new Error('School not found');
+    if (school.plan_type !== 'basic') {
+        throw new Error('Self-pay for AI is only available while the school is on the Basic plan.');
+    }
+    if (!reference) throw new Error('reference is required');
+    const tx = await verifyPaystackTransaction(reference);
+    const amountPaid = Math.floor((tx!.amount || 0) / 100);
+    if (amountPaid < USER_AI_PRICE) {
+        throw new Error(`Amount paid (₦${amountPaid}) is less than required (₦${USER_AI_PRICE})`);
+    }
+    const settings = readSettings(school);
+    settings.ai_self_paid = settings.ai_self_paid || {};
+    settings.ai_self_paid[userId] = {
+        term: school.current_term,
+        session: school.academic_session,
+        reference,
+        amount: amountPaid,
+        ts: new Date().toISOString(),
+    };
+    await prisma.school.update({ where: { id: schoolId }, data: { settings } });
+    return { ok: true, term: school.current_term, session: school.academic_session, amount: amountPaid };
 }
 
 interface PaystackVerifyResponse {
@@ -82,10 +136,11 @@ export async function activateSubscription(input: ActivateInput) {
     }
     if (!school_id) throw new Error('school_id is required');
 
-    // Current plan (server-trusted) so a Basic→Advanced upgrade is charged only the
-    // difference, not the full Advanced price.
-    const existing = await prisma.school.findUnique({ where: { id: school_id }, select: { plan_type: true } });
+    // Current plan + this term's self-paid AI users (server-trusted) so a Basic→Advanced
+    // upgrade is charged only the difference, minus users who already bought their own AI.
+    const existing = await prisma.school.findUnique({ where: { id: school_id } });
     const currentPlan = (existing?.plan_type as PlanType) || 'free';
+    const aiSelfPaidUsers = countSelfPaidAiForTerm(existing);
 
     // Free plan: no Paystack verification needed.
     let authCode: string | null = null;
@@ -99,7 +154,7 @@ export async function activateSubscription(input: ActivateInput) {
         customerCode = tx!.customer?.customer_code || null;
         amountPaid = Math.floor((tx!.amount || 0) / 100); // kobo → naira
 
-        const expected = calcChargeAmount(currentPlan, plan_type, student_count);
+        const expected = calcChargeAmount(currentPlan, plan_type, student_count, aiSelfPaidUsers);
         if (amountPaid < expected) {
             throw new Error(`Amount paid (₦${amountPaid}) is less than required (₦${expected})`);
         }

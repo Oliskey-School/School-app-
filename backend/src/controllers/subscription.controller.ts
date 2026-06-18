@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
-import { activateSubscription, calcTermAmount, PLAN_RATES, PlanType, topUpStudents } from '../services/subscription.service';
+import { activateSubscription, calcTermAmount, PLAN_RATES, PlanType, topUpStudents, recordUserAiPurchase, USER_AI_PRICE } from '../services/subscription.service';
 import { getCurrentTerm, listAllTerms } from '../services/term.service';
 
 /**
@@ -72,6 +72,27 @@ export const activateSubscriptionController = async (req: AuthRequest, res: Resp
         res.json(result);
     } catch (err: any) {
         const isClientErr = /Invalid plan_type|required|less than required|Paystack/.test(err.message || '');
+        res.status(isClientErr ? 400 : 500).json({ message: err.message });
+    }
+};
+
+/**
+ * POST /api/subscription/user-ai
+ * Body: { reference }
+ * A single user (parent/student/teacher) pays the Advanced−Basic difference (₦2,000) to
+ * unlock AI for THEIR OWN account for the current term. Only valid while the school is on
+ * Basic. Returns the per-user price too so the checkout UI can read it.
+ */
+export const purchaseUserAiController = async (req: AuthRequest, res: Response) => {
+    try {
+        const school_id = req.user?.school_id;
+        const user_id = req.user?.id;
+        if (!school_id || !user_id) return res.status(403).json({ message: 'auth context missing' });
+        const { reference } = req.body || {};
+        const result = await recordUserAiPurchase(school_id, user_id, reference);
+        res.json({ ...result, price: USER_AI_PRICE });
+    } catch (err: any) {
+        const isClientErr = /Basic plan|required|less than required|Paystack|not found/i.test(err.message || '');
         res.status(isClientErr ? 400 : 500).json({ message: err.message });
     }
 };

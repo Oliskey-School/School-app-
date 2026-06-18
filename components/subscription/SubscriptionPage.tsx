@@ -86,7 +86,19 @@ const SubscriptionPage: React.FC<SubscriptionPageProps> = ({ navigateTo, handleB
     const basicRate = PLANS.find(p => p.key === 'basic')!.rate;
     const isUpgradeFromBasic = currentPlanKey === 'basic' && selectedPlan === 'advanced';
     const effectiveRate = Math.max(0, selected.rate - (isUpgradeFromBasic ? basicRate : 0));
-    const total = effectiveRate * Math.max(0, studentCount);
+    // Users who already self-paid for AI this term are credited off the upgrade (no refunds).
+    const selfPaidAiCount = useMemo(() => {
+        if (!isUpgradeFromBasic) return 0;
+        try {
+            const s = typeof currentSchool?.settings === 'string' ? JSON.parse(currentSchool.settings) : currentSchool?.settings;
+            const map = s?.ai_self_paid || {};
+            return Object.values(map).filter((r: any) =>
+                String(r?.term) === String(currentSchool?.current_term) &&
+                String(r?.session) === String(currentSchool?.academic_session)).length;
+        } catch { return 0; }
+    }, [isUpgradeFromBasic, currentSchool]);
+    const billableStudents = Math.max(0, studentCount - selfPaidAiCount);
+    const total = effectiveRate * billableStudents;
 
     const goBack = () => {
         if (handleBack) return handleBack();
@@ -261,11 +273,16 @@ const SubscriptionPage: React.FC<SubscriptionPageProps> = ({ navigateTo, handleB
                                     className="w-full border border-slate-300 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                 />
                                 <p className="mt-2 text-xs text-slate-500">
-                                    {formatNaira(effectiveRate)} × {studentCount} students = <strong>{formatNaira(total)}</strong> for one term
+                                    {formatNaira(effectiveRate)} × {billableStudents} students = <strong>{formatNaira(total)}</strong> for one term
                                 </p>
                                 {isUpgradeFromBasic && (
                                     <p className="mt-1 text-xs text-emerald-600 font-semibold">
                                         Upgrade credit: your Basic payment ({formatNaira(basicRate)}/child) is deducted — you only pay the {formatNaira(selected.rate - basicRate)}/child difference.
+                                    </p>
+                                )}
+                                {isUpgradeFromBasic && selfPaidAiCount > 0 && (
+                                    <p className="mt-1 text-xs text-emerald-600 font-semibold">
+                                        {selfPaidAiCount} user{selfPaidAiCount === 1 ? '' : 's'} already paid for their own AI this term — credited, so you pay for {billableStudents} instead of {studentCount}.
                                     </p>
                                 )}
                                 <p className="mt-1 text-xs text-slate-400">

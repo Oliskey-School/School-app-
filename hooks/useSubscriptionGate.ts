@@ -44,7 +44,7 @@ const FREE_GATE: SubscriptionGate = {
 const DEMO_SCHOOL_ID = 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
 
 export function useSubscriptionGate(): SubscriptionGate {
-    const { currentSchool, isDemo } = useAuth() as any;
+    const { currentSchool, isDemo, user } = useAuth() as any;
 
     return useMemo<SubscriptionGate>(() => {
         // Demo school always gets Advanced privileges — visitors should see the full product.
@@ -72,7 +72,21 @@ export function useSubscriptionGate(): SubscriptionGate {
         const isSuspended = status === 'suspended';
         const isLocked = isExpired || isSuspended;
         const needsRenewal = status === 'active' && daysLeft !== null && daysLeft <= 7;
-        const isAIAllowed = plan === 'advanced' && status === 'active';
+
+        // Per-user self-pay: a user who bought AI for THIS term (on a Basic school) keeps
+        // AI on their own account even though the school isn't on Advanced.
+        let selfPaidAi = false;
+        try {
+            const settings = typeof currentSchool?.settings === 'string'
+                ? JSON.parse(currentSchool.settings) : currentSchool?.settings;
+            const rec = settings?.ai_self_paid?.[user?.id];
+            if (rec) {
+                selfPaidAi = String(rec.term) === String(currentSchool?.current_term)
+                    && String(rec.session) === String(currentSchool?.academic_session);
+            }
+        } catch { /* ignore malformed settings */ }
+
+        const isAIAllowed = (plan === 'advanced' && status === 'active') || selfPaidAi;
 
         return {
             plan,
@@ -88,5 +102,5 @@ export function useSubscriptionGate(): SubscriptionGate {
             needsRenewal,
             isAIAllowed,
         };
-    }, [currentSchool, isDemo]);
+    }, [currentSchool, isDemo, user?.id]);
 }
