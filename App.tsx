@@ -15,6 +15,7 @@ import { useBranch } from './context/BranchContext';
 import { useAuth } from './context/AuthContext';
 import { useSubscriptionGate } from './hooks/useSubscriptionGate';
 import { setAIAllowed } from './lib/ai';
+import { useIdleKeepAlive } from './lib/hooks/useIdleKeepAlive';
 import { requestBackgroundSync } from './lib/serviceWorkerRegistration';
 import { syncEngine } from './lib/syncEngine';
 import { lazyWithRetry } from './lib/lazyRetry';
@@ -98,6 +99,9 @@ const AuthenticatedApp: React.FC = () => {
   const { currentBranch } = useBranch();
   useRealtimeSync();
   const subscriptionGate = useSubscriptionGate();
+
+  // Keep an idle (but open) session alive so users aren't silently logged out.
+  useIdleKeepAlive(!!user && !!role && !isDemo);
 
   // Gate every AI call to the Advanced plan: the AI client refuses to run unless this
   // is set. Demo + active-Advanced schools get AI; Free/Basic do not.

@@ -212,6 +212,12 @@ class ExpressApiClient {
                     throw fetchErr;
                 }
 
+                // Pick up the rotated single-use CSRF token (server burns the old one
+                // after each mutation and hands back a fresh one) so the next mutation
+                // doesn't reuse a spent token.
+                const rotatedCsrf = response.headers.get('X-CSRF-Token');
+                if (rotatedCsrf) this.csrfToken = rotatedCsrf;
+
                 if (!response.ok) {
                     const errorText = await response.text();
                     

@@ -1,5 +1,6 @@
 import { doubleCsrf } from 'csrf-csrf';
 import { Request, Response, NextFunction } from 'express';
+import crypto from 'crypto';
 import { config } from '../config/env';
 
 /**
@@ -38,7 +39,59 @@ export const {
 
 // Alias for backwards compatibility with existing code
 export const generateToken = generateCsrfToken;
-export const doubleSubmitCookieMiddleware = doubleCsrfProtection;
+
+/**
+ * Single-use (non-replayable) CSRF enforcement.
+ *
+ * The base double-submit check proves the token+cookie pair is valid, but a token
+ * is otherwise reusable — a captured token could be replayed. We layer a one-time
+ * guard on top: once a token is accepted for a state-changing request it is burned,
+ * and a FRESH token is rotated back to the client via the `X-CSRF-Token` response
+ * header (CORS exposes it) so the legitimate flow continues seamlessly.
+ *
+ * Note: the burned-token set is in-memory per process. Under clustering it should
+ * be backed by a shared store (e.g. Redis) for cross-worker replay protection; the
+ * primary mutation path is Bearer-authenticated and skips CSRF entirely (see app.ts),
+ * so this guard's surface is the rare cookie-only mutation.
+ */
+const burnedTokens = new Map<string, number>(); // sha256(token) -> expiry (ms)
+const BURNED_TTL_MS = 10 * 60 * 1000; // matches a short token lifetime
+
+const pruneBurned = () => {
+    const now = Date.now();
+    for (const [hash, exp] of burnedTokens) {
+        if (exp <= now) burnedTokens.delete(hash);
+    }
+};
+
+export const doubleSubmitCookieMiddleware = (req: Request, res: Response, next: NextFunction) => {
+    doubleCsrfProtection(req, res, (err?: any) => {
+        if (err) return next(err);
+
+        const method = (req.method || 'GET').toUpperCase();
+        // Only mutations carry/consume a token; safe methods pass straight through.
+        if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return next();
+
+        const token = req.headers['x-csrf-token'] as string | undefined;
+        if (token) {
+            const hash = crypto.createHash('sha256').update(token).digest('hex');
+            pruneBurned();
+            if (burnedTokens.has(hash)) {
+                console.warn(`🚨 [CSRF-REPLAY] Re-use of a spent CSRF token blocked from IP: ${req.ip} | ${req.path}`);
+                return next(invalidCsrfTokenError);
+            }
+            burnedTokens.set(hash, Date.now() + BURNED_TTL_MS);
+        }
+
+        // Rotate a fresh single-use token back to the caller.
+        try {
+            const fresh = generateCsrfToken(req, res);
+            res.setHeader('X-CSRF-Token', fresh);
+        } catch { /* non-fatal: client can refetch via /auth/csrf-token */ }
+
+        next();
+    });
+};
 
 /**
  * Custom Error Handler for CSRF Failures

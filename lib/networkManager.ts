@@ -6,7 +6,6 @@
  */
 
 import { EventEmitter } from './EventEmitter';
-import { API_BASE_URL } from './config';
 
 // ============================================================================
 // Types & Interfaces
@@ -51,11 +50,6 @@ export interface NetworkEventMap {
 
 class NetworkManager extends EventEmitter {
     private state: NetworkState;
-    private pingUrl: string = API_BASE_URL.replace(/\/api$/, '') + '/health'; // Hit the backend health endpoint
-    private pingInterval: number = 30000; // 30 seconds
-    private pingIntervalId: NodeJS.Timeout | null = null;
-    private reconnectAttempts: number = 0;
-    private maxReconnectAttempts: number = 5;
 
     constructor() {
         super();
@@ -105,9 +99,6 @@ class NetworkManager extends EventEmitter {
             const connection = (navigator as any).connection;
             connection.addEventListener('change', () => this.updateConnectionInfo());
         }
-
-        // Start periodic ping
-        this.startPeriodicPing();
     }
 
     // ========================================================================
@@ -116,7 +107,6 @@ class NetworkManager extends EventEmitter {
 
     private handleOnlineEvent(): void {
         console.log('🌐 Browser reports: Online');
-        this.reconnectAttempts = 0;
         this.verifyConnection();
     }
 
@@ -135,7 +125,12 @@ class NetworkManager extends EventEmitter {
     // ========================================================================
 
     /**
-     * Verify actual internet connectivity with a ping test
+     * Determine connectivity WITHOUT pinging any server.
+     *
+     * We deliberately no longer issue an HTTP "are we online?" probe (it used to
+     * hit the backend /health endpoint every 30s, which spammed access logs and
+     * tripped the WAF). Instead we trust the browser's own `navigator.onLine`
+     * signal and enrich quality from the Network Information API when available.
      */
     async verifyConnection(): Promise<boolean> {
         if (!navigator.onLine) {
@@ -148,50 +143,16 @@ class NetworkManager extends EventEmitter {
             return false;
         }
 
-        try {
-            const startTime = performance.now();
-
-            // Fetch a small resource with cache-busting
-            const response = await fetch(this.pingUrl + '?t=' + Date.now(), {
-                method: 'HEAD',
-                cache: 'no-cache',
-                signal: AbortSignal.timeout(15000) // Increased to 15s to tolerate poor connection quality
-            });
-
-            const endTime = performance.now();
-            const rtt = endTime - startTime;
-
-            if (response.ok || response.status === 304) {
-                const quality = this.calculateQuality(rtt);
-
-                this.updateState({
-                    status: NetworkStatus.ONLINE,
-                    quality,
-                    rtt,
-                    isVerified: true,
-                    lastChecked: Date.now()
-                });
-
-                this.updateConnectionInfo(); // Get additional network info
-                return true;
-            } else {
-                throw new Error('Ping failed: ' + response.status);
-            }
-        } catch (error) {
-            console.warn('Connection verification failed:', error);
-
-            // If we can't verify but browser says online, mark as unknown
-            this.updateState({
-                status: navigator.onLine ? NetworkStatus.UNKNOWN : NetworkStatus.OFFLINE,
-                quality: ConnectionQuality.OFFLINE,
-                isVerified: false,
-                lastChecked: Date.now()
-            });
-
-            // Attempt reconnection with exponential backoff
-            this.scheduleReconnect();
-            return false;
-        }
+        // Browser reports online — assume reachable. Quality comes from the
+        // Network Information API (effectiveType / rtt) where supported.
+        this.updateState({
+            status: NetworkStatus.ONLINE,
+            quality: ConnectionQuality.GOOD,
+            isVerified: true,
+            lastChecked: Date.now()
+        });
+        this.updateConnectionInfo();
+        return true;
     }
 
     /**
@@ -224,44 +185,6 @@ class NetworkManager extends EventEmitter {
                     this.emit('quality-change', this.state);
                 }
             }
-        }
-    }
-
-    /**
-     * Schedule reconnection attempt with exponential backoff
-     */
-    private scheduleReconnect(): void {
-        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-            console.warn('Max reconnect attempts reached');
-            return;
-        }
-
-        this.reconnectAttempts++;
-        const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000); // Max 30 seconds
-
-        console.log(`🔄 Scheduling reconnect attempt ${this.reconnectAttempts} in ${delay}ms`);
-
-        setTimeout(() => {
-            this.verifyConnection();
-        }, delay);
-    }
-
-    // ========================================================================
-    // Periodic Ping
-    // ========================================================================
-
-    private startPeriodicPing(): void {
-        this.pingIntervalId = setInterval(() => {
-            if (this.state.status === NetworkStatus.ONLINE) {
-                this.verifyConnection();
-            }
-        }, this.pingInterval);
-    }
-
-    private stopPeriodicPing(): void {
-        if (this.pingIntervalId) {
-            clearInterval(this.pingIntervalId);
-            this.pingIntervalId = null;
         }
     }
 
@@ -422,7 +345,6 @@ class NetworkManager extends EventEmitter {
      * Cleanup and stop monitoring
      */
     destroy(): void {
-        this.stopPeriodicPing();
         this.removeAllListeners();
 
         if (typeof window !== 'undefined') {

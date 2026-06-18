@@ -93,6 +93,8 @@ app.use(cors({
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-school-id', 'X-Branch-Id', 'x-branch-id', 'Accept', 'X-Requested-With', 'application-id', 'X-CSRF-Token'],
+    // Let the browser read the rotated single-use CSRF token off mutation responses.
+    exposedHeaders: ['X-CSRF-Token'],
     credentials: true,
     maxAge: 86400
 }));
@@ -154,40 +156,74 @@ app.use((req, _res, next) => {
 app.use(morgan(IS_PROD ? 'combined' : 'dev'));
 
 // 4. Security Headers
-// Fresh per-request CSP nonce — exposed on res.locals.cspNonce so any HTML this
-// server renders can tag its <script nonce="..."> and run under a strict CSP
-// without 'unsafe-inline'. (The SPA itself is served by Vercel — see vercel.json.)
-app.use((_req, res, next) => {
-    res.locals.cspNonce = crypto.randomBytes(16).toString('base64');
-    next();
-});
+//
+// We split security headers into TWO chains so that static assets stay cacheable:
+//
+//  • DYNAMIC chain (API + rendered HTML): a FRESH per-request CSP nonce is minted
+//    and exposed on res.locals.cspNonce, so any inline <script> can carry it and
+//    run under a strict CSP without 'unsafe-inline'. Because the nonce changes
+//    every request, these responses must NOT be cached by a CDN — which is correct
+//    for API JSON anyway.
+//
+//  • STATIC chain (/uploads): a STABLE, nonce-free CSP so the exact same bytes are
+//    returned every time and an upstream cache/CDN can store them. (The SPA itself
+//    is served by Vercel — see vercel.json.)
 
-app.use(helmet({
+// Shared CSP directive sources (everything except the script nonce, which differs per chain).
+const baseCspDirectives: Record<string, any> = {
+    defaultSrc: ["'self'"],
+    // Tailwind runtime + injected <style> blocks need inline styles + Google Fonts.
+    styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+    fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
+    imgSrc: ["'self'", "data:", "blob:", "https://api.dicebear.com", "https://*.railway.app", "https://*.supabase.co", "https://cdn-icons-png.flaticon.com"],
+    connectSrc: ["'self'", "https://*.vercel.app", "https://*.railway.app", "https://*.supabase.co", "https://generativelanguage.googleapis.com", "https://api.paystack.co", "https://*.ingest.sentry.io", "wss://*.supabase.co"],
+    // Payment widgets render in iframes.
+    frameSrc: ["'self'", "https://js.paystack.co", "https://checkout.flutterwave.com"],
+    objectSrc: ["'none'"],
+    frameAncestors: ["'none'"],
+    baseUri: ["'self'"],
+    formAction: ["'self'"],
+    upgradeInsecureRequests: IS_PROD ? [] : null,
+};
+
+// DYNAMIC: nonce minted per request, strict (no 'unsafe-inline' on scripts).
+const dynamicSecurity = helmet({
     contentSecurityPolicy: {
         useDefaults: true,
         directives: {
-            defaultSrc: ["'self'"],
-            // Strict: no 'unsafe-inline'. Inline scripts must carry the per-request nonce.
+            ...baseCspDirectives,
             scriptSrc: ["'self'", (_req, res: any) => `'nonce-${res.locals.cspNonce}'`],
-            // Tailwind runtime + injected <style> blocks need inline styles + Google Fonts.
-            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-            fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
-            imgSrc: ["'self'", "data:", "blob:", "https://api.dicebear.com", "https://*.railway.app", "https://*.supabase.co", "https://cdn-icons-png.flaticon.com"],
-            connectSrc: ["'self'", "https://*.vercel.app", "https://*.railway.app", "https://*.supabase.co", "https://generativelanguage.googleapis.com", "https://api.paystack.co", "https://*.ingest.sentry.io", "wss://*.supabase.co"],
-            // Payment widgets render in iframes.
-            frameSrc: ["'self'", "https://js.paystack.co", "https://checkout.flutterwave.com"],
-            objectSrc: ["'none'"],
-            frameAncestors: ["'none'"],
-            baseUri: ["'self'"],
-            formAction: ["'self'"],
-            upgradeInsecureRequests: IS_PROD ? [] : null,
         },
     },
     crossOriginEmbedderPolicy: false,
     crossOriginResourcePolicy: { policy: "cross-origin" },
     hsts: IS_PROD ? { maxAge: 31536000, includeSubDomains: true, preload: true } : false,
     referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
-}));
+});
+
+// STATIC: no nonce → identical bytes every time → cacheable by CDN/browser.
+const staticSecurity = helmet({
+    contentSecurityPolicy: {
+        useDefaults: true,
+        directives: {
+            ...baseCspDirectives,
+            // Uploads are images/files only — never execute scripts from this origin.
+            scriptSrc: ["'none'"],
+        },
+    },
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    hsts: IS_PROD ? { maxAge: 31536000, includeSubDomains: true, preload: true } : false,
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+});
+
+// Apply the DYNAMIC chain to everything EXCEPT /uploads (which gets the static chain
+// at its own mount below). Mint the nonce just before, only on the dynamic path.
+app.use((req, res, next) => {
+    if (req.path.startsWith('/uploads')) return next();
+    res.locals.cspNonce = crypto.randomBytes(16).toString('base64');
+    return dynamicSecurity(req, res, next);
+});
 app.disable('x-powered-by');
 
 // 5. Global Rate Limiting — tunable via env (defaults: 600 req / 15 min / IP)
@@ -209,14 +245,15 @@ const limiter = rateLimit({
 
 app.use('/api', limiter);
 
-// 6. Basic health check
+// 6. Basic root check
 app.get('/', (req, res) => {
     res.json({ status: 'ok', service: 'School SaaS Backend' });
 });
 
-app.get('/health', (req, res) => {
-    res.json({ status: 'ok', service: 'School SaaS Backend' });
-});
+// NOTE: the public `/health` ping endpoint was removed. The frontend no longer
+// polls it for a connectivity indicator (it relies on the browser's own online/
+// offline signal), which also stops the every-30s log noise / WAF false positives.
+// Orchestrator liveness/readiness still use the dedicated /live and /ready probes below.
 
 // Load-balancer / orchestrator probes. Unauthenticated, dependency-free and fast
 // so a WAF/LB can allow-list them and pull unhealthy nodes quickly.
@@ -233,7 +270,11 @@ app.get('/ready', async (_req, res) => {
     }
 });
 
-app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+// Static uploads: stable (nonce-free) CSP + long cache so a CDN/browser can store them.
+app.use('/uploads', staticSecurity, express.static(path.join(process.cwd(), 'uploads'), {
+    maxAge: '7d',
+    etag: true,
+}));
 
 
 // 7. API Routes - Standardized Mount
