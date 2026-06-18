@@ -14,6 +14,7 @@
     "experimentalDecorators": true,
     "isolatedModules": true,
     "noEmit": true,
+    "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {
       "@prisma/client": ["./generated/prisma-client"]

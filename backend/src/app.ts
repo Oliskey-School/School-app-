@@ -43,7 +43,11 @@ const STATIC_ALLOWED_ORIGINS = [
     'http://localhost:5000',
     'https://school-app-oliskeylee.vercel.app',
     'https://school-app-git-main-oliskeylee.vercel.app',
-    'https://school-app-production-a59a.up.railway.app'
+    'https://school-app-production-a59a.up.railway.app',
+    // Self-hosted deployment (Apache reverse proxy). Add your real domain(s) here or via
+    // CORS_ALLOWED_ORIGINS. The app is served same-origin behind the proxy, but the
+    // browser still sends an Origin header on POSTs, so the origin must be allow-listed.
+    'https://cipherlab.duckdns.org',
 ];
 
 const ENV_ALLOWED_ORIGINS = (process.env.CORS_ALLOWED_ORIGINS || '')
@@ -54,12 +58,27 @@ const ENV_ALLOWED_ORIGINS = (process.env.CORS_ALLOWED_ORIGINS || '')
 const allowedOrigins = new Set([...STATIC_ALLOWED_ORIGINS, ...ENV_ALLOWED_ORIGINS]);
 const IS_PROD = process.env.NODE_ENV === 'production';
 
+/** Private-LAN / loopback hosts (e.g. self-hosted boxes on 10.x, 192.168.x, 172.16-31.x). */
+const isPrivateHostOrigin = (origin: string): boolean => {
+    try {
+        const h = new URL(origin).hostname;
+        return /^(10\.|127\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(h) || h === 'localhost';
+    } catch { return false; }
+};
+
 app.use(cors({
     origin: (origin, callback) => {
         // Same-origin / curl / native mobile: no Origin header
         if (!origin) return callback(null, true);
 
         if (allowedOrigins.has(origin)) {
+            return callback(null, true);
+        }
+
+        // Allow self-hosted boxes reached by their private LAN IP (e.g. http://10.10.10.3:8080)
+        // — same-origin behind the proxy, never the public internet. Opt out by setting
+        // CORS_BLOCK_PRIVATE_LAN=true if you only ever serve via a public domain.
+        if (process.env.CORS_BLOCK_PRIVATE_LAN !== 'true' && isPrivateHostOrigin(origin)) {
             return callback(null, true);
         }
 
