@@ -3,6 +3,7 @@ import './config/env';
 import crypto from 'crypto';
 import express from 'express';
 import path from 'path';
+import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
@@ -34,12 +35,27 @@ app.use((_req, res, next) => { res.setHeader('X-App', 'oliskey-api'); next(); })
 
 const IS_PROD = process.env.NODE_ENV === 'production';
 
-// 1. CORS — intentionally NOT handled here.
-// CORS / preflight / allowed-origins are terminated at the reverse proxy (nginx).
-// The backend sits behind the proxy and is reached same-origin, so it adds no
-// Access-Control-* headers itself (doing so would double-up / conflict with nginx).
-// If you ever run the API cross-origin without a proxy, add the `cors` middleware
-// back here.
+// 1. CORS
+// In PRODUCTION, CORS is terminated at the reverse proxy (nginx) and the backend is
+// reached same-origin, so it adds no Access-Control-* headers of its own.
+//
+// In DEVELOPMENT, the Vite dev server (http://localhost:3000) calls the API on
+// http://localhost:5000 cross-origin, so the browser requires CORS headers or it
+// blocks the request after the preflight (this is what broke local login). We
+// reflect the request origin with credentials for dev only.
+//
+// Force-enable in any environment by setting ENABLE_CORS=true (e.g. if you ever run
+// the API cross-origin without a proxy).
+if (!IS_PROD || process.env.ENABLE_CORS === 'true') {
+    app.use(cors({
+        origin: true, // reflect the request origin
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'x-school-id', 'X-Branch-Id', 'x-branch-id', 'Accept', 'X-Requested-With', 'application-id', 'X-CSRF-Token'],
+        exposedHeaders: ['X-CSRF-Token'],
+        credentials: true,
+        maxAge: 86400,
+    }));
+}
 
 // 2. Core Middlewares
 app.use(cookieParser(config.jwtSecret));
