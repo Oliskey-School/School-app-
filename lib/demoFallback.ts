@@ -33,7 +33,7 @@ export function createDemoProfile(userType: string, email?: string): DemoProfile
             studentId: 'STU001',
             xp: 1500,
             level: 5,
-            badges: ['🎓', '⭐', '🏆']
+            badges: ['ðŸŽ“', 'â­', 'ðŸ†']
         },
         teacher: {
             id: '6f90901e-4119-457d-8d73-745b17831a30',
@@ -97,7 +97,7 @@ export function handlePermissionError(error: any, userType: string, email?: stri
     isDemo: boolean;
 } {
     if (isPermissionDeniedError(error)) {
-        console.warn(`⚠️ Permission denied for ${userType} - using demo profile`);
+        console.warn(`âš ï¸ Permission denied for ${userType} - using demo profile`);
         return {
             success: true,
             data: createDemoProfile(userType, email),
@@ -112,10 +112,10 @@ export function handlePermissionError(error: any, userType: string, email?: stri
 }
 
 /**
- * Wraps a Supabase query with automatic permission error handling
+ * Wraps a backend query with automatic permission error handling
  * Usage:
  * const result = await withDemoFallback(
- *   () => supabase.from('students').select('*').eq('email', email).maybeSingle(),
+ *   () => api.from('students').select('*').eq('email', email).maybeSingle(),
  *   'student',
  *   email
  * );
@@ -128,7 +128,7 @@ export async function withDemoFallback<T = any>(
     const { data, error } = await queryFn();
 
     if (error && isPermissionDeniedError(error)) {
-        console.warn(`⚠️ Permission denied for ${userType} - using demo profile`);
+        console.warn(`âš ï¸ Permission denied for ${userType} - using demo profile`);
         return {
             data: createDemoProfile(userType, email) as any,
             error: null,

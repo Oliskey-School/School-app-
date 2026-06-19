@@ -96,9 +96,9 @@ if (process.env.NODE_ENV === 'production') {
         const hostMatch = dbUrl.match(/@([^:/]+)/);
         console.error('   Host Attempted:', hostMatch ? hostMatch[1] : 'Unknown');
         
-        if (dbUrl.includes('supabase') || dbUrl.includes('pooler')) {
-            console.error('   💡 Tip: Check if the Supabase pooler is active and credentials are correct.');
-            console.error('   💡 Current DB Host seems to be a Supabase pooler.');
+        if (dbUrl.includes('pooler')) {
+            console.error('   💡 Tip: Check if the connection pooler is active and credentials are correct.');
+            console.error('   💡 Current DB Host seems to be a connection pooler.');
         }
       }
     });

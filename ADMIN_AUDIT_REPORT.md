@@ -72,7 +72,7 @@
 | `GET /api/transactions` | **PASSED** | 200 OK. |
 | `GET /api/payroll/payslips?teacherId=…` | **PASSED** | 200 OK with teacherId param. |
 | `GET /api/payment-plans` | **STILL FAILING** | 404. Route mounted but no `GET /` handler. |
-| Paystack live keys wired via env | **WIRED, NOT SWITCHED** | `PAYSTACK_SECRET_KEY` is read from `process.env`. Currently set to test key in `.env`. You set the live value in Railway when ready. No code change needed at switch time. |
+| Paystack live keys wired via env | **WIRED, NOT SWITCHED** | `PAYSTACK_SECRET_KEY` is read from `process.env`. Currently set to test key in `.env`. You set the live value in the server environment when ready. No code change needed at switch time. |
 | Receipt / arrears / budget mutation paths | **NOT VERIFIED + IDOR FOUND** | `payroll.service.ts:127 updateSalaryArrearStatus(id)` — unscoped findUnique. Cross-tenant IDOR. **NOT FIXED** this session. |
 | Fee structure CRUD | **NOT VERIFIED THIS SESSION** | Listed, but CRUD ops deferred. |
 
@@ -243,8 +243,8 @@ These are not necessarily bugs — many domains require a query path (e.g. `/api
 | Item | Reason |
 |---|---|
 | Email verification re-enable | UI file (`VerifiedAdminRoute.tsx`) — your policy says "Backend & data only". Awaiting explicit approval. |
-| RLS migrations actually applied | Helper functions `get_auth_school_id()` / `get_auth_branch_id()` reference `current_user_id` which doesn't exist as a Postgres built-in. Needs reimplementation to read from `app.current_school_id` (settable per-request by backend) or from Supabase's `auth.jwt()`. Material design work; out of this session's scope. |
-| Live Paystack switchover | Per your decision: "I wire code to env vars, you set keys in Railway". Done. Live key never enters code. |
+| RLS migrations actually applied | Helper functions `get_auth_school_id()` / `get_auth_branch_id()` reference `current_user_id` which doesn't exist as a Postgres built-in. Needs reimplementation to read from `app.current_school_id` (settable per-request by backend) or from the backend database's `auth.jwt()`. Material design work; out of this session's scope. |
+| Live Paystack switchover | Per your decision: "I wire code to env vars, you set keys in the server environment". Done. Live key never enters code. |
 | Real-user (non-demo) E2E login | Requires creating a real school + non-demo admin. Demo flow exercises the same `AuthService.login()` underneath. |
 | Full CRUD verification for every domain (create/update/search/pagination for students, teachers, fees, exams) | Time. ~30 minutes per domain to do properly. Recommend dedicated sessions per domain. |
 | Cross-tenant negative test for parent DELETE | Couldn't seed a victim parent in school 2 — `Parent` table schema differs from my INSERT (`status` column doesn't exist). The fix code is identical to student/teacher; same `findFirst` pattern. |
@@ -268,9 +268,9 @@ These are not necessarily bugs — many domains require a query path (e.g. `/api
 
 1. **Fix the 11 remaining IDORs** (1 session) — mechanical, same pattern as the 3 already fixed.
 2. **Sync the local DB** — run `npm run db:push` so StudentIDCard etc. exist, then re-test `/api/id-cards`. (15 min)
-3. **Fix RLS helper functions + apply both migrations to Supabase production** (1 session) — material work to make defense-in-depth real.
+3. **Fix RLS helper functions + apply both migrations to productionuction** (1 session) — material work to make defense-in-depth real.
 4. **Re-enable email verification** (5 min once approved) — single UI file.
 5. **Per-domain CRUD verification** — students POST/PUT/PATCH, fees CRUD, exams CRUD, etc. (1 session per 2 domains).
-6. **Move plaintext secrets out of `.env`** — Paystack/Flutterwave/SMTP keys belong in Railway env vars.
+6. **Move plaintext secrets out of `.env`** — Paystack/Flutterwave/SMTP keys belong in the server environment.
 
 After steps 1-3, Admin readiness moves from ~68% to ~85%. Steps 4-6 push it to ~92%.

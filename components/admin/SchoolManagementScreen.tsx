@@ -44,7 +44,7 @@ const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigat
         if (!currentSchool?.id) return;
         fetchBranches();
         
-        // Removed legacy Supabase Real-time Subscription as we now use direct re-fetching
+        // Removed the legacy real-time subscription as we now use direct re-fetching
         // after actions to ensure consistency with the Express backend.
     }, [currentSchool?.id]);
 
@@ -178,7 +178,7 @@ const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigat
                             </div>
                             {!!editingBranch && (editingBranch.user_count || 0) > 0 && (
                                 <p className="text-[11px] text-amber-600 font-semibold mt-1.5 px-1">
-                                    Name locked — {editingBranch.user_count} member(s) already have IDs based on this branch.
+                                    Name locked â€” {editingBranch.user_count} member(s) already have IDs based on this branch.
                                 </p>
                             )}
                         </div>
@@ -199,7 +199,7 @@ const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigat
                             </div>
                             <p className="text-[11px] text-slate-400 mt-1.5 px-1">
                                 {editingBranch
-                                    ? 'Fixed once the branch exists — it is part of every member ID.'
+                                    ? 'Fixed once the branch exists â€” it is part of every member ID.'
                                     : 'Used in member IDs, e.g. OLISKEY_LEKKI_STU_0001. Leave blank to auto-generate.'}
                             </p>
                         </div>

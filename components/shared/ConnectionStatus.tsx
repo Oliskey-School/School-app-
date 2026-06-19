@@ -25,7 +25,7 @@ const ConnectionStatus: React.FC = () => {
             setLatency(Math.round(end - start));
             setStatus('connected');
         } catch (err: any) {
-            console.error('Supabase Connection Error:', err);
+            console.error('Connection Error:', err);
             setStatus('error');
             setErrorMessage(err.message || 'Failed to connect');
         }
@@ -76,7 +76,7 @@ const ConnectionStatus: React.FC = () => {
 
                     {status === 'connected' && latency && (
                         <span className="text-[10px] font-mono opacity-80 mt-1">
-                            {latency}ms latency • Region: EU
+                            {latency}ms latency â€¢ Region: EU
                         </span>
                     )}
 

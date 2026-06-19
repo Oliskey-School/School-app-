@@ -116,7 +116,7 @@ const BackupRestoreScreen = () => {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div className="bg-blue-50 border border-blue-100 rounded-2xl px-5 py-3 flex items-center space-x-3 flex-grow">
                     <Info className="w-5 h-5 text-blue-500" />
-                    <p className="text-sm text-blue-700"><strong>Supabase automatically backs up your database daily.</strong> Manual backups create an additional snapshot you can restore from at any time.</p>
+                    <p className="text-sm text-blue-700"><strong>Your database is backed up automatically.</strong> Manual backups create an additional snapshot you can restore from at any time.</p>
                 </div>
                 <button onClick={handleCreateBackup} disabled={isBackingUp}
                     className="flex items-center space-x-2 bg-indigo-600 text-white px-6 py-3 rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 font-bold disabled:opacity-60">

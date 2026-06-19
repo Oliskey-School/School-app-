@@ -1040,7 +1040,7 @@ ISSUES FOUND & FIXED:
 - Always test demo account separately from production accounts
 - JWT must always contain: `school_id`, `branch_id`, `role`, `user_id`
 - Every database table must have `school_id` — no exceptions
-- School data isolation is enforced by Prisma WHERE clauses in the backend — not Supabase RLS
+- School data isolation is enforced by Prisma WHERE clauses in the backend — not Prisma-enforced scoping
 - **Silent failure:** Server responds success but screen does not update = missing screen update call
 - **Data not updating:** Server and screen work but old data in database = wrong `school_id` in WHERE clause or Prisma error not caught
 - **Unexpected access denied:** JWT does not contain `school_id` or role mismatch

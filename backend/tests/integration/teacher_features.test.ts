@@ -6,53 +6,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // MOCK EXTERNAL DEPENDENCIES
 // ============================================================
 
-vi.mock('../../src/config/supabase', () => ({
-    supabase: {
-        auth: {
-            getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'test-user-id' } }, error: null }),
-            admin: {
-                createUser: vi.fn().mockResolvedValue({
-                    data: { user: { id: 'test-user-id' } },
-                    error: null
-                })
-            }
-        },
-        from: vi.fn(() => ({
-            select: vi.fn(() => ({
-                eq: vi.fn(() => ({
-                    single: vi.fn().mockResolvedValue({ data: { id: 't1' }, error: null }),
-                })),
-                then: vi.fn((cb: any) => cb({ data: [], error: null }))
-            })),
-            eq: vi.fn(() => ({
-                single: vi.fn().mockResolvedValue({ data: { id: 't1' }, error: null }),
-                maybeSingle: vi.fn().mockResolvedValue({ data: { id: 't1' }, error: null }),
-                then: vi.fn((cb: any) => cb({ data: [], error: null }))
-            })),
-            insert: vi.fn(() => ({
-                select: vi.fn(() => ({
-                    single: vi.fn().mockResolvedValue({ data: { id: 'new1' }, error: null })
-                }))
-            })),
-            update: vi.fn(() => ({
-                eq: vi.fn(() => ({
-                    select: vi.fn(() => ({
-                        single: vi.fn().mockResolvedValue({ data: { id: 't1' }, error: null })
-                    }))
-                }))
-            })),
-            upsert: vi.fn(() => ({})),
-            delete: vi.fn(() => ({})),
-            in: vi.fn(() => ({})),
-            order: vi.fn(() => ({})),
-            limit: vi.fn(() => ({})),
-            range: vi.fn(() => ({})),
-            single: vi.fn().mockResolvedValue({ data: { id: 't1' }, error: null }),
-            maybeSingle: vi.fn().mockResolvedValue({ data: { id: 't1' }, error: null }),
-            then: vi.fn((cb: any) => cb({ data: [], error: null }))
-        }))
-    }
-}));
 
 vi.mock('../../src/middleware/auth.middleware', () => ({
     authenticate: (req: any, res: any, next: any) => {

@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { toast } from 'react-hot-toast';
-import { api } from '../../lib/api'; // Assuming strict supabase client
+import { api } from '../../lib/api'; // Backend REST client
 import { XCircleIcon, CloudUploadIcon, DocumentTextIcon, VideoIcon, PhotoIcon, MicrophoneIcon } from '../../constants';
 // import { useAuth } from '../../context/AuthContext'; // If needed for uploader ref
 

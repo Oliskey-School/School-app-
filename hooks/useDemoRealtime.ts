@@ -2,7 +2,7 @@
  * Hook for demo mode realtime subscriptions
  * 
  * In demo mode, this hook listens to BroadcastChannel/localStorage events
- * instead of Supabase realtime. It triggers re-fetches when data changes.
+ * instead of a server realtime channel. It triggers re-fetches when data changes.
  */
 
 import { useEffect, useRef, useCallback } from 'react';
@@ -38,7 +38,7 @@ export function useDemoRealtime(options: UseDemoRealtimeOptions = {}) {
       onEventRef.current(detail);
     }
     
-    console.log(`📡 [useDemoRealtime] Event received: ${detail.type} on ${detail.table}`);
+    console.log(`ðŸ“¡ [useDemoRealtime] Event received: ${detail.type} on ${detail.table}`);
   }, [tables]);
 
   useEffect(() => {

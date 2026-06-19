@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { api } from '../../lib/api';
 import bcrypt from 'bcryptjs';
 
@@ -98,7 +98,7 @@ const UserSeeder: React.FC = () => {
 
                 if (authAccError) throw new Error(`Failed to create auth_account for ${user.username}: ${authAccError.message}`);
 
-                // 4. Supabase Auth (The tricky part)
+                // 4. Backend Auth (The tricky part)
                 // We attempt to signUp. If user exists, it returns generic response or specific error.
                 // We just try it.
                 setStatus(`Registering Auth for ${user.type}...`);
@@ -116,7 +116,7 @@ const UserSeeder: React.FC = () => {
 
                 // If already registered, error might be 'User already registered'. That's fine.
                 if (authError && !authError.message.includes('already registered')) {
-                    console.warn(`Supabase Auth warning for ${user.username}:`, authError.message);
+                    console.warn(`Auth warning for ${user.username}:`, authError.message);
                 }
 
                 // Important: SignOut immediately so next loop doesn't use this session

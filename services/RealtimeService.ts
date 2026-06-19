@@ -3,7 +3,7 @@ import { api } from '../lib/api';
 
 /**
  * Service to handle background polling for global updates
- * (Previously Supabase Realtime)
+ * (Socket.IO-based realtime)
  */
 class RealtimeService {
     private interval: NodeJS.Timeout | null = null;
@@ -24,7 +24,7 @@ class RealtimeService {
         this.schoolId = schoolId;
         this.isInitialized = true;
 
-        console.log(`🔌 Initializing Global Background Polling for School: ${schoolId}`);
+        console.log(`ðŸ”Œ Initializing Global Background Polling for School: ${schoolId}`);
 
         // Initialize WebSocket for real-time instant updates
         import('../lib/socketService').then(({ socketService }) => {

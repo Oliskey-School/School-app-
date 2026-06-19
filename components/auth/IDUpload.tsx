@@ -56,7 +56,7 @@ export function IDUpload({ onUploadComplete }: IDUploadProps) {
             const { data: { user } } = await api.auth.getUser();
             if (!user) throw new Error('Not authenticated');
 
-            // Upload to Supabase Storage
+            // Upload to file storage
             const fileExt = file.name.split('.').pop();
             const fileName = `${user.id}-${Date.now()}.${fileExt}`;
             const { data: uploadData, error: uploadError } = await api.storage

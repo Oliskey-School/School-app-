@@ -27,8 +27,6 @@ declare global {
 
     interface ImportMetaEnv {
         readonly VITE_API_URL: string;
-        readonly VITE_SUPABASE_URL: string;
-        readonly VITE_SUPABASE_ANON_KEY: string;
         readonly VITE_PAYSTACK_PUBLIC_KEY: string;
         readonly VITE_FLUTTERWAVE_PUBLIC_KEY: string;
         readonly VITE_FIREBASE_VAPID_KEY: string;

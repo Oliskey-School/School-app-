@@ -2,7 +2,7 @@
  * Demo Realtime Broadcast System
  * 
  * Provides realtime-like functionality in demo mode without requiring
- * Supabase authenticated connections. Uses BroadcastChannel API for
+ * server-authenticated connections. Uses BroadcastChannel API for
  * same-browser communication and localStorage events as fallback.
  * 
  * When a demo user makes a change (create, update, delete), this system:
@@ -45,9 +45,9 @@ class DemoRealtimeService {
       this.channel.onmessage = (event: MessageEvent<DemoBroadcastMessage>) => {
         this.handleMessage(event.data);
       };
-      console.log('📡 [DemoRealtime] BroadcastChannel initialized');
+      console.log('ðŸ“¡ [DemoRealtime] BroadcastChannel initialized');
     } catch (e) {
-      console.warn('📡 [DemoRealtime] BroadcastChannel not supported, falling back to localStorage events');
+      console.warn('ðŸ“¡ [DemoRealtime] BroadcastChannel not supported, falling back to localStorage events');
     }
 
     // Fallback: localStorage events for cross-tab communication
@@ -66,7 +66,7 @@ class DemoRealtimeService {
     };
     window.addEventListener('storage', this.storageListener);
 
-    console.log('📡 [DemoRealtime] Demo realtime system initialized');
+    console.log('ðŸ“¡ [DemoRealtime] Demo realtime system initialized');
   }
 
   /**
@@ -83,7 +83,7 @@ class DemoRealtimeService {
       try {
         this.channel.postMessage(fullMessage);
       } catch (e) {
-        console.warn('📡 [DemoRealtime] BroadcastChannel postMessage failed:', e);
+        console.warn('ðŸ“¡ [DemoRealtime] BroadcastChannel postMessage failed:', e);
       }
     }
 
@@ -93,13 +93,13 @@ class DemoRealtimeService {
       // Remove immediately to allow same value to trigger again
       setTimeout(() => localStorage.removeItem(DEMO_STORAGE_KEY), 100);
     } catch (e) {
-      console.warn('📡 [DemoRealtime] localStorage broadcast failed:', e);
+      console.warn('ðŸ“¡ [DemoRealtime] localStorage broadcast failed:', e);
     }
 
     // Handle locally
     this.handleMessage(fullMessage);
 
-    console.log(`📡 [DemoRealtime] Broadcast: ${message.type} on ${message.table || 'unknown'}`);
+    console.log(`ðŸ“¡ [DemoRealtime] Broadcast: ${message.type} on ${message.table || 'unknown'}`);
   }
 
   /**
@@ -129,7 +129,7 @@ class DemoRealtimeService {
           try {
             listener(message);
           } catch (e) {
-            console.error('📡 [DemoRealtime] Listener error:', e);
+            console.error('ðŸ“¡ [DemoRealtime] Listener error:', e);
           }
         });
       }
@@ -142,7 +142,7 @@ class DemoRealtimeService {
         try {
           listener(message);
         } catch (e) {
-          console.error('📡 [DemoRealtime] Wildcard listener error:', e);
+          console.error('ðŸ“¡ [DemoRealtime] Wildcard listener error:', e);
         }
       });
     }
@@ -190,7 +190,7 @@ class DemoRealtimeService {
     }
     this.listeners.clear();
     this.isInitialized = false;
-    console.log('📡 [DemoRealtime] Demo realtime system destroyed');
+    console.log('ðŸ“¡ [DemoRealtime] Demo realtime system destroyed');
   }
 }
 

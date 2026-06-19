@@ -7,7 +7,7 @@ import { CheckCircle, XCircle, Loader2, School } from 'lucide-react';
  *
  * Handles the invite-link landing flow:
  *   1. Extracts access_token / refresh_token from the URL fragment
- *   2. Creates a Supabase session
+ *   2. Establishes the user's session
  *   3. Calls POST /api/invite/complete to generate school_generated_id
  *   4. Shows a brief welcome message
  *   5. Redirects the user to their role-appropriate dashboard
@@ -38,7 +38,7 @@ const InviteAcceptScreen: React.FC = () => {
         const run = async () => {
             try {
                 // 1. Parse URL for tokens and context
-                // Supabase appends tokens as fragment: ...?role=x&school_id=y#access_token=...
+                // Invite links append tokens as a fragment: ...?role=x&school_id=y#access_token=...
                 const fullUrl = window.location.href;
                 let tokenParams = new URLSearchParams();
                 let contextParams = new URLSearchParams();

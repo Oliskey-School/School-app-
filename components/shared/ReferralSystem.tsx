@@ -103,7 +103,7 @@ const ReferralSystem: React.FC = () => {
         }
 
         try {
-            const { error } = await supabase
+            const { error } = await api
                 .from('family_referrals')
                 .insert({
                     student_id: selectedStudentId,

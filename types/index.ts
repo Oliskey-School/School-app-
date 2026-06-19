@@ -204,8 +204,8 @@ export interface Teacher {
   status: 'Active' | 'Inactive' | 'On Leave'; // TEXT DEFAULT 'Active'
 
   // Professional Info (Database Fields)
-  curriculum_eligibility?: string[]; // TEXT[] (⚠️ newly added)
-  compliance_documents?: Record<string, any>; // JSONB (⚠️ newly added)
+  curriculum_eligibility?: string[]; // TEXT[] (âš ï¸ newly added)
+  compliance_documents?: Record<string, any>; // JSONB (âš ï¸ newly added)
 
   // Joined/Computed Fields (NOT in database directly)
   subjects: string[]; // From teacher_subjects junction table (NOT subject_specialization column)
@@ -239,8 +239,8 @@ export interface Parent {
   avatar_url?: string;
 
   // Additional Info (Database Fields)
-  address?: string; // TEXT (⚠️ orphaned - not in form)
-  occupation?: string; // TEXT (⚠️ orphaned - not in form)
+  address?: string; // TEXT (âš ï¸ orphaned - not in form)
+  occupation?: string; // TEXT (âš ï¸ orphaned - not in form)
   relationship?: string; // TEXT ('Mother' | 'Father' | 'Guardian' | 'Other')
   emergency_contact?: string; // TEXT
 
@@ -335,7 +335,7 @@ export interface Driver {
 }
 
 export interface Bus {
-  id: string; // UUID from Supabase
+  id: string; // UUID
   name: string;
   routeName: string;
   capacity: number;

@@ -18,7 +18,7 @@ const PaymentGatewaySettings: React.FC<GatewaySettingsProps> = ({ navigateTo }) 
 
     const handleSave = () => {
         toast.success('Gateway settings updated');
-        // Logic to update a 'gateway_configs' table in Supabase
+        // Logic to update a 'gateway_configs' table in the database
     };
 
     return (

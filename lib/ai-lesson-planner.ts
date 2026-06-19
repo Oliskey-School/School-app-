@@ -49,11 +49,11 @@ export async function generateLessonPlan(
         const plan: LessonPlan = JSON.parse(result.text);
 
         // Optional: Save to DB
-        // await supabase.from('lesson_plans').insert({ ...plan, subject, grade_level: gradeLevel });
+        // await api.from('lesson_plans').insert({ ...plan, subject, grade_level: gradeLevel });
 
         return plan;
     } catch (error) {
-        console.error('❌ AI Lesson Planning failed:', error);
+        console.error('âŒ AI Lesson Planning failed:', error);
         return null;
     }
 }

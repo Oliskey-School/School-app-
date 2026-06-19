@@ -39,7 +39,7 @@ export function useApi<T = any>() {
                 data,
                 error: null,
                 loading: false,
-                statusCode: 200, // Supabase success implies 2xx usually
+                statusCode: 200, // success implies 2xx usually
             });
 
             return data;

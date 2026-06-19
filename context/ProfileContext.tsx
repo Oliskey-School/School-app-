@@ -3,7 +3,7 @@ import { useAutoSync } from '../hooks/useAutoSync';
 import { useAuth } from './AuthContext';
 
 /**
- * EXACT SCHEMA INTERFACE (based on Supabase MCP inspection)
+ * EXACT SCHEMA INTERFACE (based on database schema inspection)
  */
 export interface UserProfile {
     id: string; // uuid

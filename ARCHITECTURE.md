@@ -30,26 +30,26 @@ This document provides a clear separation between the **Local Development** and 
 **Latest Stable Version:** `0.5.43`
 
 ### Infrastructure Context
-- **Frontend:** Vercel (Production)
-- **Backend:** Railway (Production)
-- **Database Engine:** Supabase Managed PostgreSQL
-- **Connection:** Supabase Transaction Pooler (via `DATABASE_URL` in Railway).
+- **Frontend:** nginx (self-hosted) (Production)
+- **Backend:** the self-hosted server (Production)
+- **Database Engine:** self-hosted PostgreSQL
+- **Connection:** PostgreSQL connection pooler (via `DATABASE_URL` in the server environment).
 - **Migrations:** Uses `DIRECT_URL` (Port 5432) for deployment stability.
 - **Local DB:** Docker PostgreSQL (`localhost:5432`).
 
 - **Frontend**:
-    - **Host**: **Vercel** (`school-app-oliskeylee.vercel.app`)
-    - **CDN**: Vercel Edge Network.
+    - **Host**: **nginx (self-hosted)** (`school-app-oliskeylee.vercel.app`)
+    - **CDN**: the CDN / reverse proxy.
 - **Backend (Hybrid)**:
-    - **Core Server**: **Railway** (Persistent Express instance).
-    - **Edge Proxy**: **Vercel Serverless Functions** (`api/[...path].ts`) - handles initial routing and latency reduction.
+    - **Core Server**: **the self-hosted server** (Persistent Express instance).
+    - **Edge Proxy**: **the nginx reverse proxy** (`api/[...path].ts`) - handles initial routing and latency reduction.
 - **Database**:
-    - **Engine**: **Supabase Managed PostgreSQL**
-    - **Connection**: Supabase Transaction Pooler (via `DATABASE_URL` in Railway).
+    - **Engine**: **self-hosted PostgreSQL**
+    - **Connection**: PostgreSQL connection pooler (via `DATABASE_URL` in the server environment).
 - **Real-time**:
-    - **Provider**: Socket.io (hosted on the Railway persistent instance).
+    - **Provider**: Socket.io (hosted on the the self-hosted server).
 - **Authentication**:
-    - **Provider**: Supabase Identity Services (Cloud-managed).
+    - **Provider**: the backend auth service (Cloud-managed).
     .env.production 
 
 ---
@@ -69,7 +69,7 @@ The application utilizes an **Offline-First** model:
 3.  **Real-time Push**: WebSocket events from the backend trigger background re-hydration of the local cache.
 
 ### 🛣️ Routing Logic
-Requests flow from the user's browser through Vercel's edge, where the catch-all function at `/api` determines the best route to the Railway backend, ensuring maximum uptime even during core-server restarts.
+Requests flow from the user's browser through the nginx reverse proxy, where the catch-all function at `/api` determines the best route to the the self-hosted backend, ensuring maximum uptime even during core-server restarts.
 
 ## 🛠️ Deployment Workflow
 
@@ -79,7 +79,7 @@ Before pushing any code changes that involve database modifications, ensure the 
 #### **A. Push Schema to Database**
 Sync your local or production database with the current Prisma schema:
 - **Local**: `npm run db:push`
-- **Production (Supabase)**: Ensure `DATABASE_URL` is set to Supabase, then run:
+- **Production (the backend database)**: Ensure `DATABASE_URL` is set to the database, then run:
   ```bash
   npx prisma db push --schema=prisma/schema.prisma
   npx prisma db push --schema=backend/prisma/schema.prisma
@@ -102,11 +102,11 @@ If updating the system version, run the synchronization script to update the dem
 
 
 
-### 2. Vercel Build
-The `vercel-build` script in `package.json` ensures the Prisma Client is generated synchronously during the Vercel deployment pipeline.
+### 2. Production Build
+The `build` script in `package.json` ensures the Prisma Client is generated synchronously during the build pipeline.
 
-### 3. Railway Sync
-The master backend on Railway must have its `DATABASE_URL` pointed to the Supabase connection pooler.
+### 3. the self-hosted server Sync
+The master backend on the self-hosted server must have its `DATABASE_URL` pointed to the PostgreSQL connection pooler.
 
 ### 4. Version Update Policy
 When pushing to production:

@@ -153,8 +153,6 @@ export default defineConfig(({ mode }) => {
             if (id.includes('date-fns')) return 'date-utils';
             // React core stays in its own chunk to maximize cache hits
             if (id.includes('react-dom') || id.includes('react/') || id.includes('scheduler')) return 'react-vendor';
-            // Supabase + auth
-            if (id.includes('@supabase')) return 'supabase';
             // QR + crypto
             if (id.includes('qrcode') || id.includes('html5-qrcode')) return 'qr';
             // --- Split the heaviest remaining libs out of the generic vendor chunk ---

@@ -4,7 +4,7 @@ import { Exam } from '../types';
 /**
  * Exam Service
  * Handles all exam-related operations via the backend API.
- * All direct Supabase calls have been removed.
+ * All direct database-client calls have been removed.
  */
 
 export async function fetchExams(schoolId?: string, branchId?: string, teacherId?: string): Promise<Exam[]> {

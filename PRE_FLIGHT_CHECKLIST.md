@@ -24,11 +24,11 @@
 - [x] **Offline Grace**: App detects offline state and switches to cached data without blocking the user.
 
 ## 5. Environment & Deployment
-- [x] **Environment Variables**: `lib/supabase.ts` uses `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
+- [x] **Environment Variables**: frontend reads `VITE_API_URL` (optional; same-origin `/api` by default); backend uses `DATABASE_URL` + `JWT_SECRET`.
 - [x] **Manifest**: `manifest.json` is present with icons and configuration for PWA installation.
 - [x] **Migration History**: All migration files verified and renamed to sequential order (`0040` - `0051`) for consistent deployment.
 
 ## Recommended Next Steps
 1.  **Run Full Test Suite**: Execute `npm run test` to verify no regressions.
-2.  **Deploy Database**: Run `npx supabase db push` to apply the latest schema fixes.
+2.  **Deploy Database**: Run `npm run db:migrate` to apply the latest schema fixes (Prisma).
 3.  **Build Production Bundle**: Run `npm run build` to verify the build process completes without errors.

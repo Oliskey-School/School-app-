@@ -54,7 +54,7 @@ CREATE POLICY school_branch_isolation_policy ON "Attendance"
     WITH CHECK (school_id = get_auth_school_id() AND branch_id = get_auth_branch_id());
 ```
 
-**Status:** Ready to apply — requires running Supabase migration
+**Status:** Ready to apply — requires running database migration
 
 ### 2. Authentication Middleware: Enhanced with Header Validation
 
@@ -242,7 +242,7 @@ npm run test:run backend/tests/integration/isolation.test.ts
                   │ SQL Queries
                   │
 ┌─────────────────▼───────────────────────────────────────────┐
-│           PostgreSQL Database + Supabase                    │
+│           PostgreSQL Database + the backend database                    │
 │                                                             │
 │  ┌─────────────────────────────────────────────────────┐   │
 │  │ RLS Policies (Row Level Security)                   │   │
@@ -270,8 +270,8 @@ npm run test:run backend/tests/integration/isolation.test.ts
 ## Implementation Checklist
 
 ### Phase 1: Database Migrations (Immediate)
-- [ ] Run Supabase migration: `npm run db:migrate`
-- [ ] Verify RLS policies created: Check Supabase dashboard
+- [ ] Run database migration: `npm run db:migrate`
+- [ ] Verify RLS policies created: Check the database admin tool
 - [ ] Test RLS with direct SQL query
 
 ### Phase 2: Backend Service Updates (High Priority)
@@ -432,7 +432,7 @@ CREATE INDEX idx_attendance_school_branch ON "Attendance"(school_id, branch_id);
 - Use Redis for production caching
 
 ### Database Connections
-- Each Supabase connection includes RLS context
+- Each the backend database connection includes RLS context
 - No additional connection overhead
 - Monitor connection pool for anomalies
 

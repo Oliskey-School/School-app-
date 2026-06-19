@@ -3,7 +3,7 @@ import { InspectionTemplate } from '../types/inspector';
 import { API_BASE_URL } from './config';
 import { getJwtExpiryMs } from './tokenUtils';
 
-console.log(`📡 [API-TEST] Base URL: ${API_BASE_URL}`);
+console.log(`ðŸ“¡ [API-TEST] Base URL: ${API_BASE_URL}`);
 
 const getAuthToken = async (): Promise<string | null> => {
     // Tab-scoped session token. One-time migration from legacy localStorage.
@@ -109,7 +109,7 @@ class ExpressApiClient {
                 // Pre-flight refresh: if the access token is already expired (or within a
                 // 15s skew), refresh BEFORE sending so the request doesn't go out with a
                 // dead token, get a 401, and log a console error before recovering. The
-                // reactive 401→refresh path below remains as a safety net for tokens that
+                // reactive 401â†’refresh path below remains as a safety net for tokens that
                 // expire mid-flight or get revoked server-side. Single-flight refreshToken()
                 // dedupes concurrent callers (e.g. the notifications poller + a page load).
                 if (token && !endpoint.includes('/auth/') &&
@@ -165,7 +165,7 @@ class ExpressApiClient {
                     '/auth/update-email',
                     '/auth/update-username',
                     '/auth/update-password',
-                    // Public onboarding + verification — anyone signing up a new school
+                    // Public onboarding + verification â€” anyone signing up a new school
                     // reaches these endpoints before they have a session token.
                     '/schools/onboard',
                     '/onboard',
@@ -175,7 +175,7 @@ class ExpressApiClient {
                 const isPublicAuthEndpoint = unauthenticatedAuthEndpoints.some((path) => endpoint.startsWith(path));
 
                 if (!token && !endpoint.includes('/health') && !isPublicAuthEndpoint) {
-                    console.warn(`🔒 [API-WARN] Missing token for protected endpoint: ${endpoint}`);
+                    console.warn(`ðŸ”’ [API-WARN] Missing token for protected endpoint: ${endpoint}`);
                     this.triggerLogout('missing_token', endpoint);
                     throw new Error(`Missing token for protected endpoint: ${endpoint}`);
                 }
@@ -187,7 +187,7 @@ class ExpressApiClient {
 
                 // Diagnostic: Log full URL trying to be hit
                 if (process.env.NODE_ENV !== 'production' || endpoint.includes('/students')) {
-                    console.log(`🔌 [API-DEBUG] Fetching: ${url} | Method: ${method} | Headers:`, JSON.stringify(headers));
+                    console.log(`ðŸ”Œ [API-DEBUG] Fetching: ${url} | Method: ${method} | Headers:`, JSON.stringify(headers));
                 }
 
                 let response;
@@ -205,10 +205,10 @@ class ExpressApiClient {
                 } catch (fetchErr: any) {
                     clearTimeout(timeoutId);
                     if (fetchErr.name === 'AbortError') {
-                        console.error(`⏱️ [API-TIMEOUT] Request to ${url} timed out after 30s`);
+                        console.error(`â±ï¸ [API-TIMEOUT] Request to ${url} timed out after 30s`);
                         throw new Error('Connection timed out. Please check your internet or try again.');
                     }
-                    console.error(`💥 [API-FATAL] Network error hitting ${url}:`, fetchErr.message);
+                    console.error(`ðŸ’¥ [API-FATAL] Network error hitting ${url}:`, fetchErr.message);
                     throw fetchErr;
                 }
 
@@ -264,7 +264,7 @@ class ExpressApiClient {
                     // itself is unauthorized/stale ("User not authorized to access this
                     // branch"). A generic permission 403 that merely mentions "branch"
                     // (e.g. "managed by their home branch", "only the main admin can manage
-                    // branches") must NOT wipe the user's branch selection — doing so used to
+                    // branches") must NOT wipe the user's branch selection â€” doing so used to
                     // bounce a branch admin back to the Main branch after a denied action.
                     const isUnauthorizedBranch = /not authorized to access this branch/i.test(errorMessage);
                     if (response.status === 403 && isUnauthorizedBranch && selectedBranchId && !options._retryWithoutBranch) {
@@ -347,7 +347,7 @@ class ExpressApiClient {
     // The Global ID the user carries in their CURRENTLY ACTIVE branch (sent via the
     // X-Branch-Id header). Drives the live, branch-aware ID badge in the header.
     async getActiveBranchId(): Promise<{ school_generated_id: string; branch_id: string | null; is_main_admin?: boolean }> {
-        // NOT under /auth — the client strips the branch header from /auth/* calls.
+        // NOT under /auth â€” the client strips the branch header from /auth/* calls.
         return this.get('/active-branch-id');
     }
 
@@ -367,7 +367,7 @@ class ExpressApiClient {
     async refreshToken(): Promise<any> {
         // Single-flight: if a refresh is already running, every caller awaits the
         // SAME promise. Without this, the many requests that fire when you return
-        // to an idle tab each try to refresh at once — and because the backend
+        // to an idle tab each try to refresh at once â€” and because the backend
         // rotates the refresh token (invalidating the previous one) on first use,
         // every refresh after the first fails with "session revoked" and logs you
         // out. De-duplicating means exactly one refresh happens per expiry.
@@ -462,7 +462,7 @@ class ExpressApiClient {
     }
 
     async updateEmail(data: { userId: string; newEmail: string }): Promise<any> {
-        console.log('🚀 [API] Calling updateEmail (POST) with data:', data);
+        console.log('ðŸš€ [API] Calling updateEmail (POST) with data:', data);
         return this.post('/auth/update-email', data);
     }
 
@@ -620,7 +620,7 @@ class ExpressApiClient {
         }
     }
 
-    /** All branch labels in the school (id/name/code) — for assignment pickers (e.g. lending a teacher). */
+    /** All branch labels in the school (id/name/code) â€” for assignment pickers (e.g. lending a teacher). */
     async getBranchOptions(): Promise<any[]> {
         try {
             return await this.get('/branches/options');
@@ -844,7 +844,7 @@ class ExpressApiClient {
     }
 
     async syncStudentClasses(studentId: string, classIds: string[]): Promise<any> {
-        console.log('🔄 [API] Syncing student classes (batch):', { studentId, classIds });
+        console.log('ðŸ”„ [API] Syncing student classes (batch):', { studentId, classIds });
         // Use batch call supported by updated backend controller
         return this.post(`/students/${studentId}/assign-class`, { classIds });
     }
@@ -1688,7 +1688,7 @@ class ExpressApiClient {
         return await this.post('/virtual-classes', data);
     }
 
-    // Live (status 'active') sessions only — drives the student "Join Live Class" button.
+    // Live (status 'active') sessions only â€” drives the student "Join Live Class" button.
     async getActiveVirtualClasses(branchId?: string): Promise<any[]> {
         const qs = branchId && branchId !== 'all' ? `?branchId=${encodeURIComponent(branchId)}` : '';
         return await this.get(`/virtual-classes/active${qs}`);
@@ -1819,7 +1819,7 @@ class ExpressApiClient {
         const query = teacherId ? `?teacherId=${teacherId}` : '';
         const raw = await this.get<any[]>(`/cbt/exams${query}`);
         // The backend returns raw quiz rows (snake_case). The CBT management
-        // screen expects the camelCase CBTExam shape, so map it here — otherwise
+        // screen expects the camelCase CBTExam shape, so map it here â€” otherwise
         // status shows "Draft" forever and mins/marks/questions render blank.
         return (Array.isArray(raw) ? raw : []).map((q: any) => ({
             id: q.id,
@@ -2212,7 +2212,7 @@ class ExpressApiClient {
     async deleteTransportStop(id: string): Promise<void> {
         await this.delete(`/transport/stops/${id}`);
     }
-    // Vendor Management — backed by the full CRUD /vendors route module.
+    // Vendor Management â€” backed by the full CRUD /vendors route module.
     async getVendors(): Promise<any[]> {
         try {
             const result = await this.get<any>('/vendors');
@@ -2836,7 +2836,7 @@ class ExpressApiClient {
     }
 
     // ============================================
-    // ADMIN SCREENS — methods previously missing (caused "is not a function" crashes)
+    // ADMIN SCREENS â€” methods previously missing (caused "is not a function" crashes)
     // ============================================
 
     // Timetables (Admin TimetableScreen) -> GET /timetables
@@ -2892,7 +2892,7 @@ class ExpressApiClient {
         try { return await this.get(`/academic/performance?${qs.toString()}`); } catch { return []; }
     }
 
-    // System settings (Admin AcademicSettingsScreen) — stored in the School.settings JSON,
+    // System settings (Admin AcademicSettingsScreen) â€” stored in the School.settings JSON,
     // surfaced as a { key, value }[] list so the screen can read/write named keys.
     async getSystemSettings(schoolId: string, keys: string[], _branchId?: string | null): Promise<any[]> {
         try {
@@ -3600,13 +3600,13 @@ class ExpressApiClient {
     }
 
     /**
-     * REST-backed Compatibility Shim for Supabase-style query builder
+     * REST-backed compatibility shim for a chainable query builder
      */
     from(table: string) {
         const endpoint = `/${table.replace(/_/g, '-')}`;
         const queryParams = new URLSearchParams();
         // The mutation is deferred until the chain is awaited (then()), so filters
-        // chained AFTER it — Supabase style `.update(data).eq('id', x)` — are applied.
+        // chained AFTER it â€” query-builder style `.update(data).eq('id', x)` â€” are applied.
         let pendingOp: 'select' | 'insert' | 'update' | 'upsert' | 'delete' = 'select';
         let pendingPayload: any = undefined;
 
@@ -3669,7 +3669,7 @@ class ExpressApiClient {
                 return builder;
             },
             
-            // Execution — runs on await. Dispatches the right HTTP verb based on the
+            // Execution â€” runs on await. Dispatches the right HTTP verb based on the
             // pending operation so a mutation followed by .eq(...) filters works.
             then: async (onfulfilled?: (value: { data: any; error: any }) => any) => {
                 let result: { data: any; error: any };
@@ -3696,7 +3696,7 @@ class ExpressApiClient {
                 return onfulfilled ? onfulfilled(result) : result;
             },
 
-            // Mutations — record the op + payload and return the builder so callers can
+            // Mutations â€” record the op + payload and return the builder so callers can
             // chain filters afterward (e.g. .update({...}).eq('id', x)). The HTTP call
             // fires when the chain is awaited via then() above.
             insert: (data: any) => { pendingOp = 'insert'; pendingPayload = data; return builder; },

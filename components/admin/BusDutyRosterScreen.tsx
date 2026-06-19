@@ -49,13 +49,13 @@ const BusDutyRosterScreen: React.FC<BusDutyRosterProps> = ({ schoolId: propSchoo
         }
     }, [schoolId, refreshProfile]);
 
-    // Load buses from Supabase
+    // Load buses from the backend
     useEffect(() => {
         loadBuses();
     }, [schoolId]);
 
     useAutoSync(['buses'], () => {
-        console.log('🔄 [BusDutyRoster] Real-time auto-sync triggered');
+        console.log('ðŸ”„ [BusDutyRoster] Real-time auto-sync triggered');
         loadBuses();
     });
 

@@ -50,7 +50,7 @@ We have created two diagnostic scripts to verify the backend connection and sche
 
 ## 3. Developer Notes
 
-*   **Supabase Client:** The client in `lib/supabase.ts` is now strictly checked in `App.tsx`.
-*   **Env Variables:** Ensure `.env` contains `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
-*   **Backend Server:** For full backend functionality (running `npm run server`), you must add `SUPABASE_SERVICE_KEY` to your `.env` file. This key is required for administrative database operations that bypass RLS. Without it, the backend logs a warning and some features may fail.
+*   **API Client:** The client in `lib/api.ts` is now strictly checked in `App.tsx`.
+*   **Env Variables:** The frontend optionally reads `VITE_API_URL` (defaults to same-origin `/api` behind the proxy).
+*   **Backend Server:** For full backend functionality (running `npm run server`), set `DATABASE_URL` (PostgreSQL) and `JWT_SECRET` in `backend/.env`. Without a reachable database the backend logs a warning and some features may fail.
 *   **Error Boundaries:** `App.tsx` includes an `ErrorBoundary` component to catch unexpected crashes and offer a "Reset Connection" button.

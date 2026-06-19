@@ -135,7 +135,7 @@ const ReportsScreen: React.FC<ReportsScreenProps> = ({ schoolId, currentBranchId
 
   // Unified Backend-driven Auto Sync
   useAutoSync(['academic_performance'], () => {
-    console.log('🔄 [ReportsScreen] Auto-sync triggered');
+    console.log('ðŸ”„ [ReportsScreen] Auto-sync triggered');
     fetchReportsData();
   });
 
@@ -143,7 +143,7 @@ const ReportsScreen: React.FC<ReportsScreenProps> = ({ schoolId, currentBranchId
     setLoading(true);
     setError(null);
     try {
-      // Fetch Performance Data via API instead of direct Supabase
+      // Fetch Performance Data via API instead of a direct DB client
       const performanceData = await api.getSchoolPerformance(schoolId, currentBranchId || undefined);
 
       // Use api.getStudents which works in demo mode via backend

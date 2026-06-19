@@ -21,7 +21,7 @@ Not ready for paid customers without addressing the BLOCKERS in Section 9.
 | Backend API coverage | 90% | 65 route files, ~300+ endpoints — comprehensive |
 | Database schema | 95% | 196 tables, well-modeled, multi-tenant fields present |
 | Database security (RLS) | **49%** | **99 of 196 tables have NO RLS** — relies on app-level filters only |
-| Authentication architecture | 80% | JWT + Supabase is sound; algorithm locked to HS256 |
+| Authentication architecture | 80% | JWT auth is sound; algorithm locked to HS256 |
 | RBAC enforcement | **55%** | Many admin-hub routes lack `requireRole`; email verification disabled |
 | Multi-tenant isolation | 70% | Framework is built; backend services not fully migrated to use it |
 | Test coverage | **15%** | 10 component tests, ZERO backend tests, no E2E green |
@@ -50,13 +50,13 @@ Not ready for paid customers without addressing the BLOCKERS in Section 9.
 
 **Frontend:** React 18.3, Vite 6.2, TypeScript 5.8, TailwindCSS 3.4, TanStack Query 5.90, React Router 7.13 (installed but not used — app is hash-based), React Native 0.76 + Expo 54 + Capacitor 8 (mobile shells), NativeWind 4.2, Framer Motion 12, Recharts 3, Formik + Yup, Zod 4
 **Backend:** Express 5.1, Node + tsx, Prisma 5.22, Socket.io 4.8, BullMQ + ioredis (queues), Helmet, express-rate-limit, csrf-csrf, JWT (jsonwebtoken 9), bcryptjs, multer, nodemailer, otplib (2FA)
-**Database:** Supabase Managed Postgres (production), Dockerized Postgres (local dev)
+**Database:** self-hosted PostgreSQL (production), Dockerized Postgres (local dev)
 **AI:** `@google/genai` + `@google/generative-ai` (Gemini)
 **Payments:** Paystack, Flutterwave
 **Offline:** Dexie (IndexedDB), service worker via `vite-plugin-pwa`
-**Realtime:** Socket.io + Supabase realtime channels
+**Realtime:** Socket.io + Socket.io channels
 **Testing:** Vitest 4, Playwright 1.58, supertest 7
-**Deploy:** Vercel (frontend), Railway (backend), Supabase (DB)
+**Deploy:** nginx (self-hosted) (frontend), the self-hosted server (backend), the backend database (DB)
 
 ### Folder Map (top-level, with purpose)
 
@@ -78,7 +78,7 @@ school-app-/
 ├── contexts/ (1 file)                 # SaaSContext — DUPLICATE FOLDER, should merge
 ├── hooks/    (20 files)               # Realtime, offline, optimistic, tenant limit
 ├── services/ (12 files)               # Frontend API wrappers
-├── lib/      (60+ files)              # api.ts (126KB monolith), supabase.ts, mockAuth.ts,
+├── lib/      (60+ files)              # api.ts (126KB monolith), api.ts, mockAuth.ts,
 │                                      # offlineDatabase, syncEngine, cacheManager, ai.ts
 ├── backend/
 │   ├── src/
@@ -202,15 +202,15 @@ Overview, School Management, Plan Management, Subscription, Payment Dashboard, A
 
 Component → `useQuery` (TanStack) → `api.XYZ()` in `lib/api.ts` → fetch backend → controller → service → Prisma → Postgres.
 
-Some screens go directly to Supabase via `lib/supabase.ts` (RLS-enforced), others route through Express. The hybrid is in `lib/api.ts` (`HybridApiClient`).
+Some screens go directly to the database via `lib/api.ts` (RLS-enforced), others route through Express. The hybrid is in `lib/api.ts` (`HybridApiClient`).
 
 ### Real-Time
 
-`SocketContext` connects to Socket.io on Railway backend. `useRealtimeSync()` initializes subscriptions for school/branch. Used for chat, notifications, dashboard refresh, fee updates.
+`SocketContext` connects to Socket.io on the self-hosted backend. `useRealtimeSync()` initializes subscriptions for school/branch. Used for chat, notifications, dashboard refresh, fee updates.
 
 ### Offline-First
 
-`useOfflineQuery` wraps TanStack Query; reads IndexedDB first, falls back to network. `syncEngine` reconciles local writes when reconnected. Service worker caches Supabase responses (NetworkFirst).
+`useOfflineQuery` wraps TanStack Query; reads IndexedDB first, falls back to network. `syncEngine` reconciles local writes when reconnected. Service worker caches API responses (NetworkFirst).
 
 ### Known Stub/Mocked Features
 
@@ -277,11 +277,11 @@ Per `MULTITENANT_IMPLEMENTATION_SUMMARY.md`:
 
 ### Login Flow
 
-**Real users:** Supabase Auth (PKCE) → `auth.service.login()` → JWT (HS256) signed with `JWT_SECRET` → stored in `localStorage.auth_token` (also cookies in production) → `AuthContext.signIn()` sets state → `DashboardRouter` renders by role.
+**Real users:** the backend auth service (PKCE) → `auth.service.login()` → JWT (HS256) signed with `JWT_SECRET` → stored in `localStorage.auth_token` (also cookies in production) → `AuthContext.signIn()` sets state → `DashboardRouter` renders by role.
 
 **Demo users:** Click demo role card → `api.demoLogin('admin')` → `POST /api/auth/demo/login` → backend seeds/finds demo user under `DEMO_SCHOOL_ID` (`d0ff3e95-9b4c-4c12-989c-e5640d3cacd1`) with IP-based virtual branch `demo-v-{sha256(IP)[0:8]}` → returns JWT with `is_demo: true` → frontend stores it like a real session.
 
-**Invite accept:** Hash `#/invite/accept` → `InviteAcceptScreen` → sets Supabase session → `POST /api/invite/complete` → DB RPC `complete_staff_invite()` generates `school_generated_id` → welcome → dashboard.
+**Invite accept:** Hash `#/invite/accept` → `InviteAcceptScreen` → sets the backend database session → `POST /api/invite/complete` → DB RPC `complete_staff_invite()` generates `school_generated_id` → welcome → dashboard.
 
 ### JWT Structure
 

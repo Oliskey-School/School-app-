@@ -2,16 +2,10 @@ import '@testing-library/jest-dom';
 import { vi } from 'vitest';
 import './lib/i18n'; // initialize translations so t() resolves to English in tests
 
-// Global API and Supabase mock
+// Global API mock
 vi.mock('./lib/api', () => {
-    const mockSupabase = {
-        auth: {
-            getSession: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
-            getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: null }),
-            onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
-            signInWithPassword: vi.fn().mockResolvedValue({ data: { user: null, session: null }, error: null }),
-            signOut: vi.fn().mockResolvedValue({ error: null }),
-        },
+    // Chainable REST query-builder stub (mirrors api.from('table')...).
+    const mockDb = {
         from: vi.fn(() => ({
             select: vi.fn(() => ({
                 eq: vi.fn().mockReturnThis(),
@@ -29,21 +23,10 @@ vi.mock('./lib/api', () => {
             delete: vi.fn(() => ({ eq: vi.fn().mockResolvedValue({ data: [], error: null }) })),
             upsert: vi.fn().mockResolvedValue({ data: [], error: null }),
         })),
-        channel: vi.fn(() => {
-            const mockChannel = {
-                on: vi.fn(() => mockChannel),
-                subscribe: vi.fn(() => mockChannel),
-            };
-            return mockChannel;
-        }),
-        removeChannel: vi.fn(),
-        rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
-        functions: {
-            invoke: vi.fn().mockResolvedValue({ data: null, error: null }),
-        }
     };
 
     const mockApi = {
+        ...mockDb,
         getStudents: vi.fn().mockResolvedValue([]),
         getTeacherAnalytics: vi.fn().mockResolvedValue([]),
         getClasses: vi.fn().mockResolvedValue([]),
@@ -66,9 +49,7 @@ vi.mock('./lib/api', () => {
 
     return {
         api: mockApi,
-        supabase: mockSupabase,
         default: mockApi,
-        isSupabaseConfigured: false,
     };
 });
 

@@ -6,21 +6,21 @@ This guide will help you apply the migration and test the new school onboarding 
 
 ## Step 1: Apply Database Migration
 
-### Option A: Using Supabase CLI (Recommended)
+### Option A: Using the migration CLI (Recommended)
 
 ```bash
 cd c:\Users\USER\OneDrive\Desktop\Project\school-app-
 
-# Make sure you're connected to your Supabase project
-npx supabase link --project-ref your-project-ref
+# Make sure you're connected to your the database
+# (migrations are applied with the Prisma CLI — see below)
 
 # Apply the migration
-npx supabase db push
+npm run db:migrate
 ```
 
-### Option B: Manual Application via Supabase Dashboard
+### Option B: Manual Application via the database admin tool
 
-1. Go to https://app.supabase.com
+1. Go to (your database admin tool)
 2. Select your project
 3. Navigate to **SQL Editor**
 4. Click **New Query**
@@ -33,7 +33,7 @@ npx supabase db push
 
 ### Run Verification Script
 
-In Supabase SQL Editor:
+In the database SQL editor:
 
 ```bash
 # Copy and run the verification script
@@ -58,11 +58,11 @@ Add service role key to your backend `.env`:
 ```bash
 # Open backend/.env (or create if not exists)
 # Add this line:
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
+DATABASE_URL=your_service_role_key_here
 ```
 
 **Where to find your service role key:**
-1. Supabase Dashboard → Settings → API
+1. the database admin tool → Settings → API
 2. Copy the `service_role` secret key
 
 ---
@@ -190,7 +190,7 @@ Click **"Send Invitation"**
 
 ### Check Created Records
 
-Run in Supabase SQL Editor:
+Run in the database SQL editor:
 
 ```sql
 -- 1. Verify school was created
@@ -216,8 +216,8 @@ WHERE email = 'teacher@testacademy.com';
 
 ## Troubleshooting
 
-### Issue: "Missing Supabase credentials"
-**Fix:** Check `SUPABASE_SERVICE_ROLE_KEY` in backend/.env
+### Issue: "Missing database credentials"
+**Fix:** Check `DATABASE_URL` in backend/.env
 
 ### Issue: Backend API not responding
 **Fix:** 
@@ -229,7 +229,7 @@ curl http://localhost:3001/api/
 
 ### Issue: Invitation email not received
 **Fix:**
-1. Check Supabase email settings (Dashboard → Authentication → Email)
+1. Check the backend database email settings (Dashboard → Authentication → Email)
 2. Verify SMTP is configured
 3. Check spam folder
 
@@ -249,15 +249,15 @@ After successful testing:
 
 1. **Deploy Backend**
    - Deploy to your hosting service
-   - Set `SUPABASE_SERVICE_ROLE_KEY` in production
+   - Set `DATABASE_URL` in production
    - Update `VITE_APP_URL` to production URL
 
 2. **Configure Production Redirect URLs**
-   - Supabase Dashboard → Authentication → URL Configuration
+   - the database admin tool → Authentication → URL Configuration
    - Add: `https://yourdomain.com/#/auth/callback`
 
 3. **Customize Email Templates**
-   - Supabase Dashboard → Authentication → Email Templates
+   - the database admin tool → Authentication → Email Templates
    - Customize invitation and verification emails
 
 4. **Test All 8 Roles**
@@ -282,7 +282,7 @@ After successful testing:
 
 **Frontend:** http://localhost:5173
 **Backend API:** http://localhost:3001/api
-**Supabase Dashboard:** https://app.supabase.com
+**the database admin tool:** (your database admin tool)
 
 **Test Accounts:**
 - Admin: admin@testacademy.com / SecurePass123!

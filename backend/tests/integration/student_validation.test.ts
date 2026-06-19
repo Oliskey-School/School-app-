@@ -2,23 +2,6 @@ import request from 'supertest';
 import { app } from '../../src/app';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Mock Supabase to avoid real DB calls
-vi.mock('../../src/config/supabase', () => ({
-    supabase: {
-        auth: {
-            admin: {
-                createUser: vi.fn()
-            }
-        },
-        from: vi.fn().mockReturnThis(),
-        insert: vi.fn().mockReturnThis(),
-        select: vi.fn().mockReturnThis(),
-        single: vi.fn().mockReturnThis(),
-        update: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis()
-    }
-}));
-
 // Mock Auth Middleware to provide a school context
 vi.mock('../../src/middleware/auth.middleware', () => ({
     authenticate: (req: any, res: any, next: any) => {

@@ -11,9 +11,6 @@ const getBaseUrl = (type: 'api' | 'socket') => {
 
     const envUrl = type === 'api' ? (import.meta.env as any).VITE_API_URL : (import.meta.env as any).VITE_SOCKET_URL;
 
-    const RAILWAY_API = 'https://school-app-production-a59a.up.railway.app/api';
-    const RAILWAY_SOCKET = 'https://school-app-production-a59a.up.railway.app';
-
     const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
     const defaultSameOrigin = currentOrigin ? (type === 'api' ? `${currentOrigin}/api` : currentOrigin) : '';
 
@@ -24,7 +21,8 @@ const getBaseUrl = (type: 'api' | 'socket') => {
             const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
             url = type === 'api' ? `http://${hostname}:5000/api` : `http://${hostname}:5000`;
         } else {
-            url = type === 'api' ? RAILWAY_API : RAILWAY_SOCKET;
+            // Production default: served same-origin behind the reverse proxy (nginx).
+            url = type === 'api' ? '/api' : '';
         }
     }
 

@@ -151,7 +151,7 @@ Auth, students, teachers, parents, users, classes, subjects, pending-approvals, 
 | Admin endpoint coverage | 78% | **100% on 69 tested paths** | +22 |
 | Mock data in production paths | 3 known | **0 known** in admin scope | — |
 | Backend schema drift | High | **Low** — backend schema now has StudentIDCard, PaymentPlan, Installment, StoreProduct, StoreOrder, StoreOrderItem | — |
-| RLS (DB layer) | 35% | 35% | — (still requires helper-function fix + Supabase deploy) |
+| RLS (DB layer) | 35% | 35% | — (still requires helper-function fix + the backend database deploy) |
 | Production hygiene | 65% | 65% | — |
 | **Overall Admin readiness** | **77%** | **~88%** | **+11** |
 
@@ -211,9 +211,9 @@ DB check: victim product still exists in school 2 ✓
 
 1. **`npm run db:push`** — sync local DB schema so `StudentIDCard` table exists. Fixes `/api/id-cards` 500.
 2. **Build store backend** — add `/api/store/products` and `/api/store/orders` routes + Prisma models. ~1 session of work. UI is already wired to consume it.
-3. **Apply RLS in production** — fix helper functions in `add_comprehensive_rls_policies.sql`, run both migrations on Supabase prod.
+3. **Apply RLS in production** — fix helper functions in `add_comprehensive_rls_policies.sql`, run both migrations on production.
 4. **Re-enable email verification** in `VerifiedAdminRoute.tsx` (single-line revert; awaits your approval).
-5. **Move plaintext secrets** from `.env` to Railway env vars.
+5. **Move plaintext secrets** from `.env` to the server environment.
 6. **Per-feature strict E2E with cross-tenant negative test** for the remaining ~120 features — pattern is identical to what I demonstrated on hostel/student/teacher/parent.
 
 ---

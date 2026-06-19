@@ -407,7 +407,7 @@ describe('Student Service - Isolation', () => {
 
 ## RLS Policies + App-Level Scoping
 
-The scoping wrappers work in tandem with Supabase RLS policies:
+The scoping wrappers work in tandem with Prisma-enforced scoping:
 
 1. **RLS (Database Layer)**: Enforces isolation if someone directly queries the database
 2. **Query Scoping (App Layer)**: Prevents queries from ever requesting cross-tenant data

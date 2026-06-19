@@ -41,7 +41,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
 
     // Auto-sync profile data when any user-related table changes
     useAutoSync(['teachers', 'students', 'parents', 'users'], () => {
-        console.log('🔄 [DashboardLayout] Sync event detected, refreshing profile...');
+        console.log('ðŸ”„ [DashboardLayout] Sync event detected, refreshing profile...');
         refreshProfile();
     });
 
@@ -68,13 +68,13 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
     const formatId = (id: string | null | undefined) => {
         if (!id) return '';
 
-        // A fully-formed global ID (SCHOOL_BRANCH_ROLE_NNNN) is the source of truth —
+        // A fully-formed global ID (SCHOOL_BRANCH_ROLE_NNNN) is the source of truth â€”
         // show it EXACTLY as stored, for every branch. We must NOT re-fabricate it:
         // regenerating with hardcoded OLISKEY/MAIN produced wrong IDs (e.g.
         // oliskey_main_STU_0001) for members who actually belong to another branch.
         if (id.split('_').length >= 4) return id;
 
-        // No properly-formed ID available — show what we have rather than inventing one.
+        // No properly-formed ID available â€” show what we have rather than inventing one.
         return id;
     };
 
@@ -174,7 +174,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
             {/* Main Content Area */}
             <div className={`flex-1 flex flex-col h-screen w-full ${!hideSidebar ? 'lg:ml-64' : ''} overflow-hidden min-w-0 relative`}>
 
-                {/* Demo Banner — visible in demo mode */}
+                {/* Demo Banner â€” visible in demo mode */}
                 {isDemo && (
                     <div className="flex-shrink-0 bg-gradient-to-r from-blue-700 to-indigo-700 text-white px-4 py-2 flex items-center justify-between gap-2 text-xs font-medium z-30">
                         <span className="flex items-center gap-1.5">
@@ -196,7 +196,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
                 {!hideHeader && (
                     <Header
                         title={title || 'Dashboard'}
-                        // Use profile.avatar_url (live state) -> fallback to top-level user field -> Supabase metadata -> empty
+                        // Use profile.avatar_url (live state) -> fallback to top-level user field -> auth metadata -> empty
                         avatarUrl={profile?.avatar_url || user?.avatar_url || user?.user_metadata?.avatar_url || ''}
                         bgColor={theme?.mainBg || 'bg-blue-700'}
                         onLogout={handleLogout}
@@ -223,9 +223,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
                     {getBottomNav()}
                 </nav>
 
-                {/* Demo Role Switcher Pill — REMOVED PER USER REQUEST */}
+                {/* Demo Role Switcher Pill â€” REMOVED PER USER REQUEST */}
             </div>
-            {/* Single, ALWAYS-VISIBLE install banner for the web version — it stays on screen
+            {/* Single, ALWAYS-VISIBLE install banner for the web version â€” it stays on screen
                 until the app is installed (then self-hides). The one-time pop-up card was
                 removed so there is exactly one, persistent install entry point. */}
             <InstallAppButton />

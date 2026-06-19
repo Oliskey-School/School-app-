@@ -27,7 +27,7 @@ const SecuritySettingsScreen: React.FC = () => {
             if (!currentSchool?.id) return;
             try {
                 // Use the real audit-logs endpoint (school + branch scoped on the
-                // backend). The old Supabase-style query builder isn't supported here.
+                // backend). The old chained query builder isn't supported here.
                 const logs = await api.getAuditLogs(currentSchool.id, 20, currentBranchId || undefined);
                 const loginLogs = (logs || []).filter((log: any) =>
                     /login|token/i.test(log.action || log.type || '')
@@ -58,7 +58,7 @@ const SecuritySettingsScreen: React.FC = () => {
         setIsLoading(true);
         try {
             // Persist via the real schools endpoint instead of the unsupported
-            // Supabase-style .from().update().eq() chain (which threw
+            // Chained .from().update().eq() builder (which threw
             // "api.from(...).update(...).eq is not a function").
             await api.updateSchool(currentSchool.id, {
                 settings: {

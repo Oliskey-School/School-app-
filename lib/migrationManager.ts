@@ -45,11 +45,11 @@ const migrations: Migration[] = [
         version: 1,
         name: 'Initial schema',
         up: async () => {
-            console.log('✅ Schema v1: Initial setup complete');
+            console.log('âœ… Schema v1: Initial setup complete');
         },
         down: async () => {
             await offlineDB.clearAll();
-            console.log('✅ Schema v1: Rollback complete');
+            console.log('âœ… Schema v1: Rollback complete');
         }
     },
     // Add future migrations here
@@ -71,16 +71,16 @@ const migrations: Migration[] = [
 export async function runMigrations(): Promise<void> {
     const currentVersion = getCurrentSchemaVersion();
 
-    console.log(`📦 Current schema version: ${currentVersion}`);
-    console.log(`📦 Target schema version: ${CURRENT_SCHEMA_VERSION}`);
+    console.log(`ðŸ“¦ Current schema version: ${currentVersion}`);
+    console.log(`ðŸ“¦ Target schema version: ${CURRENT_SCHEMA_VERSION}`);
 
     if (currentVersion === CURRENT_SCHEMA_VERSION) {
-        console.log('✅ Schema is up to date');
+        console.log('âœ… Schema is up to date');
         return;
     }
 
     if (currentVersion > CURRENT_SCHEMA_VERSION) {
-        console.warn('⚠️ Schema version is newer than expected! Consider rolling back.');
+        console.warn('âš ï¸ Schema version is newer than expected! Consider rolling back.');
         return;
     }
 
@@ -88,19 +88,19 @@ export async function runMigrations(): Promise<void> {
     const pendingMigrations = migrations.filter((m) => m.version > currentVersion);
 
     for (const migration of pendingMigrations) {
-        console.log(`🔄 Running migration ${migration.version}: ${migration.name}`);
+        console.log(`ðŸ”„ Running migration ${migration.version}: ${migration.name}`);
 
         try {
             await migration.up();
             setSchemaVersion(migration.version);
-            console.log(`✅ Migration ${migration.version} complete`);
+            console.log(`âœ… Migration ${migration.version} complete`);
         } catch (error) {
-            console.error(`❌ Migration ${migration.version} failed:`, error);
+            console.error(`âŒ Migration ${migration.version} failed:`, error);
             throw new Error(`Migration ${migration.version} failed: ${error}`);
         }
     }
 
-    console.log('✅ All migrations complete');
+    console.log('âœ… All migrations complete');
 }
 
 /**
@@ -110,7 +110,7 @@ export async function rollbackToVersion(targetVersion: number): Promise<void> {
     const currentVersion = getCurrentSchemaVersion();
 
     if (targetVersion >= currentVersion) {
-        console.warn('⚠️ Target version is same or newer');
+        console.warn('âš ï¸ Target version is same or newer');
         return;
     }
 
@@ -120,19 +120,19 @@ export async function rollbackToVersion(targetVersion: number): Promise<void> {
         .reverse();
 
     for (const migration of migrationsToRollback) {
-        console.log(`🔄 Rolling back migration ${migration.version}: ${migration.name}`);
+        console.log(`ðŸ”„ Rolling back migration ${migration.version}: ${migration.name}`);
 
         try {
             await migration.down();
             setSchemaVersion(migration.version - 1);
-            console.log(`✅ Rollback ${migration.version} complete`);
+            console.log(`âœ… Rollback ${migration.version} complete`);
         } catch (error) {
-            console.error(`❌ Rollback ${migration.version} failed:`, error);
+            console.error(`âŒ Rollback ${migration.version} failed:`, error);
             throw new Error(`Rollback ${migration.version} failed: ${error}`);
         }
     }
 
-    console.log(`✅ Rolled back to version ${targetVersion}`);
+    console.log(`âœ… Rolled back to version ${targetVersion}`);
 }
 
 // ============================================================================
@@ -148,11 +148,11 @@ export async function initialDataHydration(
     const isFirstLoad = getCurrentSchemaVersion() === 0;
 
     if (!isFirstLoad) {
-        console.log('ℹ️ Not first load, skipping initial hydration');
+        console.log('â„¹ï¸ Not first load, skipping initial hydration');
         return;
     }
 
-    console.log('🌊 Starting initial data hydration...');
+    console.log('ðŸŒŠ Starting initial data hydration...');
 
     try {
         onProgress?.(10, 'Initializing database...');
@@ -172,9 +172,9 @@ export async function initialDataHydration(
 
         onProgress?.(100, 'Complete!');
 
-        console.log('✅ Initial hydration complete');
+        console.log('âœ… Initial hydration complete');
     } catch (error) {
-        console.error('❌ Initial hydration failed:', error);
+        console.error('âŒ Initial hydration failed:', error);
         throw error;
     }
 }
@@ -205,16 +205,16 @@ export async function optimizedHydrationForLargeSchool(
     schoolId: string,
     daysToCache: number = 30
 ): Promise<void> {
-    console.log(`🏫 Optimized hydration for large school: ${schoolId} (last ${daysToCache} days)`);
+    console.log(`ðŸ« Optimized hydration for large school: ${schoolId} (last ${daysToCache} days)`);
 
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysToCache);
 
-    // This would be implemented with specific Supabase queries
+    // This would be implemented with specific backend queries
     // For now, just trigger normal sync
     await syncEngine.triggerSync();
 
-    console.log('✅ Optimized hydration complete');
+    console.log('âœ… Optimized hydration complete');
 }
 
 // ============================================================================
@@ -248,7 +248,7 @@ export function setFeatureFlags(flags: Partial<FeatureFlags>): void {
     const current = getFeatureFlags();
     const updated = { ...current, ...flags };
     localStorage.setItem('feature_flags', JSON.stringify(updated));
-    console.log('🚩 Feature flags updated:', updated);
+    console.log('ðŸš© Feature flags updated:', updated);
 }
 
 /**
@@ -256,7 +256,7 @@ export function setFeatureFlags(flags: Partial<FeatureFlags>): void {
  */
 export function disableOfflineMode(): void {
     setFeatureFlags({ offlineMode: false });
-    console.warn('⚠️ Offline mode DISABLED');
+    console.warn('âš ï¸ Offline mode DISABLED');
 }
 
 /**
@@ -264,7 +264,7 @@ export function disableOfflineMode(): void {
  */
 export function enableOfflineMode(): void {
     setFeatureFlags({ offlineMode: true });
-    console.log('✅ Offline mode ENABLED');
+    console.log('âœ… Offline mode ENABLED');
 }
 
 /**
@@ -282,7 +282,7 @@ export function isOfflineModeEnabled(): boolean {
  * Complete rollback - clear all offline data and force re-hydration
  */
 export async function completeRollback(): Promise<void> {
-    console.warn('⚠️ Performing complete rollback...');
+    console.warn('âš ï¸ Performing complete rollback...');
 
     try {
         // Clear all offline data
@@ -297,9 +297,9 @@ export async function completeRollback(): Promise<void> {
         // Reset feature flags
         setFeatureFlags(DEFAULT_FLAGS);
 
-        console.log('✅ Complete rollback successful. Please refresh the app.');
+        console.log('âœ… Complete rollback successful. Please refresh the app.');
     } catch (error) {
-        console.error('❌ Rollback failed:', error);
+        console.error('âŒ Rollback failed:', error);
         throw error;
     }
 }
@@ -310,7 +310,7 @@ export async function completeRollback(): Promise<void> {
 export async function forceRehydration(
     onProgress?: (progress: number, message: string) => void
 ): Promise<void> {
-    console.log('🔄 Forcing re-hydration...');
+    console.log('ðŸ”„ Forcing re-hydration...');
 
     try {
         // Clear existing data
@@ -322,9 +322,9 @@ export async function forceRehydration(
         // Perform initial hydration
         await initialDataHydration(onProgress);
 
-        console.log('✅ Re-hydration complete');
+        console.log('âœ… Re-hydration complete');
     } catch (error) {
-        console.error('❌ Re-hydration failed:', error);
+        console.error('âŒ Re-hydration failed:', error);
         throw error;
     }
 }

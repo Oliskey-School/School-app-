@@ -1,6 +1,6 @@
 # School App Backend
 
-This repository contains the backend logic, database migrations, and Supabase configuration for the School App.
+This repository contains the backend logic, database migrations, and Prisma configuration for the School App.
 
 ## Directory Structure
 - `supabase/migrations`: Database schema changes.
@@ -11,11 +11,11 @@ This repository contains the backend logic, database migrations, and Supabase co
 
 1.  **Environment Setup**:
     -   Copy `.env.local` to `.env`.
-    -   Ensure `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` are set.
+    -   Ensure `DATABASE_URL` (PostgreSQL connection string) and `JWT_SECRET` are set.
 
 2.  **Database Migration**:
     -   We have consolidated migrations 0050-0066 into `0050_baseline_migration.sql`.
-    -   Run `supabase db push` to apply changes.
+    -   Run `npm run db:migrate` to apply changes (Prisma).
 
 3.  **Critical Fixes**:
     -   Run `fix_critical_bugs.sql` immediately after deployment to resolve known security and performance issues (554 items) and fix the `users_pkey` sequence error.

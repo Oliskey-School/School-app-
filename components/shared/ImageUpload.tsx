@@ -15,7 +15,7 @@ interface ImageUploadProps {
 
 /**
  * ImageUpload Component
- * Drag-and-drop or click to upload images to Supabase Storage
+ * Drag-and-drop or click to upload images
  * Features: Preview, validation, loading states, glassmorphism design
  */
 export const ImageUpload: React.FC<ImageUploadProps> = ({
@@ -54,7 +54,7 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
             };
             reader.readAsDataURL(file);
 
-            // Upload to Supabase
+            // Upload
             const url = await uploadImage(file, bucket, folder);
             onChange(url);
         } catch (err: any) {

@@ -12,7 +12,7 @@ const start = async () => {
     // This ensures health checks pass and "Failed to fetch" errors are avoided even if DB is down.
     try {
         const httpServer = http.createServer((req, res) => {
-            // raw log for Railway debugging
+            // raw request log for debugging
             console.log(`📡 [RAW-HTTP] ${req.method} ${req.url} - Origin: ${req.headers.origin}`);
             return app(req, res);
         });
@@ -106,7 +106,7 @@ const start = async () => {
                         console.log('✅ [Production] Database migrations up to date.');
                     } catch (migrationErr: any) {
                         console.error('⚠️ [Production] Migration failed or skipped:', migrationErr.message);
-                        console.log('   💡 Advice: Check if DIRECT_URL is set in Railway. Continuing to seeder...');
+                        console.log('   💡 Advice: Check if DIRECT_URL is set in the environment. Continuing to seeder...');
                     }
                 }
 

@@ -38,14 +38,14 @@ export async function clearStaleCache(maxAgeDays: number = 30): Promise<number> 
         }
     }
 
-    console.log(`🧹 Cleared ${clearedCount} stale cache records`);
+    console.log(`ðŸ§¹ Cleared ${clearedCount} stale cache records`);
     return clearedCount;
 }
 
 /**
  * Clear all caches on logout
  * NOTE: Disabled global wipe to prevent affecting other active sessions in the same browser (multi-tab isolation).
- * Supabase auth now uses sessionStorage, so tab isolation is handled there.
+ * Auth now uses sessionStorage, so tab isolation is handled there.
  */
 export async function clearAllCachesOnLogout(): Promise<void> {
     try {
@@ -55,7 +55,7 @@ export async function clearAllCachesOnLogout(): Promise<void> {
         } catch (dbError: any) {
             // Silently handle IndexedDB errors (object store not found, etc.)
             if (dbError?.name === 'NotFoundError' || dbError?.message?.includes('object store')) {
-                console.log('⏭️ Skipping IndexedDB clear (database not initialized)');
+                console.log('â­ï¸ Skipping IndexedDB clear (database not initialized)');
             } else {
                 console.warn('Failed to clear offlineDB:', dbError);
             }
@@ -75,7 +75,7 @@ export async function clearAllCachesOnLogout(): Promise<void> {
         }
 
         keysToRemove.forEach(key => localStorage.removeItem(key));
-        console.log(`🧹 Cleared ${keysToRemove.length} local storage items`);
+        console.log(`ðŸ§¹ Cleared ${keysToRemove.length} local storage items`);
     } catch (e) {
         console.warn('Failed to clear localStorage:', e);
     }
@@ -87,11 +87,11 @@ export async function clearAllCachesOnLogout(): Promise<void> {
 export async function checkAndCleanStorage(): Promise<void> {
     const quota = await getStorageQuota();
 
-    console.log(`📊 Storage: ${formatBytes(quota.usage)} / ${formatBytes(quota.quota)} (${quota.percentUsed.toFixed(1)}%)`);
+    console.log(`ðŸ“Š Storage: ${formatBytes(quota.usage)} / ${formatBytes(quota.quota)} (${quota.percentUsed.toFixed(1)}%)`);
 
     // Warn if over 80%
     if (quota.percentUsed >= 80) {
-        console.warn('⚠️ Storage quota > 80%, cleaning stale cache...');
+        console.warn('âš ï¸ Storage quota > 80%, cleaning stale cache...');
 
         // Clear stale data (>30 days)
         let cleared = await clearStaleCache(30);
@@ -99,18 +99,18 @@ export async function checkAndCleanStorage(): Promise<void> {
         // If still over 80%, clear older data (>14 days)
         const newQuota = await getStorageQuota();
         if (newQuota.percentUsed >= 80) {
-            console.warn('⚠️ Still over 80%, clearing 14-day-old cache...');
+            console.warn('âš ï¸ Still over 80%, clearing 14-day-old cache...');
             cleared += await clearStaleCache(14);
         }
 
         // If still over 80%, clear older data (>7 days)
         const finalQuota = await getStorageQuota();
         if (finalQuota.percentUsed >= 80) {
-            console.warn('⚠️ Still over 80%, clearing 7-day-old cache...');
+            console.warn('âš ï¸ Still over 80%, clearing 7-day-old cache...');
             cleared += await clearStaleCache(7);
         }
 
-        console.log(`✅ Cleared ${cleared} records to free space`);
+        console.log(`âœ… Cleared ${cleared} records to free space`);
     }
 }
 
@@ -135,7 +135,7 @@ export async function prioritizeCurrentYearData(currentYear: number): Promise<vo
         }
     }
 
-    console.log(`✅ Prioritized current year (${currentYear}) data`);
+    console.log(`âœ… Prioritized current year (${currentYear}) data`);
 }
 
 /**
@@ -224,23 +224,23 @@ export class CacheCleanupScheduler {
             this.runCleanup();
         }, this.cleanupInterval);
 
-        console.log('🚀 Cache cleanup scheduler started');
+        console.log('ðŸš€ Cache cleanup scheduler started');
     }
 
     stop(): void {
         if (this.intervalId) {
             clearInterval(this.intervalId);
             this.intervalId = null;
-            console.log('⏹️  Cache cleanup scheduler stopped');
+            console.log('â¹ï¸  Cache cleanup scheduler stopped');
         }
     }
 
     private async runCleanup(): Promise<void> {
         try {
             await checkAndCleanStorage();
-            console.log('✅ Scheduled cache cleanup completed');
+            console.log('âœ… Scheduled cache cleanup completed');
         } catch (error) {
-            console.error('❌ Cache cleanup failed:', error);
+            console.error('âŒ Cache cleanup failed:', error);
         }
     }
 

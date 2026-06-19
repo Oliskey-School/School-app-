@@ -34,4 +34,4 @@ Keep answers short and impersonal. Report progress clearly.
 - Run builds/tests automatically after changes.
 
 ## Domain
-School Management System with React frontend, Express backend, Supabase database, multi-tenant architecture.
+School Management System with React frontend, Express backend, the backend database database, multi-tenant architecture.

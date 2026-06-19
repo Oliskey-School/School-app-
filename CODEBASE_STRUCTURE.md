@@ -9,7 +9,7 @@
 *   **Capacitor**: Cross-platform app runtime to wrap the web app into native mobile apps.
 
 ### **Data Management & State**
-*   **Supabase (@supabase/supabase-js)**: Backend-as-a-Service providing Database (PostgreSQL), Auth, and Realtime subscriptions.
+*   **the backend database (Prisma + Express)**: Backend-as-a-Service providing Database (PostgreSQL), Auth, and Realtime subscriptions.
 *   **TanStack Query (React Query)**: Asynchronous state management for data fetching and caching.
 *   **Prisma**: ORM utilized in the backend/migrations for database schema management.
 
@@ -56,7 +56,7 @@
     *   `ui/`: Base design system components (Inputs, Toasts, etc.).
 *   `context/`: React Context providers for global state (Auth, Profiles, Branching, Gamification).
 *   `hooks/`: Custom React hooks for business logic, realtime subscriptions, and offline support.
-*   `services/`: Communication layer for external APIs and Supabase (Student, Auth, Realtime, Finance, Payment services).
+*   `services/`: Communication layer for external APIs and the backend database (Student, Auth, Realtime, Finance, Payment services).
 *   `pages/`: Route-level components for the web app.
 *   `types/`: TypeScript definitions, interfaces, and database schemas.
 *   `supabase/`: Database configuration (Migrations, Edge Functions, SQL scripts).

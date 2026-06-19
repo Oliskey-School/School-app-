@@ -36,26 +36,8 @@ vi.mock('../../../lib/api', () => {
     getNextAdmissionNumber: vi.fn().mockResolvedValue({ admissionNumber: 'ADM-0001' }),
   };
 
-  const mockSupabase = {
-    from: vi.fn().mockReturnValue({
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      order: vi.fn().mockReturnThis(),
-      single: vi.fn(() => ({ data: {}, error: null })),
-      maybeSingle: vi.fn(() => ({ data: {}, error: null })),
-      insert: vi.fn(() => ({ select: vi.fn(() => ({ single: vi.fn(() => ({ data: { id: '123' }, error: null })) })) })),
-      update: vi.fn(() => ({ eq: vi.fn(() => ({ error: null })) })),
-      upsert: vi.fn(() => ({ error: null })),
-    }),
-    auth: {
-      getUser: vi.fn(() => ({ data: { user: { id: '123' } } })),
-    },
-  };
-
   return {
     api: mockApi,
-    supabase: mockSupabase,
-    isSupabaseConfigured: true,
     default: mockApi,
   };
 });
@@ -212,7 +194,7 @@ describe('Admin Security Audit', () => {
       // Expect Upgrade Modal (or logic that stops submission)
       // The component sets `setShowUpgradeModal(true)`. 
       // We can check if the mock tenant limit hook's state was used to block the submission logic.
-      // The best way to check is that Supabase `insert` was NOT called.
+      // The best way to check is that the data-layer `insert` was NOT called.
       expect(api.from).not.toHaveBeenCalledWith('students');
     });
 

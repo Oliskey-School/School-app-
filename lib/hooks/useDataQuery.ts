@@ -18,7 +18,7 @@ interface UseDataQueryReturn<T> {
 }
 
 /**
- * Generic data fetching hook that replaces useSupabaseQuery.
+ * Generic data fetching hook that replaces the legacy query hook.
  * Interfaces with the HybridApiClient's Fluent Query Builder.
  */
 export function useDataQuery<T = any>(options: UseDataQueryOptions<T>): UseDataQueryReturn<T> {

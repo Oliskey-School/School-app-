@@ -516,7 +516,7 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
         // Start multiple parallel flows
         const flows = [];
 
-        // Flow A: Auth User Info (from AuthContext — no Supabase needed)
+        // Flow A: Auth User Info (from AuthContext â€” no extra fetch needed)
         flows.push((async () => {
             if (user?.id) {
                 setCurrentUserId(user.id);
@@ -670,7 +670,7 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
 
     // Expose navigation for automated E2E audits. Clean up on unmount so the
     // global reference never goes stale (consistent with the teacher/student
-    // dashboards) — a full-screen child view that unmounts this dashboard then
+    // dashboards) â€” a full-screen child view that unmounts this dashboard then
     // correctly removes the hook instead of leaving a no-op behind.
     useEffect(() => {
         if (window.__AUDIT_MODE__ || localStorage.getItem('audit_mode') === 'true') {
@@ -683,7 +683,7 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
         };
     }, [navigateTo, viewComponents]);
 
-    // Always resolve to a valid view — never let an empty/corrupt stack crash the dashboard.
+    // Always resolve to a valid view â€” never let an empty/corrupt stack crash the dashboard.
     const currentNavigation = viewStack[viewStack.length - 1]
         || { view: 'dashboard', props: {}, title: 'Dashboard' };
 
@@ -718,7 +718,7 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
             <div className="flex flex-col items-center justify-center h-screen p-6 text-center bg-gray-50">
                 <div className="bg-white p-8 rounded-2xl shadow-lg max-w-md w-full">
                     <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <span className="text-3xl">👪</span>
+                        <span className="text-3xl">ðŸ‘ª</span>
                     </div>
                     <h2 className="text-2xl font-bold text-gray-800 mb-2">Parent Profile Not Found</h2>
                     <p className="text-gray-600 mb-6">

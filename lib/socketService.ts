@@ -19,7 +19,7 @@ class SocketService {
         console.log(`🔌 [SocketService] Connecting to ${SOCKET_URL} for School: ${schoolId}`);
 
         this.socket = io(SOCKET_URL, {
-            transports: ['websocket'], // Force websocket to avoid HTTP polling drops on stateless Railway load balancer 
+            transports: ['websocket'], // Force websocket to avoid HTTP polling drops behind a stateless load balancer
             autoConnect: true,
             reconnection: true,
             reconnectionAttempts: 10,

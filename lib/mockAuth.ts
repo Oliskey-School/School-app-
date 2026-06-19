@@ -1,7 +1,7 @@
 /**
  * Demo account definitions.
- * These map to REAL Supabase auth users in the demo school.
- * All logins use supabase.auth.signInWithPassword() — no mock bypass.
+ * These map to REAL backend auth users in the demo school.
+ * All logins go through the backend auth endpoint â€” no mock bypass.
  *
  * Demo school: d0ff3e95-9b4c-4c12-989c-e5640d3cacd1
  * Demo branch: 7601cbea-e1ba-49d6-b59b-412a584cb94f
@@ -26,7 +26,7 @@ export const DEMO_ACCOUNTS: Record<string, DemoAccount> = {
         email: 'admin@demo.com',
         password: 'password123',
         name: 'School Admin',
-        description: 'Manage the full school — students, teachers, fees, reports',
+        description: 'Manage the full school â€” students, teachers, fees, reports',
         capabilities: ['Add students & teachers', 'Manage fees & payments', 'View all reports', 'Configure school settings'],
         color: 'bg-blue-50 border-blue-200',
         textColor: 'text-blue-700',

@@ -159,7 +159,7 @@ export const initializeFlutterwavePayment = async (config: PaymentConfig) => {
  */
 export const verifyPayment = async (reference: string, gateway: 'paystack' | 'flutterwave') => {
     // In a real app, you would call your Edge Function here to verify with the gateway API
-    // and then update the 'payments' table in Supabase.
+    // and then update the 'payments' table in the database.
 
     console.log(`Verifying ${gateway} payment with reference: ${reference}`);
 

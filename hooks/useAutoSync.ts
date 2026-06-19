@@ -3,7 +3,7 @@ import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 
 /**
- * A reusable hook to create global auto-sync listeners on Supabase.
+ * A reusable hook to create global auto-sync listeners on the backend.
  * Uses the global RealtimeService events for maximum efficiency.
  * 
  * @param tables Array of table names to listen to (e.g., ['students', 'assignments'])
@@ -18,7 +18,7 @@ export const useAutoSync = (tables: string[], onUpdate: () => void) => {
             // '__all__' is a global refresh signal (e.g. a branch switch) that every
             // screen must honor regardless of which tables it normally watches.
             if (table === '__all__' || tables.includes(table) || tables.includes('*')) {
-                console.log(`🔄 [AutoSync Triggered via Global Channel] Table: ${table}`);
+                console.log(`ðŸ”„ [AutoSync Triggered via Global Channel] Table: ${table}`);
                 onUpdate();
             }
         };

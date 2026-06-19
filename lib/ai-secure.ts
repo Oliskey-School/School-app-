@@ -1,7 +1,7 @@
 import { api } from './api';
 
 /**
- * Secure AI call through Supabase Edge Function
+ * Secure AI call through the backend
  * Replaces direct API calls to protect API keys
  */
 export async function callAI(

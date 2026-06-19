@@ -1,4 +1,3 @@
-import { Router } from 'express';
 import { Router, Response } from 'express';
 import { authenticate } from '../middleware/auth.middleware';
 import { requireRole } from '../middleware/tenant.middleware';
@@ -11,7 +10,7 @@ const router = Router();
  * POST /api/invite-user
  * Invites a user to join a school with a specific role
  * Requires admin authentication
- * [LOCAL REFACTOR] Creating user directly in DB instead of Supabase Auth
+ * [LOCAL REFACTOR] Creating user directly in DB instead of an external auth provider
  */
 router.post('/invite-user', authenticate, requireRole(['admin', 'proprietor']), async (req: any, res: Response): Promise<void> => {
     try {

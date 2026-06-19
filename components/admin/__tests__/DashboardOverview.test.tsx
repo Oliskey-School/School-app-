@@ -26,7 +26,7 @@ const mockStats = {
   recentActivity: []
 };
 
-// Note: setupTests.ts already mocks supabase globally now.
+// Note: setupTests.ts already mocks the api module globally now.
 
 describe('DashboardOverview Component', () => {
   it('renders dashboard correctly', async () => {

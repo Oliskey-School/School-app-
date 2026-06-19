@@ -34,14 +34,14 @@ When Claude finishes writing or updating code, it must explain **how the feature
 ### Rules for the post-code explanation:
 - Explain **what the user will see and experience** — what happens when they click, submit, navigate, or interact
 - Explain **the flow**: what triggers what, in plain everyday language
-- Do NOT mention technology names — no React, Supabase, TypeScript, Express, RLS, hooks, queries, middleware, components, or any technical term
+- Do NOT mention technology names — no React, the backend database, TypeScript, Express, RLS, hooks, queries, middleware, components, or any technical term
 - Do NOT explain why a technology was chosen or how it works internally
 - Do NOT list file names, function names, or code structure
 - Keep it **short and conversational** — 3 to 8 sentences is usually enough
 - Write as if explaining to a non-technical school owner who just wants to know: "What does this do and how do I use it?"
 
 ### Example of what Claude must NOT write:
-> "I updated the `StudentService.ts` to use a Supabase RLS-scoped query with a React `useEffect` hook that triggers on branch context change..."
+> "I updated the `StudentService.ts` to use a Prisma-enforced scoping-scoped query with a React `useEffect` hook that triggers on branch context change..."
 
 ### Example of what Claude MUST write:
 > "When a teacher opens the attendance page, they will only see students from their assigned class. After marking attendance and clicking Save, the record is immediately saved and the admin can see it from their dashboard. If the teacher tries to mark attendance for a date that already has a record, they will see a warning before overwriting it."
@@ -93,7 +93,7 @@ This rule applies to every task — bug fixes, new features, backend changes, re
 ### What Claude IS allowed to do (without UI approval):
 - Fix bugs in logic, data fetching, or state management — **without touching any styling**
 - Add backend routes, controllers, or services
-- Update database queries or Supabase logic
+- Update database queries or the backend database logic
 - Add new functionality — but only by **inserting new components** that match the existing design system exactly, never by altering existing ones
 - Refactor TypeScript types or utility functions
 - Write or update tests
@@ -116,7 +116,7 @@ Claude does not proceed until confirmed. Claude does not make "small" or "minor"
 
 ## Project Overview
 
-**Oliskey School Management System** - A multi-tenant SaaS platform for Nigerian schools. It is a PWA (Progressive Web App) with offline-first capabilities, supporting multiple user roles across a React frontend and an Express backend, both connected to Supabase.
+**Oliskey School Management System** - A multi-tenant SaaS platform for Nigerian schools. It is a PWA (Progressive Web App) with offline-first capabilities, supporting multiple user roles across a React frontend and an Express backend, both connected to the database.
 
 ---
 
@@ -167,7 +167,7 @@ A school owner visits the Oliskey platform, tries the fully interactive demo, se
 ### Demo Mode (Try Before You Sign Up)
 - Any visitor can click "Try Demo" and immediately enter a fully working demo school environment
 - The demo is **fully interactive**: the visitor can create students, mark attendance, enter grades, publish notices, assign classes — all real actions on real demo data
-- All four roles share the **same demo school** and **same Supabase realtime subscriptions**: an action by the demo Admin is immediately visible when the visitor switches to the Teacher, Student, or Parent role — no logout needed
+- All four roles share the **same demo school** and **same Socket.io subscriptions**: an action by the demo Admin is immediately visible when the visitor switches to the Teacher, Student, or Parent role — no logout needed
 - A **floating role-switcher pill** is always visible in demo mode: the visitor switches roles with one tap without re-authenticating
 - The demo school data **auto-resets every 24 hours** to a clean baseline state so it is always presentable for new visitors
 - The demo school ID is `d0ff3e95-9b4c-4c12-989c-e5640d3cacd1` (Oliskey Demo School, branch `7601cbea-e1ba-49d6-b59b-412a584cb94f`)
@@ -183,7 +183,7 @@ A school owner visits the Oliskey platform, tries the fully interactive demo, se
 - The backend endpoint `POST /api/schools/onboard` creates the school, branch, and owner user in one transaction and returns the first generated ID
 
 ### Multi-Tenancy & Isolation Rules
-- Every school is completely isolated: School A can never see School B data — enforced by `school_id` scoping on every DB table and Supabase RLS
+- Every school is completely isolated: School A can never see School B data — enforced by `school_id` scoping on every DB table and Prisma-enforced scoping
 - Within a school, branch isolation is enforced: Branch A admin cannot see Branch B data
 - **Main branch admin** (school-level admin) can see and manage **all branches** within their school
 - **Branch admin** can only see their own branch
@@ -275,7 +275,7 @@ npx tsx --tsconfig backend/tsconfig.json node_modules/.bin/vitest run backend/te
 ### Database
 
 ```bash
-# Push Supabase migrations
+# Push database migrations
 npm run db:migrate
 ```
 
@@ -285,8 +285,7 @@ Two separate `.env` files are required:
 
 **Root `.env`** (frontend, Vite):
 ```
-VITE_SUPABASE_URL=
-VITE_SUPABASE_ANON_KEY=
+VITE_API_URL=              # Optional; defaults to same-origin /api behind the proxy
 VITE_GEMINI_API_KEY=       # For AI features
 VITE_PAYSTACK_PUBLIC_KEY=  # For payments
 VITE_FLUTTERWAVE_PUBLIC_KEY=
@@ -296,8 +295,7 @@ VITE_APP_NAME=
 
 **`backend/.env`** (Express server):
 ```
-SUPABASE_URL=
-SUPABASE_SERVICE_KEY=      # Service role key (not anon key)
+DATABASE_URL=              # PostgreSQL connection string (Prisma)
 JWT_SECRET=
 BACKEND_PORT=5000
 ```
@@ -310,24 +308,24 @@ The app runs as two separate processes:
 1. **Frontend**: Vite + React SPA on port 3000. Proxies `/api/*` to `http://localhost:5000`.
 2. **Backend**: Express server on port 5000 (`backend/src/server.ts`).
 
-The frontend uses a **hybrid API client** (`lib/api.ts` → `HybridApiClient`) that can either call Supabase directly (RLS enforced) or go through the Express backend. Most data access uses Supabase directly from the frontend.
+The frontend uses a **hybrid API client** (`lib/api.ts` → `HybridApiClient`) that can either call the backend database directly (RLS enforced) or go through the Express backend. Most data access uses the backend database directly from the frontend.
 
 ### Multi-Tenant Data Model
 
-Every record is scoped by `school_id` and often `branch_id`. Schools can have multiple branches. Supabase RLS policies enforce tenant isolation. The demo school ID is `d0ff3e95-9b4c-4c12-989c-e5640d3cacd1`.
+Every record is scoped by `school_id` and often `branch_id`. Schools can have multiple branches. Prisma-enforced scoping enforce tenant isolation. The demo school ID is `d0ff3e95-9b4c-4c12-989c-e5640d3cacd1`.
 
 ### User Roles & Routing
 
 Roles are defined in `types.ts` as `DashboardType` enum:
 `admin`, `superadmin`, `teacher`, `parent`, `student`, `proprietor`, `inspector`, `examofficer`, `complianceofficer`, `counselor`
 
-`AuthContext` (`context/AuthContext.tsx`) reads the role from `app_metadata.role` in the Supabase JWT. `DashboardRouter` (`components/DashboardRouter.tsx`) lazy-loads the correct dashboard component for each role.
+`AuthContext` (`context/AuthContext.tsx`) reads the role from `app_metadata.role` in the the backend database JWT. `DashboardRouter` (`components/DashboardRouter.tsx`) lazy-loads the correct dashboard component for each role.
 
 ### Authentication Flow
 
-- Real users: Supabase Auth with PKCE flow. Sessions stored in `sessionStorage` with tab-specific keys to prevent cross-tab sync.
+- Real users: the backend auth service with PKCE flow. Sessions stored in `sessionStorage` with tab-specific keys to prevent cross-tab sync.
 - Demo users: Identified by email domain (`@demo.com`, `@school.com`) or `is_demo` metadata. Demo tokens (`demo-auth-token-{role}`) bypass JWT verification in the backend middleware (`backend/src/middleware/auth.middleware.ts`).
-- The backend middleware tries local JWT first, then Supabase's `auth.getUser()` for real tokens.
+- The backend middleware tries local JWT first, then the backend database's `auth.getUser()` for real tokens.
 
 ### Frontend Structure
 
@@ -347,9 +345,8 @@ components/
   shared/                   # Cross-role shared screens
   ui/                       # Generic UI primitives
 lib/
-  supabase.ts               # Supabase client (tab-specific session storage)
-  api.ts                    # HybridApiClient (Supabase + Express)
-  database.ts               # Supabase query helpers
+  api.ts                    # HybridApiClient (REST + chainable query shim over Express)
+  database.ts               # query helpers
   apiHelpers.ts             # Shared fetch utilities, isDemoMode(), getAuthToken()
 ```
 
@@ -360,22 +357,20 @@ backend/src/
   app.ts                    # Express app setup (helmet, rate-limit, CORS, routes)
   server.ts                 # Entry point
   config/env.ts             # Env vars with validation
-  middleware/auth.middleware.ts  # JWT + Supabase token verification
+  middleware/auth.middleware.ts  # JWT token verification
   routes/index.ts           # Mounts all route modules under /api
   routes/*.routes.ts        # Route definitions per domain
   controllers/*.controller.ts  # Request handlers
-  services/*.service.ts     # Business logic (Supabase queries)
+  services/*.service.ts     # Business logic (the backend database queries)
 ```
 
 ### Database Migrations
 
-SQL migrations are in two locations:
-- `supabase/migrations/` — Supabase CLI managed migrations (run with `npm run db:migrate`)
-- `supabase/sql_scripts/` — Ad-hoc scripts run manually in the Supabase SQL Editor
+Database access is via Prisma (`backend/prisma/schema.prisma`); apply changes with `npm run db:migrate`. Legacy SQL migration history lives under `supabase/migrations/` and `supabase/sql_scripts/` (kept for reference).
 
 ### Offline-First Features
 
-On startup (`App.tsx`), the app runs `runMigrations()` (IndexedDB schema), registers a service worker, and initializes `syncEngine` and `cacheCleanupScheduler`. The service worker caches Supabase API responses using a NetworkFirst strategy.
+On startup (`App.tsx`), the app runs `runMigrations()` (IndexedDB schema), registers a service worker, and initializes `syncEngine` and `cacheCleanupScheduler`. The service worker caches API responses using a NetworkFirst strategy.
 
 ### Payments
 

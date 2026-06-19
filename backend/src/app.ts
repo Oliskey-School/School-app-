@@ -109,7 +109,7 @@ app.use(morgan(IS_PROD ? 'combined' : 'dev'));
 //
 //  • STATIC chain (/uploads): a STABLE, nonce-free CSP so the exact same bytes are
 //    returned every time and an upstream cache/CDN can store them. (The SPA itself
-//    is served by Vercel — see vercel.json.)
+//    is served by the reverse proxy / static host — see deploy/nginx.conf.)
 
 // Shared CSP directive sources (everything except the script nonce, which differs per chain).
 const baseCspDirectives: Record<string, any> = {
@@ -117,8 +117,8 @@ const baseCspDirectives: Record<string, any> = {
     // Tailwind runtime + injected <style> blocks need inline styles + Google Fonts.
     styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
     fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
-    imgSrc: ["'self'", "data:", "blob:", "https://api.dicebear.com", "https://*.railway.app", "https://*.supabase.co", "https://cdn-icons-png.flaticon.com"],
-    connectSrc: ["'self'", "https://*.vercel.app", "https://*.railway.app", "https://*.supabase.co", "https://generativelanguage.googleapis.com", "https://api.paystack.co", "https://*.ingest.sentry.io", "wss://*.supabase.co"],
+    imgSrc: ["'self'", "data:", "blob:", "https://api.dicebear.com", "https://cdn-icons-png.flaticon.com"],
+    connectSrc: ["'self'", "https://generativelanguage.googleapis.com", "https://api.paystack.co", "https://*.ingest.sentry.io"],
     // Payment widgets render in iframes.
     frameSrc: ["'self'", "https://js.paystack.co", "https://checkout.flutterwave.com"],
     objectSrc: ["'none'"],

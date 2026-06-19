@@ -3,7 +3,7 @@ import { api } from './api';
 
 /**
  * A custom hook to fetch data from a table and "subscribe" to changes via polling.
- * replaced legacy Supabase Realtime with a polling mechanism.
+ * replaced the legacy realtime layer with a polling mechanism.
  * 
  * @param tableName The name of the table to listen to (e.g., 'students', 'classes')
  * @param selectQuery The columns to select (default: '*')

@@ -19,7 +19,7 @@ export interface AnnouncementPayload {
 export class CommunicationService {
     /**
      * Creates an announcement. 
-     * In production, a Supabase Edge Function triggers Termii and Resend 
+     * In production, a backend job triggers Termii and Resend 
      * on the 'INSERT' event of this table.
      */
     static async sendAnnouncement(payload: AnnouncementPayload, schoolId: string, userId: string) {
