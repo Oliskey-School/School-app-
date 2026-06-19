@@ -116,6 +116,31 @@ class SocketService {
             this.socket = null;
         }
     }
+
+    /** Ensure a connection exists (used by features like Class Battle). */
+    ensure(schoolId?: string): Socket {
+        if (!this.socket) this.initialize(schoolId || this.schoolId || 'anon');
+        return this.socket!;
+    }
+
+    getSocket(): Socket | null {
+        return this.socket;
+    }
+
+    /** Emit an event, optionally with an ack callback (for request/response flows). */
+    emit(event: string, data?: any, ack?: (response: any) => void): void {
+        const s = this.ensure();
+        if (ack) s.emit(event, data, ack);
+        else s.emit(event, data);
+    }
+
+    on(event: string, handler: (...args: any[]) => void): void {
+        this.ensure().on(event, handler);
+    }
+
+    off(event: string, handler?: (...args: any[]) => void): void {
+        this.socket?.off(event, handler);
+    }
 }
 
 export const socketService = new SocketService();

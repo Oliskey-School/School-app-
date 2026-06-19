@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { submitScore, getLeaderboard, getMyScores } from '../controllers/gameScore.controller';
-import { getGames, createGame, deleteGame } from '../controllers/game.controller';
+import { getGames, createGame, deleteGame, seedClassBattles, listClassmates, battleSetup } from '../controllers/game.controller';
 import { authenticate } from '../middleware/auth.middleware';
 
 const router = Router();
@@ -9,6 +9,9 @@ router.use(authenticate);
 
 router.get('/', getGames);
 router.post('/', createGame);
+router.post('/seed-class-battles', seedClassBattles);
+router.get('/classmates', listClassmates);
+router.get('/:id/battle-setup', battleSetup);
 router.delete('/:id', deleteGame);
 router.post('/scores', submitScore);
 router.get('/scores/me', getMyScores);

@@ -57,6 +57,7 @@ const NotificationsScreen = lazyWithRetry(() => import('../shared/NotificationsS
 const QuizzesScreen = lazyWithRetry(() => import('../student/QuizzesScreen'));
 const QuizPlayerScreen = lazyWithRetry(() => import('../student/QuizPlayerScreen'));
 const GamesHubScreen = lazyWithRetry(() => import('./games/GamesHubScreen'));
+const ClassBattleScreen = lazyWithRetry(() => import('./games/ClassBattleScreen'));
 const MathSprintLobbyScreen = lazyWithRetry(() => import('./games/MathSprintLobbyScreen'));
 const MathSprintGameScreen = lazyWithRetry(() => import('./games/MathSprintGameScreen'));
 const MathSprintResultsScreen = lazyWithRetry(() => import('./games/MathSprintResultsScreen'));
@@ -633,6 +634,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
         quizzes: QuizzesScreen,
         quizPlayer: QuizPlayerScreen,
         gamesHub: GamesHubScreen,
+        classBattle: ClassBattleScreen,
         mathSprintLobby: MathSprintLobbyScreen,
         mathSprintGame: MathSprintGameScreen,
         mathSprintResults: MathSprintResultsScreen,
@@ -717,7 +719,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
     const currentNavigation = viewStack[viewStack.length - 1] || { view: 'home', title: 'Home' };
     const ComponentToRender = viewComponents[currentNavigation.view as keyof typeof viewComponents];
 
-    const isFullScreen = ['chat', 'mathSprintGame', 'geoGuesserGame', 'codeChallengeGame', 'gamePlayer', 'peekabooLetters', 'mathBattleArena', 'cbtExamGame', 'cbtPlayer', 'countingShapesTap', 'simonSays', 'alphabetFishing', 'beanBagToss', 'redLightGreenLight', 'spellingSparkle', 'vocabularyAdventure', 'virtualScienceLab', 'debateDash', 'geometryJeopardy', 'sharkTank', 'physicsLab', 'stockMarket', 'cbtExamGame', 'vocabularyPictionary', 'simpleMachineHunt', 'historicalHotSeat'].includes(currentNavigation.view);
+    const isFullScreen = ['chat', 'classBattle', 'mathSprintGame', 'geoGuesserGame', 'codeChallengeGame', 'gamePlayer', 'peekabooLetters', 'mathBattleArena', 'cbtExamGame', 'cbtPlayer', 'countingShapesTap', 'simonSays', 'alphabetFishing', 'beanBagToss', 'redLightGreenLight', 'spellingSparkle', 'vocabularyAdventure', 'virtualScienceLab', 'debateDash', 'geometryJeopardy', 'sharkTank', 'physicsLab', 'stockMarket', 'cbtExamGame', 'vocabularyPictionary', 'simpleMachineHunt', 'historicalHotSeat'].includes(currentNavigation.view);
 
     return (
         <GamificationProvider studentId={student?.id}>

@@ -1,5 +1,6 @@
-import { Server as SocketIOServer } from 'socket.io';
+import { Server as SocketIOServer, Socket } from 'socket.io';
 import { Server as HTTPServer } from 'http';
+import { registerClassBattle } from './classBattleSocket';
 
 export class SocketService {
   private static io: SocketIOServer | null = null;
@@ -13,13 +14,16 @@ export class SocketService {
       transports: ['websocket', 'polling']
     });
 
-    this.io.on('connection', (socket) => {
+    this.io.on('connection', (socket: Socket) => {
       console.log(`🔌 Socket connected: ${socket.id}`);
 
       socket.on('join-school', (schoolId: string) => {
         socket.join(`school:${schoolId}`);
         console.log(`🏫 Socket ${socket.id} joined school: ${schoolId}`);
       });
+
+      // Multiplayer "Class Battle" game rooms (create / join / play / score).
+      registerClassBattle(this.io!, socket);
 
       socket.on('disconnect', () => {
         console.log(`🔌 Socket disconnected: ${socket.id}`);

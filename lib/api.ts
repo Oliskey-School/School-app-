@@ -2726,6 +2726,25 @@ class ExpressApiClient {
         }
     }
 
+    /** Create/refresh the per-class "Class Battle" games for this school. */
+    async seedClassBattles(): Promise<any> {
+        return this.post('/games/seed-class-battles', {});
+    }
+
+    /** Classmates the student can invite to a battle. */
+    async getClassmates(): Promise<any[]> {
+        try {
+            return await this.get('/games/classmates');
+        } catch {
+            return [];
+        }
+    }
+
+    /** Lobby setup (subjects + grade) for a stored Class Battle game. */
+    async getBattleSetup(gameId: string): Promise<any> {
+        return this.get(`/games/${gameId}/battle-setup`);
+    }
+
     // ============================================
     // BEHAVIOR & DISCIPLINE
     // ============================================

@@ -1822,6 +1822,9 @@ model EducationalGame {
   metadata    Json?
   teacher_id  String
   school_id   String
+  class_id    String?
+  subject     String?
+  grade       Int?
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
   school      School   @relation(fields: [school_id], references: [id])

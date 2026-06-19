@@ -82,7 +82,8 @@ const LevelAccordion: React.FC<{ level: string; games: EducationalGame[]; defaul
                                     key={index}
                                     game={game}
                                     onClick={() => {
-                                        if (game.gameName === 'Math Sprint') navigateTo('mathSprintLobby', 'Math Sprint', { student });
+                                        if (game.gameName?.startsWith('Class Battle')) navigateTo('classBattle', game.gameName, { student, gameId: (game as any).id, subject: game.subject });
+                                        else if (game.gameName === 'Math Sprint') navigateTo('mathSprintLobby', 'Math Sprint', { student });
                                         else if (game.gameName === 'Peekaboo Letters') navigateTo('peekabooLetters', 'Peekaboo Letters');
                                         else if (game.gameName === 'Math Battle Arena') navigateTo('mathBattleArena', 'Math Battle Arena');
                                         else if (game.gameName === 'CBT Exam Master') navigateTo('cbtExamGame', 'CBT Exam Master');
@@ -199,7 +200,7 @@ const GamesHubScreen: React.FC<GamesHubScreenProps> = ({ navigateTo, student }) 
                 const mappedGames: EducationalGame[] = data.map((g: any) => ({
                     id: g.id,
                     gameName: g.title,
-                    subject: g.game_type,
+                    subject: g.game_type === 'ClassBattle' ? (g.config?.className || 'Class Battle') : g.game_type,
                     level: g.config?.level || 'Junior Secondary (12-14 years)',
                     mode: g.config?.mode || 'Both',
                     howToPlay: g.config?.howToPlay || g.description,
