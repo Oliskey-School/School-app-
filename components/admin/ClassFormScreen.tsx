@@ -15,7 +15,10 @@ interface ClassFormScreenProps {
 
 const ClassFormScreen: React.FC<ClassFormScreenProps> = ({ classToEdit, schoolId, currentBranchId, handleBack, forceUpdate }) => {
     const [name, setName] = useState(classToEdit?.name || '');
-    const [level, setLevel] = useState(classToEdit?.level || 'Primary');
+    // The class is saved with `level_category` (the canonical column); `level` is the
+    // deprecated alias. Read level_category first so the saved Level shows on re-open
+    // instead of always defaulting back to "Primary".
+    const [level, setLevel] = useState(classToEdit?.level_category || classToEdit?.level || 'Primary');
     const [grade, setGrade] = useState(classToEdit?.grade.toString() || '');
     const [section, setSection] = useState(classToEdit?.section || '');
     const [department, setDepartment] = useState(classToEdit?.department || '');
