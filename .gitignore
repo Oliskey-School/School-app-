@@ -93,3 +93,6 @@ test_output_utf8.txt
 
 # Server-side translation cache (regenerated at runtime)
 backend/.cache/
+
+# Graphify local knowledge graph (regenerate with: graphify update .)
+graphify-out/
