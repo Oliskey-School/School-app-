@@ -29,10 +29,19 @@ export class AttendanceService {
 
     static async saveAttendance(schoolId: string, branchId: string | undefined, records: any[]) {
         // records: { student_id, class_id, date, status, notes }
+        const scopedBranch = branchId && branchId !== 'all' ? branchId : null;
         return await prisma.$transaction(async (tx) => {
             const results = [];
             for (const record of records) {
                 const dateObj = new Date(record.date);
+                // school_id is required on Attendance; resolve the branch from the
+                // class when the caller didn't pass an explicit one, so the row is
+                // correctly tenant- and branch-scoped.
+                let branchForRow = scopedBranch ?? record.branch_id ?? null;
+                if (!branchForRow && record.class_id) {
+                    const cls = await tx.class.findUnique({ where: { id: record.class_id }, select: { branch_id: true } });
+                    branchForRow = cls?.branch_id ?? null;
+                }
                 const result = await tx.attendance.upsert({
                     where: {
                         student_id_class_id_date: {
@@ -46,7 +55,9 @@ export class AttendanceService {
                         class_id: record.class_id,
                         date: dateObj,
                         status: record.status,
-                        remark: record.notes
+                        remark: record.notes,
+                        school_id: schoolId,
+                        branch_id: branchForRow
                     },
                     update: {
                         status: record.status,

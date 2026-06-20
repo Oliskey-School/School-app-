@@ -58,8 +58,17 @@ export const battleSetup = async (req: AuthRequest, res: Response) => {
 
 export const createGame = async (req: AuthRequest, res: Response) => {
     try {
-        const { school_id, id: teacher_id } = req.user;
+        const { school_id } = req.user;
         const { title, description, game_type, config, metadata, class_id, subject, grade } = req.body;
+
+        // teacher_id is a FK to Teacher.id — NOT the user id. Resolve the caller's
+        // teacher record (teachers create games); for an admin/non-teacher caller,
+        // fall back to any teacher in the school so the required FK is satisfied.
+        const teacher = await prisma.teacher.findFirst({ where: { user_id: req.user.id }, select: { id: true } })
+            || await prisma.teacher.findFirst({ where: { school_id }, select: { id: true } });
+        if (!teacher) {
+            return res.status(400).json({ message: 'No teacher available to own this game. Add a teacher first.' });
+        }
 
         const game = await prisma.educationalGame.create({
             data: {
@@ -68,7 +77,7 @@ export const createGame = async (req: AuthRequest, res: Response) => {
                 game_type,
                 config: config || {},
                 metadata: metadata || {},
-                teacher_id,
+                teacher_id: teacher.id,
                 school_id,
                 ...(class_id ? { class_id } : {}),
                 ...(subject ? { subject } : {}),

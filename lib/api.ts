@@ -914,7 +914,9 @@ class ExpressApiClient {
     }
 
     async saveGrade(data: any, schoolId?: string, branchId?: string, ...args: any[]): Promise<any> {
-        return this.post('/academic/grades/save', { ...data, schoolId, branchId });
+        // Backend route is PUT /academic/grade (the old POST /academic/grades/save 404'd,
+        // which broke the teacher Grade Entry screen).
+        return this.put('/academic/grade', { ...data, schoolId, branchId });
     }
 
     async getStudentReportStats(studentId: string): Promise<any> {
@@ -1715,7 +1717,10 @@ class ExpressApiClient {
     }
 
     async createQuiz(data: any): Promise<any> {
-        return this.post('/quizzes', data);
+        // The only caller (AI Game Creator) sends an educational-game payload
+        // (title/description/game_type/config/metadata). POST /quizzes doesn't exist
+        // (404 broke the screen); /games is the matching create route.
+        return this.post('/games', data);
     }
 
     async updateQuiz(id: string, data: any): Promise<any> {

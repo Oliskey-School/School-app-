@@ -91,14 +91,16 @@ export class AssignmentService {
         }
 
         if (insertData.teacher_id) {
+            // Assignment is proven by (teacher_id + class_id) within the school. The
+            // target class was already branch-validated above, so do NOT also filter the
+            // classTeacher row by branch — the join row's branch tag can drift from the
+            // class's branch and would otherwise falsely reject a legitimately-assigned
+            // teacher ("Teacher is not assigned to this class").
             const assignedTeacher = await prisma.classTeacher.findFirst({
                 where: {
                     school_id: schoolId,
                     teacher_id: insertData.teacher_id,
                     class_id: insertData.class_id,
-                    ...(branchId && branchId !== 'all'
-                        ? { branch_id: branchId }
-                        : {})
                 }
             });
 
