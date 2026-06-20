@@ -233,7 +233,9 @@ export function generateTimetableLocal(input: AlgoInput): GeneratedScheduleResul
         resultAssignments.push({
             className: cls.name,
             schedule: schedMap,
-            teacherAssignments: assignMap,
+            // Field name MUST match GeneratedScheduleResult.assignments (the consumer
+            // reads sched.assignments[key] to recover the teacher for each cell).
+            assignments: assignMap,
             status: 'Draft'
         });
     });

@@ -28,6 +28,7 @@ interface ClassOption {
     id: string;
     name: string;
     grade: number;
+    branch_id?: string | null;
 }
 
 interface TeacherOption {
@@ -159,15 +160,21 @@ const TimetableCreator: React.FC<{ navigateTo: (path: string) => void, initialCl
             // Prepare batch operations
             const classesToSave = Object.keys(masterSchedule);
 
-            // 1. Get Class IDs for the names
-            const classMap = new Map(allClasses.map(c => [c.name, c.id]));
+            // 1. Get the full class record for each name (id + branch).
+            const classInfo = new Map(allClasses.map(c => [c.name, c]));
             const teacherMap = new Map(allTeachers.map(t => [t.name, t.id]));
+            const fallbackBranch = localStorage.getItem('selected_branch_id');
 
             const entriesToInsert: any[] = [];
 
             for (const className of classesToSave) {
-                const classId = classMap.get(className);
+                const cls = classInfo.get(className);
+                const classId = cls?.id;
                 if (!classId) continue;
+                // Tag the row with the CLASS's own branch so branch-scoped students,
+                // teachers and admins actually see it (untagged rows are hidden inside
+                // a specific branch). Fall back to the active branch selection.
+                const branchId = cls?.branch_id || (fallbackBranch && fallbackBranch !== 'all' ? fallbackBranch : null);
 
                 const schedule = masterSchedule[className];
 
@@ -184,6 +191,7 @@ const TimetableCreator: React.FC<{ navigateTo: (path: string) => void, initialCl
 
                     entriesToInsert.push({
                         school_id: schoolId,
+                        branch_id: branchId,
                         class_id: classId,
                         class_name: className,
                         day: day,
@@ -198,22 +206,21 @@ const TimetableCreator: React.FC<{ navigateTo: (path: string) => void, initialCl
                 }
             }
 
-            // 2. Delete existing for these classes
-            const { error: deleteError } = await api
-                .from('timetable')
-                .delete()
-                .in('class_name', classesToSave)
-                .eq('school_id', schoolId);
+            // 2. Delete existing rows for each class (valid REST route: /timetables/class/:id).
+            //    The old api.from('timetable') shim hit /timetable (singular) — a 404 — so
+            //    nothing ever persisted, which is why students/teachers saw nothing.
+            for (const className of classesToSave) {
+                const classId = classInfo.get(className)?.id;
+                if (classId) {
+                    try { await api.deleteTimetableByClass(classId); } catch { /* nothing to delete yet */ }
+                }
+            }
 
-            if (deleteError) throw deleteError;
-
-            // 3. Insert new
-            if (entriesToInsert.length > 0) {
-                const { error: insertError } = await api
-                    .from('timetable')
-                    .insert(entriesToInsert);
-
-                if (insertError) throw insertError;
+            // 3. Insert the new published rows (one per cell). The backend persists the
+            //    status and resolves the branch from the class, so branch-scoped students
+            //    and teachers can see it.
+            for (const entry of entriesToInsert) {
+                await api.createTimetable(entry);
             }
 
             toast.success("Timetables saved and published!", { id: toastId });
@@ -265,8 +272,12 @@ const TimetableCreator: React.FC<{ navigateTo: (path: string) => void, initialCl
 
                     result.schedules.forEach(sched => {
                         const classSchedule: { [key: string]: TimetableCellData } = {};
+                        // Be defensive: a class with no resolvable slots can come back
+                        // without a schedule/assignments map — never crash the whole run.
+                        const schedMap = sched?.schedule || {};
+                        const assignMap = sched?.assignments || (sched as any)?.teacherAssignments || {};
 
-                        Object.entries(sched.schedule).forEach(([key, subject]) => {
+                        Object.entries(schedMap).forEach(([key, subject]) => {
                             // key is "Day-PeriodIndex" (0-based index of teaching periods)
                             // We need to map teaching period index back to our GRID index (which includes breaks)
                             // Algorithm used 0-7 indexes. Grid uses 0-n including breaks.
@@ -292,7 +303,7 @@ const TimetableCreator: React.FC<{ navigateTo: (path: string) => void, initialCl
                             }
 
                             if (gridIndex !== -1) {
-                                const teacherName = sched.assignments[key] || "Unassigned";
+                                const teacherName = assignMap[key] || "Unassigned";
                                 classSchedule[`${day}-${gridIndex}`] = {
                                     subject: subject,
                                     teacher: teacherName

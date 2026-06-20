@@ -35,11 +35,27 @@ export class TimetableService {
             ? Number(data.day_of_week)
             : (typeof data.day === 'string' ? (DOW[data.day.toLowerCase()] ?? null) : null);
 
+        // Resolve branch + class from the class itself. The editor sends only
+        // class_name (no branch_id), so without this the row would save with
+        // branch_id=null and a branch-scoped student/teacher would never see it.
+        let branchId = (data.branch_id && data.branch_id !== 'all') ? data.branch_id : null;
+        let classId = data.class_id ?? null;
+        if ((!branchId || !classId) && (classId || data.class_name)) {
+            const cls = await prisma.class.findFirst({
+                where: { school_id: schoolId, ...(classId ? { id: classId } : { name: data.class_name }) },
+                select: { id: true, branch_id: true },
+            });
+            if (cls) {
+                if (!classId) classId = cls.id;
+                if (!branchId) branchId = cls.branch_id ?? null;
+            }
+        }
+
         const entry = await prisma.timetable.create({
             data: {
                 school_id: schoolId,
-                branch_id: (data.branch_id && data.branch_id !== 'all') ? data.branch_id : null,
-                class_id: data.class_id ?? null,
+                branch_id: branchId,
+                class_id: classId,
                 class_name: data.class_name ?? null,
                 subject: data.subject,
                 teacher_id: data.teacher_id ?? null,
