@@ -68,37 +68,85 @@ const normName = (s: any) => String(s || '').toLowerCase().replace(/\s+/g, ' ').
 // column (`__create__:grade:name`) that is materialised into a real class on Save.
 interface Col { id: string; name: string; grade: number; section?: string; classId?: string; isVirtual: boolean; }
 
-// Build the canonical columns for one level. Duplicate class records collapse to a
-// single column (prefer one in the active branch); a missing standard class becomes a
-// virtual column so it can still be filled and auto-created on Save.
-function buildColumns(levelKey: LevelKey, classes: any[], bid?: string): Col[] {
-    return CANONICAL[levelKey].map(slot => {
-        const matches = classes.filter(c => Number(c.grade) === slot.grade || normName(c.name) === normName(slot.name));
-        const chosen = matches.find(c => c.branch_id === bid) || matches[0];
-        return {
-            id: chosen?.id || `__create__:${slot.grade}:${slot.name}`,
-            name: slot.name,
-            grade: slot.grade,
-            section: chosen?.section,
-            classId: chosen?.id,
-            isVirtual: !chosen,
-        };
-    });
+// Classify a class record to a level. Name first (what the admin typed in Manage
+// Classes), then grade. Single source of truth shared by the column builder and the
+// in-component level tabs so a class always lands on the same level in both.
+function classLevel(c: any): LevelKey {
+    const name = String(c?.name || '').toLowerCase();
+    if (/pre[-\s]?nursery|pre[-\s]?kg|reception/.test(name)) return 'preNursery';
+    if (/\bsss?\b|senior/.test(name)) return 'senior';
+    if (/\bjss?\b|junior/.test(name)) return 'junior';
+    if (/(primary|pry|basic|grade)\s*0*[456]\b/.test(name)) return 'upperPrimary';
+    if (/(primary|pry|basic|grade)\s*0*[123]\b/.test(name)) return 'lowerPrimary';
+    if (/nursery|kg|kindergarten/.test(name)) return 'nursery';
+    if (/creche|crèche|day\s*care/.test(name)) return 'creche';
+    const g = Number(c?.grade);
+    if (!isNaN(g)) {
+        if (g >= 10) return 'senior';
+        if (g >= 7) return 'junior';
+        if (g >= 4) return 'upperPrimary';
+        if (g >= 1) return 'lowerPrimary';
+        if (g >= -1) return 'nursery';
+        if (g === -2) return 'preNursery';
+    }
+    return 'creche';
 }
 
-// Map ANY existing class id (and class name) to the canonical column id that now
-// represents it, across every level. Lets saved lessons reload even when the demo
-// re-creates classes with fresh ids, or when duplicates were collapsed into one column.
+// Build the columns for one level. EVERY real class in the level gets its OWN column
+// (so all sections — SSS 1 A, SSS 1 B, … — and any newly added class are visible, not
+// collapsed). Standard classes that don't exist yet become virtual columns so a fresh
+// school still shows the canonical set and they auto-create on Save.
+function buildColumns(levelKey: LevelKey, classes: any[], bid?: string): Col[] {
+    const cols: Col[] = [];
+    const seen = new Set<string>();
+
+    // 1. Real classes in this level — one column each. Collapse only EXACT duplicate
+    //    records (same name+grade+section+branch), never distinct sections.
+    for (const c of classes) {
+        if (classLevel(c) !== levelKey) continue;
+        const key = `${normName(c.name)}|${c.grade}|${normName(c.section)}|${c.branch_id || ''}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        cols.push({
+            id: c.id || `__create__:${c.grade}:${c.name}`,
+            name: c.name || CANONICAL[levelKey][0]?.name || 'Class',
+            grade: Number(c.grade),
+            section: c.section,
+            classId: c.id,
+            isVirtual: !c.id,
+        });
+    }
+
+    // 2. Canonical standard classes with no real class yet → fillable virtual columns.
+    for (const slot of CANONICAL[levelKey]) {
+        const exists = cols.some(col => normName(col.name) === normName(slot.name) || col.grade === slot.grade);
+        if (!exists) cols.push({ id: `__create__:${slot.grade}:${slot.name}`, name: slot.name, grade: slot.grade, isVirtual: true });
+    }
+
+    cols.sort((a, b) => (a.grade - b.grade)
+        || String(a.name).localeCompare(String(b.name))
+        || String(a.section || '').localeCompare(String(b.section || '')));
+    return cols;
+}
+
+// Map every existing class id and name to the column that now represents it, so saved
+// lessons reload onto the right column even after the demo re-creates classes with
+// fresh ids. Each real class is its own column, so this is a direct id→column map.
 function buildClassIndex(classes: any[], bid?: string) {
     const idToCol: Record<string, string> = {};
     const nameToCol: Record<string, string> = {};
     (Object.keys(CANONICAL) as LevelKey[]).forEach(lk => {
         buildColumns(lk, classes, bid).forEach(col => {
-            nameToCol[normName(col.name)] = col.id;
-            classes
-                .filter(c => Number(c.grade) === col.grade || normName(c.name) === normName(col.name))
-                .forEach(c => { idToCol[c.id] = col.id; });
+            if (!(normName(col.name) in nameToCol)) nameToCol[normName(col.name)] = col.id;
+            if (col.classId) idToCol[col.classId] = col.id;
         });
+    });
+    // Defensive: any class not surfaced as its own column maps by name.
+    classes.forEach(c => {
+        if (c.id && !idToCol[c.id]) {
+            const byName = nameToCol[normName(c.name)];
+            if (byName) idToCol[c.id] = byName;
+        }
     });
     return { idToCol, nameToCol };
 }
@@ -224,28 +272,7 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
 
     // Classify by the class NAME first (what the admin typed in Manage Classes), then
     // fall back to grade. Order matters: "Pre-Nursery" must be checked before "Nursery".
-    const levelOf = (c: any): LevelKey => {
-        const name = String(c?.name || '').toLowerCase();
-        if (/\bsss?\b|senior/.test(name)) return 'senior';
-        if (/\bjss?\b|junior/.test(name)) return 'junior';
-        if (/(primary|pry|basic|grade)\s*0*[456]\b/.test(name)) return 'upperPrimary';
-        if (/(primary|pry|basic|grade)\s*0*[123]\b/.test(name)) return 'lowerPrimary';
-        if (/pre[-\s]?nursery|pre[-\s]?kg|reception/.test(name)) return 'preNursery';
-        if (/nursery|kg|kindergarten/.test(name)) return 'nursery';
-        if (/creche|crèche|day\s*care/.test(name)) return 'creche';
-        // grade fallback (demo numbering: Creche -3, Pre-Nursery -2, Nursery -1..0,
-        // Primary 1-6, JSS 7-9, SSS 10-12)
-        const g = Number(c?.grade);
-        if (!isNaN(g)) {
-            if (g >= 10) return 'senior';
-            if (g >= 7) return 'junior';
-            if (g >= 4) return 'upperPrimary';
-            if (g >= 1) return 'lowerPrimary';
-            if (g >= -1) return 'nursery';
-            if (g === -2) return 'preNursery';
-        }
-        return 'creche';
-    };
+    const levelOf = (c: any): LevelKey => classLevel(c);
     // Show ONLY the levels that actually have classes in this branch — no empty
     // "No classes found" tabs. A level appears automatically once it has a class
     // (so adding classes in Manage Classes makes its tab show up here).
