@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
@@ -37,6 +37,10 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
 
     // Real Data State
     const [performance, setPerformance] = useState<any[]>([]);
+    // Subjects the admin assigned this student (authoritative for the Performance
+    // Overview) and the student's report cards (published ones carry the scores).
+    const [assignedSubjects, setAssignedSubjects] = useState<string[]>([]);
+    const [reportCards, setReportCards] = useState<any[]>([]);
     const [stats, setStats] = useState({ attendanceRate: 0, assignmentsSubmitted: 0, averageScore: 0, studyHours: 0, achievements: 0 });
     const [events, setEvents] = useState<any[]>([]);
     const [activities, setActivities] = useState<any[]>([]);
@@ -158,15 +162,23 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
             if (!currentStudent) return;
 
             // 2. Fetch Related Data in Parallel
-            const [perfData, statsData, eventsData, activitiesData, docsData] = await Promise.all([
+            const [perfData, statsData, eventsData, activitiesData, docsData, subjectsData, reportCardsData] = await Promise.all([
                 fetchAcademicPerformance(id),
                 fetchStudentStats(id),
                 fetchUpcomingEvents(currentStudent.grade, currentStudent.section, id),
                 fetchStudentActivities(id),
-                fetchStudentDocuments(id)
+                fetchStudentDocuments(id),
+                api.getStudentSubjects(currentStudent.id).catch(() => []),
+                api.getStudentReportCards(String(currentStudent.id)).catch(() => [])
             ]);
 
             setPerformance(perfData);
+            setAssignedSubjects(
+                (Array.isArray(subjectsData) ? subjectsData : [])
+                    .map((s: any) => (typeof s === 'string' ? s : s?.name))
+                    .filter(Boolean)
+            );
+            setReportCards(Array.isArray(reportCardsData) ? reportCardsData : []);
             setStats(statsData);
             setEvents(eventsData);
             setActivities(activitiesData);
@@ -247,6 +259,34 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
         if (score >= 50) return 'D';
         return 'F';
     };
+
+    // Performance Overview rows: one per admin-assigned subject. A subject only
+    // shows a score once a result is PUBLISHED for it (from a published report
+    // card); until then it reads "No result yet".
+    const overviewRows = useMemo(() => {
+        const publishedScores = new Map<string, number>();
+        reportCards
+            .filter((rc: any) => rc?.is_published)
+            .forEach((rc: any) => {
+                const records = Array.isArray(rc.academic_records) ? rc.academic_records : [];
+                records.forEach((r: any) => {
+                    const name = (r?.subject || '').toString().trim().toLowerCase();
+                    const score = Number(r?.total ?? r?.score);
+                    if (name && !Number.isNaN(score)) publishedScores.set(name, score);
+                });
+            });
+
+        // Subjects to list: admin-assigned set first; fall back to any subjects
+        // that already have published scores so nothing published is hidden.
+        const names = assignedSubjects.length > 0
+            ? assignedSubjects
+            : Array.from(publishedScores.keys());
+
+        return names.map((name) => {
+            const score = publishedScores.get(name.toString().trim().toLowerCase());
+            return { subject: name, score: score == null ? null : score };
+        });
+    }, [assignedSubjects, reportCards]);
 
     if (loading || !student) {
         return (
@@ -505,16 +545,23 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                                         </CardHeader>
                                         <CardContent className="p-6">
                                             <div className="space-y-5">
-                                                {performance.length > 0 ? performance.map((p, i) => (
-                                                    <PerformanceBar
-                                                        key={i}
-                                                        subject={p.subject}
-                                                        score={p.score}
-                                                        grade={getGradeLetter(p.score)}
-                                                        color={getGradeColor(p.score)}
-                                                    />
+                                                {overviewRows.length > 0 ? overviewRows.map((p, i) => (
+                                                    p.score == null ? (
+                                                        <div key={i} className="flex items-center justify-between">
+                                                            <span className="text-sm font-semibold text-slate-700">{p.subject}</span>
+                                                            <span className="text-xs font-medium text-slate-400 italic">No result yet</span>
+                                                        </div>
+                                                    ) : (
+                                                        <PerformanceBar
+                                                            key={i}
+                                                            subject={p.subject}
+                                                            score={p.score}
+                                                            grade={getGradeLetter(p.score)}
+                                                            color={getGradeColor(p.score)}
+                                                        />
+                                                    )
                                                 )) : (
-                                                    <div className="text-center py-4 text-slate-500">No performance records found yet.</div>
+                                                    <div className="text-center py-4 text-slate-500">No subjects assigned yet.</div>
                                                 )}
                                             </div>
                                         </CardContent>
