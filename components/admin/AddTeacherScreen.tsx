@@ -459,31 +459,46 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
 
             // Link each class to each subject for now to ensure availability
             const classSubjectLinks: any[] = [];
-            // Resolve any "__create__" placeholder ids by materializing the missing Class records
+            // Resolve every ticked class name to a concrete (or virtual) class id.
             const updatedClassIdMap: Record<string, string> = { ...classIdMap };
+            const classIds: string[] = [];
             for (const className of classes) {
-                const cid = updatedClassIdMap[className];
+                let cid = updatedClassIdMap[className];
+
+                // A standard level (e.g. "SSS 1") that didn't resolve to a real class id —
+                // either no "__create__" placeholder was set because a class for that
+                // grade/section already exists under a DIFFERENT name, or the lookup
+                // simply missed. Fall back to a `std-{grade}-{section}` virtual id: the
+                // backend then links the EXISTING class for that grade/section (or creates
+                // it once), instead of the assignment being silently dropped.
+                const stdLevel = DEFAULT_STANDARD_CLASSES.find(l => l.name === className);
+                if ((!cid || cid.startsWith('__create__:')) && stdLevel) {
+                    cid = `std-${stdLevel.grade}-${stdLevel.section}`;
+                    updatedClassIdMap[className] = cid;
+                }
+
+                // Non-standard placeholder (a custom class name) — materialize it directly.
                 if (typeof cid === 'string' && cid.startsWith('__create__:')) {
                     const [, gradeStr, sectionStr] = cid.split(':');
                     const gradeNum = Number(gradeStr);
                     const sectionVal = sectionStr || 'A';
-                    const levelDef = DEFAULT_STANDARD_CLASSES.find(l => l.grade === gradeNum && l.section === sectionVal);
                     try {
                         const created = await api.createClass({
-                            name: levelDef?.name || getFormattedClassName(gradeNum, sectionVal, true),
+                            name: getFormattedClassName(gradeNum, sectionVal, true),
                             grade: gradeNum,
                             section: sectionVal,
                             school_id: schoolId,
                             branch_id: branchId || null,
                         });
-                        if (created?.id) updatedClassIdMap[className] = created.id;
+                        if (created?.id) cid = created.id;
                     } catch (createErr: any) {
                         console.error('Failed to auto-create class', className, createErr);
                         toast.error(`Could not create ${className}: ${createErr.message || 'unknown error'}`);
                     }
                 }
+
+                if (cid && !cid.startsWith('__create__')) classIds.push(cid);
             }
-            const classIds = classes.map(c => updatedClassIdMap[c]).filter(id => id && !id.startsWith('__create__'));
             
             // Create missing subjects if any
             const updatedSubjectIdMap = { ...subjectIdMap };

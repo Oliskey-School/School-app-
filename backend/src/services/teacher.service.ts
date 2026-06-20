@@ -409,13 +409,20 @@ export class TeacherService {
                         });
 
                         if (!cls) {
+                            // Proper level name (e.g. "SSS 1") instead of a bare grade number,
+                            // so an auto-created standard class reads correctly everywhere.
+                            const levelName =
+                                grade >= 10 && grade <= 12 ? `SSS ${grade - 9}` :
+                                grade >= 7 && grade <= 9 ? `JSS ${grade - 6}` :
+                                grade >= 1 && grade <= 6 ? `Primary ${grade}` :
+                                String(grade);
                             cls = await tx.class.create({
                                 data: {
                                     school_id: schoolId,
                                     branch_id: branchId || null,
                                     grade,
                                     section,
-                                    name: parts[1],
+                                    name: levelName,
                                     level_category: grade >= 7 ? 'Secondary' : (grade >= 1 ? 'Primary' : 'Pre-Primary')
                                 }
                             });
