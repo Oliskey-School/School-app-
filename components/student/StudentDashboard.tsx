@@ -396,8 +396,17 @@ interface StudentDashboardProps {
 const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHomePage, currentUser }) => {
     const [scrolled, setScrolled] = useState(false);
     const [viewStack, setViewStack] = useState<ViewStackItem[]>(() => {
-        const saved = sessionStorage.getItem('student_viewStack');
-        return saved ? JSON.parse(saved) : [{ view: 'overview', title: 'Student Dashboard', props: {} }];
+        const HOME: ViewStackItem[] = [{ view: 'overview', title: 'Student Dashboard', props: {} }];
+        // Restore the saved stack, but never trust an empty/corrupt value — an empty
+        // stack leaves the dashboard with no current view and crashes on load. Always
+        // fall back to the home (overview) screen so "Home" reliably returns here.
+        try {
+            const saved = sessionStorage.getItem('student_viewStack');
+            const parsed = saved ? JSON.parse(saved) : null;
+            return Array.isArray(parsed) && parsed.length > 0 && parsed.every((v: any) => v && v.view) ? parsed : HOME;
+        } catch {
+            return HOME;
+        }
     });
     const [activeBottomNav, setActiveBottomNav] = useState(() => {
         return sessionStorage.getItem('student_activeBottomNav') || 'home';
@@ -516,7 +525,9 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
             profile: 'profile',
         };
 
-        const targetNav = viewToNavMap[currentView.view];
+        // Guard: an empty view stack (e.g. right after a reset/Home navigation) leaves
+        // currentView undefined — reading `.view` here used to crash the whole dashboard.
+        const targetNav = currentView ? viewToNavMap[currentView.view] : undefined;
         if (targetNav) {
             setActiveBottomNav(targetNav);
         }
@@ -716,7 +727,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
         );
     }
 
-    const currentNavigation = viewStack[viewStack.length - 1] || { view: 'home', title: 'Home' };
+    const currentNavigation = viewStack[viewStack.length - 1] || { view: 'overview', title: 'Student Dashboard' };
     const ComponentToRender = viewComponents[currentNavigation.view as keyof typeof viewComponents];
 
     const isFullScreen = ['chat', 'classBattle', 'mathSprintGame', 'geoGuesserGame', 'codeChallengeGame', 'gamePlayer', 'peekabooLetters', 'mathBattleArena', 'cbtExamGame', 'cbtPlayer', 'countingShapesTap', 'simonSays', 'alphabetFishing', 'beanBagToss', 'redLightGreenLight', 'spellingSparkle', 'vocabularyAdventure', 'virtualScienceLab', 'debateDash', 'geometryJeopardy', 'sharkTank', 'physicsLab', 'stockMarket', 'cbtExamGame', 'vocabularyPictionary', 'simpleMachineHunt', 'historicalHotSeat'].includes(currentNavigation.view);
