@@ -22,6 +22,7 @@ import { offlineStorage } from '../../lib/offlineStorage';
 import { useOnlineStatus, OfflineIndicator } from '../shared/OfflineIndicator';
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import { useAuth } from '../../context/AuthContext';
+import { useSocket } from '../../context/SocketContext';
 
 // Lazy load all view components
 import IncomingClassModal from './IncomingClassModal'; // Import non-lazy for speed/critical alert
@@ -427,6 +428,31 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
     // Real-time notifications
     const notificationCount = useRealtimeNotifications('student');
 
+    // Live reminder banner: when a teacher sends a reminder (or any notification
+    // targeted at this student arrives over the socket), show a short banner on the
+    // dashboard for ~4 seconds so the student notices it immediately.
+    const { socket } = useSocket();
+    const [reminderBanner, setReminderBanner] = useState<{ title: string; message: string } | null>(null);
+    useEffect(() => {
+        if (!socket || !user?.id) return;
+        const channel = `user:${user.id}:notification`;
+        const onNotification = (n: any) => {
+            setReminderBanner({
+                title: n?.title || 'New Reminder',
+                message: n?.message || 'You have a new reminder.',
+            });
+        };
+        socket.on(channel, onNotification);
+        return () => { socket.off(channel, onNotification); };
+    }, [socket, user?.id]);
+
+    // Auto-dismiss the banner after 4 seconds.
+    useEffect(() => {
+        if (!reminderBanner) return;
+        const t = setTimeout(() => setReminderBanner(null), 4000);
+        return () => clearTimeout(t);
+    }, [reminderBanner]);
+
     const forceUpdate = () => setVersion(v => v + 1);
 
     const fetchStudentAndNotifications = useCallback(async () => {
@@ -734,6 +760,20 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
 
     return (
         <GamificationProvider studentId={student?.id}>
+            {reminderBanner && (
+                <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] w-[92%] max-w-md animate-fade-in">
+                    <div className="flex items-start gap-3 rounded-2xl bg-white shadow-2xl ring-1 ring-orange-200 px-4 py-3">
+                        <div className="mt-0.5 flex-shrink-0 w-9 h-9 rounded-full bg-orange-100 flex items-center justify-center">
+                            <BellIcon className="w-5 h-5 text-orange-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="font-bold text-gray-900 text-sm truncate">{reminderBanner.title}</p>
+                            <p className="text-gray-600 text-sm">{reminderBanner.message}</p>
+                        </div>
+                        <button onClick={() => setReminderBanner(null)} className="text-gray-400 hover:text-gray-600 text-lg leading-none px-1" aria-label="Dismiss">×</button>
+                    </div>
+                </div>
+            )}
             <DashboardLayout
                 title={currentNavigation.title}
                 onBack={viewStack.length > 1 ? handleBack : undefined}
