@@ -107,11 +107,18 @@ const AssignmentSubmissionsScreen: React.FC<AssignmentSubmissionsScreenProps> = 
 
             if (submissionsData) {
                 const mappedSubmissions: Submission[] = submissionsData.map((sub: any) => {
-                    const student = classStudents.find(s => s.id === sub.student_id) || { id: sub.student_id, name: 'Unknown', avatarUrl: '', grade: 0, section: '' };
+                    // Prefer the student joined onto the submission itself (always present),
+                    // then the class roster, so the submitter's real name/photo/account show
+                    // even if they aren't in the fetched class list ("Unknown Student" fix).
+                    const joined = sub.student || {};
+                    const rosterMatch = classStudents.find(s => s.id === sub.student_id) as any;
+                    const resolvedName = rosterMatch?.name || joined.full_name || joined.name || 'Unknown Student';
+                    const resolvedAvatar = rosterMatch?.avatarUrl || joined.avatar_url || joined.avatarUrl || '';
+                    const resolvedUserId = rosterMatch?.user_id || joined.user_id || joined.userId;
                     return {
                         id: sub.id,
                         assignmentId: sub.assignment_id,
-                        student: { id: student.id, name: student.name, avatarUrl: student.avatarUrl },
+                        student: { id: sub.student_id, name: resolvedName, avatarUrl: resolvedAvatar, user_id: resolvedUserId } as any,
                         submittedAt: sub.submitted_at,
                         status: sub.status,
                         grade: sub.grade,
@@ -168,9 +175,10 @@ const AssignmentSubmissionsScreen: React.FC<AssignmentSubmissionsScreenProps> = 
             // Send Notification to Student (Optional but good)
             try {
                 const submission = submissions.find(s => s.id === submissionId);
-                const studentProfile = allClassStudents.find(s => s.id === submission?.student.id);
-                // @ts-ignore
-                const studentUserId = studentProfile?.user_id;
+                // Use the account id carried on the submission's student first (works even
+                // when the submitter isn't in the fetched class roster), then the roster.
+                const studentProfile = allClassStudents.find(s => s.id === submission?.student.id) as any;
+                const studentUserId = (submission?.student as any)?.user_id || studentProfile?.user_id;
 
                 if (studentUserId) {
                     await api.createNotification({
