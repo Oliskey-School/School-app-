@@ -143,6 +143,9 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                 const mappedStudent = {
                     ...dbStudent,
                     name: dbStudent.name || dbStudent.full_name || `${dbStudent.firstName || dbStudent.first_name || ''} ${dbStudent.lastName || dbStudent.last_name || ''}`.trim() || student?.name || 'Student',
+                    // The record stores the photo as avatar_url; the UI reads avatarUrl —
+                    // map it so an uploaded/saved profile picture actually shows here.
+                    avatarUrl: dbStudent.avatarUrl || dbStudent.avatar_url || dbStudent.profile_photo || student?.avatarUrl || '',
                     school_generated_id: dbStudent.schoolGeneratedId || dbStudent.school_generated_id,
                     admission_number: dbStudent.schoolGeneratedId || dbStudent.school_generated_id || dbStudent.admission_number || 'Pending',
                     grade: dbStudent.grade || dbStudent.class_name?.match(/\d+/)?.[0] || '10',
@@ -258,6 +261,49 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
         if (score >= 60) return 'C';
         if (score >= 50) return 'D';
         return 'F';
+    };
+
+    // Build a real PDF transcript from the student's own data (name, ID, class,
+    // average, and each subject's published score) instead of printing the page.
+    const handleDownloadTranscript = async () => {
+        const toastId = toast.loading('Generating transcript...');
+        try {
+            const html2pdf = (await import('html2pdf.js')).default;
+            const rows = (performance || [])
+                .map((p: any) => `<tr>
+                    <td style="border:1px solid #ddd;padding:6px">${p.subject || ''}</td>
+                    <td style="border:1px solid #ddd;padding:6px;text-align:center">${p.score ?? '-'}%</td>
+                    <td style="border:1px solid #ddd;padding:6px;text-align:center">${getGradeLetter(Number(p.score) || 0)}</td>
+                </tr>`).join('');
+            const el = document.createElement('div');
+            el.innerHTML = `
+                <div style="font-family:Arial,sans-serif;padding:24px;color:#1f2937">
+                    <h2 style="margin:0 0 12px">Academic Transcript</h2>
+                    <p style="margin:0 0 16px;line-height:1.6">
+                        <b>Name:</b> ${student.name || ''}<br/>
+                        <b>Student ID:</b> ${student.school_generated_id || student.admission_number || ''}<br/>
+                        <b>Class:</b> ${student.class_name || ('Grade ' + (student.grade || ''))}<br/>
+                        <b>Overall Average:</b> ${stats.averageScore}%
+                    </p>
+                    <table style="border-collapse:collapse;width:100%;font-size:13px">
+                        <thead><tr style="background:#fff7ed">
+                            <th style="border:1px solid #ddd;padding:6px;text-align:left">Subject</th>
+                            <th style="border:1px solid #ddd;padding:6px">Score</th>
+                            <th style="border:1px solid #ddd;padding:6px">Grade</th>
+                        </tr></thead>
+                        <tbody>${rows || '<tr><td colspan="3" style="border:1px solid #ddd;padding:10px;text-align:center;color:#6b7280">No published results yet.</td></tr>'}</tbody>
+                    </table>
+                </div>`;
+            await html2pdf().set({
+                filename: `Transcript_${(student.name || 'Student').replace(/\s+/g, '_')}.pdf`,
+                margin: 10,
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+            }).from(el).save();
+            toast.success('Transcript downloaded', { id: toastId });
+        } catch (err) {
+            console.error('Transcript error:', err);
+            toast.error('Could not generate transcript', { id: toastId });
+        }
     };
 
     // Performance Overview rows: one per admin-assigned subject. A subject only
@@ -404,7 +450,7 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
 
                                 {/* Action Buttons */}
                                 <div className="flex flex-col sm:flex-row flex-wrap gap-3 mt-6">
-                                    <Button onClick={() => window.print()} className="w-full sm:w-auto bg-white text-orange-600 hover:bg-white/90 shadow-lg font-semibold order-2 sm:order-1">
+                                    <Button onClick={handleDownloadTranscript} className="w-full sm:w-auto bg-white text-orange-700 hover:bg-white shadow-lg font-bold order-2 sm:order-1">
                                         <Download className="w-4 h-4 mr-2" />
                                         Download Transcript
                                     </Button>
