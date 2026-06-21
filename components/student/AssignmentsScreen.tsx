@@ -79,6 +79,51 @@ const AssignmentsScreen: React.FC<StudentAssignmentsScreenProps> = ({ studentId,
             .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
     }, [assignments, subjectFilter]);
 
+    // "Due soon" = not yet submitted and due within the next 2 days (and not overdue).
+    const DUE_SOON_MS = 2 * 24 * 60 * 60 * 1000;
+    const isDueSoon = useCallback((a: StudentAssignment) => {
+        if (a.submission) return false;
+        const diff = new Date(a.dueDate).getTime() - Date.now();
+        return diff > 0 && diff <= DUE_SOON_MS;
+    }, []);
+
+    const dueSoonCount = useMemo(
+        () => filteredAssignments.filter(isDueSoon).length,
+        [filteredAssignments, isDueSoon]
+    );
+
+    // Auto-reminder: drop one notification into the student's bell per due-soon
+    // assignment (deduped per student+assignment so it never spams).
+    useEffect(() => {
+        const notifyDueSoon = async () => {
+            const soon = assignments.filter(isDueSoon);
+            if (soon.length === 0) return;
+            let me: any;
+            try { me = await api.getMe(); } catch { return; }
+            const uid = me?.id;
+            if (!uid) return;
+            for (const a of soon) {
+                const key = `dueSoonNotified:${uid}:${a.id}`;
+                if (localStorage.getItem(key)) continue;
+                try {
+                    await api.createNotification({
+                        school_id: schoolId || me.school_id,
+                        user_id: uid,
+                        category: 'Homework',
+                        title: 'Assignment Due Soon',
+                        message: `"${a.title}" is due ${new Date(a.dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}. Submit before the deadline.`,
+                        timestamp: new Date().toISOString(),
+                        is_read: false,
+                        audience: ['student'],
+                        related_id: a.id,
+                    } as any);
+                    localStorage.setItem(key, '1');
+                } catch { /* non-fatal — the on-screen banner still reminds them */ }
+            }
+        };
+        notifyDueSoon();
+    }, [assignments, isDueSoon, schoolId]);
+
     const getStatus = (assignment: StudentAssignment) => {
         const dueDate = new Date(assignment.dueDate);
         const now = new Date();
@@ -132,15 +177,24 @@ const AssignmentsScreen: React.FC<StudentAssignmentsScreenProps> = ({ studentId,
     return (
         <div className="flex flex-col h-full bg-gray-50">
             <main className="flex-grow p-4 overflow-y-auto">
+                {dueSoonCount > 0 && (
+                    <div className="mb-4 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
+                        <ExclamationCircleIcon className="w-5 h-5 flex-shrink-0" />
+                        <span className="text-sm font-semibold">
+                            {dueSoonCount} assignment{dueSoonCount > 1 ? 's' : ''} due in 2 days or less — submit before the deadline.
+                        </span>
+                    </div>
+                )}
                 {filteredAssignments.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {filteredAssignments.map(assignment => {
                             const status = getStatus(assignment);
                             const subjectColor = SUBJECT_COLORS[assignment.subject] || 'bg-gray-100 text-gray-800';
                             const buttonInfo = getButtonInfo(assignment);
+                            const dueSoon = isDueSoon(assignment);
 
                             return (
-                                <div key={assignment.id} className="bg-white rounded-xl shadow-sm overflow-hidden transition-all hover:shadow-md">
+                                <div key={assignment.id} className={`bg-white rounded-xl shadow-sm overflow-hidden transition-all hover:shadow-md ${dueSoon ? 'ring-2 ring-amber-400' : ''}`}>
                                     <div className="p-4">
                                         <div className="flex justify-between items-start mb-2">
                                             <h4 className="font-bold text-lg text-gray-800 pr-2 flex-1">{assignment.title}</h4>
@@ -152,6 +206,11 @@ const AssignmentsScreen: React.FC<StudentAssignmentsScreenProps> = ({ studentId,
                                         <div className="flex items-center text-sm text-gray-500">
                                             <ClockIcon className="w-4 h-4 mr-1.5" />
                                             <span>Due: {new Date(assignment.dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
+                                            {dueSoon && (
+                                                <span className="ml-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded-full bg-amber-100 text-amber-700">
+                                                    Due soon
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
                                     <div className="bg-gray-50 px-4 py-3 flex justify-between items-center">

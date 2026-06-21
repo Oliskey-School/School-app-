@@ -64,7 +64,16 @@ export async function fetchStudentsByClass(grade: number | string, section: stri
 export async function fetchStudentsByClassId(classId: string): Promise<Student[]> {
     try {
         const data = await api.getStudentsByClassId(classId);
-        return data || [];
+        // The backend returns raw student records (full_name / avatar_url / user_id).
+        // Normalize to the fields the UI reads (name / avatarUrl / user_id) so the
+        // student's real name and photo show instead of "Unknown Student", and so
+        // reminders can reach the student's account. Additive — original fields kept.
+        return (data || []).map((s: any) => ({
+            ...s,
+            name: s.name || s.full_name || `${s.first_name || ''} ${s.last_name || ''}`.trim() || 'Unknown Student',
+            avatarUrl: s.avatarUrl || s.avatar_url || s.user?.avatar_url || '',
+            user_id: s.user_id || s.userId || s.user?.id,
+        }));
     } catch (err) {
         console.error(`Error fetching students for Class ID ${classId}:`, err);
         return [];
