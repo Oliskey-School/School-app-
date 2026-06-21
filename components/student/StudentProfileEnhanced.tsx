@@ -142,7 +142,7 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
             if (dbStudent) {
                 const mappedStudent = {
                     ...dbStudent,
-                    name: dbStudent.name || `${dbStudent.firstName || dbStudent.first_name || ''} ${dbStudent.lastName || dbStudent.last_name || ''}`.trim(),
+                    name: dbStudent.name || dbStudent.full_name || `${dbStudent.firstName || dbStudent.first_name || ''} ${dbStudent.lastName || dbStudent.last_name || ''}`.trim() || student?.name || 'Student',
                     school_generated_id: dbStudent.schoolGeneratedId || dbStudent.school_generated_id,
                     admission_number: dbStudent.schoolGeneratedId || dbStudent.school_generated_id || dbStudent.admission_number || 'Pending',
                     grade: dbStudent.grade || dbStudent.class_name?.match(/\d+/)?.[0] || '10',

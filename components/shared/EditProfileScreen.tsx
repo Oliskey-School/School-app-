@@ -73,35 +73,49 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack, user, onP
         averageScore: 0
     });
 
-    // Fetch real stats
+    // Load the student's OWN real profile + stats so the form shows current data
+    // (name/email/photo) even when the navigation didn't pass them, and so the
+    // stat cards reflect the student's real attendance/assignments/average — not a
+    // school-wide figure. This also prevents saving a blank name over a real one.
     useEffect(() => {
-        const fetchStats = async () => {
-            if (!user?.id) return;
+        let active = true;
+        const load = async () => {
             try {
-                // These stats should ideally come from a dashboard/stats endpoint
-                const dashboardStats = await api.getDashboardStats(authUser?.school_id || 'default');
-                
-                setStats({
-                    attendanceRate: dashboardStats?.attendanceRate || 100,
-                    assignmentsSubmitted: dashboardStats?.totalAssignments || 0,
-                    averageScore: dashboardStats?.avgScore || 0
-                });
+                const [profile, statData] = await Promise.all([
+                    api.getMyStudentProfile().catch(() => null),
+                    api.getMyStudentStats().catch(() => null),
+                ]);
+                if (!active) return;
+                if (profile) {
+                    setName(prev => prev || profile.full_name || profile.name || '');
+                    setEmail(prev => prev || profile.email || profile.user?.email || '');
+                    setAvatar(prev => prev || profile.avatar_url || profile.avatarUrl || '');
+                }
+                if (statData) {
+                    setStats({
+                        attendanceRate: Number(statData.attendanceRate ?? 0),
+                        assignmentsSubmitted: Number(statData.assignmentsSubmitted ?? 0),
+                        averageScore: Number(statData.averageScore ?? 0),
+                    });
+                }
             } catch (err) {
-                console.error("Error fetching stats for edit profile:", err);
+                console.error('Error loading profile/stats for edit profile:', err);
             }
         };
-
-        fetchStats();
-    }, [user?.id]);
+        load();
+        return () => { active = false; };
+    }, []);
 
     // Derived initials
     const initials = name ? name.split(' ').map(n => n[0]).join('').substring(0, 2) : 'ST';
 
     useEffect(() => {
+        // Seed from the passed user, but never overwrite with blanks — the profile
+        // fetch above fills anything missing, so an empty prop can't wipe the name.
         if (user) {
-            setName(user.name || '');
-            setAvatar(user.avatarUrl || '');
-            setEmail(user.email || '');
+            if (user.name) setName(user.name);
+            if (user.avatarUrl) setAvatar(user.avatarUrl);
+            if (user.email) setEmail(user.email);
         }
     }, [user]);
 
@@ -132,6 +146,10 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack, user, onP
     };
 
     const handleSave = async () => {
+        if (!name.trim()) {
+            toast.error('Please enter your full name before saving.');
+            return;
+        }
         setSaving(true);
         try {
             await updateProfile({
