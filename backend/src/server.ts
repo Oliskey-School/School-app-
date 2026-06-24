@@ -12,8 +12,9 @@ const start = async () => {
     // This ensures health checks pass and "Failed to fetch" errors are avoided even if DB is down.
     try {
         const httpServer = http.createServer((req, res) => {
-            // raw request log for debugging
-            console.log(`📡 [RAW-HTTP] ${req.method} ${req.url} - Origin: ${req.headers.origin}`);
+            if (process.env.NODE_ENV !== 'production') {
+                console.log(`📡 [RAW-HTTP] ${req.method} ${req.url} - Origin: ${req.headers.origin}`);
+            }
             return app(req, res);
         });
 
