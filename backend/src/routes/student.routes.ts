@@ -33,7 +33,9 @@ import {
     getMyDocuments,
     addMyDocument,
     getStudentsBySubject,
-    getNextAdmissionNumber
+    getNextAdmissionNumber,
+    withdrawStudent,
+    promoteStudent
 } from '../controllers/student.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { enforceTenant } from '../middleware/tenant.middleware';
@@ -83,5 +85,7 @@ router.put('/:id', authenticate, updateStudent);
 router.delete('/:id', authenticate, deleteStudent);
 router.post('/:id/assign-class', authenticate, assignStudentToClass);
 router.post('/:id/remove-class', authenticate, removeStudentFromClass);
+router.post('/:id/withdraw', authenticate, withdrawStudent);
+router.post('/:id/promote', authenticate, promoteStudent);
 
 export default router;

@@ -207,7 +207,7 @@ export const getCurriculumTopics = async (req: AuthRequest, res: Response) => {
         if (!subjectId || !term) {
             return res.status(400).json({ message: 'subjectId and term are required' });
         }
-        const result = await AcademicService.getCurriculumTopics(subjectId as string, term as string);
+        const result = await AcademicService.getCurriculumTopics((req as any).school_id, subjectId as string, term as string);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -220,8 +220,63 @@ export const syncCurriculumData = async (req: AuthRequest, res: Response) => {
         if (!subjectId) {
             return res.status(400).json({ message: 'subjectId is required' });
         }
-        const result = await AcademicService.syncCurriculumData(subjectId, source);
+        const result = await AcademicService.syncCurriculumData((req as any).school_id, subjectId as string, source as string);
         res.json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const calculateClassRankings = async (req: AuthRequest, res: Response) => {
+    try {
+        if (!['ADMIN', 'PROPRIETOR', 'TEACHER'].includes(req.user.role)) {
+            return res.status(403).json({ message: 'Forbidden' });
+        }
+
+        const { classId, term, session } = req.body;
+        if (!classId || !term || !session) {
+            return res.status(400).json({ message: 'classId, term, and session are required' });
+        }
+
+        const enrollments = await prisma.studentEnrollment.findMany({
+            where: { class_id: classId, school_id: req.user.school_id, status: 'Active' },
+            select: { student_id: true }
+        });
+
+        if (enrollments.length === 0) return res.json([]);
+
+        const studentIds = enrollments.map((e: { student_id: string }) => e.student_id);
+
+        const performances = await prisma.academicPerformance.findMany({
+            where: { student_id: { in: studentIds }, term, session, school_id: req.user.school_id },
+            select: { student_id: true, score: true }
+        });
+
+        const totals = new Map<string, number>();
+        for (const p of performances) {
+            totals.set(p.student_id, (totals.get(p.student_id) || 0) + (p.score || 0));
+        }
+
+        if (totals.size === 0) return res.json([]);
+
+        const ranked = Array.from(totals.entries())
+            .sort((a, b) => b[1] - a[1])
+            .map(([studentId, totalScore], index) => ({
+                studentId, totalScore, position_in_class: index + 1
+            }));
+
+        const totalStudents = ranked.length;
+
+        await prisma.$transaction(
+            ranked.map(({ studentId, totalScore, position_in_class }) =>
+                prisma.reportCard.updateMany({
+                    where: { student_id: studentId, class_id: classId, term, session, school_id: req.user.school_id },
+                    data: { position_in_class, total_students_in_class: totalStudents, total_score: totalScore }
+                })
+            )
+        );
+
+        res.json(ranked);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
     }

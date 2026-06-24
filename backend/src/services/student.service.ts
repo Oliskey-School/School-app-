@@ -2,6 +2,7 @@ import prisma from '../config/database';
 import { NotificationService } from './notification.service';
 import { IdGeneratorService } from './idGenerator.service';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import { Role } from '@prisma/client';
 import { SocketService } from './socket.service';
 
@@ -30,29 +31,25 @@ export class StudentService {
         const initialStatus = isTeacherAdded ? 'Pending' : (enrollmentData.status || 'Active');
 
         const fullName = `${firstName} ${lastName}`;
-        const studentEmail = enrollmentData.email?.toLowerCase() || `${firstName.toLowerCase()}.${lastName.toLowerCase()}${Math.floor(Math.random() * 1000)}@student.school.com`;
+        const studentEmail = enrollmentData.email?.toLowerCase() || `${firstName.toLowerCase()}.${lastName.toLowerCase()}${Date.now()}@student.school.com`;
         // Profile photo: the Add Student screen sends it as avatar_url / avatarUrl, and
         // (for back-compat) inside documentUrls.passportPhoto. Persist it on BOTH the
         // user row and the student row so it shows in headers, lists and the profile.
         const incomingAvatar = enrollmentData.avatar_url || enrollmentData.avatarUrl
             || enrollmentData.documentUrls?.passportPhoto || null;
         
-        // Use a dummy password if pending, real one if active
-        const generatedPassword = isTeacherAdded ? 'pending' : (enrollmentData.password || 'student' + Math.floor(1000 + Math.random() * 9000));
+        // Use a dummy password if pending, strong 16-char hex if active
+        const generatedPassword = isTeacherAdded ? 'pending' : (enrollmentData.password || crypto.randomBytes(8).toString('hex'));
         const hashedPassword = await bcrypt.hash(generatedPassword, 10);
 
         return await prisma.$transaction(async (tx) => {
-            // If the admin explicitly typed an email, make sure it isn't already taken
-            // IN THIS SCHOOL + BRANCH (email is unique per school+branch, not globally) —
-            // never reuse/convert an existing user into a student.
-            if (enrollmentData.email) {
-                const existing = await tx.user.findFirst({ where: { email: studentEmail, school_id: schoolId, branch_id: branchId ?? null } });
-                if (existing) {
-                    throw Object.assign(
-                        new Error(`This email is already registered to ${existing.full_name || 'another account'}. Please use a different email.`),
-                        { status: 409 }
-                    );
-                }
+            // Always check for duplicate email — covers both typed and auto-generated addresses.
+            const existing = await tx.user.findFirst({ where: { email: studentEmail, school_id: schoolId } });
+            if (existing) {
+                throw Object.assign(
+                    new Error(`Email ${studentEmail} is already registered to another account. Please use a different email.`),
+                    { status: 409 }
+                );
             }
 
             // 1. Create the User. The email is unique per school+branch and the duplicate
@@ -76,10 +73,23 @@ export class StudentService {
             let schoolGeneratedId: string | null = null;
             let admissionNumber = enrollmentData.admission_number || enrollmentData.admissionNumber;
 
-            if (schoolId && branchId && !isTeacherAdded) {
+            // Resolve branchId from school's first branch when caller didn't supply one
+            let resolvedBranchId = branchId;
+            if (!resolvedBranchId && !isTeacherAdded) {
+                const school = await tx.school.findUnique({
+                    where: { id: schoolId },
+                    include: { branches: { take: 1, orderBy: { created_at: 'asc' } } }
+                });
+                resolvedBranchId = school?.branches[0]?.id;
+                if (!resolvedBranchId) {
+                    throw new Error('Branch is required to generate a student ID. Please assign a branch first.');
+                }
+            }
+
+            if (schoolId && resolvedBranchId && !isTeacherAdded) {
                 try {
-                    schoolGeneratedId = await IdGeneratorService.generateSchoolId(schoolId, branchId, 'student', tx);
-                    
+                    schoolGeneratedId = await IdGeneratorService.generateSchoolId(schoolId, resolvedBranchId, 'student', tx);
+
                     if (!admissionNumber) {
                         admissionNumber = await IdGeneratorService.generateAdmissionNumber(schoolId, tx);
                     }
@@ -436,12 +446,14 @@ export class StudentService {
             if (!student) throw new Error('Student not found');
             if (student.status === 'Active') throw new Error('Student is already active');
 
-            const generatedPassword = 'student' + Math.floor(1000 + Math.random() * 9000);
+            const generatedPassword = crypto.randomBytes(8).toString('hex');
             const hashedPassword = await bcrypt.hash(generatedPassword, 10);
 
+            // Resolve branch from student record when caller didn't provide one
+            const effectiveBranchId = branchId || student.branch_id || undefined;
             let schoolGeneratedId = student.school_generated_id;
-            if (!schoolGeneratedId && branchId) {
-                schoolGeneratedId = await IdGeneratorService.generateSchoolId(schoolId, branchId, 'student', tx);
+            if (!schoolGeneratedId && effectiveBranchId) {
+                schoolGeneratedId = await IdGeneratorService.generateSchoolId(schoolId, effectiveBranchId, 'student', tx);
             }
 
             let admissionNumber = student.admission_number;
@@ -492,7 +504,7 @@ export class StudentService {
                         branch_id: branchId && branchId !== 'all' ? branchId : null,
                         user_id: teacherUserId,
                         title: 'Student Approved',
-                        message: `Student "${student.full_name}" has been approved by admin. Login ID: ${schoolGeneratedId}, Password: ${generatedPassword}`,
+                        message: `Student "${student.full_name}" has been approved. Their login credentials have been sent to their registered contact.`,
                         category: 'System',
                         audience: ['teacher'],
                         updated_at: new Date()
@@ -525,10 +537,15 @@ export class StudentService {
         const where: any = {
             school_id: schoolId,
             status: queryStatus,
+            deleted_at: null,
         };
 
-        if (branchId && branchId !== 'all') {
-            where.branch_id = branchId; // strict branch isolation (untagged → All Branches only)
+        // When fetching by classId the enrollment record already scopes to the right
+        // students. Applying a branch_id filter on top breaks demo and cross-branch
+        // scenarios where the class record's branch UUID differs from the caller's
+        // active sandbox branch — resulting in 0 students even when the class has many.
+        if (branchId && branchId !== 'all' && !classId) {
+            where.branch_id = branchId;
         }
 
         if (classId) {
@@ -555,7 +572,8 @@ export class StudentService {
             where: {
                 id: id,
                 school_id: schoolId,
-                branch_id: branchId && branchId !== 'all' ? branchId : undefined
+                branch_id: branchId && branchId !== 'all' ? branchId : undefined,
+                deleted_at: null
             },
             include: {
                 user: true,
@@ -607,10 +625,12 @@ export class StudentService {
             // NOTE: only real Student scalar columns. 'school_bus_id' is NOT a field
             // on Student — including it made Prisma reject the whole update (it could
             // not match the input type and flagged branch_id as unknown).
+            // branch_id and school_generated_id are intentionally excluded:
+            // branch changes must go through BranchTransferService; ID changes are never allowed.
             const allowedFields = [
                 'full_name', 'email', 'grade', 'section', 'department', 'gender',
                 'dob', 'address', 'admission_number', 'curriculum_type', 'avatar_url',
-                'status', 'attendance_status', 'branch_id', 'school_generated_id'
+                'status', 'attendance_status'
             ];
 
             // Explicitly pick only valid fields to avoid Prisma errors
@@ -648,7 +668,7 @@ export class StudentService {
                 if (updates.full_name) userUpdates.full_name = updates.full_name;
                 if (updates.email) userUpdates.email = updates.email;
                 if (updates.avatar_url) userUpdates.avatar_url = updates.avatar_url;
-                if (updates.school_generated_id) userUpdates.school_generated_id = updates.school_generated_id;
+                // school_generated_id is never updated via updateStudent
 
                 if (Object.keys(userUpdates).length > 0) {
                     await tx.user.update({
@@ -664,63 +684,56 @@ export class StudentService {
     }
 
     static async deleteStudent(schoolId: string, branchId: string | undefined, id: string) {
-        // Tenant-scoped lookup prevents cross-school deletion via known student id.
-        const student = await prisma.student.findFirst({ where: { id, school_id: schoolId } });
+        const student = await prisma.student.findFirst({
+            where: { id, school_id: schoolId, deleted_at: null },
+            select: { id: true, user_id: true }
+        });
         if (!student) {
             const err: any = new Error('Student not found');
             err.statusCode = 404;
             throw err;
         }
-        if (student.user_id) {
-            await prisma.user.delete({ where: { id: student.user_id } });
-        } else {
-            await prisma.student.delete({ where: { id: student.id } });
-        }
+        const now = new Date();
+        await prisma.$transaction([
+            prisma.student.update({ where: { id: student.id }, data: { deleted_at: now } }),
+            ...(student.user_id ? [prisma.user.update({ where: { id: student.user_id }, data: { deleted_at: now } })] : [])
+        ]);
         SocketService.emitToSchool(schoolId, 'student:updated', { action: 'delete', studentId: id });
         return true;
     }
 
-    static async removeStudentFromClass(schoolId: string, branchId: string | undefined, studentId: string) {
+    static async removeStudentFromClass(schoolId: string, branchId: string | undefined, studentId: string, classId?: string) {
         return await prisma.studentEnrollment.deleteMany({
             where: {
                 student_id: studentId,
-                school_id: schoolId
+                school_id: schoolId,
+                ...(classId ? { class_id: classId } : {})
             }
         });
     }
 
-    static async getStudentProfileByUserId(schoolId: string, branchId: string | undefined, userId: string) {
-        let student = await prisma.student.findFirst({
-            where: { user_id: userId, school_id: schoolId },
-            include: { 
-                user: true,
-                parents: { include: { parent: true } }
-            }
-        });
+    private static async syncStudentIdentity(schoolId: string, userId: string): Promise<void> {
+        try {
+            const student = await prisma.student.findFirst({
+                where: { user_id: userId, school_id: schoolId },
+                include: { user: true }
+            });
+            if (!student || !student.user) return;
 
-        // Identity Auto-Sync: Reconcile Student profile with primary User record
-        if (student && student.user) {
-            const userIdentityMismatch = 
-                student.full_name !== student.user.full_name || 
+            const mismatch =
+                student.full_name !== student.user.full_name ||
                 student.email !== student.user.email ||
                 (student.school_generated_id && student.user.school_generated_id !== student.school_generated_id);
-                
-            if (userIdentityMismatch) {
-                console.log(`🔄 [StudentService] Syncing student profile for ${userId} with User data...`);
-                student = await prisma.student.update({
+
+            if (mismatch) {
+                await prisma.student.update({
                     where: { id: student.id },
                     data: {
                         full_name: student.user.full_name,
                         email: student.user.email,
                         school_generated_id: student.user.school_generated_id || student.school_generated_id
-                    },
-                    include: { 
-                        user: true,
-                        parents: { include: { parent: true } }
                     }
                 });
-
-                // Sync back to User if missing ID but Student table has it
                 if (student.school_generated_id && !student.user.school_generated_id) {
                     await prisma.user.update({
                         where: { id: student.user_id },
@@ -728,12 +741,28 @@ export class StudentService {
                     });
                 }
             }
+        } catch (err: any) {
+            console.warn('[StudentService] syncStudentIdentity failed silently:', err.message);
         }
+    }
 
-        // Self-Healing: If user is a STUDENT/ADMIN but has no Student record, create one
+    static async getStudentProfileByUserId(schoolId: string, branchId: string | undefined, userId: string) {
+        let student = await prisma.student.findFirst({
+            where: { user_id: userId, school_id: schoolId },
+            include: {
+                user: true,
+                parents: { include: { parent: true } }
+            }
+        });
+
+        // Self-Healing: Only STUDENT role may trigger auto-creation of a Student record.
+        // ADMIN/PROPRIETOR/SUPER_ADMIN calling /me should never get a ghost student record.
         if (!student) {
             const user = await prisma.user.findUnique({ where: { id: userId } });
-            const allowedRoles = [Role.STUDENT, Role.ADMIN, Role.SUPER_ADMIN, Role.PROPRIETOR];
+            if (user && user.role !== Role.STUDENT) {
+                throw Object.assign(new Error('Forbidden'), { status: 403 });
+            }
+            const allowedRoles = [Role.STUDENT];
             if (user && allowedRoles.includes(user.role as any)) {
                 console.log(`🛠️ [StudentService] Self-healing: Creating missing student record for user ${userId} (${user.role})`);
                 
@@ -824,7 +853,11 @@ export class StudentService {
 
     static async getStudentByStudentId(schoolId: string, branchId: string | undefined, studentId: string) {
         return await prisma.student.findFirst({
-            where: { school_generated_id: studentId, school_id: schoolId },
+            where: {
+                school_generated_id: studentId,
+                school_id: schoolId,
+                ...(branchId && branchId !== 'all' ? { branch_id: branchId } : {})
+            },
             include: { user: true }
         });
     }
@@ -961,7 +994,12 @@ export class StudentService {
                 const section = parts[2];
 
                 let cls = await tx.class.findFirst({
-                    where: { school_id: schoolId, grade, section }
+                    where: {
+                        school_id: schoolId,
+                        grade,
+                        section,
+                        ...(branchId && branchId !== 'all' ? { branch_id: branchId } : {})
+                    }
                 });
 
                 if (!cls) {
@@ -985,7 +1023,13 @@ export class StudentService {
             });
 
             if (!classData) throw new Error('Class not found');
-            
+
+            // Deactivate all currently-active enrollments before creating the new one
+            await tx.studentEnrollment.updateMany({
+                where: { student_id: studentId, school_id: schoolId, status: 'Active' },
+                data: { status: 'Inactive' }
+            });
+
             await tx.studentEnrollment.upsert({
                 where: {
                     student_id_class_id: {
@@ -1040,10 +1084,10 @@ export class StudentService {
 
     static async getStudentStats(schoolId: string, studentId: string) {
         const [attendance, submissions, records, achievements] = await Promise.all([
-            prisma.attendance.findMany({ where: { student_id: studentId } }),
-            prisma.assignmentSubmission.count({ where: { student_id: studentId } }),
-            prisma.academicPerformance.findMany({ where: { student_id: studentId } }),
-            prisma.achievement.count({ where: { student_id: studentId } })
+            prisma.attendance.findMany({ where: { student_id: studentId, school_id: schoolId } }),
+            prisma.assignmentSubmission.count({ where: { student_id: studentId, school_id: schoolId } }),
+            prisma.academicPerformance.findMany({ where: { student_id: studentId, school_id: schoolId } }),
+            prisma.achievement.count({ where: { student_id: studentId, school_id: schoolId } })
         ]);
 
         const totalDays = attendance.length;
@@ -1400,9 +1444,9 @@ export class StudentService {
     }
 
     static async getStudentsBySubject(schoolId: string, subjectId: string) {
-        // 1. Find the subject and all classes linked to it
-        const subject = await (prisma.subject.findUnique as any)({
-            where: { id: subjectId },
+        // 1. Find the subject scoped to this school
+        const subject = await (prisma.subject.findFirst as any)({
+            where: { id: subjectId, school_id: schoolId },
             include: {
                 classes: {
                     select: { id: true }
@@ -1410,7 +1454,8 @@ export class StudentService {
             }
         });
 
-        if (!subject || !subject.classes?.length) return [];
+        if (!subject) throw Object.assign(new Error('Subject not found'), { status: 404 });
+        if (!subject.classes?.length) return [];
 
         const classIds = subject.classes.map((c: any) => c.id);
 
@@ -1474,5 +1519,99 @@ export class StudentService {
             },
             orderBy: { created_at: 'desc' }
         });
+    }
+
+    static async withdrawStudent(
+        schoolId: string,
+        studentId: string,
+        reason: string,
+        effectiveDate: string
+    ): Promise<{ message: string; student: any }> {
+        const student = await prisma.student.findFirst({
+            where: { id: studentId, school_id: schoolId, deleted_at: null }
+        });
+        if (!student) throw Object.assign(new Error('Student not found'), { status: 404 });
+
+        await prisma.studentEnrollment.updateMany({
+            where: { student_id: studentId, school_id: schoolId, status: 'Active' },
+            data: { status: 'Inactive' }
+        });
+
+        const updated = await prisma.student.update({
+            where: { id: studentId },
+            data: {
+                status: 'Withdrawn',
+                withdrawal_reason: reason,
+                withdrawal_date: new Date(effectiveDate)
+            }
+        });
+
+        SocketService.emitToSchool(schoolId, 'student:updated', { action: 'withdraw', studentId });
+        return { message: 'Student withdrawn successfully', student: updated };
+    }
+
+    static async promoteStudent(
+        schoolId: string,
+        studentId: string,
+        newGrade: number,
+        newSection: string,
+        branchId?: string,
+        session?: string,
+        term?: string
+    ): Promise<{ student: any }> {
+        const student = await prisma.student.findFirst({
+            where: { id: studentId, school_id: schoolId, deleted_at: null }
+        });
+        if (!student) throw Object.assign(new Error('Student not found'), { status: 404 });
+
+        const effectiveBranchId = branchId || student.branch_id || undefined;
+
+        await prisma.studentEnrollment.updateMany({
+            where: { student_id: studentId, school_id: schoolId, status: 'Active' },
+            data: { status: 'Inactive' }
+        });
+
+        let targetClass = await prisma.class.findFirst({
+            where: {
+                school_id: schoolId,
+                grade: newGrade,
+                section: newSection,
+                ...(effectiveBranchId ? { branch_id: effectiveBranchId } : {})
+            }
+        });
+
+        if (!targetClass) {
+            targetClass = await (prisma.class.create as any)({
+                data: {
+                    school_id: schoolId,
+                    branch_id: effectiveBranchId || null,
+                    grade: newGrade,
+                    section: newSection,
+                    name: `Grade ${newGrade} ${newSection}`,
+                    level_category: newGrade >= 7 ? 'Secondary' : (newGrade >= 1 ? 'Primary' : 'Pre-Primary'),
+                    updated_at: new Date()
+                }
+            });
+        }
+
+        await (prisma.studentEnrollment.create as any)({
+            data: {
+                student_id: studentId,
+                class_id: targetClass!.id,
+                school_id: schoolId,
+                status: 'Active',
+                session: session || '',
+                term: term || '',
+                updated_at: new Date()
+            }
+        });
+
+        const updated = await prisma.student.update({
+            where: { id: studentId },
+            data: { grade: newGrade, section: newSection }
+        });
+
+        SocketService.emitToSchool(schoolId, 'student:updated', { action: 'promote', studentId });
+        return { student: updated };
     }
 }

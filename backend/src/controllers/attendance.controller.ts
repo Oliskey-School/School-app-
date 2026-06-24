@@ -97,6 +97,32 @@ export const saveAttendance = async (req: AuthRequest, res: Response) => {
         if (!records || !Array.isArray(records)) {
             return res.status(400).json({ message: 'records array is required' });
         }
+
+        // Teachers may only save attendance for classes they own
+        if (req.user.role === 'TEACHER') {
+            const teacher = await prisma.teacher.findUnique({
+                where: { user_id: req.user.id },
+                select: { id: true }
+            });
+            if (!teacher) return res.status(403).json({ message: 'Teacher profile not found' });
+
+            const uniqueClassIds = [...new Set(
+                (records as any[]).map((r: any) => r.class_id).filter(Boolean)
+            )] as string[];
+
+            if (uniqueClassIds.length > 0) {
+                const owned = await prisma.classTeacher.findMany({
+                    where: { teacher_id: teacher.id, class_id: { in: uniqueClassIds } },
+                    select: { class_id: true }
+                });
+                const ownedSet = new Set(owned.map(o => o.class_id));
+                const unauthorized = uniqueClassIds.filter(id => !ownedSet.has(id));
+                if (unauthorized.length > 0) {
+                    return res.status(403).json({ message: 'Unauthorized: you do not own all submitted classes' });
+                }
+            }
+        }
+
         const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
         const result = await AttendanceService.saveAttendance(req.user.school_id, branchId, records);
         res.json(result);

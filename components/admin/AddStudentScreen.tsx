@@ -158,6 +158,7 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
         username: string;
         password: string;
         email: string;
+        studentId?: string;
         secondary?: {
             userName: string;
             username: string;
@@ -675,9 +676,10 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                 } else {
                     console.log('🚀 [AddStudentScreen] Status is Active. Showing CredentialsModal.');
                     setCredentials({
-                        username: result.username || result.email, 
+                        username: result.username || result.email,
                         password: result.password,
                         email: result.email,
+                        studentId: result.school_generated_id || result.schoolGeneratedId,
                         secondary: result.parentCredentials ? {
                             userName: result.parentCredentials.userName,
                             username: result.parentCredentials.username,
@@ -1052,6 +1054,7 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                     password={credentials.password}
                     email={credentials.email}
                     userType="Student"
+                    studentId={credentials.studentId}
                     secondaryCredentials={credentials.secondary}
                     onClose={() => {
                         setShowCredentialsModal(false);

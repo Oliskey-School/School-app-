@@ -324,7 +324,8 @@ export const assignStudentToClass = async (req: AuthRequest, res: Response) => {
 export const removeStudentFromClass = async (req: AuthRequest, res: Response) => {
     try {
         const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
-        const result = await StudentService.removeStudentFromClass(req.user.school_id, branchId, req.params.id as string);
+        const classId = req.body.class_id || req.body.classId || undefined;
+        const result = await StudentService.removeStudentFromClass(req.user.school_id, branchId, req.params.id as string, classId);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -494,9 +495,49 @@ export const addMyDocument = async (req: AuthRequest, res: Response) => {
 export const getStudentsBySubject = async (req: AuthRequest, res: Response) => {
     try {
         const { subjectId } = req.params;
-        const result = await StudentService.getStudentsBySubject(req.user.school_id, subjectId);
+        const result = await StudentService.getStudentsBySubject(req.user.school_id, subjectId as string);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
+    }
+};
+
+export const withdrawStudent = async (req: AuthRequest, res: Response) => {
+    try {
+        const { reason, effectiveDate } = req.body;
+        if (!reason || !effectiveDate) {
+            return res.status(400).json({ message: 'reason and effectiveDate are required' });
+        }
+        const result = await StudentService.withdrawStudent(
+            req.user.school_id,
+            req.params.id as string,
+            reason,
+            effectiveDate
+        );
+        res.json(result);
+    } catch (error: any) {
+        res.status(error.status || 500).json({ message: error.message });
+    }
+};
+
+export const promoteStudent = async (req: AuthRequest, res: Response) => {
+    try {
+        const { newGrade, newSection, branchId, session, term } = req.body;
+        if (newGrade === undefined || !newSection) {
+            return res.status(400).json({ message: 'newGrade and newSection are required' });
+        }
+        const effectiveBranchId = getEffectiveBranchId(req.user, branchId);
+        const result = await StudentService.promoteStudent(
+            req.user.school_id,
+            req.params.id as string,
+            Number(newGrade),
+            newSection,
+            effectiveBranchId,
+            session,
+            term
+        );
+        res.json(result);
+    } catch (error: any) {
+        res.status(error.status || 500).json({ message: error.message });
     }
 };

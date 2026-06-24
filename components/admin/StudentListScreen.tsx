@@ -154,6 +154,7 @@ interface StudentListScreenProps {
 const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateTo, currentBranchId, schoolId: propSchoolId }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'stage' | 'class'>('stage');
+  const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Withdrawn' | 'Pending'>('All');
 
   const { user } = useAuth();
   const { profile } = useProfile();
@@ -202,14 +203,15 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
   const filteredStudentsList = useMemo(() => {
     return students.filter(student => {
       const nameMatch = (student.name || '').toLowerCase().includes(searchTerm.toLowerCase());
+      const statusMatch = statusFilter === 'All' || (student.status || 'Active') === statusFilter;
       if (filter) {
         const gradeMatch = student.grade === filter.grade;
         const sectionMatch = !filter.section || student.section === filter.section;
-        return gradeMatch && sectionMatch && nameMatch;
+        return gradeMatch && sectionMatch && nameMatch && statusMatch;
       }
-      return nameMatch;
+      return nameMatch && statusMatch;
     });
-  }, [searchTerm, students, filter]);
+  }, [searchTerm, students, filter, statusFilter]);
 
   const studentsByStageAndClass = useMemo(() => {
     const stages: {
@@ -413,6 +415,7 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
         </div>
 
         {!filter && (
+          <>
           <div className="flex space-x-2">
             <button
               onClick={() => setViewMode('stage')}
@@ -427,6 +430,25 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
               By Class
             </button>
           </div>
+          <div className="flex space-x-2 overflow-x-auto pb-0.5">
+            {(['All', 'Active', 'Withdrawn', 'Pending'] as const).map(s => (
+              <button
+                key={s}
+                onClick={() => setStatusFilter(s)}
+                className={`flex-shrink-0 px-3 py-1 text-xs font-medium rounded-full transition-colors ${
+                  statusFilter === s
+                    ? s === 'All' ? 'bg-indigo-600 text-white'
+                      : s === 'Active' ? 'bg-green-600 text-white'
+                      : s === 'Withdrawn' ? 'bg-red-500 text-white'
+                      : 'bg-yellow-500 text-white'
+                    : 'bg-white text-gray-600 ring-1 ring-gray-200'
+                }`}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+          </>
         )}
       </div>
 
