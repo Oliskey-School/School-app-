@@ -96,3 +96,6 @@ backend/.cache/
 
 # Graphify local knowledge graph (regenerate with: graphify update .)
 graphify-out/
+
+# Claude agent worktrees
+.claude/worktrees/
