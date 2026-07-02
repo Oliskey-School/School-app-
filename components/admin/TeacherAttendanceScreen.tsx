@@ -6,6 +6,7 @@ import { THEME_CONFIG } from '../../constants';
 import { DashboardType, Teacher } from '../../types';
 import { api } from '../../lib/api';
 import { useAutoSync } from '../../hooks/useAutoSync';
+import { toast } from 'react-hot-toast';
 
 import { useAuth } from '../../context/AuthContext';
 
@@ -67,6 +68,7 @@ const TeacherAttendanceScreen: React.FC<TeacherAttendanceScreenProps> = ({ navig
 
         } catch (err) {
             console.error("Error fetching teacher attendance:", err);
+            toast.error('Failed to load teacher attendance data');
         } finally {
             setLoading(false);
         }

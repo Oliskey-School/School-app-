@@ -48,6 +48,7 @@ const DataExportScreen = () => {
             setRequests(data);
         } catch (error) {
             console.error('Fetch requests error:', error);
+            toast.error('Failed to load data requests');
         } finally {
             setLoading(false);
         }

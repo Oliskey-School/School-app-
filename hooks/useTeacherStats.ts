@@ -52,10 +52,10 @@ export const useTeacherStats = (
                     const studentSum = classes ? classes.reduce((acc, c) => acc + (c.studentCount || 0), 0) : 0;
                     
                     setStats({
-                        totalStudents: data.totalStudents || studentSum,
-                        totalClasses: data.totalClasses || uniqueClassesCount,
-                        attendanceRate: data.attendanceRate || 0,
-                        avgStudentScore: data.avgStudentScore || 0
+                        totalStudents: data.totalStudents ?? studentSum,
+                        totalClasses: data.totalClasses ?? uniqueClassesCount,
+                        attendanceRate: data.attendanceRate ?? 0,
+                        avgStudentScore: data.avgStudentScore ?? 0
                     });
                 }
             } catch (err) {

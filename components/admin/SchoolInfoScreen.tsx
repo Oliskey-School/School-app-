@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
+import { toast } from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
-import { SaveIcon, SchoolLogoIcon, CheckCircleIcon, XCircleIcon, PhotoIcon, BellIcon, RefreshCw } from '../../constants';
+import { SaveIcon, SchoolLogoIcon, PhotoIcon, BellIcon, RefreshIcon } from '../../constants';
 import { useAutoSync } from '../../hooks/useAutoSync';
 
 // Since we don't have a MusicIcon in constants, I'll use a fallback or add it if I could.
@@ -30,7 +31,6 @@ const SchoolInfoScreen: React.FC = () => {
     });
     const [loading, setLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
     const schoolId = currentSchool?.id;
 
@@ -55,7 +55,6 @@ const SchoolInfoScreen: React.FC = () => {
         e.preventDefault();
         if (!schoolId) return;
         setIsSaving(true);
-        setStatusMessage(null);
 
         try {
             await api.updateSchool(schoolId, {
@@ -70,10 +69,10 @@ const SchoolInfoScreen: React.FC = () => {
             });
 
             await refreshCurrentSchool();
-            setStatusMessage({ type: 'success', text: 'School information updated!' });
+            toast.success('School information updated!');
         } catch (err) {
             console.error('Error saving:', err);
-            setStatusMessage({ type: 'error', text: 'Failed to save information.' });
+            toast.error('Failed to save school information.');
         } finally {
             setIsSaving(false);
         }
@@ -86,12 +85,6 @@ const SchoolInfoScreen: React.FC = () => {
             <div className="flex flex-col space-y-2">
                 <h1 className="text-2xl font-bold text-gray-800">School Information</h1>
                 <p className="text-gray-500 text-sm">Manage school anthem, pledge, and branding assets.</p>
-                {statusMessage && (
-                    <div className={`p-4 rounded-lg flex items-center space-x-2 animate-fade-in-down ${statusMessage.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                        {statusMessage.type === 'success' ? <CheckCircleIcon className="w-5 h-5" /> : <XCircleIcon className="w-5 h-5" />}
-                        <span>{statusMessage.text}</span>
-                    </div>
-                )}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

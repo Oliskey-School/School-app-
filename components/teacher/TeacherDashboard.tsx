@@ -292,7 +292,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     globalForum: GlobalTeacherCommunityScreen,
     globalForumTopic: GlobalForumTopicScreen,
     timetable: (props: any) => <TimetableScreen {...props} context={{ userType: 'teacher', userId: teacherId || '' }} />,
-    chat: (props: any) => <ChatScreen {...props} currentUserId={currentUserId || ''} />,
+    chat: (props: any) => <ChatScreen {...props} currentUserId={currentUserId || ''} themeColor="purple" onBack={handleBack} forceChatPanel={!!(props?.targetUserId || props?.conversationId)} />,
     reports: TeacherReportsScreen,
     reportCardPreview: TeacherReportCardPreviewScreen,
     settings: (props: any) => <TeacherSettingsScreen {...props} dashboardProfile={teacherProfile} refreshDashboardProfile={fetchProfile} />,
@@ -403,12 +403,18 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     );
   }
 
+  const isFullScreen = ['messages', 'newChat', 'chat'].includes(currentNavigation.view);
+  const hideBottomNav = currentNavigation.view === 'chat';
+
   return (
     <DashboardLayout
       title={currentNavigation.title}
       onBack={viewStack.length > 1 ? handleBack : undefined}
       activeScreen={activeBottomNav}
       setActiveScreen={handleBottomNavClick}
+      hideHeader={hideBottomNav}
+      hidePadding={isFullScreen}
+      hideBottomNav={hideBottomNav}
     >
       <div key={`${viewStack.length}-${version}`} className="w-full h-full">
         <ErrorBoundary

@@ -1,4 +1,4 @@
-
+﻿
 import React, { useEffect, useState, useCallback } from 'react';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { Student, Teacher } from '../../types';
@@ -173,7 +173,7 @@ const SubjectsScreen: React.FC<SubjectsScreenProps> = ({ navigateTo, student }) 
               </div>
 
               <div className="space-y-4">
-                <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">Select Term</h3>
+                <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest px-2">Select Term</h3>
                 <div className="grid grid-cols-3 gap-3">
                   {[1, 2, 3].map(t => (
                     <button
@@ -273,7 +273,7 @@ const SubjectsScreen: React.FC<SubjectsScreenProps> = ({ navigateTo, student }) 
                           <div className="flex items-center gap-2">
                             <h3 className="font-bold text-lg text-gray-800">{subjectName}</h3>
                             {subject.curriculum_type && (
-                              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+                              <span className={`text-xs px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
                                 subject.curriculum_type.toLowerCase().includes('british') 
                                 ? 'bg-blue-100 text-blue-700' 
                                 : 'bg-green-100 text-green-700'

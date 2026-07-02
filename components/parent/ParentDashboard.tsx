@@ -124,7 +124,7 @@ const ChildStatCard: React.FC<{ data: any, navigateTo: (view: string, title: str
                             <div className="flex flex-wrap gap-1 mt-0.5">
                                 {enrollments && enrollments.length > 0 ? (
                                     enrollments.map((cls: string, idx: number) => (
-                                        <span key={idx} className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-white/80 border" style={{ color: colorTheme.text, borderColor: `${colorTheme.bg}40` }}>
+                                        <span key={idx} className="text-xs font-bold px-2 py-0.5 rounded-full bg-white/80 border" style={{ color: colorTheme.text, borderColor: `${colorTheme.bg}40` }}>
                                             {cls}
                                         </span>
                                     ))
@@ -286,7 +286,7 @@ const BehaviorTab = ({ student }: { student: Student }) => {
                 {notes.length > 0 ? [...notes].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(note => {
                     const isPositive = note.type === 'Positive';
                     return (
-                        <div key={note.id} className={`p-4 rounded-xl border-l-4 ${isPositive ? 'bg-green-50 border-green-400' : 'bg-red-50 border-red-400'}`}>
+                        <div key={note.id} className={`p-4 rounded-xl border ${isPositive ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
                             <div className="flex justify-between items-start">
                                 <h5 className={`font-bold ${isPositive ? 'text-green-800' : 'text-red-800'}`}>{note.title}</h5>
                                 <p className="text-xs text-gray-700 font-medium flex-shrink-0 ml-2">{new Date(note.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
@@ -644,9 +644,9 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
         permissionSlips: PermissionSlipScreen,
         appointments: (props: any) => <AppointmentScreen {...props} parentId={user?.id} students={students} />,
         aiParentingTips: AIParentingTipsScreen,
-        messages: (props: any) => <ParentMessagesScreen {...props} onSelectChat={(convo: any) => navigateTo('chat', convo.participant?.name || 'Chat', { conversation: convo })} onNewChat={() => navigateTo('newChat', 'New Chat')} />,
+        messages: (props: any) => <ParentMessagesScreen {...props} onSelectChat={(convo: any) => navigateTo('chat', convo.displayName || convo.participant?.name || 'Chat', { conversationId: convo.id, roomDetails: convo })} onNewChat={() => navigateTo('newChat', 'New Chat')} />,
         newChat: ParentNewChatScreen,
-        chat: (props: any) => <ChatScreen {...props} currentUserId={currentUserId ?? 0} />,
+        chat: (props: any) => <ChatScreen {...props} currentUserId={currentUserId ?? undefined} themeColor="green" />,
         schoolUtilities: SchoolUtilitiesScreen,
         volunteerSignup: VolunteerSignup,
         conferenceScheduling: ConferenceScheduling,
@@ -659,7 +659,7 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
         attendance: (props: any) => <AttendanceScreen {...props} />,
         // Alias mappings for widget navigation
         attendanceOverview: (props: any) => <AttendanceScreen {...props} />,
-        parentMessages: (props: any) => <ParentMessagesScreen {...props} onSelectChat={(convo: any) => navigateTo('chat', convo.participant?.name || 'Chat', { conversation: convo })} onNewChat={() => navigateTo('newChat', 'New Chat')} />,
+        parentMessages: (props: any) => <ParentMessagesScreen {...props} onSelectChat={(convo: any) => navigateTo('chat', convo.displayName || convo.participant?.name || 'Chat', { conversationId: convo.id, roomDetails: convo })} onNewChat={() => navigateTo('newChat', 'New Chat')} />,
         schoolCalendar: CalendarScreen,
         assignments: (props: any) => {
             const student = props.student || students[0];
@@ -736,6 +736,9 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
         );
     }
 
+    const isFullScreen = ['messages', 'newChat', 'chat'].includes(currentNavigation.view);
+    const hideBottomNav = currentNavigation.view === 'chat';
+
     return (
         <DashboardLayout
             title={currentNavigation.title}
@@ -743,6 +746,9 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
             onLogout={handleLogout}
             activeScreen={activeBottomNav}
             setActiveScreen={handleBottomNavClick}
+            hideHeader={hideBottomNav}
+            hidePadding={isFullScreen}
+            hideBottomNav={hideBottomNav}
         >
             <div key={`${viewStack.length}-${version}`} className="w-full h-full flex flex-col">
                 <div className="absolute top-0 right-0 p-4 z-30 pointer-events-none">

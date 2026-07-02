@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
+﻿import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { Assignment, Submission, StudentAssignment } from '../../types';
 import api from '../../lib/api';
@@ -118,7 +118,7 @@ const AssignmentsScreen: React.FC<StudentAssignmentsScreenProps> = ({ studentId,
                         related_id: a.id,
                     } as any);
                     localStorage.setItem(key, '1');
-                } catch { /* non-fatal — the on-screen banner still reminds them */ }
+                } catch { /* non-fatal â€” the on-screen banner still reminds them */ }
             }
         };
         notifyDueSoon();
@@ -181,7 +181,7 @@ const AssignmentsScreen: React.FC<StudentAssignmentsScreenProps> = ({ studentId,
                     <div className="mb-4 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
                         <ExclamationCircleIcon className="w-5 h-5 flex-shrink-0" />
                         <span className="text-sm font-semibold">
-                            {dueSoonCount} assignment{dueSoonCount > 1 ? 's' : ''} due in 2 days or less — submit before the deadline.
+                            {dueSoonCount} assignment{dueSoonCount > 1 ? 's' : ''} due in 2 days or less â€” submit before the deadline.
                         </span>
                     </div>
                 )}
@@ -207,7 +207,7 @@ const AssignmentsScreen: React.FC<StudentAssignmentsScreenProps> = ({ studentId,
                                             <ClockIcon className="w-4 h-4 mr-1.5" />
                                             <span>Due: {new Date(assignment.dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
                                             {dueSoon && (
-                                                <span className="ml-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded-full bg-amber-100 text-amber-700">
+                                                <span className="ml-2 px-2 py-0.5 text-xs font-bold uppercase tracking-wide rounded-full bg-amber-100 text-amber-700">
                                                     Due soon
                                                 </span>
                                             )}

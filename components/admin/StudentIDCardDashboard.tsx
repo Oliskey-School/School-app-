@@ -1,12 +1,14 @@
-
+﻿
 import React, { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
 import { Student } from '../../types';
 import IDCardGenerator from '../shared/IDCardGenerator';
 import { CreditCard, Search, Filter, Download, CheckCircle, Clock, AlertTriangle, Users, ChevronRight, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { useAuth } from '../../context/AuthContext';
 
 const StudentIDCardDashboard: React.FC = () => {
+    const { currentSchool, currentBranchId } = useAuth();
     const [stats, setStats] = useState({
         totalStudents: 0,
         cardsIssued: 0,
@@ -21,15 +23,16 @@ const StudentIDCardDashboard: React.FC = () => {
     const [showGenerator, setShowGenerator] = useState(false);
 
     useEffect(() => {
-        fetchData();
-    }, []);
+        if (currentSchool?.id) fetchData();
+    }, [currentSchool?.id, currentBranchId]);
 
     const fetchData = async () => {
+        if (!currentSchool?.id) return;
         setLoading(true);
         try {
             const [statsData, studentsData] = await Promise.all([
                 api.getIDCardStats(),
-                api.getStudents()
+                api.getStudents(currentSchool.id, currentBranchId || undefined, { includeUntagged: true })
             ]);
             setStats(statsData);
             setStudents(studentsData);
@@ -193,7 +196,7 @@ const StudentIDCardDashboard: React.FC = () => {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                                            <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest ${
                                                 student.status === 'Active' 
                                                 ? 'bg-green-100 text-green-700' 
                                                 : 'bg-yellow-100 text-yellow-700'
@@ -275,7 +278,7 @@ const StatCard: React.FC<{ title: string; value: number | string; icon: React.Re
             <div className={`p-3 rounded-2xl ${color}`}>
                 {icon}
             </div>
-            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{trend}</span>
+            <span className="text-xs font-black text-gray-400 uppercase tracking-widest">{trend}</span>
         </div>
         <div>
             <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-1">{title}</h3>

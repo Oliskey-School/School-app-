@@ -34,7 +34,7 @@ export const updateSalaryArrearStatus = async (req: AuthRequest, res: Response) 
     try {
         const { id } = req.params;
         const { status } = req.body;
-        const updated = await PayrollService.updateSalaryArrearStatus(req.user.school_id, id, status);
+        const updated = await PayrollService.updateSalaryArrearStatus(req.user.school_id, id as string, status);
         res.json(updated);
     } catch (error: any) {
         res.status(error.statusCode || 500).json({ message: error.message });
@@ -70,7 +70,7 @@ export const generatePayslip = async (req: AuthRequest, res: Response) => {
 export const approvePayslip = async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
-        const result = await PayrollService.approvePayslip(req.user.school_id, id, req.user.id);
+        const result = await PayrollService.approvePayslip(req.user.school_id, id as string, req.user.id);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -80,7 +80,7 @@ export const approvePayslip = async (req: AuthRequest, res: Response) => {
 export const getTeacherSalary = async (req: AuthRequest, res: Response) => {
     try {
         const { teacherId } = req.params;
-        const result = await PayrollService.getTeacherSalary(req.user.school_id, teacherId);
+        const result = await PayrollService.getTeacherSalary(req.user.school_id, teacherId as string);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });

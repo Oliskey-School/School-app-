@@ -113,11 +113,28 @@ const CreateSchoolSignup: React.FC<CreateSchoolSignupProps> = ({ onNavigateToLog
         return true;
     };
 
-    const nextStep = (e: React.FormEvent) => {
+    const nextStep = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
 
-        if (step === 1 && !validateStep1()) return;
+        if (step === 1) {
+            if (!validateStep1()) return;
+            // Check code availability before showing Step 2 — cheaper to catch here
+            setIsLoading(true);
+            try {
+                const check: any = await api.get(`/schools/onboard/check-code?code=${encodeURIComponent(formData.schoolCode)}`);
+                if (!check.available) {
+                    setError(check.message || 'School code is already taken. Please choose a different one.');
+                    setIsLoading(false);
+                    return;
+                }
+            } catch {
+                // Network failure — let onboard itself surface the error if it hits one
+            } finally {
+                setIsLoading(false);
+            }
+        }
+
         if (step === 2 && !validateStep2()) return;
 
         setStep(prev => prev + 1);
@@ -190,6 +207,7 @@ const CreateSchoolSignup: React.FC<CreateSchoolSignupProps> = ({ onNavigateToLog
         try {
             const data: any = await api.post('/verification/verify', {
                 email: verificationData?.email,
+                userId: verificationData?.userId,   // avoids email ambiguity across schools
                 code: otpCode,
                 purpose: 'email_verification'
             });
@@ -217,6 +235,7 @@ const CreateSchoolSignup: React.FC<CreateSchoolSignupProps> = ({ onNavigateToLog
         try {
             const data: any = await api.post('/verification/resend', {
                 email: verificationData.email,
+                userId: verificationData?.userId,
                 purpose: 'email_verification'
             });
 

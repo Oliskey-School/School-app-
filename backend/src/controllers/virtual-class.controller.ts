@@ -6,12 +6,48 @@ import { getEffectiveBranchId } from '../utils/branchScope';
 import { SocketService } from '../services/socket.service';
 import { NotificationService } from '../services/notification.service';
 
+export const deleteVirtualClassSession = async (req: AuthRequest, res: Response) => {
+    try {
+        const id = req.params.id as string;
+        const session = await prisma.virtualClassSession.findFirst({
+            where: { id, school_id: req.user.school_id },
+        });
+        if (!session) return res.status(404).json({ message: 'Session not found' });
+
+        if (req.user.role === 'TEACHER') {
+            const teacher = await prisma.teacher.findUnique({
+                where: { user_id: req.user.id },
+                select: { id: true },
+            });
+            if (!teacher || session.teacher_id !== teacher.id) {
+                return res.status(403).json({ message: 'You can only delete your own sessions' });
+            }
+        }
+
+        await prisma.virtualClassSession.delete({ where: { id } });
+
+        SocketService.emitToSchool(req.user.school_id, 'virtual-class:deleted', { sessionId: id });
+
+        res.json({ message: 'Session deleted' });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
 export const createVirtualClassSession = async (req: AuthRequest, res: Response) => {
     try {
         const sessionData = {
             ...req.body,
             school_id: req.user.school_id
         };
+
+        // Compute end_time from duration_minutes if not already provided
+        if (req.body.duration_minutes && !sessionData.end_time) {
+            const start = new Date(sessionData.start_time || new Date());
+            sessionData.end_time = new Date(
+                start.getTime() + Number(req.body.duration_minutes) * 60 * 1000
+            ).toISOString();
+        }
 
         if (req.user.role === 'TEACHER') {
             const teacher = await prisma.teacher.findUnique({
@@ -94,8 +130,17 @@ export const getVirtualClassSessions = async (req: AuthRequest, res: Response) =
     try {
         const requestedBranch = (req.query.branch_id as string) || (req.query.branchId as string);
         const branchId = getEffectiveBranchId(req.user, requestedBranch);
-        const teacherId = req.query.teacher_id as string || req.query.teacherId as string;
-        
+        let teacherId = (req.query.teacher_id as string) || (req.query.teacherId as string);
+
+        // Auto-scope to the logged-in teacher's own sessions when no explicit teacherId given
+        if (!teacherId && req.user.role === 'TEACHER') {
+            const teacher = await prisma.teacher.findUnique({
+                where: { user_id: req.user.id },
+                select: { id: true },
+            });
+            if (teacher) teacherId = teacher.id;
+        }
+
         const sessions = await VirtualClassService.getSessions(req.user.school_id, branchId, teacherId);
         res.json(sessions);
     } catch (error: any) {
@@ -110,12 +155,26 @@ export const getActiveVirtualClasses = async (req: AuthRequest, res: Response) =
         const requestedBranch = (req.query.branch_id as string) || (req.query.branchId as string);
         const branchId = getEffectiveBranchId(req.user, requestedBranch);
         const where: any = { school_id: req.user.school_id, status: 'active' };
+        // Use AND so branch and time filters coexist (top-level OR would conflict).
+        const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
+        where.AND = [
+            // A session is "live" if:
+            //   - it has an explicit end_time in the future, OR
+            //   - it has no end_time but started within the last 4 hours
+            //     (prevents abandoned test sessions from showing indefinitely)
+            {
+                OR: [
+                    { end_time: { gt: new Date() } },
+                    { AND: [{ end_time: null }, { start_time: { gt: fourHoursAgo } }] },
+                ],
+            },
+        ];
         // Include school-wide sessions (branch_id null) too — a teacher often
         // starts a class without a branch set, and it must still reach students
         // whose branch is filled in. Matching only the exact branch hid the
         // session and made the "Join Live Class" button flash and vanish.
         if (branchId && branchId !== 'all') {
-            where.OR = [{ branch_id: branchId }, { branch_id: null }];
+            where.AND.push({ OR: [{ branch_id: branchId }, { branch_id: null }] });
         }
 
         const sessions = await prisma.virtualClassSession.findMany({

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
+import { useAuth } from '../../context/AuthContext';
 import { formatCurrency, calculateGrossSalary } from '../../lib/payroll';
 import { toast } from 'react-hot-toast';
 import {
@@ -11,14 +12,14 @@ import {
 } from '../../constants';
 
 interface Teacher {
-    id: number;
+    id: string;
     full_name: string;
     email: string;
 }
 
 interface SalaryConfig {
-    id?: number;
-    teacher_id: number;
+    id?: string;
+    teacher_id: string;
     base_salary: number;
     currency: string;
     payment_frequency: string;
@@ -34,12 +35,13 @@ interface SalaryConfigurationProps {
 }
 
 const SalaryConfiguration: React.FC<SalaryConfigurationProps> = ({ navigateTo, handleBack }) => {
+    const { currentSchool, currentBranchId } = useAuth();
     const [teachers, setTeachers] = useState<Teacher[]>([]);
     const [showForm, setShowForm] = useState(false);
-    const [editingId, setEditingId] = useState<number | null>(null);
+    const [editingId, setEditingId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [formData, setFormData] = useState<SalaryConfig>({
-        teacher_id: 0,
+        teacher_id: '',
         base_salary: 0,
         currency: 'NGN',
         payment_frequency: 'Monthly',
@@ -48,18 +50,14 @@ const SalaryConfiguration: React.FC<SalaryConfigurationProps> = ({ navigateTo, h
     });
 
     useEffect(() => {
-        fetchTeachers();
-    }, []);
+        if (currentSchool?.id) fetchTeachers();
+    }, [currentSchool?.id, currentBranchId]);
 
     const fetchTeachers = async () => {
+        if (!currentSchool?.id) return;
         try {
             setLoading(true);
-            const { data, error } = await api
-                .from('teachers')
-                .select('id, full_name, email')
-                .order('full_name');
-
-            if (error) throw error;
+            const data = await api.getTeachers(currentSchool.id, currentBranchId || undefined);
             setTeachers(data || []);
         } catch (error: any) {
             console.error('Error fetching teachers:', error);
@@ -79,37 +77,23 @@ const SalaryConfiguration: React.FC<SalaryConfigurationProps> = ({ navigateTo, h
 
         try {
             if (editingId) {
-                const { error } = await api
-                    .from('teacher_salaries')
-                    .update({
-                        base_salary: formData.base_salary,
-                        currency: formData.currency,
-                        payment_frequency: formData.payment_frequency,
-                        bank_name: formData.bank_name,
-                        account_number: formData.account_number,
-                        effective_date: formData.effective_date,
-                        is_active: formData.is_active,
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq('id', editingId);
-
-                if (error) throw error;
+                await api.put(`/teacher-salaries/${editingId}`, {
+                    base_salary: formData.base_salary,
+                    currency: formData.currency,
+                    payment_frequency: formData.payment_frequency,
+                    effective_date: formData.effective_date,
+                    is_active: formData.is_active,
+                });
                 toast.success('Salary updated successfully');
             } else {
-                const { error } = await api
-                    .from('teacher_salaries')
-                    .insert({
-                        teacher_id: formData.teacher_id,
-                        base_salary: formData.base_salary,
-                        currency: formData.currency,
-                        payment_frequency: formData.payment_frequency,
-                        bank_name: formData.bank_name,
-                        account_number: formData.account_number,
-                        effective_date: formData.effective_date,
-                        is_active: formData.is_active
-                    });
-
-                if (error) throw error;
+                await api.post('/teacher-salaries', {
+                    teacher_id: formData.teacher_id,
+                    base_salary: formData.base_salary,
+                    currency: formData.currency,
+                    payment_frequency: formData.payment_frequency,
+                    effective_date: formData.effective_date,
+                    is_active: formData.is_active,
+                });
                 toast.success('Salary configuration created');
             }
 
@@ -123,7 +107,7 @@ const SalaryConfiguration: React.FC<SalaryConfigurationProps> = ({ navigateTo, h
 
     const resetForm = () => {
         setFormData({
-            teacher_id: 0,
+            teacher_id: '',
             base_salary: 0,
             currency: 'NGN',
             payment_frequency: 'Monthly',
@@ -167,12 +151,12 @@ const SalaryConfiguration: React.FC<SalaryConfigurationProps> = ({ navigateTo, h
                                     </label>
                                     <select
                                         value={formData.teacher_id}
-                                        onChange={(e) => setFormData({ ...formData, teacher_id: Number(e.target.value) })}
+                                        onChange={(e) => setFormData({ ...formData, teacher_id: e.target.value })}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                                         required
                                         disabled={!!editingId}
                                     >
-                                        <option value={0}>Select a teacher</option>
+                                        <option value="">Select a teacher</option>
                                         {teachers.map((teacher) => (
                                             <option key={teacher.id} value={teacher.id}>
                                                 {teacher.full_name} ({teacher.email})

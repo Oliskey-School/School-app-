@@ -105,6 +105,7 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ userType, nav
       setNotifications(filtered);
     } catch (err) {
       console.error('Error fetching notifications:', err);
+      toast.error('Failed to load notifications');
     } finally {
       setLoading(false);
     }

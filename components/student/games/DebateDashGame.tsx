@@ -263,7 +263,7 @@ const DebateDashGame: React.FC<DebateDashGameProps> = ({ onBack }) => {
                 {(gameState === 'PLAYING' || gameState === 'FEEDBACK') && scenario && (
                     <>
                         {/* Header Info */}
-                        <div className="bg-white p-4 rounded-xl shadow-md mb-4 border-l-4 border-orange-500 flex justify-between items-center">
+                        <div className="bg-white p-4 rounded-xl shadow-md mb-4 border border-orange-200 flex justify-between items-center">
                             <div>
                                 <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Topic</h3>
                                 <p className="font-bold text-lg text-slate-800 leading-tight">{scenario.topic}</p>

@@ -133,7 +133,7 @@ const AssignmentFeedbackScreen: React.FC<AssignmentFeedbackScreenProps> = ({ ass
                 {/* Teacher's Feedback */}
                 <div className="bg-white p-4 rounded-xl shadow-sm">
                     <h4 className="font-bold text-gray-800 mb-2">Teacher's Comments</h4>
-                    <div className="bg-orange-50 p-3 rounded-lg border-l-4 border-orange-300">
+                    <div className="bg-orange-50 p-3 rounded-lg border border-orange-200">
                         <p className="text-gray-700 whitespace-pre-wrap">{submission.feedback || 'No comments provided.'}</p>
                     </div>
                 </div>

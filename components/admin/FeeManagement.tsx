@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
 import { toast } from 'react-hot-toast';
@@ -22,9 +22,7 @@ const AssignFeeSchema = Yup.object().shape({
 const FeeManagement: React.FC<any> = (props) => {
   const { currentSchool, currentBranchId } = useAuth();
   const schoolId = currentSchool?.id;
-  // Use the ACTIVE branch the admin has switched into (passed down as a prop), not
-  // their home branch — otherwise a branch admin in Lekki would load Main's fees.
-  const branchId = props?.currentBranchId || currentBranchId;
+  const branchId = currentBranchId;
 
   const [fees, setFees] = useState<Fee[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,8 +62,9 @@ const FeeManagement: React.FC<any> = (props) => {
         const txData = await api.getPaymentHistory(schoolId, branchId || undefined) as any[];
         setRecentTransactions(txData || []);
         setLoadingTransactions(false);
-      } catch (err) {
+      } catch (err: any) {
         console.error('Error loading data:', err);
+        toast.error('Failed to load fee data');
       }
     }
     setLoading(false);
@@ -268,14 +267,14 @@ const FeeManagement: React.FC<any> = (props) => {
                           <div className="text-xs text-gray-400 line-clamp-1">{fee.description}</div>
                         </div>
                         {fee.hasPaymentPlan && (
-                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 text-indigo-600 border border-indigo-100 whitespace-nowrap">
+                          <span className="px-2 py-0.5 rounded-md text-xs font-bold bg-indigo-50 text-indigo-600 border border-indigo-100 whitespace-nowrap">
                             📅 PLAN
                           </span>
                         )}
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-tight ${fee.curriculumType === 'British' ? 'bg-blue-50 text-blue-600 border border-blue-100' :
+                      <span className={`px-2 py-1 rounded-md text-xs font-bold uppercase tracking-tight ${fee.curriculumType === 'British' ? 'bg-blue-50 text-blue-600 border border-blue-100' :
                         fee.curriculumType === 'Nigerian' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
                           fee.curriculumType === 'Dual' ? 'bg-purple-50 text-purple-600 border border-purple-100' :
                             'bg-gray-50 text-gray-600 border border-gray-100'

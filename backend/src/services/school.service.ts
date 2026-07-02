@@ -123,7 +123,6 @@ export class SchoolService {
         const result = await prisma.school.updateMany({
             where: {
                 id: id,
-                school_id: schoolId
             },
             data: updates
         });

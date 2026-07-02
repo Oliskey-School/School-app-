@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CalendarIcon, EyeIcon, EditIcon, PlusIcon, CheckCircleIcon, ClockIcon } from '../../constants';
+import { CalendarIcon, EyeIcon, EditIcon, PlusIcon, CheckCircleIcon, ClockIcon, TIMETABLE_PERIODS, TIMETABLE_DOW } from '../../constants';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 
@@ -212,34 +212,32 @@ const TimetableOverview: React.FC<TimetableOverviewProps> = ({ navigateTo, schoo
                                     <button
                                         onClick={async () => {
                                             try {
-                                                const { data: entries, error } = await api
-                                                    .from('timetable')
-                                                    .select('*')
-                                                    .eq('school_id', schoolId)
-                                                    .eq('class_name', tt.className);
-
-                                                if (error) throw error;
+                                                // Fetch timetable entries via REST API (replaces legacy api.from('timetable') shim)
+                                                const entries = await api.getTimetable(
+                                                    (currentBranchId && currentBranchId !== 'all') ? currentBranchId : undefined,
+                                                    tt.className
+                                                );
 
                                                 const schedule: any = {};
                                                 const teacherAssignments: any = {};
 
-                                                // We need to resolve teacher names if we don't store them directly anymore (we store IDs now)
-                                                // So let's fetch unique teacher IDs
-                                                const teacherIds = Array.from(new Set(entries.map((e: any) => e.teacher_id).filter(Boolean)));
+                                                // Resolve teacher IDs → names via REST teachers endpoint
+                                                const teacherIds = Array.from(new Set((entries || []).map((e: any) => e.teacher_id).filter(Boolean)));
+                                                const teacherMap = new Map<string, string>();
+                                                if (teacherIds.length > 0 && schoolId) {
+                                                    const teachers = await api.getTeachers(schoolId);
+                                                    (teachers || []).forEach((t: any) => teacherMap.set(String(t.id), t.full_name || t.name || ''));
+                                                }
 
-                                                const { data: teachers } = await api
-                                                    .from('teachers')
-                                                    .select('id, name')
-                                                    .eq('school_id', schoolId)
-                                                    .in('id', teacherIds);
-                                                const teacherMap = new Map();
-                                                teachers?.forEach((t: any) => teacherMap.set(t.id, t.name));
-
-                                                entries.forEach((e: any) => {
-                                                    const key = `${e.day}-${e.period_index}`;
+                                                (entries || []).forEach((e: any) => {
+                                                    const dayName = TIMETABLE_DOW[e.day_of_week as number];
+                                                    if (!dayName) return;
+                                                    const periodIdx = TIMETABLE_PERIODS.findIndex(p => p.start === e.start_time);
+                                                    if (periodIdx === -1) return;
+                                                    const key = `${dayName}-${periodIdx}`;
                                                     schedule[key] = e.subject;
                                                     if (e.teacher_id) {
-                                                        teacherAssignments[key] = teacherMap.get(e.teacher_id);
+                                                        teacherAssignments[key] = teacherMap.get(String(e.teacher_id)) || '';
                                                     }
                                                 });
 

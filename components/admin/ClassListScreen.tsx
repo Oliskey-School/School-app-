@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+﻿import React, { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/api';
 import { fetchClasses, fetchStudentsByClassId } from '../../lib/database';
@@ -153,7 +153,7 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId,
                 <div className="flex justify-between items-center px-2">
                     <div className="flex flex-col">
                         <p className="text-sm font-bold text-gray-800">{Object.keys(groupedClasses).length} Academic Levels</p>
-                        <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">{classes.length} Total Sections Created</p>
+                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{classes.length} Total Sections Created</p>
                     </div>
                     <button
                         onClick={() => navigateTo('classForm', 'Add New Class')}
@@ -195,7 +195,7 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId,
                                                         <div className="flex items-center space-x-2">
                                                             <p className="font-bold text-gray-700 leading-tight">Section {cls.section || 'A'}</p>
                                                             {cls.department && (
-                                                                <span className="px-1.5 py-0.5 bg-gray-200 text-gray-600 rounded text-[10px] font-bold uppercase">{cls.department}</span>
+                                                                <span className="px-1.5 py-0.5 bg-gray-200 text-gray-600 rounded text-xs font-bold uppercase">{cls.department}</span>
                                                             )}
                                                         </div>
                                                         <p className="text-xs text-gray-400 font-medium">{cls.studentCount || 0} Students enrolled</p>
@@ -235,13 +235,13 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId,
                                                                             <img src={student.avatarUrl || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(student.name)} alt={student.name} className="w-10 h-10 rounded-full object-cover ring-2 ring-gray-50 mr-3" />
                                                                             <div>
                                                                                 <p className="text-sm font-bold text-gray-800">{student.name}</p>
-                                                                                <p className="text-[10px] uppercase tracking-wider font-semibold text-gray-400">{student.schoolGeneratedId}</p>
+                                                                                <p className="text-xs uppercase tracking-wider font-semibold text-gray-400">{student.schoolGeneratedId}</p>
                                                                             </div>
                                                                         </div>
 
                                                                         <div className="flex flex-col gap-1 flex-1">
                                                                             <div className="flex items-center gap-2 text-xs text-gray-500">
-                                                                                <span className="w-4 h-4 flex items-center justify-center bg-gray-100 rounded text-gray-400 font-bold text-[8px]">@</span>
+                                                                                <span aria-hidden="true" className="w-4 h-4 flex items-center justify-center bg-gray-100 rounded text-gray-400 font-bold text-xs">@</span>
                                                                                 <span className="truncate">{student.email || 'No Email'}</span>
                                                                             </div>
                                                                             <div className="flex items-center gap-2 text-xs text-gray-500">
@@ -252,17 +252,17 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId,
 
                                                                         <div className="flex flex-col gap-1 flex-1">
                                                                             <div className="flex items-center gap-2 text-xs text-gray-500">
-                                                                                <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded text-[10px] font-bold uppercase">{student.gender || 'N/A'}</span>
-                                                                                <span className="text-[10px] text-gray-400">DOB: {student.birthday ? new Date(student.birthday).toLocaleDateString() : 'N/A'}</span>
+                                                                                <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded text-xs font-bold uppercase">{student.gender || 'N/A'}</span>
+                                                                                <span className="text-xs text-gray-400">DOB: {student.birthday ? new Date(student.birthday).toLocaleDateString() : 'N/A'}</span>
                                                                             </div>
                                                                         </div>
 
                                                                         <div className="flex items-center gap-2">
-                                                                            <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-tight ${student.attendanceStatus === 'Present' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                                                            <span className={`px-2 py-1 rounded-full text-xs font-bold uppercase tracking-tight ${student.attendanceStatus === 'Present' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                                                                                 {student.attendanceStatus || 'Absent'}
                                                                             </span>
                                                                             {student.status && (
-                                                                                <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-tight ${student.status === 'Active' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>
+                                                                                <span className={`px-2 py-1 rounded-full text-xs font-bold uppercase tracking-tight ${student.status === 'Active' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>
                                                                                     {student.status}
                                                                                 </span>
                                                                             )}
@@ -299,7 +299,7 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId,
                                         </div>
                                         <button
                                             onClick={() => navigateTo('classForm', 'Add New Class', { initialGrade: grade, initialLevel: (DEFAULT_STANDARD_CLASSES.find(s => s.grade === grade) as any)?.level || 'Other' })}
-                                            className="px-3 py-1 bg-white border border-gray-200 rounded-lg text-[10px] font-bold text-indigo-600 hover:bg-indigo-50 transition-colors shadow-sm"
+                                            className="px-3 py-1 bg-white border border-gray-200 rounded-lg text-xs font-bold text-indigo-600 hover:bg-indigo-50 transition-colors shadow-sm"
                                         >
                                             + Add Section
                                         </button>

@@ -35,7 +35,7 @@ export const sendAbsenceNotification = async (params: AbsenceNotificationParams)
             // If specific method missing, use the generic users endpoint filtered by parent role if possible
             // Or better, if we have a classroom-based parent fetch
             if (student.class_id) {
-                parentProfiles = await api.getParentsByClassId(student.class_id);
+                parentProfiles = await (api as any).getParentsByClass(student.class_id);
             }
         }
 

@@ -79,6 +79,6 @@ export class VirtualClassService {
                 student_id: studentId,
                 joined_at: new Date()
             }
-        });
+        } as any);
     }
 }

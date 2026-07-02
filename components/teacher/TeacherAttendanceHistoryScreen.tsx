@@ -156,7 +156,7 @@ const TeacherAttendanceHistoryScreen: React.FC<TeacherAttendanceHistoryScreenPro
                         </button>
                     </div>
 
-                    <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">
+                    <div className="grid grid-cols-7 gap-1 text-center text-xs font-black text-gray-400 uppercase tracking-widest mb-4">
                         {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => <div key={`day-header-${i}`}>{day}</div>)}
                     </div>
 
@@ -181,16 +181,16 @@ const TeacherAttendanceHistoryScreen: React.FC<TeacherAttendanceHistoryScreenPro
                     )}
 
                     <div className="flex justify-center flex-wrap gap-4 mt-8 pb-2">
-                        <span className="flex items-center text-[10px] font-black uppercase text-gray-500 tracking-wider">
+                        <span className="flex items-center text-xs font-black uppercase text-gray-500 tracking-wider">
                             <div className="w-2.5 h-2.5 rounded-full bg-green-400 mr-2 shadow-sm"></div>Present
                         </span>
-                        <span className="flex items-center text-[10px] font-black uppercase text-gray-500 tracking-wider">
+                        <span className="flex items-center text-xs font-black uppercase text-gray-500 tracking-wider">
                             <div className="w-2.5 h-2.5 rounded-full bg-yellow-400 mr-2 shadow-sm"></div>Pending
                         </span>
-                        <span className="flex items-center text-[10px] font-black uppercase text-gray-500 tracking-wider">
+                        <span className="flex items-center text-xs font-black uppercase text-gray-500 tracking-wider">
                             <div className="w-2.5 h-2.5 rounded-full bg-red-400 mr-2 shadow-sm"></div>Absent
                         </span>
-                        <span className="flex items-center text-[10px] font-black uppercase text-gray-500 tracking-wider">
+                        <span className="flex items-center text-xs font-black uppercase text-gray-500 tracking-wider">
                             <div className="w-2.5 h-2.5 rounded-full bg-amber-400 mr-2 shadow-sm"></div>Leave
                         </span>
                     </div>
@@ -201,15 +201,15 @@ const TeacherAttendanceHistoryScreen: React.FC<TeacherAttendanceHistoryScreenPro
                     <div className="grid grid-cols-3 gap-4">
                         <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-50 text-center group hover:border-green-100 transition-colors">
                             <p className="font-black text-3xl text-green-500 mb-1 leading-none">{stats.present}</p>
-                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Present</p>
+                            <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Present</p>
                         </div>
                         <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-50 text-center group hover:border-red-100 transition-colors">
                             <p className="font-black text-3xl text-red-500 mb-1 leading-none">{stats.absent}</p>
-                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Absent</p>
+                            <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Absent</p>
                         </div>
                         <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-50 text-center group hover:border-amber-100 transition-colors">
                             <p className="font-black text-3xl text-amber-500 mb-1 leading-none">{stats.leave}</p>
-                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">On Leave</p>
+                            <p className="text-xs font-black text-gray-400 uppercase tracking-widest">On Leave</p>
                         </div>
                     </div>
 
@@ -227,7 +227,7 @@ const TeacherAttendanceHistoryScreen: React.FC<TeacherAttendanceHistoryScreenPro
             <div className="pt-6 border-t border-gray-100">
                 <div className="flex items-center justify-between mb-6 px-1">
                     <h2 className="text-2xl font-black text-gray-800 tracking-tight">Attendance History</h2>
-                    <div className="bg-purple-50 text-purple-600 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-purple-100">
+                    <div className="bg-purple-50 text-purple-600 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest border border-purple-100">
                         Last 100 Records
                     </div>
                 </div>
@@ -246,13 +246,13 @@ const TeacherAttendanceHistoryScreen: React.FC<TeacherAttendanceHistoryScreenPro
                             <div key={record.id} className="bg-white rounded-3xl p-6 shadow-sm border border-gray-50 flex items-center justify-between hover:shadow-xl hover:scale-[1.01] transition-all duration-300">
                                 <div className="flex items-center gap-6">
                                     <div className="text-center bg-purple-50 rounded-2xl p-4 min-w-[85px] border border-purple-100 shadow-sm">
-                                        <p className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-1">
+                                        <p className="text-xs font-black text-purple-400 uppercase tracking-widest mb-1">
                                             {new Date(record.date).toLocaleDateString('en-US', { month: 'short' })}
                                         </p>
                                         <p className="text-3xl font-black text-purple-700 leading-none">
                                             {new Date(record.date).getDate()}
                                         </p>
-                                        <p className="text-[10px] font-black text-purple-400 mt-2 uppercase tracking-widest">
+                                        <p className="text-xs font-black text-purple-400 mt-2 uppercase tracking-widest">
                                             {new Date(record.date).toLocaleDateString('en-US', { weekday: 'short' })}
                                         </p>
                                     </div>
@@ -269,13 +269,13 @@ const TeacherAttendanceHistoryScreen: React.FC<TeacherAttendanceHistoryScreenPro
                                     </div>
                                 </div>
                                 <div className="flex flex-col items-end gap-3">
-                                    <span className={`px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest ${getStatusColor(record.approval_status)} shadow-sm border border-current opacity-80`}>
+                                    <span className={`px-6 py-2 rounded-full text-xs font-black uppercase tracking-widest ${getStatusColor(record.approval_status)} shadow-sm border border-current opacity-80`}>
                                         {record.approval_status}
                                     </span>
                                     {record.approved_by && (
                                         <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-50 rounded-full">
                                             <div className="w-1 h-1 rounded-full bg-gray-300"></div>
-                                            <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">Approved by Admin</p>
+                                            <p className="text-xs text-gray-400 font-black uppercase tracking-widest">Approved by Admin</p>
                                         </div>
                                     )}
                                 </div>
@@ -290,7 +290,7 @@ const TeacherAttendanceHistoryScreen: React.FC<TeacherAttendanceHistoryScreenPro
 
 const Badge = ({ status }: { status: string }) => {
     return (
-        <span className="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-blue-50 text-blue-600 border border-blue-100">
+        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest bg-blue-50 text-blue-600 border border-blue-100">
             {status || 'Present'}
         </span>
     );

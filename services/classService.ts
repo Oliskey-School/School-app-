@@ -22,7 +22,7 @@ export async function fetchClasses(schoolId: string, branchId?: string): Promise
 
 export async function fetchSubjects(schoolId?: string, branchId?: string, curriculumId?: string | number): Promise<any[]> {
     try {
-        const data = await api.getSubjects(schoolId, branchId, curriculumId);
+        const data = await api.getSubjects(schoolId, branchId, curriculumId !== undefined ? Number(curriculumId) : undefined);
         return data || [];
     } catch (err) {
         console.error('Error fetching subjects:', err);

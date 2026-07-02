@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+﻿import React, { useState, useMemo, useEffect } from 'react';
 import { HealthLogEntry, Student } from '../../types';
 import { SearchIcon, PlusIcon, XCircleIcon, HeartIcon, ClockIcon, CalendarIcon, FilterIcon, RefreshIcon, CheckCircleIcon, ExclamationCircleIcon, TrendingUpIcon, TrashIcon } from '../../constants';
 // import { getFormattedClassName } from '../../constants'; // unused or keep if needed
@@ -71,6 +71,7 @@ const HealthLogScreen: React.FC<HealthLogProps> = ({ schoolId, currentUserId }) 
             }
         } catch (error) {
             console.error('Error fetching students:', error);
+            toast.error('Failed to load students');
         }
     };
 
@@ -96,6 +97,7 @@ const HealthLogScreen: React.FC<HealthLogProps> = ({ schoolId, currentUserId }) 
             }
         } catch (error) {
             console.error('Error fetching health logs:', error);
+            toast.error('Failed to load health logs');
         }
     };
 
@@ -315,14 +317,14 @@ const HealthLogScreen: React.FC<HealthLogProps> = ({ schoolId, currentUserId }) 
                                                                 {s.avatarUrl ? (
                                                                     <img src={s.avatarUrl} alt={s.name} className="w-full h-full rounded-full object-cover" />
                                                                 ) : (
-                                                                    <div className="w-full h-full rounded-full flex items-center justify-center text-[10px] font-bold text-gray-400">
+                                                                    <div className="w-full h-full rounded-full flex items-center justify-center text-xs font-bold text-gray-400">
                                                                         {s.name.charAt(0)}
                                                                     </div>
                                                                 )}
                                                             </div>
                                                             <div>
                                                                 <p className="text-sm font-bold text-gray-900 leading-none mb-1">{s.name}</p>
-                                                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-tight">Grade {s.grade}{s.section}</p>
+                                                                <p className="text-xs font-bold text-gray-500 uppercase tracking-tight">Grade {s.grade}{s.section}</p>
                                                             </div>
                                                             {selectedStudent === s.id && (
                                                                 <CheckCircleIcon className="w-4 h-4 text-rose-500 ml-auto" />

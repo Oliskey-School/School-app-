@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { LockIcon } from '../../constants';
 import { api } from '../../lib/api';
+import { toast } from 'react-hot-toast';
 
 const PasswordInput = ({ id, label, value, onChange }: { id: string, label: string, value: string, onChange: (e: React.ChangeEvent<HTMLInputElement>) => void }) => (
     <div>
@@ -17,36 +18,34 @@ const ChangePasswordScreen: React.FC = () => {
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    const [message, setMessage] = useState('');
     const [loading, setLoading] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setMessage('');
 
         if (newPassword !== confirmPassword) {
-            setMessage("New passwords do not match.");
+            toast.error('New passwords do not match.');
             return;
         }
 
         if (newPassword.length < 6) {
-            setMessage("Password must be at least 6 characters.");
+            toast.error('Password must be at least 6 characters.');
             return;
         }
 
         setLoading(true);
         try {
-            await api.patch('/auth/update-password', { 
-                currentPassword, 
-                newPassword 
+            await api.patch('/auth/update-password', {
+                currentPassword,
+                newPassword
             });
-            setMessage("Password changed successfully!");
+            toast.success('Password changed successfully!');
             setCurrentPassword('');
             setNewPassword('');
             setConfirmPassword('');
         } catch (err: any) {
             console.error('Error changing password:', err);
-            setMessage(err.message || "Failed to change password.");
+            toast.error(err.message || 'Failed to change password.');
         } finally {
             setLoading(false);
         }
@@ -63,14 +62,8 @@ const ChangePasswordScreen: React.FC = () => {
                     </div>
                 </main>
                 <div className="p-4 mt-auto bg-gray-50 border-t border-gray-200">
-                    {message && (
-                        <div className={`mb-3 p-3 rounded-lg text-center text-sm font-medium ${message.includes('successfully') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                            }`}>
-                            {message}
-                        </div>
-                    )}
                     <button type="submit" disabled={loading} className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white bg-sky-500 hover:bg-sky-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                        {loading ? 'Updating...' : 'Update'}
+                        {loading ? 'Updating...' : 'Update Password'}
                     </button>
                 </div>
             </form>

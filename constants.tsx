@@ -276,6 +276,25 @@ export const SUBJECT_COLORS: { [key: string]: string } = {
   'Science': 'bg-sky-100 text-sky-800 border-sky-200',
 };
 
+export const TIMETABLE_PERIODS: Array<{ name: string; start: string; end: string; isBreak?: boolean }> = [
+  { name: 'Period 1', start: '08:00', end: '08:45' },
+  { name: 'Period 2', start: '08:45', end: '09:30' },
+  { name: 'Period 3', start: '09:30', end: '10:15' },
+  { name: 'Short Break', start: '10:15', end: '10:30', isBreak: true },
+  { name: 'Period 4', start: '10:30', end: '11:15' },
+  { name: 'Period 5', start: '11:15', end: '12:00' },
+  { name: 'Long Break', start: '12:00', end: '12:45', isBreak: true },
+  { name: 'Period 6', start: '12:45', end: '13:30' },
+  { name: 'Period 7', start: '13:30', end: '14:15' },
+  { name: 'Period 8', start: '14:15', end: '15:00' },
+];
+
+export const TIMETABLE_DAYS: string[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+
+export const TIMETABLE_DOW: Record<number, string> = {
+  1: 'Monday', 2: 'Tuesday', 3: 'Wednesday', 4: 'Thursday', 5: 'Friday',
+};
+
 export const gradeColors: { [key: number]: string } = {
   '-3': 'bg-pink-100 text-pink-800',
   '-2': 'bg-rose-100 text-rose-800',

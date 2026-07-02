@@ -2,11 +2,12 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { SearchIcon, MailIcon, PhoneIcon, PlusIcon, StudentsIcon } from '../../constants';
 import { Parent } from '../../types';
-import { fetchParents } from '../../lib/database';
+import { fetchParents } from '../../services/parentService';
 import { formatSchoolId } from '../../utils/idFormatter';
 import { useAuth } from '../../context/AuthContext';
 import { useProfile } from '../../context/ProfileContext';
 import { useAutoSync } from '../../hooks/useAutoSync';
+import { toast } from 'react-hot-toast';
 
 interface ParentListScreenProps {
   navigateTo: (view: string, title: string, props?: any) => void;
@@ -79,12 +80,11 @@ const ParentListScreen: React.FC<ParentListScreenProps> = ({ navigateTo, current
 
       } catch (err) {
         console.error("Error fetching parents:", err);
+        toast.error('Failed to load parents');
       } finally {
         setLoading(false);
       }
     };
-
-    fetchParentsData();
 
     fetchParentsData();
   }, [currentBranchId, profile?.schoolId, user?.id, propSchoolId]);
@@ -112,7 +112,12 @@ const ParentListScreen: React.FC<ParentListScreenProps> = ({ navigateTo, current
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center h-full"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sky-500"></div></div>;
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4">
+        <div className="animate-spin rounded-full h-10 w-10 border-4 border-sky-500 border-t-transparent"></div>
+        <p className="text-gray-500 animate-pulse">Loading parent records...</p>
+      </div>
+    );
   }
 
   return (
@@ -124,12 +129,15 @@ const ParentListScreen: React.FC<ParentListScreenProps> = ({ navigateTo, current
         </div>
       </div>
       <main className="flex-grow p-4 pb-24 overflow-y-auto">
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filteredParents.map(parent => <ParentCard key={parent.id} parent={parent} onSelect={handleSelectParent} />)}
-        </div>
-        {filteredParents.length === 0 && (
-          <div className="text-center py-10">
-            <p className="text-gray-500">No parents found.</p>
+        {filteredParents.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {filteredParents.map(parent => <ParentCard key={parent.id} parent={parent} onSelect={handleSelectParent} />)}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-20 text-center bg-white rounded-3xl border border-dashed border-gray-200">
+            <StudentsIcon className="w-12 h-12 text-gray-300 mb-4" />
+            <h3 className="text-lg font-bold text-gray-900 mb-1">No Parents Found</h3>
+            <p className="text-gray-500 text-sm">Try adjusting your search, or add a new parent using the button below.</p>
           </div>
         )}
       </main>

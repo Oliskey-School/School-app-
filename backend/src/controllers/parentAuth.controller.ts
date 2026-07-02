@@ -100,7 +100,7 @@ export class ParentAuthController {
             await VerificationService.markEmailVerified(user.id);
 
             // Generate auth token for auto-login
-            const token = await AuthService.generateToken(user);
+            const { token } = await AuthService.generateTokens(user);
 
             res.json({
                 success: true,

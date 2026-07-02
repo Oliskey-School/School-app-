@@ -70,7 +70,9 @@ router.post('/verify-email', AuthController.verifyEmail);
 router.post('/update-email', authenticate, AuthController.updateEmail);
 router.post('/verify-email-change', authenticate, AuthController.verifyEmailChange);
 router.post('/update-username', authenticate, AuthController.updateUsername);
+router.patch('/update-username', authenticate, AuthController.updateUsername);
 router.post('/update-password', authenticate, AuthController.updatePassword);
+router.patch('/update-password', authenticate, AuthController.updatePassword);
 router.post('/admin/change-password', authenticate, requireRole(ADMIN_ROLES), AuthController.adminChangePassword);
 router.post('/admin/reset-password', authenticate, requireRole(ADMIN_ROLES), AuthController.resetUserPassword);
 router.post('/forgot-password', passwordResetLimiter, AuthController.forgotPassword);
@@ -86,6 +88,7 @@ router.get('/check-username', AuthController.checkUsername);
 
 // Session management
 router.get('/sessions', authenticate, AuthController.getSessions);
+router.get('/login-history', authenticate, AuthController.getSessions); // alias for ParentSecurityScreen
 router.delete('/sessions/:sessionId', authenticate, AuthController.revokeSession);
 router.delete('/sessions', authenticate, AuthController.revokeAllSessions);
 

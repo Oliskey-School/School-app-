@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { User, Mail, Phone, MapPin, Calendar, Award, TrendingUp, BookOpen, Download, FileText, Users, LogOut, Settings, Camera, ChevronRight, Bell, Shield, Book } from 'lucide-react'; // Using Lucide icons for consistency with Professional profile
 import { api } from '../../lib/api';
@@ -8,6 +8,7 @@ import { RefreshCw as RefreshIcon } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
 import VersionStatusCard from '../shared/VersionStatusCard';
+import AIUnlockCard from '../shared/AIUnlockCard';
 
 interface StudentProfileScreenProps {
     studentId: number;
@@ -223,21 +224,21 @@ export default function StudentProfileScreen({ studentId, student: initialStuden
                                     title="Mathematics Quiz"
                                     description="Scored 92% in Algebra"
                                     time="2 hours ago"
-                                    icon="📊"
+                                    icon="ðŸ“Š"
                                     bg="bg-blue-50"
                                 />
                                 <ActivityItem
                                     title="Assignment Submitted"
                                     description="English Essay"
                                     time="1 day ago"
-                                    icon="📝"
+                                    icon="ðŸ“"
                                     bg="bg-orange-50"
                                 />
                                 <ActivityItem
                                     title="Attendance Marked"
                                     description="Present today"
                                     time="Today"
-                                    icon="✅"
+                                    icon="âœ…"
                                     bg="bg-green-50"
                                 />
                             </div>
@@ -295,7 +296,7 @@ export default function StudentProfileScreen({ studentId, student: initialStuden
                                                     <p className={`font-bold text-sm ${m.school_id === currentSchool?.id ? 'text-orange-700' : 'text-gray-700'}`}>
                                                         {m.schools?.name || 'School'}
                                                     </p>
-                                                    <p className="text-[10px] text-gray-500 capitalize">{m.role}</p>
+                                                    <p className="text-xs text-gray-500 capitalize">{m.role}</p>
                                                 </div>
                                             </div>
                                             {m.school_id === currentSchool?.id ? (
@@ -320,6 +321,9 @@ export default function StudentProfileScreen({ studentId, student: initialStuden
                                 <EventItem date="Jan 20" title="Sports Day" />
                             </div>
                         </div>
+
+                        {/* AI Plan */}
+                        <AIUnlockCard navigateTo={navigateTo} />
                     </div>
                 </div>
             </div>
@@ -343,7 +347,7 @@ function StatCard({ icon, label, value, color, trend, badge }: any) {
             <p className="text-gray-500 text-xs font-semibold uppercase tracking-wide mb-1 opacity-80">{label}</p>
             <p className="text-2xl font-black text-slate-800">{value}</p>
             {badge && (
-                <span className="inline-block mt-2 text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-bold uppercase">
+                <span className="inline-block mt-2 text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-bold uppercase">
                     {badge}
                 </span>
             )}
@@ -375,7 +379,7 @@ function ActivityItem({ title, description, time, icon, bg }: any) {
                 <p className="font-bold text-gray-800 text-sm">{title}</p>
                 <p className="text-xs text-gray-500">{description}</p>
             </div>
-            <p className="text-[10px] font-medium text-gray-400 bg-gray-50 px-2 py-1 rounded-full">{time}</p>
+            <p className="text-xs font-medium text-gray-400 bg-gray-50 px-2 py-1 rounded-full">{time}</p>
         </div>
     );
 }
@@ -399,7 +403,7 @@ function EventItem({ date, title }: any) {
     return (
         <div className="flex items-center gap-3 p-2.5 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-xl transition-colors cursor-pointer border border-white/10">
             <div className="text-center bg-white/20 rounded-lg px-2 py-1 min-w-[50px]">
-                <p className="text-[10px] font-bold opacity-80 uppercase">{date.split(' ')[0]}</p>
+                <p className="text-xs font-bold opacity-80 uppercase">{date.split(' ')[0]}</p>
                 <p className="text-sm font-black">{date.split(' ')[1]}</p>
             </div>
             <p className="font-semibold text-sm">{title}</p>

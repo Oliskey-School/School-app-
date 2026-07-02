@@ -87,6 +87,15 @@ class SocketService {
             window.dispatchEvent(new CustomEvent('virtual-class:ended', { detail: data }));
         });
 
+        // A teacher deleted a session — remove it from student dashboards immediately.
+        this.socket.on('virtual-class:deleted', (data) => {
+            console.log('📹 [SocketService] Session deleted:', data);
+            window.dispatchEvent(new CustomEvent('realtime-update', {
+                detail: { table: 'virtual_classes', record: data, action: 'deleted' }
+            }));
+            window.dispatchEvent(new CustomEvent('virtual-class:deleted', { detail: data }));
+        });
+
         // Global Teacher Community changed anywhere on the platform — refresh lists.
         this.socket.on('global-forum:updated', (data) => {
             window.dispatchEvent(new CustomEvent('realtime-update', {

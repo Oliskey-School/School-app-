@@ -24,6 +24,7 @@ export default defineConfig({
     hookTimeout: 120000,
     fileParallelism: false,
     pool: 'forks',
+    // @ts-expect-error poolOptions.forks.singleFork valid at runtime but not in older type defs
     poolOptions: { forks: { singleFork: true } },
   },
 });

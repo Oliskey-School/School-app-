@@ -22,7 +22,7 @@ export const createPaymentPlan = async (req: AuthRequest, res: Response) => {
             return res.status(400).json({ message: 'frequency must be one of: weekly, monthly, termly' });
         }
 
-        const plan = await prisma.paymentPlan.create({
+        const plan = await (prisma.paymentPlan.create as any)({
             data: {
                 fee_id,
                 student_id,
@@ -60,7 +60,7 @@ export const getPaymentPlanByFeeId = async (req: AuthRequest, res: Response) => 
         const { feeId } = req.params;
         
         const plan = await prisma.paymentPlan.findFirst({
-            where: { fee_id: feeId }
+            where: { fee_id: feeId as string }
         });
         
         if (!plan) {
@@ -115,9 +115,9 @@ export const getUpcomingInstallments = async (req: AuthRequest, res: Response) =
 
 export const updatePaymentPlanStatus = async (req: AuthRequest, res: Response) => {
     try {
-        const { id } = req.params;
+        const id = req.params.id as string;
         const { status } = req.body;
-        
+
         const updated = await prisma.paymentPlan.update({
             where: { id: parseInt(id) },
             data: { status }
@@ -132,19 +132,19 @@ export const updatePaymentPlanStatus = async (req: AuthRequest, res: Response) =
 
 export const processInstallmentPayment = async (req: AuthRequest, res: Response) => {
     try {
-        const { id } = req.params;
+        const id = req.params.id as string;
         const { amount, transactionId } = req.body;
-        
+
         const installment = await prisma.installment.findUnique({
             where: { id: parseInt(id) }
         });
-        
+
         if (!installment) {
             return res.status(404).json({ message: 'Installment not found' });
         }
-        
+
         const newPaidAmount = (installment.paid_amount || 0) + parseFloat(amount);
-        
+
         const updated = await prisma.installment.update({
             where: { id: parseInt(id) },
             data: {
@@ -162,8 +162,8 @@ export const processInstallmentPayment = async (req: AuthRequest, res: Response)
 
 export const deletePaymentPlan = async (req: AuthRequest, res: Response) => {
     try {
-        const { id } = req.params;
-        
+        const id = req.params.id as string;
+
         await prisma.paymentPlan.delete({
             where: { id: parseInt(id) }
         });

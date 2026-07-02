@@ -10,8 +10,20 @@ const prismaClientSingleton = () => {
     console.log('✅ [Prisma] Initializing with DATABASE_URL:', obfuscatedUrl);
   }
 
-  const finalUrl = databaseUrl || 'postgresql://postgres:password123@127.0.0.1:5432/school_app';
-  
+  const baseUrl = databaseUrl || 'postgresql://postgres:password123@127.0.0.1:5432/school_app';
+
+  // Raise pool limits so concurrent onboarding / tenant queries don't starve each other.
+  // Only append if the caller hasn't already set these params (avoids double-setting).
+  let finalUrl = baseUrl;
+  try {
+    const u = new URL(baseUrl);
+    if (!u.searchParams.has('connection_limit')) u.searchParams.set('connection_limit', '20');
+    if (!u.searchParams.has('pool_timeout')) u.searchParams.set('pool_timeout', '30');
+    finalUrl = u.toString();
+  } catch {
+    // Non-standard URL (e.g. env misconfiguration) — use as-is and let Prisma error clearly
+  }
+
   return new PrismaClient({
     datasources: {
       db: {
@@ -43,28 +55,29 @@ declare global {
 const prisma = globalThis.prisma ?? prismaClientSingleton();
 
 /**
- * Lead DevSecOps Extension: 
- * Returns a Prisma client instance scoped to a specific school (tenant).
- * It automatically sets the PostgreSQL session variable 'app.current_school_id' 
- * within a transaction for every query, ensuring RLS enforcement.
+ * Returns a Prisma client scoped to a specific school (and optionally a branch).
+ * Every query is wrapped in a transaction that first sets the Postgres session
+ * variables consumed by the RLS helper functions:
+ *   app.current_school_id  → enforced by all school-scoped RLS policies
+ *   app.current_branch_id  → enforced by branch-scoped RLS policies
+ * set_config is_local=true scopes the variable to the transaction only,
+ * preventing it from leaking to the next caller on a pooled connection.
  */
-export const getTenantPrisma = (schoolId: string) => {
+export const getTenantPrisma = (schoolId: string, branchId?: string | null) => {
   return prisma.$extends({
     query: {
       $allModels: {
         async $allOperations({ args, query }) {
-          // Lead DevSecOps: Apply Global Timeout (30s)
           const TIMEOUT_MS = 30000;
           const timeoutPromise = new Promise((_, reject) =>
               setTimeout(() => reject(new Error('PrismaQueryTimeout: Tenant operation exceeded 30s limit.')), TIMEOUT_MS)
           );
 
-          // Bind to a transaction to ensure the GUC stays within the same session.
-          // Use the parameterized set_config(...) (is_local = true == SET LOCAL) so
-          // schoolId is bound as a query parameter and can never break out of the
-          // string to inject SQL — unlike the previous interpolated SET LOCAL.
           const operationPromise = prisma.$transaction(async (tx) => {
             await tx.$executeRaw`SELECT set_config('app.current_school_id', ${schoolId}, true)`;
+            if (branchId) {
+              await tx.$executeRaw`SELECT set_config('app.current_branch_id', ${branchId}, true)`;
+            }
             return query(args);
           });
 

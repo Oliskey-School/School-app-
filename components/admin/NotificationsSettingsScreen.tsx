@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { MailIcon, BellIcon, NotificationIcon } from '../../constants';
 import { useProfile } from '../../context/ProfileContext';
 import { api } from '../../lib/api';
+import { toast } from 'react-hot-toast';
 
 const SettingToggle = ({ icon, label, description, enabled, onToggle }: { icon: React.ReactNode, label: string, description: string, enabled: boolean, onToggle: () => void }) => (
     <div className="flex justify-between items-center p-4 bg-white rounded-lg shadow-sm">
@@ -31,39 +32,26 @@ const NotificationsSettingsScreen: React.FC = () => {
         pushNotifications: true,
         weeklySummary: false
     });
-    const [isLoading, setIsLoading] = useState(false);
 
-    // Load settings from profile (assuming profile contains them or we fetch them)
-    // For now, we'll fetch directly from users table to keep it fresh
+    // Load settings from profile metadata on mount
     useEffect(() => {
-        const fetchSettings = async () => {
-            if (profile.id) {
-                const { data, error } = await api
-                    .from('users')
-                    .select('notification_preferences')
-                    .eq('id', profile.id)
-                    .single();
-
-                if (data && data.notification_preferences) {
-                    setSettings(data.notification_preferences);
-                }
-            }
-        };
-        fetchSettings();
-    }, [profile.id]);
+        if (profile) {
+            const prefs = (profile as any).notification_preferences;
+            if (prefs) setSettings(prefs);
+        }
+    }, [profile?.id]);
 
     const toggleSetting = async (key: keyof typeof settings) => {
         const newSettings = { ...settings, [key]: !settings[key] };
         setSettings(newSettings); // Optimistic update
 
-        if (profile.id) {
-            const { error } = await api
-                .from('users')
-                .update({ notification_preferences: newSettings })
-                .eq('id', profile.id);
-
-            if (error) {
-                console.error('Error saving notification settings:', error);
+        if (profile?.id) {
+            try {
+                await api.updateUser(profile.id, { notification_preferences: newSettings });
+                toast.success('Notification preference updated');
+            } catch (err: any) {
+                console.error('Error saving notification settings:', err);
+                toast.error('Failed to save notification settings');
                 // Revert on error
                 setSettings(settings);
             }
@@ -99,4 +87,3 @@ const NotificationsSettingsScreen: React.FC = () => {
 };
 
 export default NotificationsSettingsScreen;
-

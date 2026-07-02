@@ -154,8 +154,7 @@ export default function InspectorPortal({ inspectorId, onLogout }: InspectorPort
             <Suspense fallback={<LoadingScreen />}>
                 {currentView.view === 'dashboard' && (
                     <InspectorDashboard
-                        inspectorId={inspectorId}
-                        onNavigate={(view, props) => navigateTo(view as View, props)}
+                        {...{ inspectorId, onNavigate: (view: any, props: any) => navigateTo(view as View, props) } as any}
                     />
                 )}
 

@@ -198,7 +198,7 @@ const StockMarketGame: React.FC<StockMarketGameProps> = ({ onBack }) => {
                                     <button
                                         key={stock.symbol}
                                         onClick={() => setSelectedStock(stock)}
-                                        className={`w-full p-3 border-b border-slate-100 flex justify-between items-center hover:bg-blue-50 transition-colors ${selectedStock?.symbol === stock.symbol ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''}`}
+                                        className={`w-full p-3 border-b border-slate-100 flex justify-between items-center hover:bg-blue-50 transition-colors ${selectedStock?.symbol === stock.symbol ? 'bg-blue-50 ring-2 ring-inset ring-blue-400' : ''}`}
                                     >
                                         <div className="text-left">
                                             <div className="font-bold text-slate-800">{stock.symbol}</div>

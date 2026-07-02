@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
@@ -225,7 +225,11 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
                 api.getTimetable(bid).catch(() => []),
             ]);
             setClasses(Array.isArray(cls) ? cls : []);
-            setTeachers(Array.isArray(tch) ? tch : []);
+            const teachersOnly = (Array.isArray(tch) ? tch : []).filter((t: any) => {
+                const role = (t.role || t.user_role || t.user?.role || t.school_role || '').toLowerCase();
+                return !role || role === 'teacher' || role.includes('teacher');
+            });
+            setTeachers(teachersOnly);
             const subNames = (Array.isArray(subs) ? subs : [])
                 .map((s: any) => (typeof s === 'string' ? s : s?.name)).filter(Boolean);
             // Merge the school's own subjects (first) with the full curriculum
@@ -390,22 +394,23 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
     const autoGenerate = () => {
         const pool = (levelSubjects.length ? levelSubjects : subjects);
         if (pool.length === 0 || levelColumns.length === 0) { toast.error('Add subjects and classes first.'); return; }
-        setGrid(prev => {
-            const next = { ...prev };
-            for (let p = 0; p < periods.length; p++) {
-                const order = shuffled(pool);              // different scatter each click
-                const usedTeachers = new Set<string>();
-                levelColumns.forEach((c, ci) => {
-                    const subject = String(order[ci % order.length]);
-                    const candidates = teachersForSubject(subject);
-                    const free = candidates.find(t => !usedTeachers.has(t.id)) || candidates[0];
-                    if (free) usedTeachers.add(free.id);
-                    next[cellKey(c.id, day, p)] = { ...next[cellKey(c.id, day, p)], subject, teacher_id: free?.id };
-                });
-            }
-            return next;
-        });
+        // Build next grid synchronously so we can pass it directly to save(),
+        // avoiding the React state-closure timing issue.
+        const next = { ...grid };
+        for (let p = 0; p < periods.length; p++) {
+            const order = shuffled(pool);
+            const usedTeachers = new Set<string>();
+            levelColumns.forEach((c, ci) => {
+                const subject = String(order[ci % order.length]);
+                const candidates = teachersForSubject(subject);
+                const free = candidates.find(t => !usedTeachers.has(t.id)) || candidates[0];
+                if (free) usedTeachers.add(free.id);
+                next[cellKey(c.id, day, p)] = { ...next[cellKey(c.id, day, p)], subject, teacher_id: free?.id };
+            });
+        }
+        setGrid(next);
         toast.success(`Scattered ${DAYS.find(d => d.d === day)?.label} for ${LEVELS.find(l => l.key === levelKey)?.label}.`);
+        save(next);
     };
 
     // --- add a custom subject (saved to the school, shown on every class) ---
@@ -433,13 +438,14 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
     // Virtual columns (standard classes that don't exist yet, e.g. a fresh Primary 6)
     // are materialised into a real class up-front; the lesson writes then run in
     // parallel batches so saving a full week stays fast even with many classes.
-    const save = async () => {
+    const save = async (overrideGrid?: Record<string, any>) => {
         setSaving(true);
         let ok = 0, fail = 0;
         try {
             // 1. Collect filled cells.
-            const cells = Object.keys(grid)
-                .map(key => ({ key, cell: grid[key], parts: key.split('|') }))
+            const effectiveGrid = overrideGrid ?? grid;
+            const cells = Object.keys(effectiveGrid)
+                .map(key => ({ key, cell: effectiveGrid[key], parts: key.split('|') }))
                 .filter(x => x.cell?.subject);
 
             // 2. Materialise every virtual column ONCE (sequential — there are few, and
@@ -606,7 +612,7 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
                                     {addingSubject ? '…' : 'Add'}
                                 </button>
                             </div>
-                            <p className="mt-1 text-[10px] text-slate-400">Saved to your school and shown on every class.</p>
+                            <p className="mt-1 text-xs text-slate-400">Saved to your school and shown on every class.</p>
                         </div>
                     </div>
                 </div>
@@ -639,7 +645,7 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
                                     {shownColumns.map(c => (
                                         <div key={c.id} className="bg-slate-50 border-b border-r border-slate-200 p-2 text-center">
                                             <p className="text-sm font-bold text-slate-800 truncate">{c.name}{c.section ? ` ${c.section}` : ' A'}</p>
-                                            <p className="text-[10px] text-slate-400">{c.section ? `Section ${c.section}` : `Grade ${c.grade ?? '—'}`}</p>
+                                            <p className="text-xs text-slate-400">{c.section ? `Section ${c.section}` : `Grade ${c.grade ?? '—'}`}</p>
                                         </div>
                                     ))}
                                 </div>
@@ -648,7 +654,7 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
                                     <div key={p} className="grid" style={{ gridTemplateColumns: gridCols }}>
                                         <div className="sticky left-0 z-10 border-b border-r border-slate-200 p-2 bg-slate-50">
                                             <p className="text-xs font-bold text-slate-700">P{p + 1}</p>
-                                            <p className="text-[10px] text-slate-400">{per.start}</p>
+                                            <p className="text-xs text-slate-400">{per.start}</p>
                                         </div>
                                         {shownColumns.map(c => {
                                             const k = cellKey(c.id, day, p);
@@ -666,7 +672,7 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
                                                                 <button onClick={() => clearCell(c.id, p)} className="flex-none text-slate-400 hover:text-rose-600"><X className="h-3 w-3" /></button>
                                                             </div>
                                                             <select value={cell.teacher_id || ''} onChange={e => setTeacher(c.id, p, e.target.value)}
-                                                                className={`mt-1 w-full bg-white/70 rounded border text-[10px] px-1 py-0.5 focus:outline-none ${conflict ? 'border-rose-300 text-rose-700' : 'border-slate-200 text-slate-600'}`}>
+                                                                className={`mt-1 w-full bg-white/70 rounded border text-xs px-1 py-0.5 focus:outline-none ${conflict ? 'border-rose-300 text-rose-700' : 'border-slate-200 text-slate-600'}`}>
                                                                 <option value="">— teacher —</option>
                                                                 {teachers.map(t => (
                                                                     <option key={t.id} value={t.id}>{t.full_name || t.name}</option>
@@ -674,7 +680,7 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
                                                             </select>
                                                         </div>
                                                     ) : (
-                                                        <div className="h-full w-full rounded-lg border border-dashed border-slate-200 flex items-center justify-center text-[10px] text-slate-300 min-h-[56px]">drop</div>
+                                                        <div className="h-full w-full rounded-lg border border-dashed border-slate-200 flex items-center justify-center text-xs text-slate-300 min-h-[56px]">drop</div>
                                                     )}
                                                 </div>
                                             );

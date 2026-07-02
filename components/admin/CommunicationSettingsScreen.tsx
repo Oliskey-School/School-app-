@@ -32,18 +32,13 @@ const CommunicationSettingsScreen: React.FC = () => {
     if (!currentSchool?.id) return;
     setIsLoading(true);
     try {
-      const { error } = await api
-        .from('schools')
-        .update({
-          settings: {
-            ...((currentSchool as any).settings || {}),
-            communicationChannels: channels
-          }
-        })
-        .eq('id', currentSchool.id);
-
-      if (error) throw error;
-      toast.success('Communication settings saved');
+      await api.updateSchool(currentSchool.id, {
+        settings: {
+          ...((currentSchool as any).settings || {}),
+          communicationChannels: channels
+        }
+      });
+      toast.success('Communication settings saved successfully');
     } catch (error: any) {
       toast.error(`Error: ${error.message}`);
     } finally {

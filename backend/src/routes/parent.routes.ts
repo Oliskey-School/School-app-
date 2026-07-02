@@ -27,6 +27,25 @@ router.post('/me/payments', recordPayment);
 router.put('/notifications/:id/read', markNotificationRead);
 
 // Phase 2 Supplementary Routes
+router.post('/pta-meetings/register', async (req: any, res) => {
+    try {
+        const { default: prisma } = await import('../config/database');
+        const { meetingId } = req.body;
+        if (!meetingId) return res.status(400).json({ error: 'meetingId is required' });
+        const parent = await (prisma as any).parent.findFirst({ where: { user_id: req.user?.id } }).catch(() => null);
+        if (!parent) return res.status(400).json({ error: 'Parent not found' });
+        const existing = await (prisma as any).ptaMeetingAttendee.findFirst({
+            where: { meeting_id: meetingId, parent_id: parent.id }
+        }).catch(() => null);
+        if (existing) return res.json({ registered: true, message: 'Already registered' });
+        await (prisma as any).ptaMeetingAttendee.create({
+            data: { meeting_id: meetingId, parent_id: parent.id, school_id: req.user.school_id }
+        });
+        res.status(201).json({ registered: true, message: 'Registration successful' });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
 router.get('/pta-meetings', getPTAMeetings);
 router.get('/pta/meetings', getPTAMeetings); // Frontend compatibility
 // When parentRoutes is mounted at '/pta', the frontend's GET /api/pta/meetings
@@ -38,6 +57,19 @@ router.get('/messages', getParentMessages);
 router.post('/messages', sendMessage);
 router.get('/notifications', getNotifications);
 router.get('/volunteering-opportunities', getVolunteeringOpportunities);
+router.get('/me/volunteer-signups', async (req: any, res) => {
+    try {
+        const { default: prisma } = await import('../config/database');
+        const parent = await (prisma as any).parent.findFirst({ where: { user_id: req.user?.id } }).catch(() => null);
+        if (!parent) return res.json([]);
+        const signups = await (prisma as any).volunteerSignup.findMany({
+            where: { parent_id: parent.id },
+            include: { opportunity: true },
+            orderBy: { created_at: 'desc' },
+        }).catch(() => []);
+        res.json(signups);
+    } catch (e: any) { res.json([]); }
+});
 router.get('/volunteering/opportunities', getVolunteeringOpportunities); // Frontend compatibility
 router.post('/volunteering/signups', volunteerSignup); // Frontend compatibility
 router.post('/volunteer/signups', volunteerSignup); // Alternate spelling

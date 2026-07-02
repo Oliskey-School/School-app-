@@ -36,8 +36,8 @@ redisConnection.on('error', (err) => {
 });
 
 // 1. The Queue: Used by the API to dispatch heavy tasks
-export const heavyTaskQueue = new Queue('heavy-tasks', { 
-    connection: redisConnection,
+export const heavyTaskQueue = new Queue('heavy-tasks', {
+    connection: redisConnection as any,
     defaultJobOptions: {
         attempts: 3,
         backoff: { type: 'exponential', delay: 1000 },
@@ -73,7 +73,7 @@ export const startWorker = () => {
             console.error(`💥 [Worker] Job ${job.id} failed:`, err.message);
             throw err;
         }
-    }, { connection: redisConnection, concurrency: 2 });
+    }, { connection: redisConnection as any, concurrency: 2 });
 
     // Handle worker-specific events
     worker.on('completed', (job) => console.log(`✅ [Worker] Job ${job.id} completed.`));

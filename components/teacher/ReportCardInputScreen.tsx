@@ -16,6 +16,7 @@ interface ReportCardInputScreenProps {
     session: string;
     handleBack: () => void;
     isAdmin?: boolean;
+    subjectContext?: string;
 }
 
 type AcademicRecordState = {
@@ -55,7 +56,7 @@ const getScoreInputStyle = (scoreStr: string, maxScore: number): string => {
 };
 
 
-const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, term, session, handleBack, isAdmin = false }) => {
+const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, term, session, handleBack, isAdmin = false, subjectContext }) => {
     const { user: authUser, currentSchool } = useAuth();
     const [academicData, setAcademicData] = useState<AcademicRecordState[]>([]);
     const [skills, setSkills] = useState<Record<string, Rating>>({});
@@ -222,7 +223,9 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
                 }
             }
 
-            const allSubjectNames = Array.from(new Set([...expectedSubjects, ...existingRecordsMap.keys()]));
+            // Always include the teacher's assigned subject even if not yet in the student's subject list
+            const subjectSeed = subjectContext ? [subjectContext] : [];
+            const allSubjectNames = Array.from(new Set([...subjectSeed, ...expectedSubjects, ...existingRecordsMap.keys()]));
 
             const initialData: AcademicRecordState[] = allSubjectNames.map(subjectName => {
                 const existingRecord = existingRecordsMap.get(subjectName);
@@ -446,7 +449,7 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
                 <SectionHeader title="Academic Performance" />
                 <div className="overflow-x-auto">
                     <table className="min-w-full border-collapse border border-gray-200 rounded-xl overflow-hidden">
-                        <thead className="bg-gray-50 text-gray-600 font-black uppercase tracking-wider text-[10px]">
+                        <thead className="bg-gray-50 text-gray-600 font-black uppercase tracking-wider text-xs">
                             <tr>
                                 <th className="p-3 border border-gray-200 text-left">Subject</th>
                                 <th className="p-3 border border-gray-200 w-20 text-center text-indigo-600">Test 1 (20)</th>
@@ -459,14 +462,22 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
                         </thead>
                         <tbody className="text-sm">
                             {academicData
-                                .filter(record => isAdmin || isClassTeacher || isSubjectTeacher(record.subject))
+                                .filter(record =>
+                                    // Admins and class teachers see every subject.
+                                    // Subject teachers only see the subject they navigated from.
+                                    isAdmin || isClassTeacher ||
+                                    (subjectContext ? record.subject === subjectContext : isSubjectTeacher(record.subject))
+                                )
                                 .map((record) => {
                                     // Use the original index from academicData for state updates
                                     const actualIndex = academicData.findIndex(d => d.subject === record.subject);
-                                    const canEditScores = isSubjectTeacher(record.subject);
+                                    const canEditScores = isAdmin || isClassTeacher ||
+                                        (subjectContext
+                                            ? record.subject === subjectContext
+                                            : isSubjectTeacher(record.subject));
 
                                     return (
-                                        <tr key={record.subject} className={canEditScores ? '' : 'bg-gray-50'}>
+                                        <tr key={record.subject} className={canEditScores ? '' : 'bg-gray-50 opacity-70'}>
                                             <td className="p-1 border font-semibold text-gray-800">{record.subject}</td>
                                             <td className="p-1 border">
                                                 <input

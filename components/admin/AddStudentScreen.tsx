@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+﻿import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { User as UserIcon, Phone as PhoneIcon, Mail as MailIcon, Camera as CameraIcon, X as XMarkIcon, AlertTriangle as ExclamationTriangleIcon, Search as SearchIcon, CheckCircle as CheckCircleIcon, ChevronDown as ChevronDownIcon } from 'lucide-react';
@@ -933,7 +933,7 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                         <div className="space-y-4">
                             <div className="p-2 bg-green-100 rounded-lg flex items-center justify-between">
                                 <h3 className="font-bold text-green-800">Guardian Information</h3>
-                                <div className="flex bg-white/50 rounded-lg p-1 text-[10px]">
+                                <div className="flex bg-white/50 rounded-lg p-1 text-xs">
                                     <button 
                                         type="button"
                                         onClick={() => setShowNewParentForm(true)}
@@ -991,7 +991,7 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
 
                                                         <div className="min-w-0">
                                                             <p className="text-sm font-bold text-gray-800 truncate">{parent.name || parent.full_name || 'Unnamed Parent'}</p>
-                                                            <p className="text-[10px] text-gray-500 truncate">{parent.email || parent.school_generated_id}</p>
+                                                            <p className="text-xs text-gray-500 truncate">{parent.email || parent.school_generated_id}</p>
                                                         </div>
                                                         {selectedParentId === parent.id && (
                                                             <CheckCircleIcon className="w-4 h-4 text-indigo-600 ml-auto" />

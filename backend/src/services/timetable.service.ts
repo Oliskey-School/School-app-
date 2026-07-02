@@ -17,11 +17,43 @@ export class TimetableService {
         }
 
         if (teacherId) {
-            whereClause.teacher_id = teacherId;
+            // Use ClassTeacher assignments as the authoritative filter so a teacher
+            // only sees timetable slots for the classes+subjects they are actually
+            // assigned to — even if the timetable row's teacher_id was set incorrectly
+            // (e.g. in demo data where all rows share one teacher_id).
+            const assignments = await (prisma as any).classTeacher.findMany({
+                where: {
+                    teacher_id: teacherId,
+                    school_id: schoolId,
+                    deleted_at: null,
+                },
+                include: {
+                    class: { select: { id: true, name: true } },
+                    subject: { select: { name: true } },
+                }
+            });
+
+            if (assignments.length > 0) {
+                // Build OR conditions: each assignment gives (class_id) + optionally (subject).
+                whereClause.OR = assignments.map((a: any) => {
+                    const cond: any = { class_id: a.class_id };
+                    if (a.subject?.name) {
+                        cond.subject = { equals: a.subject.name, mode: 'insensitive' };
+                    }
+                    return cond;
+                });
+            } else {
+                // Teacher has no ClassTeacher records — fall back to raw teacher_id.
+                whereClause.teacher_id = teacherId;
+            }
         }
 
         return await prisma.timetable.findMany({
             where: whereClause,
+            include: {
+                teacher: { select: { full_name: true } },
+                class: { select: { name: true } }
+            },
             orderBy: { start_time: 'asc' }
         });
     }
@@ -110,6 +142,10 @@ export class TimetableService {
 
         SocketService.emitToSchool(schoolId, 'timetable:updated', { action: 'delete_by_class', identifier });
         return result;
+    }
+
+    static async notifyPublished(schoolId: string, classNames: string[]) {
+        SocketService.emitToSchool(schoolId, 'timetable:published', { class_names: classNames, school_id: schoolId });
     }
 
     static async checkTeacherConflict(schoolId: string, data: { teacherId: string, day: string, startTime: string, endTime: string, excludeClassId?: string }) {

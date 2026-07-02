@@ -11,20 +11,33 @@
 -- =============================================================================
 
 -- ============================================================================
--- 1. AUTH HELPER FUNCTIONS (already exist, kept for reference)
+-- 1. AUTH HELPER FUNCTIONS
+-- ============================================================================
+-- Two paths for school/branch resolution:
+--   1. app.current_school_id session var  — set by Express via SET LOCAL inside
+--      each Prisma transaction (getTenantPrisma in database.ts).
+--   2. auth.jwt() ->> 'school_id'         — set by Supabase for authenticated
+--      browser clients using the JS SDK with a real user JWT.
+-- NULLIF(..., '') converts an unset current_setting (returns '' not NULL) to NULL
+-- so COALESCE can fall through to the JWT path correctly.
+-- SECURITY DEFINER lets the function read auth.jwt() regardless of caller role.
 -- ============================================================================
 
-CREATE OR REPLACE FUNCTION get_auth_school_id() 
+CREATE OR REPLACE FUNCTION get_auth_school_id()
 RETURNS TEXT AS $$
-    SELECT COALESCE(current_setting('app.current_school_id', true)::TEXT, 
-                    (current_user_id->'school_id')::TEXT);
-$$ LANGUAGE sql STABLE;
+    SELECT COALESCE(
+        NULLIF(current_setting('app.current_school_id', true), ''),
+        auth.jwt() ->> 'school_id'
+    );
+$$ LANGUAGE sql STABLE SECURITY DEFINER;
 
-CREATE OR REPLACE FUNCTION get_auth_branch_id() 
+CREATE OR REPLACE FUNCTION get_auth_branch_id()
 RETURNS TEXT AS $$
-    SELECT COALESCE(current_setting('app.current_branch_id', true)::TEXT, 
-                    (current_user_id->'branch_id')::TEXT);
-$$ LANGUAGE sql STABLE;
+    SELECT COALESCE(
+        NULLIF(current_setting('app.current_branch_id', true), ''),
+        auth.jwt() ->> 'branch_id'
+    );
+$$ LANGUAGE sql STABLE SECURITY DEFINER;
 
 -- ============================================================================
 -- 2. CORE USER & TENANT TABLES (High Priority)
@@ -859,12 +872,112 @@ CREATE POLICY school_isolation_policy ON "InspectionEscalation"
     WITH CHECK (school_id = get_auth_school_id());
 
 -- ============================================================================
+-- 16. NEW TABLES — added after initial audit (leave, scholarship, sponsorship,
+--     store, payment plans, ID cards)
+-- ============================================================================
+
+-- LeaveBalance
+ALTER TABLE "LeaveBalance" ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS school_isolation_policy ON "LeaveBalance";
+CREATE POLICY school_isolation_policy ON "LeaveBalance"
+    FOR ALL
+    USING (school_id = get_auth_school_id())
+    WITH CHECK (school_id = get_auth_school_id());
+
+-- Scholarship
+ALTER TABLE "Scholarship" ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS school_isolation_policy ON "Scholarship";
+CREATE POLICY school_isolation_policy ON "Scholarship"
+    FOR ALL
+    USING (school_id = get_auth_school_id())
+    WITH CHECK (school_id = get_auth_school_id());
+
+-- ScholarshipApplication
+ALTER TABLE "ScholarshipApplication" ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS school_isolation_policy ON "ScholarshipApplication";
+CREATE POLICY school_isolation_policy ON "ScholarshipApplication"
+    FOR ALL
+    USING (school_id = get_auth_school_id())
+    WITH CHECK (school_id = get_auth_school_id());
+
+-- ScholarshipRecipient
+ALTER TABLE "ScholarshipRecipient" ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS school_isolation_policy ON "ScholarshipRecipient";
+CREATE POLICY school_isolation_policy ON "ScholarshipRecipient"
+    FOR ALL
+    USING (school_id = get_auth_school_id())
+    WITH CHECK (school_id = get_auth_school_id());
+
+-- Donor
+ALTER TABLE "Donor" ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS school_isolation_policy ON "Donor";
+CREATE POLICY school_isolation_policy ON "Donor"
+    FOR ALL
+    USING (school_id = get_auth_school_id())
+    WITH CHECK (school_id = get_auth_school_id());
+
+-- SponsorshipRequest
+ALTER TABLE "SponsorshipRequest" ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS school_isolation_policy ON "SponsorshipRequest";
+CREATE POLICY school_isolation_policy ON "SponsorshipRequest"
+    FOR ALL
+    USING (school_id = get_auth_school_id())
+    WITH CHECK (school_id = get_auth_school_id());
+
+-- Sponsorship
+ALTER TABLE "Sponsorship" ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS school_isolation_policy ON "Sponsorship";
+CREATE POLICY school_isolation_policy ON "Sponsorship"
+    FOR ALL
+    USING (school_id = get_auth_school_id())
+    WITH CHECK (school_id = get_auth_school_id());
+
+-- StoreProduct
+ALTER TABLE "StoreProduct" ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS school_isolation_policy ON "StoreProduct";
+CREATE POLICY school_isolation_policy ON "StoreProduct"
+    FOR ALL
+    USING (school_id = get_auth_school_id())
+    WITH CHECK (school_id = get_auth_school_id());
+
+-- StoreOrder
+ALTER TABLE "StoreOrder" ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS school_isolation_policy ON "StoreOrder";
+CREATE POLICY school_isolation_policy ON "StoreOrder"
+    FOR ALL
+    USING (school_id = get_auth_school_id())
+    WITH CHECK (school_id = get_auth_school_id());
+
+-- StoreOrderItem (no school_id — protected via parent StoreOrder)
+
+-- PaymentPlan
+ALTER TABLE "PaymentPlan" ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS school_isolation_policy ON "PaymentPlan";
+CREATE POLICY school_isolation_policy ON "PaymentPlan"
+    FOR ALL
+    USING (school_id = get_auth_school_id())
+    WITH CHECK (school_id = get_auth_school_id());
+
+-- StudentIDCard
+ALTER TABLE "StudentIDCard" ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS school_isolation_policy ON "StudentIDCard";
+CREATE POLICY school_isolation_policy ON "StudentIDCard"
+    FOR ALL
+    USING (school_id = get_auth_school_id())
+    WITH CHECK (school_id = get_auth_school_id());
+
+-- ============================================================================
 -- SUMMARY
 -- ============================================================================
--- Total tables with RLS enabled: 80+ mission-critical tables
+-- Total tables with RLS enabled: 95+ mission-critical tables
 -- All tables follow the pattern:
 --   - school_id isolation as base requirement
 --   - branch_id added where applicable for branch-level isolation
 --   - Both SELECT and INSERT/UPDATE/DELETE operations scoped
--- All policies use centralized auth functions for consistency and maintainability
+-- All policies use centralized helper functions for consistency.
+--
+-- HOW TO APPLY: Run this file in the Supabase SQL editor (Dashboard → SQL Editor).
+-- The helper functions use auth.jwt() for Supabase SDK clients and
+-- app.current_school_id session vars for the Express backend (set per-transaction
+-- by getTenantPrisma in backend/src/config/database.ts).
 -- ============================================================================

@@ -10,9 +10,10 @@ interface StudentProfileScreenProps {
     navigateTo: (view: string, title: string, props: any) => void;
     handleBack: () => void;
     teacherId?: string;
+    subjectContext?: string;
 }
 
-const StudentProfileScreen: React.FC<StudentProfileScreenProps> = ({ student, navigateTo, handleBack, teacherId }) => {
+const StudentProfileScreen: React.FC<StudentProfileScreenProps> = ({ student, navigateTo, handleBack, teacherId, subjectContext }) => {
     if (!student) return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Select a student to view their profile.</div>;
     const { user } = useAuth();
     const [behaviorNotes, setBehaviorNotes] = useState<BehaviorNote[]>([]);
@@ -141,7 +142,7 @@ const StudentProfileScreen: React.FC<StudentProfileScreenProps> = ({ student, na
 
                 <div className="lg:col-span-3">
                     <button
-                        onClick={() => navigateTo('selectTermForReport', 'Select Term', { student })}
+                        onClick={() => navigateTo('selectTermForReport', 'Select Term', { student, subjectContext })}
                         className="w-full flex items-center justify-center space-x-2 py-3 px-4 bg-purple-600 text-white font-semibold rounded-xl shadow-md hover:bg-purple-700 transition-colors"
                     >
                         <ReportIcon className="w-5 h-5" />
@@ -159,15 +160,16 @@ const StudentProfileScreen: React.FC<StudentProfileScreenProps> = ({ student, na
                         {(() => {
                             const terms = ['First Term', 'Second Term', 'Third Term'];
                             return terms.map(termName => {
-                                const record = academicRecords.find(r => 
-                                    (r.term || '').toLowerCase() === termName.toLowerCase()
+                                const record = academicRecords.find(r =>
+                                    (r.term || '').toLowerCase() === termName.toLowerCase() &&
+                                    (!subjectContext || (r.subject || '').toLowerCase() === subjectContext.toLowerCase())
                                 );
                                 
                                 if (record) {
                                     return (
-                                        <div key={termName} className={`p-3 rounded-lg flex justify-between items-center ${SUBJECT_COLORS[record.subject] || 'bg-indigo-50 border border-indigo-100'}`}>
+                                        <div key={termName} className={`p-3 rounded-lg flex justify-between items-center ${SUBJECT_COLORS[subjectContext || record.subject] || 'bg-indigo-50 border border-indigo-100'}`}>
                                             <div>
-                                                <span className="font-semibold block">{record.subject}</span>
+                                                <span className="font-semibold block">{subjectContext || record.subject}</span>
                                                 <span className="text-xs text-gray-500">{termName}</span>
                                             </div>
                                             <div className="text-right">
@@ -185,7 +187,7 @@ const StudentProfileScreen: React.FC<StudentProfileScreenProps> = ({ student, na
                                             </div>
                                             <div className="text-right">
                                                 <span className="font-bold text-gray-300 block">--%</span>
-                                                <span className="text-[10px] font-bold text-gray-200 uppercase tracking-tighter">No Data</span>
+                                                <span className="text-xs font-bold text-gray-200 uppercase tracking-tighter">No Data</span>
                                             </div>
                                         </div>
                                     );
@@ -243,7 +245,7 @@ const StudentProfileScreen: React.FC<StudentProfileScreenProps> = ({ student, na
                             behaviorNotes.map(note => {
                                 const isPositive = note.type === 'Positive';
                                 return (
-                                    <div key={note.id} className={`p-3 rounded-lg border-l-4 ${isPositive ? 'bg-green-50 border-green-400' : 'bg-red-50 border-red-400'}`}>
+                                    <div key={note.id} className={`p-3 rounded-lg border ${isPositive ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
                                         <div className="flex justify-between items-start">
                                             <div className="flex-grow">
                                                 <h5 className={`font-bold ${isPositive ? 'text-green-800' : 'text-red-800'}`}>{note.title}</h5>

@@ -8,7 +8,23 @@ import { AuditService } from './audit.service';
 import { SocketService } from './socket.service';
 import { VerificationService } from './verification.service';
 import { EmailService } from './email.service';
-import { authenticator } from 'otplib';
+// Lazy-load otplib only when a 2FA method is actually called.
+// Top-level require() fails in the test environment because @otplib's CJS
+// build requires @scure/base and @noble/hashes which are ESM-only in Node 20.
+let _auth: any = null;
+function getAuthenticator() {
+    if (!_auth) {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const _otplib = require('otplib') as any;
+        _auth = _otplib.authenticator ?? _otplib.TOTP?.instance ?? {
+            generate: (s: string) => _otplib.generate?.(s) ?? '',
+            verify: (o: any) => _otplib.verify?.(o) ?? false,
+            generateSecret: () => _otplib.generateSecret?.() ?? '',
+            keyuri: () => '',
+        };
+    }
+    return _auth;
+}
 import QRCode from 'qrcode';
 import { DemoSeederService } from './demoSeeder.service';
 
@@ -33,8 +49,8 @@ export class AuthService {
         const user = await prisma.user.findFirst({ where: { id: userId } });
         if (!user) throw new Error('User not found');
 
-        const secret = authenticator.generateSecret();
-        const otpauth = authenticator.keyuri(user.email, 'SchoolSaaS', secret);
+        const secret = getAuthenticator().generateSecret();
+        const otpauth = getAuthenticator().keyuri(user.email, 'SchoolSaaS', secret);
         const qrCodeUrl = await QRCode.toDataURL(otpauth);
 
         // Store secret temporarily (don't enable yet)
@@ -50,7 +66,7 @@ export class AuthService {
         const user = await prisma.user.findFirst({ where: { id: userId } });
         if (!user || !user.two_factor_secret) throw new Error('2FA not initiated');
 
-        const isValid = authenticator.verify({
+        const isValid = getAuthenticator().verify({
             token: code,
             secret: user.two_factor_secret
         });
@@ -71,7 +87,7 @@ export class AuthService {
             throw new Error('2FA not enabled');
         }
 
-        const isValid = authenticator.verify({
+        const isValid = getAuthenticator().verify({
             token: code,
             secret: user.two_factor_secret
         });
@@ -296,7 +312,7 @@ export class AuthService {
 
             if (!user || !user.two_factor_secret) throw new Error('User or 2FA secret not found');
 
-            const isValid = authenticator.verify({
+            const isValid = getAuthenticator().verify({
                 token: code,
                 secret: user.two_factor_secret
             });
@@ -458,8 +474,8 @@ export class AuthService {
     static async googleLogin(email: string, name: string) {
         const normalizedEmail = email.trim().toLowerCase();
         
-        // 1. Find user by email
-        let user = await (prisma.user.findUnique as any)({
+        // 1. Find user by email (email is not unique alone — compound key includes school_id)
+        let user = await prisma.user.findFirst({
             where: { email: normalizedEmail },
             include: {
                 school: true,
@@ -761,21 +777,21 @@ export class AuthService {
         }
 
         const code = Math.floor(100000 + Math.random() * 900000).toString();
-        const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+        const expiresAt = new Date(Date.now() + 60 * 1000); // 60 seconds
 
-        await prisma.verificationCode.create({
+        await (prisma.verificationCode.create as any)({
             data: {
                 user_id: user.id,
                 email: user.email,
                 code: code,
                 purpose: 'password_reset',
-                expires_at: expiresAt
+                expires_at: expiresAt,
+                school_id: user.school_id
             }
         });
 
-        console.log(`🔑 [AUTH] Password reset code for ${user.email}: ${code}`);
-        // Later: Send email via MailerService
-        
+        await EmailService.sendPasswordResetEmail(user.email, user.full_name || 'User', code);
+
         return { success: true, message: 'Reset code sent to your email.' };
     }
 
@@ -1136,11 +1152,10 @@ export class AuthService {
     }
 
     static getDemoRoles() {
-        return Object.keys(this.DEMO_USERS).map((key) => ({
+        return Object.keys(this.DEMO_USER_EMAILS).map((key) => ({
             role: key,
-            email: this.DEMO_USERS[key].email,
-            full_name: this.DEMO_USERS[key].full_name,
-            school_generated_id: this.DEMO_USERS[key].school_generated_id,
+            email: this.DEMO_USER_EMAILS[key].email,
+            full_name: this.DEMO_USER_EMAILS[key].name,
         }));
     }
 

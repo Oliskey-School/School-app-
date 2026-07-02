@@ -200,7 +200,7 @@ const TeacherSelfAttendance: React.FC<TeacherSelfAttendanceProps> = ({ navigateT
                             <div key={record.id} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex items-center justify-between">
                                 <div className="flex items-center gap-4">
                                     <div className="text-center bg-gray-50 rounded-lg p-2 min-w-[50px]">
-                                        <p className="text-[10px] font-bold text-gray-400 uppercase">
+                                        <p className="text-xs font-bold text-gray-400 uppercase">
                                             {new Date(record.date).toLocaleDateString('en-US', { month: 'short' })}
                                         </p>
                                         <p className="text-lg font-bold text-gray-700">

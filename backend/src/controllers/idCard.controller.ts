@@ -25,7 +25,7 @@ export const getIDCards = async (req: AuthRequest, res: Response) => {
 export const issueIDCard = async (req: AuthRequest, res: Response) => {
     try {
         const { studentId } = req.params;
-        const result = await IDCardService.issueIDCard(req.user.school_id, studentId, req.body);
+        const result = await IDCardService.issueIDCard(req.user.school_id, studentId as string, req.body);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -35,7 +35,7 @@ export const issueIDCard = async (req: AuthRequest, res: Response) => {
 export const getIDCardByStudent = async (req: AuthRequest, res: Response) => {
     try {
         const { studentId } = req.params;
-        const card = await IDCardService.getIDCardByStudent(req.user.school_id, studentId);
+        const card = await IDCardService.getIDCardByStudent(req.user.school_id, studentId as string);
         res.json(card);
     } catch (error: any) {
         res.status(500).json({ message: error.message });

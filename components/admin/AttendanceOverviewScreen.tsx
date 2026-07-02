@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+﻿import React, { useState, useEffect, useMemo } from 'react';
 import { api } from '../../lib/api';
-
+import { toast } from 'react-hot-toast';
 import { ChevronRightIcon, getFormattedClassName } from '../../constants';
 import { useAutoSync } from '../../hooks/useAutoSync';
 
@@ -100,6 +100,7 @@ const AttendanceOverviewScreen: React.FC<AttendanceOverviewScreenProps> = ({ nav
 
         } catch (error) {
             console.error('Error fetching attendance overview:', error);
+            toast.error('Failed to load attendance data');
         } finally {
             setLoading(false);
         }
@@ -120,7 +121,7 @@ const AttendanceOverviewScreen: React.FC<AttendanceOverviewScreenProps> = ({ nav
                 </div>
                 <div className="text-right">
                     <p className="text-xs text-gray-500">Daily Average</p>
-                    <p className="text-xl font-bold text-indigo-600">{stats.percentage}% {stats.percentage > 0 && <span className="text-[10px] text-gray-400 font-normal">({stats.present + stats.late} of {totalStudents})</span>}</p>
+                    <p className="text-xl font-bold text-indigo-600">{stats.percentage}% {stats.percentage > 0 && <span className="text-xs text-gray-400 font-normal">({stats.present + stats.late} of {totalStudents})</span>}</p>
                 </div>
             </div>
 

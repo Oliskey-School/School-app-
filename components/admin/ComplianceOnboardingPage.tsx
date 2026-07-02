@@ -86,6 +86,7 @@ export default function ComplianceOnboardingPage({
             }
         } catch (err) {
             console.error('Auto-save error:', err);
+            toast({ title: 'Auto-save failed', description: 'Document expiry date could not be saved.', variant: 'destructive' });
         }
     };
 

@@ -171,6 +171,55 @@ export const getTeacherSalaries = async (req: AuthRequest, res: Response) => {
     }
 };
 
+export const createTeacherSalary = async (req: AuthRequest, res: Response) => {
+    try {
+        const school_id = req.user!.school_id!;
+        const branch_id = branchFilter(req);
+        const { teacher_id, base_salary, currency, payment_frequency, effective_date, is_active } = req.body;
+        if (!teacher_id || base_salary === undefined) {
+            return res.status(400).json({ error: 'teacher_id and base_salary are required' });
+        }
+        const salary = await prisma.teacherSalary.create({
+            data: {
+                school_id,
+                teacher_id: String(teacher_id),
+                base_salary: Number(base_salary),
+                currency: currency || 'NGN',
+                payment_frequency: payment_frequency || 'Monthly',
+                effective_date: effective_date ? new Date(effective_date) : new Date(),
+                is_active: is_active !== false,
+                ...(branch_id ? { branch_id } : {}),
+            }
+        });
+        res.status(201).json(salary);
+    } catch (error: any) {
+        res.status(500).json({ error: 'Failed to create salary configuration', message: error.message });
+    }
+};
+
+export const updateTeacherSalary = async (req: AuthRequest, res: Response) => {
+    try {
+        const school_id = req.user!.school_id!;
+        const id = String(req.params.id);
+        const { base_salary, currency, payment_frequency, effective_date, is_active } = req.body;
+        const result = await prisma.teacherSalary.updateMany({
+            where: { id, school_id: String(school_id) },
+            data: {
+                ...(base_salary !== undefined ? { base_salary: Number(base_salary) } : {}),
+                ...(currency ? { currency } : {}),
+                ...(payment_frequency ? { payment_frequency } : {}),
+                ...(effective_date ? { effective_date: new Date(effective_date) } : {}),
+                ...(is_active !== undefined ? { is_active } : {}),
+                updated_at: new Date(),
+            }
+        });
+        if (result.count === 0) return res.status(404).json({ error: 'Salary record not found' });
+        res.json({ success: true });
+    } catch (error: any) {
+        res.status(500).json({ error: 'Failed to update salary configuration', message: error.message });
+    }
+};
+
 export const getBudgets = async (req: AuthRequest, res: Response) => {
     try {
         const branch_id = branchFilter(req);
@@ -217,6 +266,29 @@ export const getPtaMeetings = async (req: AuthRequest, res: Response) => {
         res.json(meetings);
     } catch (error: any) {
         res.status(500).json({ error: 'Failed to fetch PTA meetings', message: error.message });
+    }
+};
+
+export const createPtaMeeting = async (req: AuthRequest, res: Response) => {
+    try {
+        const school_id = req.user!.school_id!;
+        const branch_id = branchFilter(req);
+        const { title, date, time } = req.body;
+        if (!title || !date || !time) {
+            return res.status(400).json({ error: 'title, date, and time are required' });
+        }
+        const meeting = await prisma.pTAMeeting.create({
+            data: {
+                school_id,
+                title,
+                date: new Date(date),
+                time,
+                ...(branch_id ? { branch_id } : {}),
+            }
+        });
+        res.status(201).json(meeting);
+    } catch (error: any) {
+        res.status(500).json({ error: 'Failed to create PTA meeting', message: error.message });
     }
 };
 

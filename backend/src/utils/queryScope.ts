@@ -48,7 +48,7 @@ export function withSchoolScope<T extends (...args: any[]) => Promise<any>>(
     req: ScopedRequest,
     queryFn: T
 ): (...args: Parameters<T>) => Promise<ReturnType<T>> {
-    return (args: Parameters<T>[0]) => {
+    return (...[args]: Parameters<T>) => {
         if (!req.school_id) {
             throw new Error(
                 'Missing school_id in request context. ' +
@@ -94,7 +94,7 @@ export function withSchoolBranchScope<T extends (...args: any[]) => Promise<any>
     queryFn: T,
     allowCrossBranch: boolean = false
 ): (...args: Parameters<T>) => Promise<ReturnType<T>> {
-    return (args: Parameters<T>[0]) => {
+    return (...[args]: Parameters<T>) => {
         if (!req.school_id) {
             throw new Error(
                 'Missing school_id in request context. ' +
@@ -137,7 +137,7 @@ export function withSchoolMultiBranchScope<T extends (...args: any[]) => Promise
     req: ScopedRequest,
     queryFn: T
 ): (...args: Parameters<T>) => Promise<ReturnType<T>> {
-    return (args: Parameters<T>[0]) => {
+    return (...[args]: Parameters<T>) => {
         if (!req.school_id) {
             throw new Error(
                 'Missing school_id in request context. ' +
@@ -192,7 +192,7 @@ export function withSchoolScopeCreate<T extends (...args: any[]) => Promise<any>
     queryFn: T,
     includeBranch: boolean = false
 ): (...args: Parameters<T>) => Promise<ReturnType<T>> {
-    return (args: Parameters<T>[0]) => {
+    return (...[args]: Parameters<T>) => {
         if (!req.school_id) {
             throw new Error(
                 'Missing school_id in request context. ' +
@@ -244,7 +244,7 @@ export function withSchoolScopeUpdate<T extends (...args: any[]) => Promise<any>
     queryFn: T,
     includeBranch: boolean = false
 ): (...args: Parameters<T>) => Promise<ReturnType<T>> {
-    return (args: Parameters<T>[0]) => {
+    return (...[args]: Parameters<T>) => {
         if (!req.school_id) {
             throw new Error(
                 'Missing school_id in request context. ' +

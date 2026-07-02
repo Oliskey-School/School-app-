@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
 import {
     User, FileText, CheckCircle, Upload,
@@ -45,7 +45,6 @@ export default function EnhancedEnrollmentPage({
 }) {
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
-    const { toast } = useToast();
 
     const [formData, setFormData] = useState<EnrollmentData>({
         firstName: '',
@@ -76,13 +75,13 @@ export default function EnhancedEnrollmentPage({
     const validateStep = () => {
         if (step === 1) {
             if (!formData.firstName || !formData.lastName || !formData.dateOfBirth || !formData.gender || formData.grade === undefined || !formData.section) {
-                toast({ title: 'Missing Information', description: 'Please fill in all required fields.', variant: 'destructive' });
+                toast.error('Please fill in all required fields.');
                 return false;
             }
         }
         if (step === 2) {
             if (!formData.curriculumType) {
-                toast({ title: 'Curriculum Required', description: 'Please select a curriculum type.', variant: 'destructive' });
+                toast.error('Please select a curriculum type.');
                 return false;
             }
         }
@@ -127,7 +126,7 @@ export default function EnhancedEnrollmentPage({
             documentUrls.passportPhoto = pp;
 
             // 2. Enroll Student via hybrid API (Backend logic)
-            const response = await api.enrollStudent({
+            await api.enrollStudent({
                 schoolId: schoolId,
                 firstName: formData.firstName,
                 lastName: formData.lastName,
@@ -141,19 +140,11 @@ export default function EnhancedEnrollmentPage({
                 documentUrls: documentUrls
             });
 
-            toast({
-                title: 'Enrollment Successful!',
-                description: `Student ${fullName} has been enrolled. Generated email: ${response.email}`,
-            });
-
+            toast.success(`Student ${fullName} has been enrolled successfully.`);
             onComplete?.();
         } catch (error: any) {
             console.error('Enrollment error:', error);
-            toast({
-                title: 'Enrollment Failed',
-                description: error.message || 'An unexpected error occurred during enrollment.',
-                variant: 'destructive',
-            });
+            toast.error(error.message || 'An unexpected error occurred during enrollment.');
         } finally {
             setLoading(false);
         }

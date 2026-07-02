@@ -378,7 +378,7 @@ export const ExamCandidateRegistration = React.forwardRef<ExamCandidateRegistrat
                                                     </td>
                                                 </tr>
                                             ) : filteredStudents.map(student => (
-                                                <tr key={student.id} className="hover:bg-gray-50/50 transition-all group border-l-4 border-transparent hover:border-indigo-500">
+                                                <tr key={student.id} className="hover:bg-indigo-50/40 transition-all group">
                                                     <td className="px-8 py-5 whitespace-nowrap">
                                                         <input
                                                             type="checkbox"

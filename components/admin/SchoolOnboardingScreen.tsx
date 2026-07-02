@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { SaveIcon, SchoolLogoIcon, CheckCircleIcon, XCircleIcon, PhotoIcon, FileTextIcon, UploadIcon, GlobeIcon, BuildingLibraryIcon } from '../../constants';
@@ -262,13 +262,13 @@ const SchoolOnboardingScreen: React.FC = () => {
                                         <div className="flex justify-between items-start mb-3">
                                             <div>
                                                 <h4 className="font-bold text-sm md:text-base text-gray-800">{docType.label}</h4>
-                                                <p className="text-[10px] md:text-xs text-gray-500">{docType.description}</p>
+                                                <p className="text-xs md:text-xs text-gray-500">{docType.description}</p>
                                             </div>
                                             {isVerified ? (
                                                 <CheckCircleIcon className="text-green-500 w-5 h-5 md:w-6 md:h-6 flex-shrink-0" />
                                             ) : (
-                                                <div className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${
-                                                    existing?.verification_status === 'UPLOADED' ? 'bg-blue-100 text-blue-800' : 
+                                                <div className={`text-xs uppercase font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${
+                                                    (existing?.verification_status as string) === 'UPLOADED' ? 'bg-blue-100 text-blue-800' :
                                                     existing?.verification_status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
                                                     'bg-gray-100 text-gray-500'
                                                     }`}>
@@ -295,12 +295,12 @@ const SchoolOnboardingScreen: React.FC = () => {
                                                 {uploading === docType.type ? (
                                                     <div className="flex flex-col items-center">
                                                         <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600 mb-2"></div>
-                                                        <p className="text-[10px] text-indigo-600">Uploading...</p>
+                                                        <p className="text-xs text-indigo-600">Uploading...</p>
                                                     </div>
                                                 ) : (
                                                     <div className="flex flex-col items-center justify-center pt-5 pb-6">
                                                         <UploadIcon className="w-5 h-5 text-gray-400 mb-1" />
-                                                        <p className="text-[10px] md:text-xs text-gray-500 text-center px-2">Click to upload PDF/JPG</p>
+                                                        <p className="text-xs md:text-xs text-gray-500 text-center px-2">Click to upload PDF/JPG</p>
                                                     </div>
                                                 )}
                                                 <input type="file" className="hidden" disabled={uploading === docType.type} onChange={e => handleFileUpload(e, docType.type)} />

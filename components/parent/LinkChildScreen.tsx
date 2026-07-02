@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { toast } from 'react-hot-toast';
 import { linkStudentToParent, unlinkStudentFromParent } from '../../services/studentService';
@@ -176,7 +176,7 @@ const LinkChildScreen: React.FC<LinkChildScreenProps> = ({ handleBack, forceUpda
 
                             <div className="bg-blue-50 p-4 rounded-xl flex items-start space-x-3">
                                 <ShieldCheckIcon className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                                <p className="text-[10px] text-blue-800 leading-relaxed font-medium">
+                                <p className="text-xs text-blue-800 leading-relaxed font-medium">
                                     For security, linking requires the exact unique ID. Once linked, you can view grades, attendance, and pay fees instantly.
                                 </p>
                             </div>
@@ -218,7 +218,7 @@ const LinkChildScreen: React.FC<LinkChildScreenProps> = ({ handleBack, forceUpda
                                                     <h4 className="font-bold text-gray-800">{child.name}</h4>
                                                     <div className="flex items-center space-x-2 text-xs text-gray-500 font-medium">
                                                         <span>Grade {child.grade}{child.section}</span>
-                                                        <span>•</span>
+                                                        <span>â€¢</span>
                                                         <span>ID: {child.schoolGeneratedId || 'N/A'}</span>
                                                     </div>
                                                 </div>

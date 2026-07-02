@@ -118,6 +118,43 @@ export class ExamService {
         return true;
     }
 
+    static async upsertExamResults(schoolId: string, branchId: string | undefined, results: any[]) {
+        const saved: any[] = [];
+        for (const r of results) {
+            const { exam_id, student_id, ca_score, exam_score, total_score, grade, curriculum_type } = r;
+            if (!exam_id || !student_id) continue;
+
+            const remarks = JSON.stringify({ ca_score: ca_score ?? 0, exam_score: exam_score ?? 0, curriculum_type: curriculum_type ?? null });
+
+            const existing = await prisma.examResult.findFirst({
+                where: { exam_id, student_id, school_id: schoolId }
+            });
+
+            if (existing) {
+                const updated = await prisma.examResult.update({
+                    where: { id: existing.id },
+                    data: { score: total_score ?? 0, grade: grade ?? null, remarks, max_score: 100 }
+                });
+                saved.push(updated);
+            } else {
+                const created = await prisma.examResult.create({
+                    data: {
+                        exam_id,
+                        student_id,
+                        school_id: schoolId,
+                        branch_id: branchId ?? null,
+                        score: total_score ?? 0,
+                        grade: grade ?? null,
+                        remarks,
+                        max_score: 100,
+                    }
+                });
+                saved.push(created);
+            }
+        }
+        return saved;
+    }
+
     static async getExamResults(schoolId: string, branchId: string | undefined, examId: string) {
         const whereClause: any = {
             exam_id: examId,

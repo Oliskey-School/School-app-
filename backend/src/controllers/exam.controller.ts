@@ -4,6 +4,21 @@ import { ExamService } from '../services/exam.service';
 import prisma from '../config/database';
 import { getEffectiveBranchId } from '../utils/branchScope';
 
+export const upsertExamResults = async (req: AuthRequest, res: Response) => {
+    try {
+        const schoolId = req.user.school_id;
+        const branchId = getEffectiveBranchId(req.user, req.headers['x-branch-id'] as string);
+        const results = req.body;
+        if (!Array.isArray(results) || results.length === 0) {
+            return res.status(400).json({ message: 'results must be a non-empty array' });
+        }
+        const saved = await ExamService.upsertExamResults(schoolId, branchId, results);
+        res.status(201).json({ saved: saved.length, results: saved });
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 export const getExams = async (req: AuthRequest, res: Response) => {
     try {
         let teacherId = undefined;

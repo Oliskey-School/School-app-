@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import GameShell from './GameShell';
 import { useGamification } from '../../../context/GamificationContext';
@@ -36,12 +36,12 @@ interface Experiment {
 }
 
 const CHEMICALS: Chemical[] = [
-    { id: 'water', name: 'Distilled Water', formula: 'H₂O', color: 'bg-blue-100', type: 'liquid', ph: 7 },
-    { id: 'oil', name: 'Cooking Oil', formula: 'C₁₈H₃₄O₂', color: 'bg-yellow-200', type: 'liquid', ph: 7 },
+    { id: 'water', name: 'Distilled Water', formula: 'Hâ‚‚O', color: 'bg-blue-100', type: 'liquid', ph: 7 },
+    { id: 'oil', name: 'Cooking Oil', formula: 'Câ‚â‚ˆHâ‚ƒâ‚„Oâ‚‚', color: 'bg-yellow-200', type: 'liquid', ph: 7 },
     { id: 'acid', name: 'Hydrochloric Acid', formula: 'HCl', color: 'bg-transparent', type: 'liquid', ph: 1 },
     { id: 'base', name: 'Sodium Hydroxide', formula: 'NaOH', color: 'bg-transparent', type: 'liquid', ph: 14 },
     { id: 'indicator', name: 'Universal Indicator', formula: 'UI', color: 'bg-yellow-600', type: 'liquid' },
-    { id: 'copper_sulfate', name: 'Copper Sulfate', formula: 'CuSO₄', color: 'bg-blue-500', type: 'solid' },
+    { id: 'copper_sulfate', name: 'Copper Sulfate', formula: 'CuSOâ‚„', color: 'bg-blue-500', type: 'solid' },
     { id: 'magnesium', name: 'Magnesium Strip', formula: 'Mg', color: 'bg-gray-400', type: 'solid' },
 ];
 
@@ -321,11 +321,11 @@ const VirtualScienceLabGame: React.FC<VirtualScienceLabGameProps> = ({ onBack })
                             </motion.div>
 
                             {/* Graduation marks */}
-                            <div className="absolute right-0 top-10 bottom-10 w-8 border-l border-white/30 flex flex-col justify-between py-2 text-[10px] text-white/50 font-mono text-right pr-1">
-                                <span>200ml —</span>
-                                <span>150ml —</span>
-                                <span>100ml —</span>
-                                <span>50ml —</span>
+                            <div className="absolute right-0 top-10 bottom-10 w-8 border-l border-white/30 flex flex-col justify-between py-2 text-xs text-white/50 font-mono text-right pr-1">
+                                <span>200ml â€”</span>
+                                <span>150ml â€”</span>
+                                <span>100ml â€”</span>
+                                <span>50ml â€”</span>
                             </div>
                         </div>
 

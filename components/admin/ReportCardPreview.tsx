@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+﻿import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
     Printer as PrinterIcon,
@@ -232,7 +232,7 @@ const ReportCardPreview: React.FC<ReportCardPreviewProps> = ({ student, schoolId
                         </div>
                         <div className="min-w-0">
                             <h2 className="text-base sm:text-xl font-black text-gray-900 uppercase tracking-tight truncate">Report Preview</h2>
-                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] truncate">{student.name}</p>
+                            <p className="text-xs font-bold text-gray-400 uppercase tracking-[0.2em] truncate">{student.name}</p>
                         </div>
                     </div>
 
@@ -274,7 +274,7 @@ const ReportCardPreview: React.FC<ReportCardPreviewProps> = ({ student, schoolId
                             </div>
                             <div className="text-center">
                                 <p className="text-indigo-950 font-black uppercase tracking-[0.3em] text-xs mb-2">Preparing Report</p>
-                                <p className="text-gray-400 font-bold text-[10px] uppercase">Loading academic records…</p>
+                                <p className="text-gray-400 font-bold text-xs uppercase">Loading academic records…</p>
                             </div>
                         </div>
                     ) : !dynamicReport ? (
@@ -322,7 +322,7 @@ const ReportCardPreview: React.FC<ReportCardPreviewProps> = ({ student, schoolId
                                                 <h1 className={`${nameSizeClass} font-black text-gray-900 leading-none uppercase tracking-tighter mb-2 whitespace-nowrap`}>
                                                     {schoolName}
                                                 </h1>
-                                                <p className="text-gray-500 font-bold uppercase tracking-[0.3em] text-[10px] mb-4">
+                                                <p className="text-gray-500 font-bold uppercase tracking-[0.3em] text-xs mb-4">
                                                     {currentSchool?.motto || 'Excellence in Education'}
                                                 </p>
                                                 {(currentSchool?.address || (currentSchool as any)?.phone) && (
@@ -334,7 +334,7 @@ const ReportCardPreview: React.FC<ReportCardPreviewProps> = ({ student, schoolId
                                                 )}
                                             </div>
                                             <div className="w-28 px-4 py-3 bg-gray-900 text-white rounded-3xl text-left">
-                                                <div className="text-[10px] font-black uppercase tracking-tighter opacity-50 mb-1 leading-none">Session</div>
+                                                <div className="text-xs font-black uppercase tracking-tighter opacity-50 mb-1 leading-none">Session</div>
                                                 <div className="text-sm font-black tracking-tight">{dynamicReport.session}</div>
                                             </div>
                                         </div>
@@ -345,32 +345,32 @@ const ReportCardPreview: React.FC<ReportCardPreviewProps> = ({ student, schoolId
                                         <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full -mr-16 -mt-16" />
                                         <div className="space-y-4 relative">
                                             <div>
-                                                <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Full Student Name</div>
+                                                <div className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Full Student Name</div>
                                                 <div className="text-2xl font-black text-indigo-950 uppercase tracking-tight leading-none">
                                                     {student.name}
                                                     <div className="h-1 w-20 bg-indigo-200 mt-2" />
                                                 </div>
                                             </div>
                                             <div>
-                                                <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Student ID</div>
+                                                <div className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Student ID</div>
                                                 <div className="font-black text-gray-700 text-sm">{student.schoolGeneratedId || 'UID-000000'}</div>
                                             </div>
                                         </div>
                                         <div className="space-y-4 relative border-l border-gray-200 pl-8">
                                             <div className="grid grid-cols-2 gap-4">
                                                 <div>
-                                                    <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Academic Grade</div>
+                                                    <div className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Academic Grade</div>
                                                     <div className="font-black text-indigo-600 uppercase bg-white px-4 py-2 rounded-2xl border border-indigo-100 shadow-sm inline-block text-xs">
                                                         {student.grade} {student.section}
                                                     </div>
                                                 </div>
                                                 <div>
-                                                    <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Academic Term</div>
+                                                    <div className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Academic Term</div>
                                                     <div className="font-black text-gray-700 uppercase text-xs">{dynamicReport.term}</div>
                                                 </div>
                                             </div>
                                             <div>
-                                                <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Status</div>
+                                                <div className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Status</div>
                                                 <div className="flex items-center gap-3">
                                                     <CheckCircle2Icon className="w-5 h-5 text-emerald-500" />
                                                     <span className="text-emerald-700 font-black text-xs uppercase tracking-widest">Verified</span>
@@ -389,7 +389,7 @@ const ReportCardPreview: React.FC<ReportCardPreviewProps> = ({ student, schoolId
                                                 <h3 className="text-2xl font-black text-gray-900 uppercase tracking-tighter leading-none">Academic Performance</h3>
                                             </div>
                                             <div className="px-6 py-2 bg-indigo-50 rounded-full border border-indigo-100">
-                                                <span className="text-[10px] font-black text-indigo-700 uppercase tracking-[0.2em]">Grading Scale</span>
+                                                <span className="text-xs font-black text-indigo-700 uppercase tracking-[0.2em]">Grading Scale</span>
                                             </div>
                                         </div>
 
@@ -397,12 +397,12 @@ const ReportCardPreview: React.FC<ReportCardPreviewProps> = ({ student, schoolId
                                             <table className="w-full text-left">
                                                 <thead>
                                                     <tr className="bg-gray-900 text-white">
-                                                        <th className="py-3 px-10 text-[10px] font-black uppercase tracking-widest whitespace-nowrap">Subject</th>
-                                                        <th className="py-3 px-4 text-[10px] font-black uppercase tracking-widest text-center whitespace-nowrap">1st Test</th>
-                                                        <th className="py-3 px-4 text-[10px] font-black uppercase tracking-widest text-center whitespace-nowrap">2nd Test</th>
-                                                        <th className="py-3 px-4 text-[10px] font-black uppercase tracking-widest text-center whitespace-nowrap">Exam</th>
-                                                        <th className="py-3 px-4 text-[10px] font-black uppercase tracking-widest text-center whitespace-nowrap">Total</th>
-                                                        <th className="py-3 px-10 text-[10px] font-black uppercase tracking-widest text-right whitespace-nowrap">Grade</th>
+                                                        <th className="py-3 px-10 text-xs font-black uppercase tracking-widest whitespace-nowrap">Subject</th>
+                                                        <th className="py-3 px-4 text-xs font-black uppercase tracking-widest text-center whitespace-nowrap">1st Test</th>
+                                                        <th className="py-3 px-4 text-xs font-black uppercase tracking-widest text-center whitespace-nowrap">2nd Test</th>
+                                                        <th className="py-3 px-4 text-xs font-black uppercase tracking-widest text-center whitespace-nowrap">Exam</th>
+                                                        <th className="py-3 px-4 text-xs font-black uppercase tracking-widest text-center whitespace-nowrap">Total</th>
+                                                        <th className="py-3 px-10 text-xs font-black uppercase tracking-widest text-right whitespace-nowrap">Grade</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-gray-100">
@@ -437,7 +437,7 @@ const ReportCardPreview: React.FC<ReportCardPreviewProps> = ({ student, schoolId
                                                         ))
                                                     ) : (
                                                         <tr>
-                                                            <td colSpan={3} className="py-20 text-center text-gray-400 font-bold uppercase tracking-widest text-[10px] italic">
+                                                            <td colSpan={3} className="py-20 text-center text-gray-400 font-bold uppercase tracking-widest text-xs italic">
                                                                 No results recorded for this term yet
                                                             </td>
                                                         </tr>
@@ -461,7 +461,7 @@ const ReportCardPreview: React.FC<ReportCardPreviewProps> = ({ student, schoolId
                                                     const rating = dynamicReport.skills[domain] ? parseInt(dynamicReport.skills[domain].toString()) : 4;
                                                     return (
                                                         <div key={domain} className="flex items-center justify-between">
-                                                            <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">{domain}</span>
+                                                            <span className="text-xs font-black text-gray-500 uppercase tracking-widest">{domain}</span>
                                                             <div className="flex gap-2">
                                                                 {[1, 2, 3, 4, 5].map(star => (
                                                                     <div
@@ -500,7 +500,7 @@ const ReportCardPreview: React.FC<ReportCardPreviewProps> = ({ student, schoolId
                                     <div className="mt-20 pt-10 border-t border-gray-100 flex justify-between items-end">
                                         <div className="space-y-2">
                                             <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.3em]">Verification ID</p>
-                                            <div className="px-4 py-2 bg-gray-50 rounded-xl border border-gray-200 font-black text-gray-600 text-[10px] tracking-widest">
+                                            <div className="px-4 py-2 bg-gray-50 rounded-xl border border-gray-200 font-black text-gray-600 text-xs tracking-widest">
                                                 REP-{student.id.toString().substring(0, 12).toUpperCase()}
                                             </div>
                                         </div>
@@ -512,7 +512,7 @@ const ReportCardPreview: React.FC<ReportCardPreviewProps> = ({ student, schoolId
                                                     <div className="text-[9px]">Transcript</div>
                                                 </div>
                                             </div>
-                                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] leading-none">Official Report Card</p>
+                                            <p className="text-xs font-black text-gray-400 uppercase tracking-[0.2em] leading-none">Official Report Card</p>
                                         </div>
                                     </div>
                                 </div>

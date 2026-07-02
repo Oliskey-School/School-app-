@@ -40,7 +40,7 @@ const UnifiedGovernanceHub: React.FC = () => {
                     </div>
                     <h1 className="text-5xl font-black leading-tight tracking-tight">
                         Unified Governance for <br />
-                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-emerald-400">Modern African Schools.</span>
+                        <span className="text-indigo-400">Modern African Schools.</span>
                     </h1>
                     <p className="text-xl text-gray-400 font-medium">
                         School ID: <span className="text-white font-mono">{currentSchool?.id?.substring(0, 8)}...</span> | 

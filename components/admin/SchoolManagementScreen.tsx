@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useBranch } from '../../context/BranchContext';
@@ -163,7 +163,7 @@ const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigat
 
                     <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">Branch Name</label>
+                            <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2 px-1">Branch Name</label>
                             <div className="relative group">
                                 <Building className="absolute left-4 top-4 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
                                 <input
@@ -184,7 +184,7 @@ const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigat
                         </div>
 
                         <div>
-                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">Branch Code</label>
+                            <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2 px-1">Branch Code</label>
                             <div className="relative group">
                                 <Building className="absolute left-4 top-4 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
                                 <input
@@ -205,7 +205,7 @@ const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigat
                         </div>
 
                         <div>
-                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">Location/City</label>
+                            <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2 px-1">Location/City</label>
                             <div className="relative group">
                                 <MapPin className="absolute left-4 top-4 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
                                 <input
@@ -219,7 +219,7 @@ const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigat
                         </div>
 
                         <div>
-                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">Contact Phone</label>
+                            <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2 px-1">Contact Phone</label>
                             <div className="relative group">
                                 <Phone className="absolute left-4 top-4 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
                                 <input
@@ -233,7 +233,7 @@ const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigat
                         </div>
 
                         <div>
-                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">Curriculum Focus</label>
+                            <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2 px-1">Curriculum Focus</label>
                             <div className="relative group">
                                 <Globe className="absolute left-4 top-4 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
                                 <select
@@ -251,7 +251,7 @@ const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigat
                         </div>
 
                         <div className="md:col-span-2">
-                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">Full Address</label>
+                            <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2 px-1">Full Address</label>
                             <input
                                 name="address"
                                 value={formData.address}
@@ -299,7 +299,7 @@ const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigat
                     {branches.map(branch => (
                         <div key={branch.id} className="group bg-white rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-xl hover:border-indigo-100 transition-all duration-300 overflow-hidden relative">
                             {branch.is_main && (
-                                <div className="absolute top-0 right-0 px-4 py-1.5 bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest rounded-bl-2xl">
+                                <div className="absolute top-0 right-0 px-4 py-1.5 bg-indigo-600 text-white text-xs font-black uppercase tracking-widest rounded-bl-2xl">
                                     Main Campus
                                 </div>
                             )}

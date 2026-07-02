@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { DashboardType } from '../../types';
@@ -47,9 +48,9 @@ const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ onLogout, setIs
                     api.getStudents().catch(() => []),
                 ]);
                 if (cancelled) return;
-                const aptList: Appointment[] = Array.isArray(aptResp) ? aptResp : (aptResp?.data || []);
+                const aptList: Appointment[] = Array.isArray(aptResp) ? aptResp : ((aptResp as any)?.data || []);
                 setAppointments(aptList);
-                const students = Array.isArray(studentResp) ? studentResp : (studentResp?.data || []);
+                const students = Array.isArray(studentResp) ? studentResp : ((studentResp as any)?.data || []);
                 setStudentCount(students.length || 0);
             } catch (e: any) {
                 if (!cancelled) setError(e?.message || 'Failed to load counselor data');

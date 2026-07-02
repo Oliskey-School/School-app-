@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { Student } from '../../types';
 import { fetchStudentsByClass } from '../../lib/database';
 import { ChevronRightIcon, UserIcon, getFormattedClassName } from '../../constants';
+import { toast } from 'react-hot-toast';
 
 interface AdminStudentListForReportProps {
   classInfo: { grade: number; section: string; department?: string; };
@@ -17,9 +18,16 @@ const AdminStudentListForReport: React.FC<AdminStudentListForReportProps> = ({ c
     if (!classInfo) return;
     const loadStudents = async () => {
       setLoading(true);
-      const data = await fetchStudentsByClass(classInfo.grade, classInfo.section);
-      setStudents(Array.isArray(data) ? data : []);
-      setLoading(false);
+      try {
+        const data = await fetchStudentsByClass(classInfo.grade, classInfo.section);
+        setStudents(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error('Error loading students for report:', err);
+        toast.error('Failed to load class roster');
+        setStudents([]);
+      } finally {
+        setLoading(false);
+      }
     };
 
     loadStudents();

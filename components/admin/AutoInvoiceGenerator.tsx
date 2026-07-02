@@ -33,12 +33,20 @@ interface Invoice {
     has_qr: boolean;
 }
 
+interface InvoiceForm {
+    description: string;
+    amount: string;
+    daysUntilDue: string;
+}
+
 const AutoInvoiceGenerator = () => {
-    const { currentSchool, currentBranch } = useAuth();
+    const { currentSchool, currentBranchId } = useAuth();
     const [searchTerm, setSearchTerm] = useState('');
     const [isGenerating, setIsGenerating] = useState(false);
     const [invoices, setInvoices] = useState<Invoice[]>([]);
     const [loading, setLoading] = useState(true);
+    const [showModal, setShowModal] = useState(false);
+    const [form, setForm] = useState<InvoiceForm>({ description: '', amount: '', daysUntilDue: '15' });
 
     useEffect(() => {
         fetchInvoices();
@@ -47,7 +55,7 @@ const AutoInvoiceGenerator = () => {
     const fetchInvoices = async () => {
         setLoading(true);
         try {
-            const data = await api.getInvoices(currentSchool?.id, currentBranch?.id);
+            const data = await api.getInvoices(currentSchool?.id, currentBranchId ?? undefined);
             // Map backend invoice to frontend interface if needed
             setInvoices(data.map((inv: any) => ({
                 id: inv.id,
@@ -62,25 +70,39 @@ const AutoInvoiceGenerator = () => {
                 due_date: inv.due_date,
                 has_qr: true
             })));
-        } catch (error) {
+        } catch (error: any) {
             console.error('Fetch invoices error:', error);
+            toast.error('Failed to load invoices');
         } finally {
             setLoading(false);
         }
     };
 
-    const handleGenerateAll = async () => {
+    const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    };
+
+    const handleGenerateInvoice = async () => {
+        const description = form.description.trim();
+        const amount = parseFloat(form.amount);
+        const days = parseInt(form.daysUntilDue, 10);
+
+        if (!description) { toast.error('Please enter a fee description'); return; }
+        if (isNaN(amount) || amount <= 0) { toast.error('Please enter a valid amount'); return; }
+        if (isNaN(days) || days < 1) { toast.error('Please enter valid due days'); return; }
+
         setIsGenerating(true);
         try {
-            // In a real app, this would probably be a bulk operation or target specific criteria
             await api.createInvoice({
-                description: 'Bulk Generated Invoice: Term 2 Fees',
-                amount: 150000, // Example fixed amount for bulk generation test
-                due_date: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
-                student_id: '' // If empty, backend might handle bulk logic or we call per student
-            }, currentSchool?.id, currentBranch?.id);
-            
-            toast.success('Invoices auto-generated for students!');
+                description,
+                amount,
+                due_date: new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString(),
+                student_id: ''
+            }, currentSchool?.id, currentBranchId ?? undefined);
+
+            toast.success('Invoice generated successfully!');
+            setShowModal(false);
+            setForm({ description: '', amount: '', daysUntilDue: '15' });
             fetchInvoices();
         } catch (error) {
             toast.error('Generation failed');
@@ -123,10 +145,10 @@ const AutoInvoiceGenerator = () => {
                     <h1 className="text-3xl font-bold text-gray-900 font-outfit">Auto Invoice Generator</h1>
                     <p className="text-sm text-gray-500 mt-1">Automatically generate and send fee invoices with QR-coded receipts.</p>
                 </div>
-                <button onClick={handleGenerateAll} disabled={isGenerating}
-                    className="flex items-center space-x-2 bg-indigo-600 text-white px-5 py-2.5 rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 font-bold disabled:opacity-60">
-                    {isGenerating ? <RefreshCw className="w-5 h-5 animate-spin" /> : <PlusIcon className="w-5 h-5" />}
-                    <span>{isGenerating ? 'Generating...' : 'Generate New Invoice'}</span>
+                <button onClick={() => setShowModal(true)}
+                    className="flex items-center space-x-2 bg-indigo-600 text-white px-5 py-2.5 rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 font-bold">
+                    <PlusIcon className="w-5 h-5" />
+                    <span>Generate New Invoice</span>
                 </button>
             </header>
 
@@ -206,6 +228,74 @@ const AutoInvoiceGenerator = () => {
                     </tbody>
                 </table>
             </div>
+
+            {/* Generate Invoice Modal */}
+            {showModal && (
+                <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowModal(false)}>
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8" onClick={e => e.stopPropagation()}>
+                        <h2 className="text-2xl font-bold text-gray-900 mb-6">Generate Invoice</h2>
+
+                        <div className="space-y-5">
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1.5">Fee Description</label>
+                                <input
+                                    name="description"
+                                    value={form.description}
+                                    onChange={handleFormChange}
+                                    placeholder="e.g. Term 2 School Fees"
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1.5">Amount (₦)</label>
+                                <input
+                                    name="amount"
+                                    type="number"
+                                    min="1"
+                                    value={form.amount}
+                                    onChange={handleFormChange}
+                                    placeholder="e.g. 75000"
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1.5">Due In (days)</label>
+                                <select
+                                    name="daysUntilDue"
+                                    value={form.daysUntilDue}
+                                    onChange={handleFormChange}
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                                >
+                                    <option value="7">7 days</option>
+                                    <option value="14">14 days</option>
+                                    <option value="15">15 days</option>
+                                    <option value="30">30 days</option>
+                                    <option value="45">45 days</option>
+                                    <option value="60">60 days</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3 mt-8">
+                            <button
+                                onClick={() => setShowModal(false)}
+                                className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 font-bold hover:bg-gray-50 transition-all"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleGenerateInvoice}
+                                disabled={isGenerating}
+                                className="flex-1 py-3 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+                            >
+                                {isGenerating ? <><RefreshCw className="w-4 h-4 animate-spin" /><span>Generating...</span></> : 'Generate'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

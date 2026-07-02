@@ -19,14 +19,14 @@ export function useRealtimeSync() {
     useEffect(() => {
         if (userId && schoolId) {
             console.log(`🔌 [useRealtimeSync] Initializing for School: ${schoolId}, Branch: ${branchId || 'All'}`);
-            realtimeService.initialize(userId, schoolId, branchId);
+            (realtimeService as any).initialize(userId, schoolId, branchId);
         }
     }, [userId, schoolId, branchId]);
 
     return {
         isActive: !!userId && !!schoolId,
         refresh: () => {
-            if (userId && schoolId) realtimeService.initialize(userId, schoolId, branchId);
+            if (userId && schoolId) (realtimeService as any).initialize(userId, schoolId, branchId);
         }
     };
 }

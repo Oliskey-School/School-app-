@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
+import { toast } from 'react-hot-toast';
 import {
     PlusIcon,
     SearchIcon,
@@ -71,6 +72,7 @@ const EquipmentInventoryScreen = () => {
             if (facData) setFacilities(facData);
         } catch (error) {
             console.error('Failed to fetch data:', error);
+            toast.error('Failed to load equipment');
         } finally {
             setLoading(false);
         }
@@ -103,9 +105,10 @@ const EquipmentInventoryScreen = () => {
                 facility_id: null
             });
             fetchData();
+            toast.success('Equipment added successfully');
         } catch (err: any) {
             console.error('Unexpected error during handleAdd:', err);
-            alert('An unexpected error occurred. Please try again.');
+            toast.error(err.message || 'Failed to add equipment. Please try again.');
         }
     };
 
@@ -114,8 +117,10 @@ const EquipmentInventoryScreen = () => {
         try {
             await api.deleteEquipment(id);
             fetchData();
+            toast.success('Equipment deleted');
         } catch (error) {
             console.error('Failed to delete equipment:', error);
+            toast.error('Failed to delete equipment');
         }
     };
 

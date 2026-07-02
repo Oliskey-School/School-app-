@@ -59,7 +59,7 @@ export function IDUpload({ onUploadComplete }: IDUploadProps) {
             // Upload to file storage
             const fileExt = file.name.split('.').pop();
             const fileName = `${user.id}-${Date.now()}.${fileExt}`;
-            const { data: uploadData, error: uploadError } = await api.storage
+            const { data: uploadData, error: uploadError } = await (api as any).storage
                 .from('id-documents')
                 .upload(fileName, file, {
                     cacheControl: '3600',
@@ -69,7 +69,7 @@ export function IDUpload({ onUploadComplete }: IDUploadProps) {
             if (uploadError) throw uploadError;
 
             // Get public URL
-            const { data: { publicUrl } } = api.storage
+            const { data: { publicUrl } } = (api as any).storage
                 .from('id-documents')
                 .getPublicUrl(fileName);
 

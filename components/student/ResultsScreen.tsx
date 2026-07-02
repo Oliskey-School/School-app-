@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+﻿import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { api } from '../../lib/api';
 import { Student, ReportCard, Rating } from '../../types';
@@ -25,7 +25,7 @@ const TermTab: React.FC<{ term: string; isActive: boolean; onClick: () => void; 
 );
 
 const RatingBadge: React.FC<{ rating: Rating }> = ({ rating }) => {
-    if (!rating) return <span className="text-gray-300 text-sm">—</span>;
+    if (!rating) return <span className="text-gray-300 text-sm">â€”</span>;
     const colors: Record<string, string> = {
         'A': 'bg-green-100 text-green-700',
         'B': 'bg-blue-100 text-blue-700',
@@ -54,8 +54,8 @@ const ReportCardView: React.FC<{ report: ReportCard, student?: Student, schoolNa
                     )}
                     <h2 className="text-lg font-bold text-gray-800">{schoolName || 'School Academy'}</h2>
                 </div>
-                {motto && <p className="text-gray-400 italic text-[10px]">"{motto}"</p>}
-                <p className="text-orange-600 font-bold uppercase tracking-widest text-[10px] mt-1">Official Report Card — {report.term}</p>
+                {motto && <p className="text-gray-400 italic text-xs">"{motto}"</p>}
+                <p className="text-orange-600 font-bold uppercase tracking-widest text-xs mt-1">Official Report Card â€” {report.term}</p>
             </div>
 
             {/* Student Info Bar */}
@@ -73,7 +73,7 @@ const ReportCardView: React.FC<{ report: ReportCard, student?: Student, schoolNa
                 <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Academic Performance</h4>
                 <div className="overflow-x-auto text-sm">
                     <table className="min-w-full border-collapse border border-gray-200 rounded-lg overflow-hidden">
-                        <thead className="bg-orange-50 text-gray-600 font-bold text-[10px] uppercase">
+                        <thead className="bg-orange-50 text-gray-600 font-bold text-xs uppercase">
                             <tr>
                                 <th className="p-2 border border-gray-200 text-left">Subject</th>
                                 <th className="p-2 border border-gray-200 w-12 text-center">Test 1</th>
@@ -154,13 +154,13 @@ const ReportCardView: React.FC<{ report: ReportCard, student?: Student, schoolNa
             <div className="px-4 pb-4 space-y-3">
                 {report.teacherComment && (
                     <div>
-                        <p className="text-[10px] font-bold text-orange-700 uppercase">Teacher's Remark</p>
+                        <p className="text-xs font-bold text-orange-700 uppercase">Teacher's Remark</p>
                         <p className="text-sm text-gray-700 italic bg-orange-50 p-2 rounded-md mt-1">"{report.teacherComment}"</p>
                     </div>
                 )}
                 {report.principalComment && (
                     <div>
-                        <p className="text-[10px] font-bold text-orange-700 uppercase">Principal's Comment</p>
+                        <p className="text-xs font-bold text-orange-700 uppercase">Principal's Comment</p>
                         <p className="text-sm text-gray-700 italic bg-orange-50 p-2 rounded-md mt-1">"{report.principalComment}"</p>
                     </div>
                 )}
@@ -336,7 +336,7 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
                                 onClick={() => setShowFullReport(false)}
                                 className="text-sm text-orange-600 font-semibold hover:underline flex items-center gap-1"
                             >
-                                ← Back to Summary
+                                â† Back to Summary
                             </button>
                             
                             <div className="flex items-center gap-2">
@@ -397,7 +397,7 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
                                         </div>
                                         <div className="bg-white p-3 rounded-lg shadow-sm">
                                             <p className="text-xs text-gray-500 font-medium uppercase">Overall Grade</p>
-                                            <p className="text-xl font-bold text-gray-800">{activeReportCard.overall_grade || '—'}</p>
+                                            <p className="text-xl font-bold text-gray-800">{activeReportCard.overall_grade || 'â€”'}</p>
                                         </div>
                                     </div>
                                     <div className="space-y-3">
@@ -419,7 +419,7 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
                                             onClick={() => setShowFullReport(true)}
                                             className="w-full py-2 bg-white border border-orange-200 text-orange-700 rounded-lg text-sm font-bold hover:bg-orange-100 transition-colors shadow-sm"
                                         >
-                                            📄 View Full Digital Report Card
+                                            ðŸ“„ View Full Digital Report Card
                                         </button>
                                     </div>
                                 </div>
@@ -427,7 +427,7 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
 
                             <div className="mt-6">
                                 <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
-                                    <span className="p-1 bg-purple-100 rounded text-purple-600">📝</span>
+                                    <span className="p-1 bg-purple-100 rounded text-purple-600">ðŸ“</span>
                                     Recent Quizzes
                                 </h4>
                                 <div className="space-y-2">

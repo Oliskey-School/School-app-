@@ -14,6 +14,8 @@ import { useBranch } from '../../context/BranchContext';
 import { formatSchoolId } from '../../utils/idFormatter';
 import { DEMO_ROLES_ORDER, DEMO_ACCOUNTS } from '../../lib/mockAuth';
 import RenewalBanner from '../shared/RenewalBanner';
+import { usePlanStatus } from '../../lib/hooks/usePlanStatus';
+import PlanLockScreen from '../shared/PlanLockScreen';
 
 interface DashboardLayoutProps {
     children: React.ReactNode;
@@ -24,17 +26,19 @@ interface DashboardLayoutProps {
     hideHeader?: boolean;
     hideSidebar?: boolean;
     hidePadding?: boolean;
+    hideBottomNav?: boolean;
     onLogout?: () => void;
 }
 
 import { useProfile } from '../../context/ProfileContext';
 import { useAutoSync } from '../../hooks/useAutoSync';
 
-const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBack, activeScreen = 'home', setActiveScreen = () => { }, hideHeader = false, hideSidebar = false, hidePadding = false, onLogout }) => {
+const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBack, activeScreen = 'home', setActiveScreen = () => { }, hideHeader = false, hideSidebar = false, hidePadding = false, hideBottomNav = false, onLogout }) => {
     const { t } = useTranslation();
     const { user, role, signOut, currentSchool, isDemo, switchDemoRole } = useAuth();
     const { profile, refreshProfile } = useProfile(); // Use Profile Context
     const { activeBranchGeneratedId } = useBranch(); // Branch-aware Global ID for the header
+    const { planStatus } = usePlanStatus();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [switchingRole, setSwitchingRole] = useState<string | null>(null);
     const notificationCount = useRealtimeNotifications(role?.toLowerCase() as any || 'admin');
@@ -137,6 +141,10 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
         }
     };
 
+    const isAdmin = role === DashboardType.Admin || role === DashboardType.SuperAdmin || role === DashboardType.Proprietor;
+    // Hard lock: app blocked for all roles when term 3+ payment is overdue. Demo schools are exempt.
+    const isLocked = planStatus.app_locked && !isDemo;
+
     const theme = role ? THEME_CONFIG[role as keyof typeof THEME_CONFIG] : THEME_CONFIG[DashboardType.Admin];
 
     return (
@@ -176,10 +184,11 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
 
                 {/* Demo Banner â€” visible in demo mode */}
                 {isDemo && (
-                    <div className="flex-shrink-0 bg-gradient-to-r from-blue-700 to-indigo-700 text-white px-4 py-2 flex items-center justify-between gap-2 text-xs font-medium z-30">
-                        <span className="flex items-center gap-1.5">
+                    <div className="flex-shrink-0 bg-gradient-to-r from-blue-700 to-indigo-700 text-white px-3 py-2 flex flex-wrap items-center gap-2 text-xs font-medium z-30">
+                        <span className="flex items-center gap-1.5 flex-shrink-0">
                             <span className="w-1.5 h-1.5 rounded-full bg-yellow-300 animate-pulse" />
-                            {t('dashboard.demoMode')}
+                            <span className="hidden sm:inline">{t('dashboard.demoMode')}</span>
+                            <span className="sm:hidden">Demo</span>
                         </span>
                         <button
                             onClick={() => {
@@ -209,19 +218,32 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
                     />
                 )}
 
-                <div className={`flex-1 overflow-y-auto overflow-x-hidden relative ${!hideHeader ? '-mt-8 sm:-mt-10 md:-mt-12 lg:-mt-16' : ''} ${!hidePadding ? 'pb-24 lg:pb-12' : 'pb-0'}`}>
-                    <main className={`min-h-full ${!hideHeader ? 'pt-8 sm:pt-10 md:pt-12 lg:pt-16' : ''} ${!hidePadding ? 'px-4 sm:px-6 lg:px-8 max-w-7xl' : 'px-0 max-w-none'} mx-auto w-full`}>
-                        <RenewalBanner />
-                        <div className="animate-slide-in-up w-full h-full">
-                            {children}
+                <div className={`flex-1 ${hidePadding && !isLocked ? 'overflow-hidden' : 'overflow-y-auto'} overflow-x-hidden relative ${!hideHeader ? '-mt-8 sm:-mt-10 md:-mt-12 lg:-mt-16' : ''} ${!hidePadding ? 'pb-24 lg:pb-12' : 'pb-0'}`}>
+                    {isLocked ? (
+                        <div className={`w-full min-h-full ${!hideHeader ? 'pt-8 sm:pt-10 md:pt-12 lg:pt-16' : ''}`}>
+                            <PlanLockScreen isAdmin={isAdmin} schoolName={currentSchool?.name} />
                         </div>
-                    </main>
+                    ) : (
+                        <main className={`${hidePadding ? 'h-full flex flex-col' : 'min-h-full'} ${!hideHeader ? 'pt-8 sm:pt-10 md:pt-12 lg:pt-16' : ''} ${!hidePadding ? 'px-4 sm:px-6 lg:px-8 max-w-7xl' : 'px-0 max-w-none'} mx-auto w-full`}>
+                            <RenewalBanner />
+                            <div className={`animate-slide-in-up w-full ${hidePadding ? 'flex-1 min-h-0' : 'h-full'}`}>
+                                {children}
+                            </div>
+                        </main>
+                    )}
                 </div>
 
-                {/* Mobile/Tablet Bottom Nav */}
-                <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md shadow-[0_-2px_10px_rgba(0,0,0,0.05)] border-t border-gray-100">
-                    {getBottomNav()}
-                </nav>
+                {/* Flex spacer — reserves nav height in overflow-hidden layouts so content never slides under the fixed nav */}
+                {!hideBottomNav && hidePadding && (
+                    <div className="lg:hidden flex-shrink-0 h-16" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }} />
+                )}
+
+                {/* Mobile/Tablet Bottom Nav — hidden for immersive views (individual chat, games) */}
+                {!hideBottomNav && (
+                    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md shadow-[0_-2px_10px_rgba(0,0,0,0.05)] border-t border-gray-100">
+                        {getBottomNav()}
+                    </nav>
+                )}
 
                 {/* Demo Role Switcher Pill â€” REMOVED PER USER REQUEST */}
             </div>

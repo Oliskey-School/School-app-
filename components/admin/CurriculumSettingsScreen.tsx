@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
 import { fetchCurricula, fetchSubjects } from '../../lib/database';
 import { Curriculum, Subject } from '../../types';
@@ -87,7 +87,7 @@ const CurriculumSettingsScreen: React.FC<{
                 </div>
                 <button
                     onClick={() => setShowInfo(!showInfo)}
-                    className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors uppercase"
+                    className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors uppercase"
                 >
                     {showInfo ? 'Hide Info' : 'Show Info'}
                 </button>
@@ -128,8 +128,8 @@ const CurriculumSettingsScreen: React.FC<{
                 <div className="hidden md:block w-1/3 lg:w-1/4 bg-white border-r border-gray-200 overflow-y-auto">
                     <div className="p-6">
                         <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Templates</h2>
-                            <span className="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-bold border border-indigo-100">
+                            <h2 className="text-xs font-black text-gray-500 uppercase tracking-[0.2em]">Templates</h2>
+                            <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-bold border border-indigo-100">
                                 {templates.length}
                             </span>
                         </div>
@@ -159,7 +159,7 @@ const CurriculumSettingsScreen: React.FC<{
                                                     <p className={`font-bold transition-colors ${selectedTemplate?.id === temp.id ? 'text-indigo-900' : 'text-gray-700'}`}>
                                                         {temp.name}
                                                     </p>
-                                                    <p className="text-[10px] text-gray-500 mt-1 line-clamp-2 leading-relaxed">
+                                                    <p className="text-xs text-gray-500 mt-1 line-clamp-2 leading-relaxed">
                                                         {temp.description}
                                                     </p>
                                                 </div>
@@ -234,7 +234,7 @@ const CurriculumSettingsScreen: React.FC<{
                                         <h3 className="text-xl font-bold text-gray-900 tracking-tight">Academic Subjects</h3>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total</span>
+                                        <span className="text-xs font-black text-gray-400 uppercase tracking-widest">Total</span>
                                         <span className="px-3 py-1 bg-white rounded-full text-sm font-bold text-indigo-600 border border-gray-200 shadow-sm">
                                             {subjects.length}
                                         </span>
@@ -269,7 +269,7 @@ const CurriculumSettingsScreen: React.FC<{
                                                             {subject.name}
                                                         </p>
                                                         <div className="flex items-center gap-2 mt-2">
-                                                            <span className={`text-[10px] px-2 py-0.5 rounded-md font-black uppercase tracking-wider ${subject.category === 'Core'
+                                                            <span className={`text-xs px-2 py-0.5 rounded-md font-black uppercase tracking-wider ${subject.category === 'Core'
                                                                 ? 'bg-indigo-100 text-indigo-700'
                                                                 : subject.category === 'Foundation'
                                                                     ? 'bg-emerald-100 text-emerald-700'
@@ -278,7 +278,7 @@ const CurriculumSettingsScreen: React.FC<{
                                                                 {subject.category}
                                                             </span>
                                                             <div className="w-1 h-1 rounded-full bg-gray-300" />
-                                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                                            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">
                                                                 {subject.gradeLevel}
                                                             </span>
                                                         </div>
@@ -365,7 +365,7 @@ const SubjectDetailView: React.FC<SubjectDetailViewProps> = ({
                 </div>
 
                 <div className="mt-12">
-                    <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-6">Select Academic Term</h3>
+                    <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-6">Select Academic Term</h3>
                     <div className="grid grid-cols-3 gap-4">
                         {[1, 2, 3].map((t) => (
                             <button
@@ -423,7 +423,7 @@ const SubjectDetailView: React.FC<SubjectDetailViewProps> = ({
 
                                             {topic.learning_objectives && topic.learning_objectives.length > 0 && (
                                                 <div className="mt-4 pt-4 border-t border-gray-50">
-                                                    <h5 className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-3">Objectives</h5>
+                                                    <h5 className="text-xs font-black text-indigo-500 uppercase tracking-widest mb-3">Objectives</h5>
                                                     <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                                         {(Array.isArray(topic.learning_objectives) ? topic.learning_objectives : []).map((obj: string, i: number) => (
                                                             <li key={i} className="flex items-center gap-2 text-xs text-gray-600">

@@ -91,6 +91,7 @@ const TeacherPerformanceScreen: React.FC<TeacherPerformanceScreenProps> = ({ tea
             }
         } catch (error) {
             console.error('Error fetching teacher evaluation:', error);
+            toast.error('Failed to load teacher evaluation data');
         } finally {
             setLoading(false);
         }

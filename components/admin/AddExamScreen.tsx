@@ -74,6 +74,7 @@ const AddExamScreen: React.FC<AddExamScreenProps> = ({ onSave, examToEdit }) => 
         if (subjectsRes) setAvailableSubjects(subjectsRes);
       } catch (err) {
         console.error('Error fetching exam form data:', err);
+        toast.error('Failed to load form data');
       } finally {
         setLoading(false);
       }

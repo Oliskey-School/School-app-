@@ -1,4 +1,4 @@
-import { toast } from 'react-hot-toast';
+﻿import { toast } from 'react-hot-toast';
 import React, { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
@@ -178,7 +178,7 @@ const ManageLearningResourcesScreen: React.FC = () => {
                                     </div>
                                     {/* Language Badge */}
                                     {res.language && (
-                                        <div className="absolute bottom-2 left-2 px-2 py-0.5 bg-black/60 text-white rounded text-[10px] backdrop-blur-sm">
+                                        <div className="absolute bottom-2 left-2 px-2 py-0.5 bg-black/60 text-white rounded text-xs backdrop-blur-sm">
                                             {res.language}
                                         </div>
                                     )}
@@ -186,7 +186,7 @@ const ManageLearningResourcesScreen: React.FC = () => {
                                 <div className="p-4 flex-grow flex flex-col">
                                     <div className="flex justify-between items-start mb-1">
                                         <div className="text-xs font-bold text-blue-600 uppercase tracking-wide truncate pr-2">{res.subject}</div>
-                                        {res.grade && <div className="text-[10px] px-1.5 py-0.5 bg-gray-100 rounded text-gray-500 font-mono">GR {res.grade}</div>}
+                                        {res.grade && <div className="text-xs px-1.5 py-0.5 bg-gray-100 rounded text-gray-500 font-mono">GR {res.grade}</div>}
                                     </div>
                                     <h3 className="font-bold text-gray-800 line-clamp-2 mb-2 text-sm leading-snug" title={res.title}>{res.title}</h3>
                                     <div className="mt-auto pt-3 border-t border-gray-50 flex justify-between items-center text-xs text-gray-400">

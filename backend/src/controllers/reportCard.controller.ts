@@ -28,7 +28,7 @@ export const getReportCard = async (req: AuthRequest, res: Response) => {
     try {
         const id = req.params.id;
         const branchId = getEffectiveBranchId(req.user, (req.query.branchId || req.query.branch_id) as string);
-        const result = await ReportCardService.getReportCard(id, req.user.school_id, branchId);
+        const result = await ReportCardService.getReportCard(id as string, req.user.school_id, branchId);
         
         if (!result) {
             return res.status(404).json({ message: 'Report card not found' });

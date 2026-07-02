@@ -103,6 +103,7 @@ export class StoreService {
                         quantity: Number(it.quantity) || 1,
                         unit_price: Number(it.unitPrice) || 0,
                         subtotal: (Number(it.quantity) || 1) * (Number(it.unitPrice) || 0),
+                        school_id: schoolId,
                     }))
                 } : undefined,
             },

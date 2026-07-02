@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { api } from '../../lib/api';
 import { Student } from '../../types';
@@ -140,7 +140,7 @@ const QuizzesScreen: React.FC<QuizzesScreenProps> = ({ navigateTo, student }) =>
               </div>
               {activeCategory === 'cbt' && (
                 <div className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center text-white text-xs font-bold scale-110 shadow-md">
-                  ✓
+                  âœ“
                 </div>
               )}
             </div>
@@ -163,7 +163,7 @@ const QuizzesScreen: React.FC<QuizzesScreenProps> = ({ navigateTo, student }) =>
               </div>
               {activeCategory === 'quiz' && (
                 <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold scale-110 shadow-md">
-                  ✓
+                  âœ“
                 </div>
               )}
             </div>
@@ -184,7 +184,7 @@ const QuizzesScreen: React.FC<QuizzesScreenProps> = ({ navigateTo, student }) =>
           {items.length === 0 ? (
             <div className="bg-white rounded-3xl p-12 text-center border-2 border-dashed border-gray-200">
               <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-4xl grayscale opacity-50">📋</span>
+                <span className="text-4xl grayscale opacity-50">ðŸ“‹</span>
               </div>
               <h3 className="text-gray-800 font-bold mb-1">Nothing here yet</h3>
               <p className="text-gray-400 text-sm max-w-[200px] mx-auto">No {activeCategory === 'cbt' ? 'exams' : 'quizzes'} have been published for Grade {student.grade} yet.</p>
@@ -218,12 +218,12 @@ const QuizzesScreen: React.FC<QuizzesScreenProps> = ({ navigateTo, student }) =>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
                           {item.className && (
-                            <span className="text-[10px] uppercase font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-lg border border-orange-100">
+                            <span className="text-xs uppercase font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-lg border border-orange-100">
                               {item.className}
                             </span>
                           )}
                           {item.submission && (
-                            <span className="text-[10px] uppercase font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-lg border border-green-100">
+                            <span className="text-xs uppercase font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-lg border border-green-100">
                               Completed: {item.submission.score}%
                             </span>
                           )}

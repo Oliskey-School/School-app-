@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Calendar as CalendarIcon, MapPin, Check, X, HelpCircle, Download } from 'lucide-react';
@@ -61,7 +61,7 @@ export const SmartCalendar: React.FC = () => {
                         >
                             <div className="flex justify-between items-start">
                                 <div className="space-y-1">
-                                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${TYPE_COLORS[event.type as keyof typeof TYPE_COLORS]}`}>
+                                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase border ${TYPE_COLORS[event.type as keyof typeof TYPE_COLORS]}`}>
                                         {event.type}
                                     </span>
                                     <h3 className="text-lg font-bold text-gray-900">{event.title}</h3>
@@ -86,7 +86,7 @@ export const SmartCalendar: React.FC = () => {
 
                             {event.rsvp_enabled && (
                                 <div className="pt-2 border-t border-gray-50">
-                                    <p className="text-[10px] font-bold text-gray-400 uppercase mb-3 tracking-widest">Your RSVP</p>
+                                    <p className="text-xs font-bold text-gray-400 uppercase mb-3 tracking-widest">Your RSVP</p>
                                     <div className="flex gap-2">
                                         <button 
                                             onClick={() => handleRSVP(event.id, 'yes')}

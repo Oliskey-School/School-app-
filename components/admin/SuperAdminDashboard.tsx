@@ -44,16 +44,17 @@ const SuperAdminDashboardContent: React.FC<SuperAdminDashboardProps> = ({ onLogo
 
     useEffect(() => {
         const getUser = async () => {
-            const { data: { user } } = await api.auth.getUser();
-            
-            // Demo mode check
-            if (!user || user.email?.includes('demo')) {
-                setCurrentUserId('demo-super-admin-id');
-                return;
+            try {
+                const me = await api.getMe();
+                // Demo mode check
+                if (!me || me.email?.includes('demo')) {
+                    setCurrentUserId('demo-super-admin-id');
+                    return;
+                }
+                setCurrentUserId(me.id || '0');
+            } catch {
+                setCurrentUserId('0');
             }
-
-            const { data: userData } = await api.from('users').select('id').eq('email', user.email).single();
-            setCurrentUserId(userData ? userData.id : '0');
         };
         getUser();
 

@@ -26,8 +26,9 @@ const MaintenanceTickets = () => {
             setLoading(true);
             const data = await api.getMaintenanceTickets(currentBranchId || undefined);
             setTickets(data || []);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error fetching tickets:', error);
+            toast.error('Failed to load maintenance tickets');
         } finally {
             setLoading(false);
         }

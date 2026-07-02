@@ -122,7 +122,7 @@ const HelpSupportScreen: React.FC = () => {
                                     <div className="flex items-start justify-between">
                                         <div className="flex-1">
                                             <div className="flex items-center space-x-2 mb-1">
-                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${ticket.priority === 'High' || ticket.priority === 'Urgent' ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-600'
+                                                <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider ${ticket.priority === 'High' || ticket.priority === 'Urgent' ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-600'
                                                     }`}>
                                                     {ticket.priority}
                                                 </span>

@@ -32,6 +32,10 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (user?.school_id) {
         socket.emit('join-school', user.school_id);
       }
+      // Register user identity so backend can target this socket for personal notifications
+      if (user?.id) {
+        socket.emit('register-user', user.id);
+      }
     });
 
     // Helper to dispatch custom events for legacy useAutoSync hook
@@ -50,20 +54,31 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       dispatchLegacyUpdate(data.entity);
     });
 
-    // Specific entity listeners
+    // Chat message — real-time message pushed to the room
     socket.on('chat:message', (data: any) => {
         queryClient.invalidateQueries({ queryKey: ['chat', data.room_id] });
         queryClient.invalidateQueries({ queryKey: ['chat-rooms'] });
+        queryClient.invalidateQueries({ queryKey: ['unread-count'] });
+        dispatchLegacyUpdate('messages');
+        dispatchLegacyUpdate('chat_rooms');
+    });
+
+    // User-specific personal channel events
+    socket.on('user:chat_update', (data: any) => {
+        queryClient.invalidateQueries({ queryKey: ['chat-rooms'] });
+        queryClient.invalidateQueries({ queryKey: ['unread-count'] });
+        dispatchLegacyUpdate('chat_rooms');
         dispatchLegacyUpdate('messages');
     });
 
-    // Handle user-specific notifications and chat updates
     if (user?.id) {
+        // Legacy per-user event name (kept for backward compat)
         socket.on(`user:${user.id}:chat_update`, () => {
             queryClient.invalidateQueries({ queryKey: ['chat-rooms'] });
-            dispatchLegacyUpdate('chat-rooms');
+            queryClient.invalidateQueries({ queryKey: ['unread-count'] });
+            dispatchLegacyUpdate('chat_rooms');
         });
-        
+
         socket.on(`user:${user.id}:notification`, (notification: any) => {
             console.log('🔔 New notification received:', notification.title);
             queryClient.invalidateQueries({ queryKey: ['notifications'] });
@@ -111,6 +126,17 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         queryClient.invalidateQueries({ queryKey: ['analytics'] });
         dispatchLegacyUpdate('teachers');
         dispatchLegacyUpdate('analytics');
+    });
+
+    // Timetable publish/update — refetch for all roles in the school
+    socket.on('timetable:updated', () => {
+        queryClient.invalidateQueries({ queryKey: ['timetables'] });
+        dispatchLegacyUpdate('timetables');
+    });
+
+    socket.on('timetable:published', (data: { class_name?: string; school_id?: string }) => {
+        queryClient.invalidateQueries({ queryKey: ['timetables'] });
+        dispatchLegacyUpdate('timetables');
     });
 
     socket.on('academic:updated', () => {

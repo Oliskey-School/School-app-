@@ -148,10 +148,14 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         api.getActiveBranchId()
             .then(res => {
                 if (cancelled) return;
-                setActiveBranchGeneratedId(res?.school_generated_id || null);
+                // Only overwrite with a real value; an empty response on a transient
+                // failure must not blank the badge the user is already looking at.
+                const newId = res?.school_generated_id;
+                if (newId) setActiveBranchGeneratedId(newId);
+                else setActiveBranchGeneratedId(null);
                 if (typeof res?.is_main_admin === 'boolean') setIsMainAdmin(res.is_main_admin);
             })
-            .catch(() => { if (!cancelled) setActiveBranchGeneratedId(null); });
+            .catch(() => { /* keep existing badge on transient network error */ });
         return () => { cancelled = true; };
     }, [currentBranch?.id, user, currentSchool]);
 

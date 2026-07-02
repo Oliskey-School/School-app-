@@ -323,7 +323,7 @@ export function useOfflineBatchCreate<T extends { id: string }>(
  * Hook to monitor sync status
  */
 export function useSyncStatus() {
-    const [syncState, setSyncState] = useState(syncEngine.getState());
+    const [syncState, setSyncState] = useState((syncEngine as any).getState?.() ?? { status: 'idle' });
 
     useEffect(() => {
         const handleStateChange = (state: typeof syncState) => {
@@ -341,8 +341,8 @@ export function useSyncStatus() {
         ...syncState,
         isSyncing: syncState.status === 'syncing',
         triggerSync: () => syncEngine.triggerSync(),
-        pause: () => syncEngine.pause(),
-        resume: () => syncEngine.resume()
+        pause: () => (syncEngine as any).pause?.(),
+        resume: () => (syncEngine as any).resume?.()
     };
 }
 

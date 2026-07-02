@@ -215,8 +215,7 @@ export class NotificationSettingService {
             categories: data
         };
 
-        // @ts-ignore
-        return prisma.notificationSetting.upsert({
+        return (prisma.notificationSetting.upsert as any)({
             where: { user_id: userId },
             create: {
                 user_id: userId,

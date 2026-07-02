@@ -15,7 +15,7 @@ export const useRealtimeQuiz = (quizId: string | number, studentId: string) => {
 
         const fetchState = async () => {
             try {
-                const data = await api.getQuizSubmission(quizId, studentId);
+                const data = await (api as any).getQuizSubmission(quizId, studentId);
                 
                 if (data && isMounted) {
                     setQuizState({

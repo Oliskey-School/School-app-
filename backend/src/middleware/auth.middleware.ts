@@ -81,6 +81,7 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
                 ? demoHeaderBranch
                 : decoded.branch_id;
 
+            const demoRoleUpper = (decoded.role || '').toUpperCase();
             req.user = {
                 id: decoded.id,
                 email: decoded.email,
@@ -94,7 +95,8 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
                 avatar_url: demoDbUser?.avatar_url ?? null,
                 phone: demoDbUser?.phone ?? null,
                 is_demo: true,
-                school: demoSchool // Add school object
+                is_main_admin: ['ADMIN', 'PROPRIETOR', 'SUPER_ADMIN'].includes(demoRoleUpper),
+                school: demoSchool
             };
 
             // Set Postgres context for RLS policies (demo mode)

@@ -1,5 +1,6 @@
 import rateLimit from 'express-rate-limit';
-import { z, AnyZodObject } from 'zod';
+import { z } from 'zod';
+type AnyZodObject = z.ZodObject<any>;
 import { Request, Response, NextFunction } from 'express';
 
 /**

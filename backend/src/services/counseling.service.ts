@@ -24,8 +24,8 @@ export class CounselingService {
     // Map relations to plural aliases and map full_name to name for frontend compatibility
     return appointments.map((a: any) => ({
       ...a,
-      student: { ...a.student, name: a.student.full_name },
-      counselor: { ...a.counselor, name: a.counselor.full_name }
+      student: a.student ? { ...a.student, name: a.student.full_name } : null,
+      counselor: a.counselor ? { ...a.counselor, name: a.counselor.full_name } : null,
     }));
   }
 

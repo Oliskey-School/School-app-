@@ -17,7 +17,7 @@ export class PDService {
     }
 
     static async enrollInCourse(teacherId: string, courseId: string) {
-        return await prisma.pDEnrollment.create({
+        return await (prisma.pDEnrollment.create as any)({
             data: {
                 teacher_id: teacherId,
                 course_id: courseId,

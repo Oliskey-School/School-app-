@@ -31,27 +31,18 @@ export async function getAuthorizedBranches(user: any) {
     const schoolId = user.school_id;
     if (!schoolId) return [];
 
-    // TEACHERS see a branch ONLY when they actually have a class assigned there (plus
-    // their own home branch). Being given a class in a branch is what grants a teacher
-    // access to it — not a standalone "allowed branches" list, and not the whole demo
-    // sandbox. This is what keeps a teacher's switcher to only their real branches.
     if (String(user.role || '').toUpperCase() === 'TEACHER') {
+        // Always read allowed_branch_ids FRESH from the DB teacher record.
+        // The JWT copy goes stale the moment an admin edits the teacher's branch
+        // assignments without the teacher re-logging in — using user.allowed_branch_ids
+        // (JWT) would surface phantom branches the admin already removed.
         const teacher: any = await prisma.teacher.findFirst({
             where: { user_id: user.id },
-            include: { classes: { include: { class: { select: { branch_id: true } } } } },
+            select: { allowed_branch_ids: true },
         });
         const ids = new Set<string>();
-        if (user.branch_id) ids.add(user.branch_id);                                  // home branch
-        // Branches the admin assigned them to (the "Assigned Branches" field). Read FRESH
-        // from the DB teacher record so a just-added branch shows immediately without the
-        // teacher re-logging in; also honour the token's copy as a fallback.
+        if (user.branch_id) ids.add(user.branch_id);   // home branch (stable)
         for (const b of (teacher?.allowed_branch_ids || [])) if (b) ids.add(b);
-        for (const b of (user.allowed_branch_ids || [])) if (b) ids.add(b);
-        // Branches where they actually have a class assigned.
-        for (const ct of ((teacher?.classes) || [])) {
-            const b = ct?.class?.branch_id;
-            if (b) ids.add(b);
-        }
         if (ids.size === 0) return [];
         return prisma.branch.findMany({
             where: { school_id: schoolId, id: { in: Array.from(ids) } },

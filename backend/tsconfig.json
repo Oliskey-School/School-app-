@@ -15,7 +15,7 @@
     "isolatedModules": true,
     "noEmit": true,
     "ignoreDeprecations": "5.0",
-    "baseUrl": ".",
+    
     "paths": {
       "@prisma/client": ["./generated/prisma-client"]
     }

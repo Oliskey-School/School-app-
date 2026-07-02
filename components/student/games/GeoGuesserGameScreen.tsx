@@ -186,7 +186,7 @@ const GeoGuesserGameScreen: React.FC<GeoGuesserGameScreenProps> = ({ navigateTo,
                     <div className="w-24 h-24 bg-green-500 rounded-2xl flex items-center justify-center mb-6 shadow-2xl mx-auto rotate-12">
                         <MapPin className="w-12 h-12 text-white" />
                     </div>
-                    <h1 className="text-5xl font-black mb-4 tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-green-300 to-teal-400">
+                    <h1 className="text-5xl font-black mb-4 tracking-tighter text-green-400">
                         GeoGuesser
                     </h1>
                     <p className="text-xl text-slate-300 mb-8 max-w-md mx-auto">

@@ -1,4 +1,4 @@
-
+﻿
 import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../../lib/api';
 import { DEFAULT_AVATAR } from '../../lib/avatar';
@@ -212,7 +212,7 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, currentUser
                     <h3 className="text-2xl font-black tracking-tight">
                         {new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 0 }).format(amount)}
                     </h3>
-                    <p className="text-[10px] font-bold uppercase tracking-wider mt-2 bg-white/20 inline-block px-2 py-0.5 rounded-full">{subtitle}</p>
+                    <p className="text-xs font-bold uppercase tracking-wider mt-2 bg-white/20 inline-block px-2 py-0.5 rounded-full">{subtitle}</p>
                 </div>
                 <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-md shadow-inner">
                     <Icon className="w-6 h-6 text-white" />
@@ -235,7 +235,7 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, currentUser
             </div>
             <div className="text-center">
                 <span className={`font-bold text-sm block ${active ? `text-${color}-900` : 'text-gray-700'}`}>{label}</span>
-                <span className="text-[10px] font-medium text-gray-500 uppercase tracking-tighter">{description}</span>
+                <span className="text-xs font-medium text-gray-500 uppercase tracking-tighter">{description}</span>
             </div>
             {active && (
                 <div className={`absolute top-2 right-2 w-2 h-2 rounded-full bg-${color}-500`} />
@@ -249,7 +249,7 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, currentUser
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
                     <h1 className="text-3xl md:text-4xl font-black text-gray-900 tracking-tight">
-                        Financial <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-600">Overview</span>
+                        Financial <span className="text-indigo-600">Overview</span>
                     </h1>
                     <p className="text-gray-500 font-medium mt-1 uppercase text-xs tracking-[0.2em]">Live billing & status updates</p>
                 </div>
@@ -328,7 +328,7 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, currentUser
                                         <div className="bg-white rounded-[32px] shadow-sm border border-gray-200 p-6 transition-all hover:shadow-xl">
                                             <div className="flex items-center justify-between mb-4">
                                                 <h3 className="font-bold text-gray-900 text-lg uppercase tracking-tight">{fee.title}</h3>
-                                                <div className="px-3 py-1 bg-amber-50 text-amber-600 rounded-full font-black text-[10px] uppercase">Plan Active</div>
+                                                <div className="px-3 py-1 bg-amber-50 text-amber-600 rounded-full font-black text-xs uppercase">Plan Active</div>
                                             </div>
                                             <InstallmentSchedule
                                                 feeId={fee.id}
@@ -407,7 +407,7 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, currentUser
                                 <ShieldCheck className="w-5 h-5 text-indigo-600" />
                                 <span className="font-bold text-sm tracking-tight">Security Check</span>
                             </div>
-                            <p className="text-[10px] text-gray-500 leading-relaxed font-medium">
+                            <p className="text-xs text-gray-500 leading-relaxed font-medium">
                                 All payments are secured with 256-bit encryption. We do not store your card details.
                             </p>
                         </div>

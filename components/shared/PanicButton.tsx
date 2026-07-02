@@ -37,7 +37,7 @@ const PanicButton: React.FC<PanicButtonProps> = ({ isFloating = true, schoolId }
 
             const coords = await getLocation();
 
-            const { data: alertData, error: alertError } = await api.triggerPanicAlert({
+            const { data: alertData, error: alertError } = await (api as any).triggerPanicAlert({
                 schoolId: schoolId,
                 userId: profile.id,
                 type: 'Security Threat',

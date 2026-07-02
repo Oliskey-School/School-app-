@@ -56,7 +56,7 @@ export const useUpdateInspection = () => {
 export const useSubmitInspectionResponses = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (responses: Partial<InspectionItem>[]) => api.submitInspectionResponses(responses),
+    mutationFn: (responses: Partial<InspectionItem>[]) => (api as any).submitInspectionResponses(responses),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inspections', 'detail'] });
     },

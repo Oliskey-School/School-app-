@@ -57,9 +57,15 @@ export class OnboardingService {
         if (existingCode) {
             if (!existingCode.is_onboarded) {
                 console.log(`🧹 [Onboarding] Cleaning up partially configured school record: ${existingCode.id}`);
-                await prisma.school.delete({ where: { id: existingCode.id } });
+                // Single transaction — one connection, correct FK delete order
+                await prisma.$transaction([
+                    prisma.schoolMembership.deleteMany({ where: { school_id: existingCode.id } }),
+                    prisma.user.deleteMany({ where: { school_id: existingCode.id } }),
+                    prisma.branch.deleteMany({ where: { school_id: existingCode.id } }),
+                    prisma.school.delete({ where: { id: existingCode.id } }),
+                ]);
             } else {
-                throw new Error(`School code "${schoolCode}" is already taken and active. Please choose a different one.`);
+                throw new Error(`School code "${schoolCode}" is already taken. Please choose a different code.`);
             }
         }
 
@@ -75,7 +81,7 @@ export class OnboardingService {
         const preparedAdditionalBranches = (data.additionalBranches || [])
             .map((b, index) => ({
                 name: b.name || 'Branch ' + (index + 2),
-                code: b.code || generateBranchCode(b.name || 'Branch', index),
+                code: b.code || generateBranchCode(b.name || 'Branch', String(index)),
                 is_main: false,
             }));
 
@@ -113,7 +119,7 @@ export class OnboardingService {
 
             if (preparedAdditionalBranches.length > 0) {
                 const branchesToCreate = preparedAdditionalBranches.map((b, index) => {
-                    const code = b.code || generateBranchCode(b.name, index);
+                    const code = b.code || generateBranchCode(b.name, String(index));
                     return {
                         ...b,
                         school_id: schoolId,
@@ -166,13 +172,19 @@ export class OnboardingService {
                 }
             });
 
+            // Mark setup complete so a duplicate-code check doesn't treat this as partial
+            await tx.school.update({
+                where: { id: schoolId },
+                data: { is_onboarded: true, onboarding_step: 5, subscription_status: 'trial' },
+            });
+
             return {
                 schoolId,
                 mainBranchId,
                 adminUserId,
                 adminSchoolGeneratedId,
             };
-        });
+        }, { timeout: 30000 });
 
         // Send the verification OTP in the BACKGROUND — never block (or time out) the
         // onboarding response on a slow/unreachable email provider. The school, branch

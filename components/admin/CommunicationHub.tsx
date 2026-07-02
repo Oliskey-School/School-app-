@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { UsersIcon, ParentNavIcon, TeacherNavIcon, StudentNavIcon, AIIcon } from '../../constants';
 import { toast } from 'react-hot-toast';
 import { getAIClient, AI_MODEL_NAME, SchemaType as Type } from '../../lib/ai';
@@ -254,7 +254,7 @@ const CommunicationHub: React.FC = () => {
                                     <div className="flex items-center justify-between">
                                         <div className="flex gap-1">
                                             {notice.audience?.map((aud: string) => (
-                                                <span key={aud} className="px-2 py-0.5 bg-gray-100 text-[10px] font-bold text-gray-500 rounded uppercase">
+                                                <span key={aud} className="px-2 py-0.5 bg-gray-100 text-xs font-bold text-gray-500 rounded uppercase">
                                                     {aud}
                                                 </span>
                                             ))}

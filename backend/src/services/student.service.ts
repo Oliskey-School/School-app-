@@ -549,14 +549,51 @@ export class StudentService {
         }
 
         if (classId) {
-            where.enrollments = {
-                some: { 
-                    class_id: classId, 
+            // Primary: enrollment-based (works in production).
+            // Fallback: grade+section match (covers demo/seed data where enrollment
+            // rows may not exist). Look up the class to get grade, section, branch.
+            const cls = await prisma.class.findFirst({
+                where: { id: classId, school_id: schoolId },
+                select: { grade: true, section: true, branch_id: true }
+            });
+            const enrollmentCond: any = {
+                some: {
+                    class_id: classId,
                     ...(queryStatus ? { status: queryStatus } : {})
-                } 
+                }
             };
+            if (cls?.grade != null) {
+                // Fallback: match by grade (and section when the class has one) so
+                // students without an explicit enrollment record are still visible.
+                // school_id at the top of `where` already enforces tenant isolation.
+                //
+                // Virtual demo sandbox branches (demo-v-*) are per-session ephemeral IDs.
+                // Classes and students created in different demo sessions end up with
+                // different virtual branch_ids even though they belong to the same demo
+                // school, so restricting by cls.branch_id would return 0 students.
+                // For virtual branches we skip the branch constraint — school_id isolation
+                // is sufficient in the demo context.
+                const isVirtualBranch = cls.branch_id?.startsWith('demo-v-') ?? false;
+                const branchFallback = (cls.branch_id && !isVirtualBranch)
+                    ? { OR: [{ branch_id: cls.branch_id }, { branch_id: null }] }
+                    : {};
+                // Only add section constraint when the class itself has a section —
+                // a null-section class should match all sections of that grade.
+                const sectionFilter = cls.section ? { section: cls.section } : {};
+                where.OR = [
+                    { enrollments: enrollmentCond },
+                    {
+                        grade: cls.grade,
+                        ...sectionFilter,
+                        ...branchFallback,
+                        ...(queryStatus ? { status: queryStatus } : {})
+                    }
+                ];
+            } else {
+                where.enrollments = enrollmentCond;
+            }
         }
-        
+
         return await prisma.student.findMany({
             where,
             include: {
@@ -1213,8 +1250,13 @@ export class StudentService {
             for (const rows of Object.values(byPeriod)) {
                 const deptRows = rows.filter((r: any) => DEPARTMENTS.includes(r.notes));
                 const nonDept = rows.filter((r: any) => !DEPARTMENTS.includes(r.notes));
-                const chosen = (deptRows.length > 0 && studentDept)
-                    ? [...deptRows.filter((r: any) => r.notes === studentDept), ...nonDept]
+                // When the student has a known department, show only their subject.
+                // When unknown, still pick one dept row (first) so the schedule shows
+                // one subject per period rather than all three concatenated.
+                const chosen = deptRows.length > 0
+                    ? studentDept
+                        ? [...deptRows.filter((r: any) => r.notes === studentDept), ...nonDept]
+                        : [deptRows[0], ...nonDept]
                     : rows;
                 for (const r of chosen) {
                     const k = `${r.class_id || r.class_name}|${r.start_time}|${r.subject}|${r.notes || ''}`;

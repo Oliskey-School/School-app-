@@ -1,40 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { useProfile } from '../../context/ProfileContext';
 import { api } from '../../lib/api';
+import { toast } from 'react-hot-toast';
 
 const PersonalSecuritySettingsScreen: React.FC<{ navigateTo: (view: string, title: string, props?: any) => void; }> = ({ navigateTo }) => {
     const { profile } = useProfile();
     const [twoFactor, setTwoFactor] = useState(false);
 
     useEffect(() => {
-        const fetchSettings = async () => {
-            if (profile.id) {
-                const { data, error } = await api
-                    .from('users')
-                    .select('two_factor_enabled')
-                    .eq('id', profile.id)
-                    .single();
-
-                if (data) {
-                    setTwoFactor(data.two_factor_enabled || false);
-                }
-            }
-        };
-        fetchSettings();
-    }, [profile.id]);
+        if (profile) {
+            setTwoFactor((profile as any).two_factor_enabled || false);
+        }
+    }, [profile]);
 
     const toggleTwoFactor = async () => {
-        setTwoFactor(!twoFactor);
+        const newValue = !twoFactor;
+        setTwoFactor(newValue);
 
-        if (profile.id) {
-            const { error } = await api
-                .from('users')
-                .update({ two_factor_enabled: !twoFactor })
-                .eq('id', profile.id);
-
-            if (error) {
-                console.error('Error updating 2FA:', error);
-                setTwoFactor(twoFactor);
+        if (profile?.id) {
+            try {
+                await api.updateUser(profile.id, { two_factor_enabled: newValue });
+                toast.success(`Two-factor authentication ${newValue ? 'enabled' : 'disabled'}`);
+            } catch (err: any) {
+                console.error('Error updating 2FA:', err);
+                toast.error('Failed to update security settings');
+                setTwoFactor(!newValue);
             }
         }
     };
@@ -62,4 +52,3 @@ const PersonalSecuritySettingsScreen: React.FC<{ navigateTo: (view: string, titl
     );
 };
 export default PersonalSecuritySettingsScreen;
-

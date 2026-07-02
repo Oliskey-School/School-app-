@@ -33,7 +33,7 @@ const CodeChallengeLobbyScreen: React.FC<CodeChallengeLobbyScreenProps> = ({ nav
                 </div>
             </div>
 
-            <h1 className="text-4xl font-black text-gray-800 tracking-tight mb-2 bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-indigo-600">
+            <h1 className="text-4xl font-black text-purple-600 tracking-tight mb-2">
                 Code Challenge
             </h1>
             <p className="text-gray-600 text-lg max-w-sm font-medium">

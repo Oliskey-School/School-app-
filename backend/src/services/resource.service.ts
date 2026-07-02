@@ -3,9 +3,21 @@ import { SocketService } from './socket.service';
 
 export class ResourceService {
     static async createResource(schoolId: string, branchId: string | undefined, resourceData: any) {
+        // Only pick fields that exist in the Resource schema — discard extras like grade, language, is_public
         const insertData: any = {
-            ...resourceData,
-            school_id: schoolId
+            school_id: schoolId,
+            ...(resourceData.title          !== undefined && { title:         resourceData.title }),
+            ...(resourceData.description    !== undefined && { description:   resourceData.description }),
+            ...(resourceData.type           !== undefined && { type:          resourceData.type }),
+            ...(resourceData.url            !== undefined && { url:           resourceData.url }),
+            ...(resourceData.file_type      !== undefined && { file_type:     resourceData.file_type }),
+            ...(resourceData.size           !== undefined && { size:          resourceData.size }),
+            ...(resourceData.category       !== undefined && { category:      resourceData.category }),
+            ...(resourceData.subject        !== undefined && { subject:       resourceData.subject }),
+            ...(resourceData.class_id       !== undefined && { class_id:      resourceData.class_id }),
+            ...(resourceData.tags           !== undefined && { tags:          resourceData.tags }),
+            ...(resourceData.thumbnail_url  !== undefined && { thumbnail_url: resourceData.thumbnail_url }),
+            ...(resourceData.teacher_id     !== undefined && { teacher_id:    resourceData.teacher_id }),
         };
 
         if (branchId && branchId !== 'all') {

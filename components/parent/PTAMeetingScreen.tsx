@@ -3,11 +3,13 @@ import { useAutoSync } from '../../hooks/useAutoSync';
 import { api } from '../../lib/api';
 import { PTAMeeting } from '../../types';
 import { CalendarIcon, ClockIcon, UsersIcon, CheckCircleIcon } from '../../constants';
+import { toast } from 'react-hot-toast';
 
 const PTAMeetingScreen: React.FC = () => {
     const [meeting, setMeeting] = useState<PTAMeeting | null>(null);
     const [loading, setLoading] = useState(true);
     const [isRegistered, setIsRegistered] = useState(false);
+    const [isRegistering, setIsRegistering] = useState(false);
 
     const fetchUpcomingMeeting = useCallback(async () => {
         try {
@@ -34,6 +36,21 @@ const PTAMeetingScreen: React.FC = () => {
             setLoading(false);
         }
     }, []);
+
+    const handleRegister = async () => {
+        if (!meeting?.id || isRegistered || isRegistering) return;
+        setIsRegistering(true);
+        try {
+            await (api as any).post('/parents/pta-meetings/register', { meetingId: meeting.id });
+            setIsRegistered(true);
+            toast.success('Registration confirmed!');
+        } catch (err) {
+            console.error('PTA registration error:', err);
+            toast.error('Failed to register. Please try again.');
+        } finally {
+            setIsRegistering(false);
+        }
+    };
 
     // Real-time synchronization
     useAutoSync(['pta_meetings'], fetchUpcomingMeeting);
@@ -145,15 +162,15 @@ const PTAMeetingScreen: React.FC = () => {
             <div className="p-4 bg-white border-t border-gray-200 z-10">
                 <div className="max-w-4xl mx-auto">
                     <button
-                        onClick={() => setIsRegistered(true)}
-                        disabled={isRegistered}
+                        onClick={handleRegister}
+                        disabled={isRegistered || isRegistering}
                         className={`w-full flex justify-center items-center space-x-3 py-4 px-6 font-bold text-lg rounded-xl shadow-lg transition-all transform active:scale-95 ${isRegistered
                                 ? 'bg-green-50 text-green-600 border border-green-200 shadow-none cursor-default'
                                 : 'text-white bg-gray-900 hover:bg-black hover:shadow-xl'
                             }`}
                     >
                         {isRegistered ? <CheckCircleIcon className="w-6 h-6" /> : null}
-                        <span>{isRegistered ? 'Registration Confirmed' : 'Register for Meeting'}</span>
+                        <span>{isRegistering ? 'Registering...' : isRegistered ? 'Registration Confirmed' : 'Register for Meeting'}</span>
                     </button>
                     {isRegistered && (
                         <p className="text-center text-xs text-gray-400 mt-2">

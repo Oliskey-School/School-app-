@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+﻿import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
 import { generateTimetableLocal, AlgoInput, GeneratedScheduleResult } from '../../lib/timetableAlgorithm';
@@ -596,7 +596,7 @@ const TimetableCreator: React.FC<{ navigateTo: (path: string) => void, initialCl
                                                 {cellData ? (
                                                     <div className={`h-full w-full rounded-lg p-3 flex flex-col justify-between ${SUBJECT_COLORS[cellData.subject] || 'bg-gray-100 text-gray-800'} border shadow-sm`}>
                                                         <span className="font-extrabold text-xs line-clamp-2">{cellData.subject}</span>
-                                                        <div className="flex items-center gap-1 mt-2 text-[10px] font-bold opacity-80">
+                                                        <div className="flex items-center gap-1 mt-2 text-xs font-bold opacity-80">
                                                             <UserIcon className="w-3 h-3" />
                                                             <span className="truncate">{cellData.teacher}</span>
                                                         </div>

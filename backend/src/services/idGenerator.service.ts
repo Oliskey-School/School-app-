@@ -149,32 +149,54 @@ export class IdGeneratorService {
         const roleKey = role.toLowerCase();
         const roleCode = ROLE_CODES[roleKey] || role.substring(0, 3).toUpperCase();
 
-        // Instead of count(), we search for the highest existing number in the IDs
-        // This avoids collisions when records are deleted.
+        // Look up the branch code so we can search by ID pattern.
+        // We MUST search by pattern (_BRANCHCODE_ROLECODE_) rather than
+        // user.branch_id because teachers assigned (lent) to a branch from
+        // another branch keep their HOME branch_id — filtering by branch_id
+        // misses them and causes the sequence to restart at 0001 for every
+        // new teacher, creating duplicate IDs in the same branch.
+        const branch = await db.branch.findUnique({
+            where: { id: branchId },
+            select: { code: true },
+        });
+        const branchCode = branch ? branch.code.substring(0, 10).toUpperCase() : branchId.substring(0, 10).toUpperCase();
+
+        const pattern = `_${branchCode}_${roleCode}_`;
+
+        // IDs already stored in the User table (home users for this branch)
         const users = await db.user.findMany({
             where: {
                 school_id: schoolId,
-                branch_id: branchId,
-                school_generated_id: {
-                    contains: `_${roleCode}_`
-                }
+                school_generated_id: { contains: pattern }
             },
             select: { school_generated_id: true }
         });
 
-        if (users.length === 0) return 1;
+        // IDs reserved in BranchUserIdentity (cross-branch visitors lent to this branch).
+        // BranchIdentityService allocates per-branch IDs on-demand and stores them here.
+        // Without checking this table the main counter doesn't see those reservations and
+        // issues the same number to the next permanently-created user — producing duplicates.
+        const reserved = await prisma.$queryRawUnsafe<{ school_generated_id: string }[]>(
+            `SELECT school_generated_id FROM "BranchUserIdentity"
+              WHERE school_id = $1 AND branch_id = $2 AND role = $3`,
+            schoolId, branchId, roleCode
+        ).catch(() => [] as { school_generated_id: string }[]);
+
+        const allIds = [
+            ...users.map(u => u.school_generated_id),
+            ...reserved.map(r => r.school_generated_id),
+        ].filter(Boolean);
+
+        if (allIds.length === 0) return 1;
 
         let maxNum = 0;
-        users.forEach(u => {
-            if (u.school_generated_id) {
-                const parts = u.school_generated_id.split('_');
-                const lastPart = parts[parts.length - 1];
-                const num = parseInt(lastPart);
-                if (!isNaN(num) && num > maxNum) {
-                    maxNum = num;
-                }
+        for (const id of allIds) {
+            if (id) {
+                const parts = id.split('_');
+                const num = parseInt(parts[parts.length - 1]);
+                if (!isNaN(num) && num > maxNum) maxNum = num;
             }
-        });
+        }
 
         return maxNum + 1;
     }

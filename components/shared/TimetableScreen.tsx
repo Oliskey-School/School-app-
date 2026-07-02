@@ -34,7 +34,7 @@ const TimetableCell: React.FC<{ subject: string | null; teacher: string | null; 
         return (
             <div className="h-full min-h-[5rem] bg-gray-100/50 flex items-center justify-center relative overflow-hidden group">
                 <div className="absolute inset-0 pattern-diagonal-lines opacity-10"></div>
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest -rotate-90 md:rotate-0 whitespace-nowrap z-10">{subject}</span>
+                <span className="text-xs font-bold text-gray-400 uppercase tracking-widest -rotate-90 md:rotate-0 whitespace-nowrap z-10">{subject}</span>
             </div>
         );
     }
@@ -49,7 +49,7 @@ const TimetableCell: React.FC<{ subject: string | null; teacher: string | null; 
             {subject ? (
                 <>
                     <span className="font-bold text-xs md:text-sm text-center leading-tight px-1">{subject}</span>
-                    {teacher && <span className="text-[10px] md:text-xs mt-1 opacity-75 font-medium truncate max-w-full px-1">{teacher}</span>}
+                    {teacher && <span className="text-xs mt-1 opacity-75 font-medium truncate max-w-full px-1">{teacher}</span>}
                 </>
             ) : (
                 <div className="w-full h-full flex items-center justify-center">
@@ -66,7 +66,7 @@ const MobileDayView: React.FC<{ day: string; periods: PeriodDef[]; timetable: { 
             {periods.map((period, idx) => {
                 if (period.isBreak) return (
                     <div key={idx} className="flex items-center justify-center py-4 bg-gray-50/50 rounded-2xl border border-gray-100 border-dashed">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">{period.name}</span>
+                        <span className="text-xs font-bold text-gray-400 uppercase tracking-[0.2em]">{period.name}</span>
                     </div>
                 );
 
@@ -158,6 +158,8 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
         try {
             let targetClassName = '';
             let targetTeacherId = '';
+            // Student's department for filtering departmental (SSS) periods to the right subject.
+            let resolvedStudentDept: string | null = null;
 
             // Resolve a student's REAL class name from their actual class record
             // (match grade + section), since the timetable is stored by the class
@@ -178,6 +180,7 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
                 const studentProfile = await api.getMyStudentProfile();
                 if (studentProfile) {
                     targetClassName = await resolveClassName(studentProfile.school_id || schoolId, studentProfile.grade, studentProfile.section);
+                    resolvedStudentDept = studentProfile.department || null;
                 }
             } else if (context.userType === 'parent' && selectedStudent) {
                 targetClassName = await resolveClassName(selectedStudent.school_id || schoolId, selectedStudent.grade, selectedStudent.section);
@@ -215,15 +218,31 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
                         if (order >= teaching.length) return;
                         const key = `${d}-${teaching[order].name}`;
                         const rows = byDay[d][st];
-                        const teacherName = (r: any) => r.teacher?.name || r.teacher_name || null;
+                        const teacherName = (r: any) => r.teacher?.full_name || r.teacher?.name || r.teacher_name || null;
                         const deptRows = rows.filter(r => DEPARTMENTS.includes(r.notes));
                         if (deptRows.length > 0) {
-                            newTimetable[key] = deptRows.map(r => `${r.notes}: ${r.subject}`).join(' · ');
-                            newTeachers[key] = null;
+                            // For students: show only their department's subject (or first if unknown).
+                            // For teachers: show all departments so they see the full picture.
+                            // For admins/parents: show all departments.
+                            const isStudentView = context.userType === 'student';
+                            if (isStudentView) {
+                                const match = resolvedStudentDept
+                                    ? deptRows.find(r => r.notes === resolvedStudentDept) || deptRows[0]
+                                    : deptRows[0];
+                                newTimetable[key] = match.subject;
+                                newTeachers[key] = teacherName(match);
+                            } else {
+                                newTimetable[key] = deptRows.map(r => `${r.notes}: ${r.subject}`).join(' · ');
+                                newTeachers[key] = null;
+                            }
                         } else {
                             const entry = rows[rows.length - 1];
                             newTimetable[key] = entry.subject;
-                            newTeachers[key] = teacherName(entry);
+                            // For teacher view: show which class this period belongs to
+                            // so they can distinguish SSS 2 vs SSS 3 for the same subject.
+                            newTeachers[key] = context.userType === 'teacher'
+                                ? (entry.class_name || entry.class?.name || null)
+                                : teacherName(entry);
                         }
                     });
                 });
@@ -273,7 +292,7 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
     if (loading) {
         return (
             <div className="flex items-center justify-center h-full bg-white/50">
-                <div className={`animate-spin rounded-full h-10 w-10 border-4 border-gray-200 ${(theme.accentColor || theme.iconColor || 'text-gray-400').replace('text-', 'border-t-')}`}></div>
+                <div className={`animate-spin rounded-full h-10 w-10 border-4 border-gray-200 ${((theme as any).accentColor || theme.iconColor || 'text-gray-400').replace('text-', 'border-t-')}`}></div>
             </div>
         );
     }
@@ -302,7 +321,7 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
             {/* Header */}
             <div className="bg-white border-b border-gray-200 p-4 sticky top-0 z-30 shadow-sm flex justify-between items-center">
                 <div className="flex items-center gap-3">
-                    <div className={`${(theme.bgColor ? theme.bgColor.replace('bg-', 'bg-').replace('600', '100') : (theme.activeNav?.split(' ')[0] || 'bg-gray-100'))} p-2 rounded-lg`}>
+                    <div className={`${((theme as any).bgColor ? (theme as any).bgColor.replace('bg-', 'bg-').replace('600', '100') : (theme.activeNav?.split(' ')[0] || 'bg-gray-100'))} p-2 rounded-lg`}>
                         <CalendarIcon className={`w-6 h-6 ${theme.iconColor}`} />
                     </div>
                     <div>
@@ -352,10 +371,11 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
                             ))}
                         </div>
                         <div className="flex-1 overflow-y-auto p-4">
-                            <MobileDayView day={selectedDay} periods={dayPeriods} timetable={timetable} teacherAssignments={teacherAssignments} />
+                            <MobileDayView day={selectedDay} periods={periods} timetable={timetable} teacherAssignments={teacherAssignments} />
                         </div>
                     </div>
                 ) : (
+                    <div className="overflow-x-auto">
                     <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 overflow-hidden min-w-[1000px]">
                         <div className="grid gap-[1px] bg-gray-100" style={{ gridTemplateColumns: `80px repeat(${periods.length}, 1fr)` }}>
                             {/* Header Row */}
@@ -387,6 +407,7 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
                                 </React.Fragment>
                             ))}
                         </div>
+                    </div>
                     </div>
                 )}
             </main>

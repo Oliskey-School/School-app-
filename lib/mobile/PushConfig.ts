@@ -80,7 +80,7 @@ export class PushNotificationManager {
     private static async saveTokenToBackend(token: string) {
         try {
             // Use our custom API to save the push token
-            await api.savePushToken(token, Capacitor.getPlatform());
+            await (api as any).savePushToken(token, Capacitor.getPlatform());
         } catch (err) {
             console.error('Error saving push token', err);
         }

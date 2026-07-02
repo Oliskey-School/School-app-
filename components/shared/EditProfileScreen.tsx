@@ -57,6 +57,7 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack, user, onP
     const { user: authUser } = useAuth();
     const { t } = useTranslation();
     const [name, setName] = useState(user?.name || '');
+    const [displayName, setDisplayName] = useState('');
     const [avatar, setAvatar] = useState(user?.avatarUrl || '');
     const [email, setEmail] = useState(user?.email || '');
     const [username, setUsername] = useState(authUser?.user_metadata?.username || '');
@@ -88,6 +89,7 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack, user, onP
                 if (!active) return;
                 if (profile) {
                     setName(prev => prev || profile.full_name || profile.name || '');
+                    setDisplayName(prev => prev || profile.display_name || '');
                     setEmail(prev => prev || profile.email || profile.user?.email || '');
                     setAvatar(prev => prev || profile.avatar_url || profile.avatarUrl || '');
                 }
@@ -155,7 +157,8 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack, user, onP
             await updateProfile({
                 full_name: name,
                 avatar_url: avatar,
-            });
+                display_name: displayName.trim() || undefined,
+            } as any);
 
             toast.success('Profile updated successfully!');
             if (onProfileUpdate) {
@@ -286,6 +289,23 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack, user, onP
                             </div>
                         </div>
                         <InputField label="Full Name" value={name} onChange={setName} />
+                        <div className="w-full mb-4">
+                            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1 ml-1">Chat Display Name</label>
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    value={displayName}
+                                    onChange={e => setDisplayName(e.target.value)}
+                                    placeholder="How others see you in chat (optional)"
+                                    maxLength={40}
+                                    className="w-full bg-gray-50 border border-gray-100 text-gray-800 text-sm rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent block p-3 transition-all"
+                                />
+                                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                                    <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                                </div>
+                            </div>
+                            <p className="text-[11px] text-gray-400 mt-1 ml-1">This name shows in chats instead of your full name</p>
+                        </div>
                         <InputField label="Email Address" value={email} type="email" readOnly />
 
                         {/* Language preference — saved to the account, follows the user across devices */}

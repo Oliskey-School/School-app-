@@ -25,7 +25,7 @@ export const useTenantLimit = (entity: 'users' | 'students' | 'teachers' = 'user
     // Paid plans (basic/advanced) are billed PER STUDENT, so the student cap is exactly
     // what the school PAID for (school.student_count). To enrol beyond it they must pay
     // for the extra seats. Users/teachers stay uncapped on paid plans; Free caps at 10.
-    const PAID_STUDENT_CAPACITY = currentSchool?.student_count || 0;
+    const PAID_STUDENT_CAPACITY = (currentSchool as any)?.student_count || 0;
     const MAX_LIMIT = (entity === 'students' && isPremium)
         ? (PAID_STUDENT_CAPACITY > 0 ? PAID_STUDENT_CAPACITY : Infinity)
         : (isPremium ? Infinity : FREE_TIER_LIMIT);
@@ -40,6 +40,8 @@ export const useTenantLimit = (entity: 'users' | 'students' | 'teachers' = 'user
             // so the per-student cap is measured against actual students (not all users).
             const relevant = entity === 'students'
                 ? (users || []).filter((u: any) => String(u.role || u.dashboard_type || '').toLowerCase().includes('student'))
+                : entity === 'teachers'
+                ? (users || []).filter((u: any) => String(u.role || u.dashboard_type || '').toLowerCase().includes('teacher'))
                 : (users || []);
             setCount(relevant.length);
         } catch (err) {

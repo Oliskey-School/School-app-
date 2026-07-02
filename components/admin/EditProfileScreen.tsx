@@ -4,6 +4,7 @@ import { UserIcon, MailIcon, PhoneIcon, CameraIcon } from '../../constants';
 import { useProfile } from '../../context/ProfileContext';
 import { useUserIdentity } from '../../lib/hooks/useUserIdentity';
 import { api } from '../../lib/api';
+import { toast } from 'react-hot-toast';
 
 const EditProfileScreen: React.FC = () => {
     const { profile, updateProfile, isLoading } = useProfile();
@@ -12,7 +13,6 @@ const EditProfileScreen: React.FC = () => {
     const [email, setEmail] = useState('');
     const [phone, setPhone] = useState('');
     const [avatar, setAvatar] = useState('');
-    const [saveMessage, setSaveMessage] = useState('');
 
     // Initialize form with profile data
     useEffect(() => {
@@ -67,7 +67,6 @@ const EditProfileScreen: React.FC = () => {
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
-        setSaveMessage('');
         try {
             await updateProfile({
                 name,
@@ -75,11 +74,10 @@ const EditProfileScreen: React.FC = () => {
                 phone,
                 avatarUrl: avatar,
             });
-            setSaveMessage('Profile saved successfully!');
-            setTimeout(() => setSaveMessage(''), 3000);
+            toast.success('Profile saved successfully!');
         } catch (err: any) {
             console.error('Save error:', err);
-            setSaveMessage(`Failed to save profile: ${err.message || 'Please try again.'}`);
+            toast.error(`Failed to save profile: ${err.message || 'Please try again.'}`);
         }
     };
 
@@ -144,21 +142,13 @@ const EditProfileScreen: React.FC = () => {
 
                 {/* Action Button */}
                 <div className="p-4 mt-auto bg-gray-50 border-t border-gray-200">
-                    {saveMessage && (
-                        <div className={`mb-3 p-3 rounded-lg text-center text-sm font-medium ${saveMessage.includes('successfully')
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-red-100 text-red-700'
-                            }`}>
-                            {saveMessage}
-                        </div>
-                    )}
                     <button
                         type="submit"
                         disabled={isLoading}
                         className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white ${isLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
                             } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
                     >
-                        {isLoading ? 'Saving...' : 'Save'}
+                        {isLoading ? 'Saving...' : 'Save Profile'}
                     </button>
                 </div>
             </form>

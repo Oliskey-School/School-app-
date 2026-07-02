@@ -4,14 +4,12 @@ import { toast } from 'react-hot-toast';
 import {
     CheckCircleIcon,
     XCircleIcon,
-    ClockIcon,
     UserGroupIcon,
-    CalendarIcon
 } from '../../constants';
 import { useAuth } from '../../context/AuthContext';
 
 interface LeaveRequestData {
-    id: number;
+    id: string;
     teacher_id: string;
     teacher_name: string;
     leave_type: string;
@@ -47,40 +45,12 @@ const LeaveApproval: React.FC<LeaveApprovalProps> = () => {
         if (!currentSchool) return;
         try {
             setLoading(true);
-
-            let query = api
-                .from('leave_requests')
-                .select(`
-          *,
-          teachers!inner (
-            full_name,
-            school_id
-          ),
-          leave_types (
-            name
-          )
-        `)
-                .eq('teachers.school_id', currentSchool.id)
-                .order('created_at', { ascending: false });
-
-            if (filter !== 'all') {
-                const statusMap = {
-                    pending: 'Pending',
-                    approved: 'Approved',
-                    rejected: 'Rejected'
-                };
-                query = query.eq('status', statusMap[filter]);
-            }
-
-            const { data, error } = await query;
-
-            if (error) throw error;
-
+            const data = await api.getLeaveRequests(undefined, currentSchool.id);
             const formatted: LeaveRequestData[] = (data || []).map((item: any) => ({
-                id: item.id,
+                id: String(item.id),
                 teacher_id: item.teacher_id,
-                teacher_name: item.teachers?.full_name || 'Unknown Teacher',
-                leave_type: item.leave_types?.name || 'Unknown Type',
+                teacher_name: item.teachers?.full_name || item.teacher_name || 'Unknown Teacher',
+                leave_type: item.leave_types?.name || item.leave_type || 'Unknown Type',
                 start_date: item.start_date,
                 end_date: item.end_date,
                 days_requested: item.days_requested,
@@ -91,7 +61,13 @@ const LeaveApproval: React.FC<LeaveApprovalProps> = () => {
                 admin_comments: item.admin_comments
             }));
 
-            setRequests(formatted);
+            // Filter client-side
+            const statusMap = { pending: 'Pending', approved: 'Approved', rejected: 'Rejected' };
+            const filtered = filter === 'all'
+                ? formatted
+                : formatted.filter(r => r.status === statusMap[filter]);
+
+            setRequests(filtered);
         } catch (error: any) {
             console.error('Error fetching requests:', error);
             toast.error('Failed to load leave requests');
@@ -100,70 +76,12 @@ const LeaveApproval: React.FC<LeaveApprovalProps> = () => {
         }
     };
 
-    const updateLeaveBalance = async (teacherId: string, leaveTypeId: number, days: number, approved: boolean) => {
-        try {
-            if (!approved) return; // Don't update balance if rejected
-
-            // Get current balance
-            const { data: balanceData } = await api
-                .from('leave_balances')
-                .select('*')
-                .eq('teacher_id', teacherId)
-                .eq('leave_type_id', leaveTypeId)
-                .single();
-
-            if (balanceData) {
-                // Update existing balance
-                const newUsedDays = balanceData.used_days + days;
-                const newRemainingDays = balanceData.total_days - newUsedDays;
-
-                await api
-                    .from('leave_balances')
-                    .update({
-                        used_days: newUsedDays,
-                        remaining_days: newRemainingDays
-                    })
-                    .eq('id', balanceData.id);
-            }
-        } catch (error) {
-            console.error('Error updating leave balance:', error);
-        }
-    };
-
     const handleApprove = async () => {
         if (!selectedRequest) return;
-
         try {
             setProcessing(true);
-
-            // Update request status
-            const { error } = await api
-                .from('leave_requests')
-                .update({
-                    status: 'Approved',
-                    admin_comments: adminComment || null,
-                    reviewed_at: new Date().toISOString()
-                })
-                .eq('id', selectedRequest.id);
-
-            if (error) throw error;
-
-            //  Get leave_type_id for balance update
-            const { data: requestData } = await api
-                .from('leave_requests')
-                .select('leave_type_id')
-                .eq('id', selectedRequest.id)
-                .single();
-
-            if (requestData) {
-                await updateLeaveBalance(
-                    selectedRequest.teacher_id,
-                    requestData.leave_type_id,
-                    selectedRequest.days_requested,
-                    true
-                );
-            }
-
+            // Leave balance updates are handled server-side in the leave-requests endpoint
+            await api.approveLeaveRequest(selectedRequest.id, 'Approved');
             toast.success('Leave request approved');
             setSelectedRequest(null);
             setAdminComment('');
@@ -186,18 +104,7 @@ const LeaveApproval: React.FC<LeaveApprovalProps> = () => {
 
         try {
             setProcessing(true);
-
-            const { error } = await api
-                .from('leave_requests')
-                .update({
-                    status: 'Rejected',
-                    admin_comments: adminComment,
-                    reviewed_at: new Date().toISOString()
-                })
-                .eq('id', selectedRequest.id);
-
-            if (error) throw error;
-
+            await api.approveLeaveRequest(selectedRequest.id, 'Rejected');
             toast.success('Leave request rejected');
             setSelectedRequest(null);
             setAdminComment('');
@@ -212,14 +119,10 @@ const LeaveApproval: React.FC<LeaveApprovalProps> = () => {
 
     const getStatusColor = (status: string) => {
         switch (status) {
-            case 'Approved':
-                return 'bg-green-100 text-green-800';
-            case 'Rejected':
-                return 'bg-red-100 text-red-800';
-            case 'Pending':
-                return 'bg-yellow-100 text-yellow-800';
-            default:
-                return 'bg-gray-100 text-gray-800';
+            case 'Approved': return 'bg-green-100 text-green-800';
+            case 'Rejected': return 'bg-red-100 text-red-800';
+            case 'Pending': return 'bg-yellow-100 text-yellow-800';
+            default: return 'bg-gray-100 text-gray-800';
         }
     };
 
@@ -286,7 +189,7 @@ const LeaveApproval: React.FC<LeaveApprovalProps> = () => {
                         </div>
                     ) : requests.length === 0 ? (
                         <div className="p-8 text-center text-gray-500">
-                            No {filter !== 'all' && filter} requests found
+                            No {filter !== 'all' ? filter : ''} requests found
                         </div>
                     ) : (
                         requests.map((request) => (
@@ -305,7 +208,7 @@ const LeaveApproval: React.FC<LeaveApprovalProps> = () => {
                                                 <strong>{request.leave_type}</strong> - {request.days_requested} day(s)
                                             </p>
                                             <p className="text-gray-600">
-                                                📅 {new Date(request.start_date).toLocaleDateString()} - {new Date(request.end_date).toLocaleDateString()}
+                                                {new Date(request.start_date).toLocaleDateString()} - {new Date(request.end_date).toLocaleDateString()}
                                             </p>
                                             <p className="text-gray-600">
                                                 <strong>Reason:</strong> {request.reason}
@@ -380,7 +283,7 @@ const LeaveApproval: React.FC<LeaveApprovalProps> = () => {
 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Admin Comment
+                                        Admin Comment <span className="text-gray-400">(required for rejection)</span>
                                     </label>
                                     <textarea
                                         value={adminComment}
@@ -428,4 +331,3 @@ const LeaveApproval: React.FC<LeaveApprovalProps> = () => {
 };
 
 export default LeaveApproval;
-

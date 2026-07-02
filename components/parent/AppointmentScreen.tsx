@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+﻿import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
@@ -340,12 +340,12 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
                                                     </span>
                                                 </div>
                                                 <div className="bg-gray-50 p-4 rounded-xl mb-4 text-sm text-gray-700">
-                                                    <span className="font-bold text-gray-400 text-[10px] uppercase tracking-widest block mb-2">Your Request</span>
+                                                    <span className="font-bold text-gray-400 text-xs uppercase tracking-widest block mb-2">Your Request</span>
                                                     {apt.description}
                                                 </div>
                                                 {apt.notes && (
                                                     <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 text-sm">
-                                                        <span className="font-bold text-blue-500 text-[10px] uppercase tracking-widest block mb-2">Teacher's Response</span>
+                                                        <span className="font-bold text-blue-500 text-xs uppercase tracking-widest block mb-2">Teacher's Response</span>
                                                         <p className="text-gray-800 font-medium">{apt.notes}</p>
                                                     </div>
                                                 )}

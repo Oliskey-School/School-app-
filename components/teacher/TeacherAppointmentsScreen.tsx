@@ -27,7 +27,7 @@ const AppointmentCard: React.FC<{
                     <p className="text-sm text-gray-500">Parent of {studentName}</p>
                 </div>
             </div>
-            <p className="text-sm text-gray-700 italic border-l-4 border-purple-200 pl-3">"{appointment.description || appointment.reason || 'No reason provided'}"</p>
+            <p className="text-sm text-gray-700 italic bg-purple-50 border border-purple-100 rounded-lg px-3 py-2">"{appointment.description || appointment.reason || 'No reason provided'}"</p>
             <div className="flex justify-between items-center text-sm font-semibold text-gray-700 pt-2 border-t">
                 <span>{new Date(appointment.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</span>
                 {appointment.status === 'Pending' ? (

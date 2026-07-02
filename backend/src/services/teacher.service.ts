@@ -189,6 +189,10 @@ export class TeacherService {
         const teachers = await prisma.teacher.findMany({
             where: {
                 school_id: schoolId,
+                // Only return records whose linked user has the TEACHER role.
+                // Admins can have entries in the teacher table (e.g. after role changes)
+                // and must never appear in teacher lists or timetable dropdowns.
+                user: { role: Role.TEACHER },
                 // Include teachers whose PRIMARY branch is this branch OR who were
                 // assigned to it (allowed_branch_ids), so the staff list matches the
                 // staff count and a multi-branch teacher appears in each of theirs.
@@ -383,10 +387,12 @@ export class TeacherService {
                 });
             }
 
-            // Update classes if provided
-            if (classes && Array.isArray(classes)) {
+            // Update classes if provided — only for the ACTIVE branch.
+            // Without a branch filter this would wipe assignments in every other
+            // branch whenever the admin saves ANY field on the teacher form.
+            if (classes && Array.isArray(classes) && branchId) {
                 await tx.classTeacher.deleteMany({
-                    where: { teacher_id: teacher.id }
+                    where: { teacher_id: teacher.id, branch_id: branchId }
                 });
 
                 const seenAssignments = new Set<string>();
@@ -830,11 +836,12 @@ export class TeacherService {
         for (const record of records) {
             const result = await prisma.teacherAttendance.upsert({
                 where: {
-                    teacher_id_date: {
+                    teacher_id_date_branch_id: {
                         teacher_id: record.teacher_id,
-                        date: record.date
+                        date: record.date,
+                        branch_id: record.branch_id || branchId || ''
                     }
-                },
+                } as any,
                 create: {
                     teacher_id: record.teacher_id,
                     school_id: schoolId,

@@ -49,7 +49,7 @@ export function useParents(): UseParentsResult {
 
     const updateParent = async (id: string | number, updates: Partial<Parent>): Promise<Parent | null> => {
         try {
-            return await api.updateParent(id, updates);
+            return await api.updateParent(String(id), updates);
         } catch (err) {
             console.error('Error updating parent:', err);
             setError(err as Error);
@@ -59,7 +59,7 @@ export function useParents(): UseParentsResult {
 
     const deleteParent = async (id: string | number): Promise<boolean> => {
         try {
-            await api.deleteParent(id);
+            await api.deleteParent(String(id));
             return true;
         } catch (err) {
             console.error('Error deleting parent:', err);

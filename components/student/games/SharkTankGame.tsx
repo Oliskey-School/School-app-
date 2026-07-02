@@ -265,7 +265,7 @@ const SharkTankGame: React.FC<SharkTankGameProps> = ({ onBack }) => {
 
                                 <div className="space-y-4 max-w-lg w-full mb-8">
                                     {sharkFeedback.map((comment, i) => (
-                                        <div key={i} className="bg-slate-100 p-4 rounded-xl border-l-4 border-slate-800 text-left font-medium text-slate-700 shadow-sm">
+                                        <div key={i} className="bg-slate-100 p-4 rounded-xl border border-slate-300 text-left font-medium text-slate-700 shadow-sm">
                                             {comment}
                                         </div>
                                     ))}

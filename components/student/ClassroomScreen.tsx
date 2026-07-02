@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+﻿import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { Student, Teacher, Notice } from '../../types';
 import { api } from '../../lib/api';
@@ -105,10 +105,10 @@ const ClassroomScreen: React.FC<ClassroomScreenProps> = ({ subjectName, navigate
         <div className={`p-6 rounded-3xl text-white shadow-xl ${bgColor.replace('-200', '-600').replace('-100', '-600')} relative overflow-hidden`}>
           <div className="relative z-10">
             <div className="flex items-center gap-2 mb-2">
-              <span className="bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
+              <span className="bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest">
                 {subjectInfo?.curriculum_type || 'Nigerian'} Curriculum
               </span>
-              <span className="bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
+              <span className="bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest">
                 {(student as any)?.class_name || 'Classroom'}
               </span>
             </div>
@@ -166,16 +166,16 @@ const ClassroomScreen: React.FC<ClassroomScreenProps> = ({ subjectName, navigate
                     <MegaphoneIcon className={`h-5 w-5 ${textColor}`} />
                     <h3 className="font-black text-lg text-gray-800 uppercase tracking-tighter">Subject Board</h3>
                   </div>
-                  <span className="text-[10px] font-black text-gray-400 bg-gray-50 px-2 py-1 rounded-md uppercase">Latest Updates</span>
+                  <span className="text-xs font-black text-gray-400 bg-gray-50 px-2 py-1 rounded-md uppercase">Latest Updates</span>
                 </div>
                 
                 {announcements.length > 0 ? (
                   <div className="space-y-4">
                     {announcements.map(notice => (
-                      <div key={notice.id} className="p-4 rounded-2xl bg-gray-50 border-l-4 border-orange-500 hover:bg-orange-50/50 transition-colors">
+                      <div key={notice.id} className="p-4 rounded-2xl bg-gray-50 border border-orange-200 hover:bg-orange-50/50 transition-colors">
                         <h4 className="font-bold text-gray-900 leading-tight">{notice.title}</h4>
                         <p className="text-sm text-gray-600 mt-2 line-clamp-2">{notice.content}</p>
-                        <div className="mt-3 flex items-center text-[10px] font-black text-gray-400 uppercase tracking-widest gap-2">
+                        <div className="mt-3 flex items-center text-xs font-black text-gray-400 uppercase tracking-widest gap-2">
                           <ClockIcon className="w-3 h-3" />
                           {new Date(notice.timestamp || (notice as any).created_at || '').toLocaleDateString()}
                         </div>
@@ -242,7 +242,7 @@ const ClassroomScreen: React.FC<ClassroomScreenProps> = ({ subjectName, navigate
                 </div>
                 <div>
                   <h2 className="text-xl font-black text-gray-900">Academic Roadmap</h2>
-                  <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest">Always up to date</p>
+                  <p className="text-xs text-gray-500 font-black uppercase tracking-widest">Always up to date</p>
                 </div>
               </div>
 
@@ -251,7 +251,7 @@ const ClassroomScreen: React.FC<ClassroomScreenProps> = ({ subjectName, navigate
                   <button
                     key={t}
                     onClick={() => setSelectedTerm(t)}
-                    className={`py-4 rounded-2xl border-2 transition-all font-black uppercase text-[10px] tracking-widest ${selectedTerm === t
+                    className={`py-4 rounded-2xl border-2 transition-all font-black uppercase text-xs tracking-widest ${selectedTerm === t
                       ? 'border-orange-500 bg-orange-50 text-orange-600 shadow-md shadow-orange-100'
                       : 'border-gray-50 bg-gray-50 text-gray-400 hover:bg-white hover:border-orange-200 hover:text-gray-600'
                       }`}
@@ -290,7 +290,7 @@ const ClassroomScreen: React.FC<ClassroomScreenProps> = ({ subjectName, navigate
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="text-[9px] font-black text-orange-500 uppercase tracking-widest">Week {topic.week_number || idx + 1}</span>
+                            <span className="text-xs font-black text-orange-500 uppercase tracking-widest">Week {topic.week_number || idx + 1}</span>
                             {idx === 0 && <span className="bg-green-100 text-green-700 text-[8px] px-1.5 py-0.5 rounded font-black uppercase">Current</span>}
                           </div>
                           <h4 className="font-black text-gray-900 text-lg mb-2 leading-tight">{topic.title}</h4>
@@ -327,7 +327,7 @@ const ClassroomScreen: React.FC<ClassroomScreenProps> = ({ subjectName, navigate
                     <div className="absolute bottom-0 right-0 w-5 h-5 bg-green-500 border-4 border-white rounded-full"></div>
                   </div>
                   <p className="text-sm font-black text-gray-800 text-center leading-tight">{c.name}</p>
-                  <span className="text-[10px] font-black text-indigo-500 uppercase tracking-tighter mt-1">{c.section || 'A'} Stream</span>
+                  <span className="text-xs font-black text-indigo-500 uppercase tracking-tighter mt-1">{c.section || 'A'} Stream</span>
                 </div>
               )) : (
                 <div className="col-span-full py-10 text-center">

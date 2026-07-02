@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+﻿import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
 import { getAIClient, SchemaType as Type } from '../../lib/ai';
 import { SparklesIcon, XCircleIcon, ClockIcon, UserGroupIcon, ExclamationCircleIcon, CheckCircleIcon, CalendarIcon } from '../../constants';
@@ -329,7 +329,7 @@ const TimetableCreationPage: React.FC<TimetableCreationPageProps> = ({ isOpen, o
                                             className="flex-grow p-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-100 outline-none text-sm font-medium text-gray-700"
                                         />
                                         <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1">
-                                            <span className="text-[10px] font-bold text-gray-400 uppercase">Periods</span>
+                                            <span className="text-xs font-bold text-gray-400 uppercase">Periods</span>
                                             <input
                                                 type="number"
                                                 value={subject.periods}

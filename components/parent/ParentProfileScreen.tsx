@@ -1,4 +1,4 @@
-
+﻿
 import React, { useState } from 'react';
 import {
   EditIcon,
@@ -36,6 +36,7 @@ import { useUserIdentity } from '../../lib/hooks/useUserIdentity';
 import { Copy, UserPlus } from 'lucide-react';
 import LinkChildScreen from './LinkChildScreen';
 import VersionStatusCard from '../shared/VersionStatusCard';
+import AIUnlockCard from '../shared/AIUnlockCard';
 
 interface ParentProfileScreenProps {
   onLogout: () => void;
@@ -99,7 +100,7 @@ const ParentProfileScreen: React.FC<ParentProfileScreenProps> = ({ onLogout, nav
 
   const handleItemClick = (id: string) => {
     if (id === 'help') {
-      toast('Help Center coming soon!', { icon: 'ℹ️' });
+      toast('Help Center coming soon!', { icon: 'â„¹ï¸' });
     } else {
       // If mobile, navigate to a new screen instead of just setting activeSetting
       const isMobile = window.innerWidth < 768;
@@ -153,12 +154,15 @@ const ParentProfileScreen: React.FC<ParentProfileScreenProps> = ({ onLogout, nav
                   {profile.school_generated_id || formatId(customId) || 'ID: Pending'}
                 </span>
                 <Copy className="w-3 h-3 text-gray-400" />
-                {copied && <span className="text-xs text-green-600 font-bold ml-1">✓</span>}
+                {copied && <span className="text-xs text-green-600 font-bold ml-1">âœ“</span>}
               </div>
             </div>
           </div>
 
           <VersionStatusCard />
+
+          {/* AI Plan */}
+          <AIUnlockCard navigateTo={navigateTo} />
 
           <div className="bg-white rounded-xl shadow-sm p-2">
             {menuItems.map((item, index) => (
@@ -197,13 +201,13 @@ const ParentProfileScreen: React.FC<ParentProfileScreenProps> = ({ onLogout, nav
                         <p className={`font-semibold text-sm ${m.school_id === currentSchool?.id ? 'text-purple-700' : 'text-gray-700'}`}>
                           {m.schools?.name || 'School'}
                         </p>
-                        <p className="text-[10px] text-gray-500 capitalize">{m.role}</p>
+                        <p className="text-xs text-gray-500 capitalize">{m.role}</p>
                       </div>
                     </div>
                     {m.school_id === currentSchool?.id ? (
                       <div className="flex items-center gap-1">
                         <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                        <span className="text-[10px] font-bold text-green-600 uppercase">Active</span>
+                        <span className="text-xs font-bold text-green-600 uppercase">Active</span>
                       </div>
                     ) : (
                       <RefreshIcon className={`w-3 h-3 text-gray-300 ${isSwitching ? 'animate-spin' : ''}`} />

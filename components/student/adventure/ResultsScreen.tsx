@@ -68,7 +68,7 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ adventureData, userAnswer
                         <SparklesIcon className="h-5 w-5" />
                         <h2 className="font-bold">AI Summary</h2>
                     </div>
-                    <blockquote className="mt-2 text-left p-3 bg-teal-50 border-l-4 border-teal-300">
+                    <blockquote className="mt-2 text-left p-3 bg-teal-50 border border-teal-200 rounded-lg">
                         {isLoadingSummary ? <p className="text-gray-600 italic">Calculating your epic performance...</p> : <p className="text-gray-700 italic">{aiSummary}</p>}
                     </blockquote>
                 </div>
@@ -98,7 +98,7 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ adventureData, userAnswer
                                     <div className="mt-2 pl-7 text-sm">
                                         <p className="text-gray-700">Your answer: <span className="font-semibold">{userAnswer?.answer}</span></p>
                                         <p className="text-gray-700">Correct answer: <span className="font-semibold">{q.correct_answer}</span></p>
-                                        <p className="mt-1 p-2 bg-yellow-50 rounded text-yellow-800 border-l-4 border-yellow-300">💡 {q.explanation}</p>
+                                        <p className="mt-1 p-2 bg-yellow-50 rounded-lg border border-yellow-200 text-yellow-800">💡 {q.explanation}</p>
                                     </div>
                                 )}
                             </div>

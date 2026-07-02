@@ -97,13 +97,13 @@ const QuickActionCard: React.FC<{ label: string; icon: React.ReactElement<{ clas
 
 // Added Register Exams button locally since previous edit failed
 const AlertCard: React.FC<{ label: string; value: string | number; icon: React.ReactElement<{ className?: string }>; onClick: () => void; color: string; }> = ({ label, value, icon, onClick, color }) => (
-    <button onClick={onClick} className={`w-full bg-white p-4 rounded-xl shadow-sm flex items-center space-x-4 text-left border-l-4 ${color.replace('text-', 'border-')} hover:bg-gray-50 transition-colors`}>
+    <button onClick={onClick} className="w-full bg-white p-4 rounded-xl shadow-sm flex items-center space-x-4 text-left border border-gray-100 hover:border-gray-200 hover:bg-gray-50 transition-colors">
         <div className={`${color.replace('text-', 'bg-').replace('-500', '-100')} p-3 rounded-xl`}>
             {React.cloneElement(icon, { className: `h-6 w-6 ${color}` })}
         </div>
         <div>
             <p className="font-bold text-gray-800 text-lg">{value} {label}</p>
-            <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Action required</p>
+            <p className="text-xs text-gray-500 font-medium">Action required</p>
         </div>
         <ChevronRightIcon className="h-6 w-6 text-gray-400 ml-auto" />
     </button>
@@ -379,13 +379,13 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
 
     return (
         <div className="p-4 lg:p-6 bg-gray-50 min-h-full">
-            {isError && <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 rounded-xl shadow-sm text-sm font-semibold">{(error as any)?.message || 'Failed to load dashboard data.'}</div>}
+            {isError && <div className="bg-red-50 border border-red-200 text-red-700 p-4 mb-4 rounded-xl shadow-sm text-sm font-semibold">{(error as any)?.message || 'Failed to load dashboard data.'}</div>}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Main Content Column */}
                 <div className="lg:col-span-2 space-y-6">
                     <div className="bg-gradient-to-br from-indigo-700 to-indigo-900 p-6 rounded-3xl">
                         <h2 className="text-2xl font-bold text-white mb-1">
-                            {t('dashboard.welcome', { name: user?.full_name?.split(' ')[0] || profile?.full_name?.split(' ')[0] || 'Admin' })}
+                            {t('dashboard.welcome', { name: (() => { const n = user?.full_name || profile?.full_name; if (!n) return 'Admin'; const first = n.split(' ')[0]; return ['school','admin','branch','main','demo'].includes(first.toLowerCase()) ? n : first; })() })}
                         </h2>
                         <p className="text-white/80">{t('dashboard.commandCenter')}</p>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
@@ -706,7 +706,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                                 <AlertCard label="Reports to Publish" value={unpublishedReports} icon={<ReportIcon />} onClick={() => navigateTo('reportCardPublishing', 'Publish Reports')} color="text-red-500" />
                             )}
                             {overdueFees > 0 && (
-                                <AlertCard label="Overdue Fee Payments" value={overdueFees} icon={<ReceiptIcon />} onClick={() => navigateTo('feeManagement', 'Fee Management')} color="text-orange-500" />
+                                <AlertCard label="in Overdue Fees" value={new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(overdueFees)} icon={<ReceiptIcon />} onClick={() => navigateTo('feeManagement', 'Fee Management')} color="text-orange-500" />
                             )}
                             {unpublishedReports === 0 && overdueFees === 0 && (
                                 <div className="bg-white p-4 rounded-xl shadow-sm text-center text-gray-500">

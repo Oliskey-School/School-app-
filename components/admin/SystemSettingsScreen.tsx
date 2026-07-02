@@ -1,12 +1,14 @@
 import React from 'react';
 import { ShieldCheckIcon, CalendarIcon, DollarSignIcon, MegaphoneIcon, BriefcaseIcon, PaintBrushIcon, ChevronRightIcon, UserGroupIcon, UserIcon as ProfileIcon, ElearningIcon, ClockIcon, DocumentTextIcon } from '../../constants';
-import { UserPlus, Sparkles } from 'lucide-react';
+import { UserPlus, Sparkles, CreditCard } from 'lucide-react';
+import TermBillingStatus from './TermBillingStatus';
 
 interface SystemSettingsScreenProps {
   navigateTo: (view: string, title: string, props?: any) => void;
 }
 
 const settingsCategories = [
+  { view: 'upgrade', title: 'Billing & Plan', description: 'View your current term, manage your plan, and upgrade.', icon: <CreditCard className="h-6 w-6" />, color: 'text-green-600 bg-green-100' },
   { view: 'appearanceSettings', title: 'Appearance & Theme', description: 'Switch Normal or Liquid Glass, and change the app accent colour.', icon: <Sparkles className="h-6 w-6" />, color: 'text-indigo-500 bg-indigo-100' },
   { view: 'studentList', title: 'Student Management', description: 'Manage student records and enrollment.', icon: <UserGroupIcon />, color: 'text-blue-500 bg-blue-100' },
   { view: 'teacherList', title: 'Manage Teachers', description: 'Manage teacher profiles and assignments.', icon: <ProfileIcon />, color: 'text-purple-500 bg-purple-100' },
@@ -31,6 +33,7 @@ const settingsCategories = [
 const SystemSettingsScreen: React.FC<SystemSettingsScreenProps> = ({ navigateTo }) => {
   return (
     <div className="p-4 space-y-3 bg-gray-50 pb-32 lg:pb-4">
+      <TermBillingStatus navigateTo={navigateTo} />
       {settingsCategories.map(cat => (
         <button
           key={cat.view}

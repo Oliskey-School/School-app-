@@ -13,7 +13,6 @@ import { useBranch } from '../../context/BranchContext';
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import { useDemoRealtime } from '../../hooks/useDemoRealtime';
 import EmailVerificationPrompt from '../auth/EmailVerificationPrompt';
-import TrialBanner from '../ui/TrialBanner';
 import DashboardSkeletonLoader from '../ui/DashboardSkeletonLoader';
 import { lazyWithRetry } from '../../lib/lazyRetry';
 
@@ -125,6 +124,7 @@ const ReportCardInputScreen = lazyWithRetry(() => import('../teacher/ReportCardI
 const ResultsEntryEnhanced = lazyWithRetry(() => import('../teacher/ResultsEntryEnhanced'));
 const AdminMessagesScreen = lazyWithRetry(() => import('./AdminMessagesScreen'));
 const AdminNewChatScreen = lazyWithRetry(() => import('./AdminNewChatScreen'));
+const ParentChatAccessScreen = lazyWithRetry(() => import('./ParentChatAccessScreen'));
 const ChatScreen = lazyWithRetry(() => import('../shared/ChatScreen'));
 const EmergencyAlert = lazyWithRetry(() => import('./EmergencyAlert'));
 const InviteStaffScreen = lazyWithRetry(() => import('./InviteStaffScreen'));
@@ -414,6 +414,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         resultsEntryEnhanced: ResultsEntryEnhanced,
         adminMessages: AdminMessagesScreen,
         adminNewChat: AdminNewChatScreen,
+        parentChatAccess: ParentChatAccessScreen,
         chat: ChatScreen,
         attendanceTracker: AttendanceOverviewScreen,
         emergencyAlert: EmergencyAlert,
@@ -528,6 +529,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
                 case 'timetable': setViewStack([{ view: 'timetable', props: {}, title: 'Timetable' }]); break;
                 case 'examManagement': setViewStack([{ view: 'examManagement', props: {}, title: 'Exams' }]); break;
                 case 'messages': setViewStack([{ view: 'adminMessages', props: {}, title: 'Messages' }]); break;
+                case 'parentChatAccess': setViewStack([{ view: 'parentChatAccess', props: {}, title: 'Parent Chat Access' }]); break;
                 case 'communication': setViewStack([{ view: 'communicationHub', props: {}, title: 'Communication Hub' }]); break;
                 case 'analytics': setViewStack([{ view: 'analytics', props: {}, title: 'School Analytics' }]); break;
                 case 'settings': setViewStack([{ view: 'profileSettings', props: {}, title: 'Profile Settings' }]); break;
@@ -574,8 +576,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
                     onNewChat={() => navigateTo('adminNewChat', 'New Message')}
                     onSelectChat={(convo: any) => navigateTo('chat', convo.displayName || 'Chat', {
                         conversationId: convo.id,
-                        participantName: convo.displayName,
-                        participantAvatar: convo.displayAvatar
+                        roomDetails: convo
                     })}
                 />
             </Suspense>
@@ -586,7 +587,31 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
                 <AdminNewChatScreen
                     {...currentNavigation.props}
                     {...commonProps}
-                    onChatStarted={(convoId: string, name: string) => navigateTo('chat', name, { conversationId: convoId, participantName: name })}
+                />
+            </Suspense>
+        );
+
+        if (currentNavigation.view === 'parentChatAccess') return (
+            <Suspense fallback={<DashboardSkeletonLoader type="list" />}>
+                <ParentChatAccessScreen />
+            </Suspense>
+        );
+
+        if (currentNavigation.view === 'chat') return (
+            <Suspense fallback={<DashboardSkeletonLoader type="overview" />}>
+                <ChatScreen
+                    conversationId={currentNavigation.props?.conversationId}
+                    roomDetails={currentNavigation.props?.roomDetails}
+                    targetUserId={currentNavigation.props?.targetUserId}
+                    targetUserName={currentNavigation.props?.targetUserName}
+                    targetUserAvatar={currentNavigation.props?.targetUserAvatar}
+                    schoolId={currentNavigation.props?.schoolId || schoolId}
+                    isGroup={currentNavigation.props?.isGroup}
+                    themeColor="indigo"
+                    forceChatPanel
+                    onBack={handleBack}
+                    navigateTo={navigateTo}
+                    currentUserId={currentUserId || undefined}
                 />
             </Suspense>
         );
@@ -597,8 +622,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
             </Suspense>
         );
 
-        // School-wide settings (identity, branding, plan, branches) are main-admin only.
-        const MAIN_ADMIN_ONLY_VIEWS = ['schoolManagement', 'brandingSettings', 'manageSchoolInfo', 'schoolInfo', 'subscription', 'upgrade'];
+        // schoolInfo excluded: branch admins need calendar access within it.
+        // Backend still rejects school-wide field writes from non-main admins.
+        const MAIN_ADMIN_ONLY_VIEWS = ['schoolManagement', 'brandingSettings', 'manageSchoolInfo', 'subscription', 'upgrade'];
         const view = <ComponentToRender {...currentNavigation.props} {...commonProps} />;
         return (
             <Suspense fallback={<DashboardSkeletonLoader type="overview" />}>
@@ -613,8 +639,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
     const hideLayoutNav = currentNavigation.view === 'upgrade' || currentNavigation.view === 'subscription';
     // The timetable grids want the full width (no side padding / max-width), but keep
     // the header + sidebar.
-    const fullWidthViews = ['timetableEditor', 'timetableBuilder'];
-    const hidePadding = hideLayoutNav || fullWidthViews.includes(currentNavigation.view);
+    const fullWidthViews = ['timetableEditor', 'timetableBuilder', 'chat', 'adminNewChat', 'adminMessages'];
+    // upgrade/subscription have their own internal layout and need overflow-y-auto to scroll,
+    // so they must NOT be included in hidePadding (which triggers overflow-hidden in DashboardLayout).
+    const hidePadding = fullWidthViews.includes(currentNavigation.view);
+    const hideBottomNav = hideLayoutNav || currentNavigation.view === 'chat';
 
     return (
         <DashboardLayout
@@ -625,12 +654,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
             hideHeader={hideLayoutNav}
             hideSidebar={hideLayoutNav}
             hidePadding={hidePadding}
+            hideBottomNav={hideBottomNav}
         >
             {/* Database Connection Error */}
-            {dbStatus === 'error' && <div className="bg-red-600 text-white text-[10px] sm:text-xs py-1 px-4 mb-4 rounded-lg text-center font-medium">Database Connection Error</div>}
+            {dbStatus === 'error' && <div className="bg-red-600 text-white text-xs py-1 px-4 mb-4 rounded-lg text-center font-medium">Database Connection Error</div>}
 
             {/* Plan / Trial Banner */}
-            <TrialBanner onUpgradeClick={() => navigateTo('upgrade', 'Upgrade Plan')} />
 
             <div key={`${viewStack.length}-${version}`} className="w-full h-full">
                 <ErrorBoundary

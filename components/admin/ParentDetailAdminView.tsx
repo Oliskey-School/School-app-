@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { Parent } from '../../types';
 import { PhoneIcon, EditIcon, TrashIcon, StudentsIcon, MailIcon, ChevronLeftIcon } from '../../constants';
@@ -226,7 +226,7 @@ const ParentDetailAdminView: React.FC<ParentDetailAdminViewProps> = ({ parent, n
 
             {/* Sticky Actions */}
             <div className="fixed bottom-0 left-0 right-0 md:relative p-4 bg-white border-t border-gray-100 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] md:shadow-none flex flex-col space-y-2">
-                <h3 className="text-[10px] font-bold text-gray-400 text-center uppercase tracking-[0.2em] mb-1">Admin Management</h3>
+                <h3 className="text-xs font-bold text-gray-400 text-center uppercase tracking-[0.2em] mb-1">Admin Management</h3>
                 <div className="grid grid-cols-2 gap-3">
                     <button onClick={() => navigateTo('addParent', `Edit ${parent.name}`, { parentToEdit: parent })} className="flex items-center justify-center space-x-2 py-3 bg-indigo-50 text-indigo-700 rounded-xl font-bold hover:bg-indigo-100 transition-colors border border-indigo-100">
                         <EditIcon className="w-5 h-5" />

@@ -11,7 +11,8 @@ import {
   UserCheck, 
   Activity,
   Award,
-  ChevronLeft
+  ChevronLeft,
+  Star
 } from 'lucide-react';
 import { Inspection, InspectorProfile } from '../../types/inspector';
 

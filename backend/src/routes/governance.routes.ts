@@ -8,6 +8,8 @@ const router = Router();
 router.use(authenticate);
 router.use(requireTenant);
 
+// Root: alias for compliance overview (used by UnifiedGovernanceHub screen)
+router.get('/', getComplianceStatus);
 router.get('/compliance', getComplianceStatus);
 router.get('/validate', verifySystemIntegrity);
 

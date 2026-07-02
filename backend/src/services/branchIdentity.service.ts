@@ -48,8 +48,18 @@ export class BranchIdentityService {
             return homeId;
         }
 
-        const parsed = this.parseHomeId(homeId);
-        if (!parsed) return homeId; // Can't safely derive — leave the home ID.
+        let parsed = this.parseHomeId(homeId);
+        if (!parsed) {
+            // Home ID is empty or malformed — try to synthesise a valid prefix from
+            // the user's school code and real role so we can still issue a branch ID.
+            const schoolCode = (user?.school?.code || '').toString().toUpperCase();
+            const roleCode = this.roleCodeFor(user, 'USR');
+            if (schoolCode && roleCode !== 'USR') {
+                parsed = { school: schoolCode, role: roleCode, number: 0 };
+            } else {
+                return homeId; // Cannot derive a safe prefix — leave as-is.
+            }
+        }
 
         // 1. Already allocated for this (user, branch)? Reuse it.
         const existing = await prisma.$queryRawUnsafe<any[]>(

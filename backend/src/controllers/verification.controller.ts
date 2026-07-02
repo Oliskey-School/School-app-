@@ -61,18 +61,18 @@ export class VerificationController {
      */
     static async verifyCode(req: Request, res: Response) {
         try {
-            const { email, code, purpose = 'email_verification' } = req.body;
-            
+            const { email, code, purpose = 'email_verification', userId } = req.body;
+
             if (!email || !code) {
                 return res.status(400).json({ success: false, message: 'Email and code are required' });
             }
 
             const normalizedEmail = Array.isArray(email) ? email[0] : email;
-            
-            const user = await (prisma.user.findUnique as any)({
-                where: { email: normalizedEmail.toLowerCase() },
-                include: { school: true }
-            });
+
+            // Prefer explicit userId (avoids email ambiguity when same email exists across schools)
+            const user = userId
+                ? await prisma.user.findUnique({ where: { id: userId }, include: { school: true } })
+                : await prisma.user.findFirst({ where: { email: normalizedEmail.toLowerCase() }, include: { school: true } });
 
             if (!user) {
                 return res.status(404).json({ success: false, message: 'User not found' });
@@ -126,17 +126,19 @@ export class VerificationController {
      */
     static async resendCode(req: Request, res: Response) {
         try {
-            const { email, purpose = 'email_verification' } = req.body;
-            
+            const { email, purpose = 'email_verification', userId } = req.body;
+
             if (!email) {
                 return res.status(400).json({ success: false, message: 'Email is required' });
             }
 
             const normalizedEmail = Array.isArray(email) ? email[0] : email;
-            
-            const user = await prisma.user.findFirst({
-                where: { email: normalizedEmail.toLowerCase() }
-            });
+
+            // Prefer explicit userId to avoid picking the wrong account when the same
+            // email exists across multiple schools (e.g. owner is also in the demo school)
+            const user = userId
+                ? await prisma.user.findUnique({ where: { id: userId } })
+                : await prisma.user.findFirst({ where: { email: normalizedEmail.toLowerCase() } });
 
             if (!user) {
                 return res.status(404).json({ success: false, message: 'User not found' });

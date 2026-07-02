@@ -32,26 +32,35 @@ export class DashboardService {
                     timetablePreview,
                     recentActivity
                 ] = await Promise.all([
-                    // 1. Count classes assigned to this teacher IN THE ACTIVE BRANCH only.
-                    // Without the class branch filter the count summed every branch, so a
-                    // teacher's "2 classes" from Main still showed after switching to Lekki.
+                    // 1. Count classes assigned to this teacher in the active branch.
+                    // Include rows with branch_id = null (school-wide / legacy assignments).
                     prisma.classTeacher.count({
                         where: {
                             teacher_id: teacherId,
-                            ...(effectiveBranchId ? { class: { branch_id: effectiveBranchId } } : {})
+                            ...(effectiveBranchId ? {
+                                OR: [{ branch_id: effectiveBranchId }, { branch_id: null }]
+                            } : {})
                         }
                     }),
-                    // 2. Count unique students in this teacher's classes IN THE ACTIVE BRANCH (Active only)
+                    // 2. Count active students enrolled in this teacher's classes in the active branch.
+                    // Include null-branch enrollments and null-branch class-teacher rows.
                     prisma.student.count({
                         where: {
                             school_id: schoolId,
                             status: 'Active',
                             enrollments: {
                                 some: {
+                                    ...(effectiveBranchId ? {
+                                        OR: [{ branch_id: effectiveBranchId }, { branch_id: null }]
+                                    } : {}),
                                     class: {
-                                        ...(effectiveBranchId ? { branch_id: effectiveBranchId } : {}),
                                         teachers: {
-                                            some: { teacher_id: teacherId }
+                                            some: {
+                                                teacher_id: teacherId,
+                                                ...(effectiveBranchId ? {
+                                                    OR: [{ branch_id: effectiveBranchId }, { branch_id: null }]
+                                                } : {})
+                                            }
                                         }
                                     }
                                 }
@@ -174,20 +183,34 @@ export class DashboardService {
                             }
                         }
                     }),
-                    // 10. Real timetable preview for today
-                    prisma.timetable.findMany({
-                        where: {
-                            ...baseWhere,
-                            teacher_id: teacherId,
-                            day_of_week: now.getDay() || 7 // 1-7 (Mon-Sun)
-                        },
-                        include: { 
-                            class: true,
-                            teacher: { select: { full_name: true } }
-                        },
-                        take: 5, // Increased to support more visibility if needed
-                        orderBy: { start_time: 'asc' }
-                    }),
+                    // 10. Real timetable preview for today — ClassTeacher-aware so entries
+                    // saved without an explicit teacher_id still appear for the right teacher.
+                    (async () => {
+                        const dayNum = new Date().getDay() || 7;
+                        const assignments = await (prisma as any).classTeacher.findMany({
+                            where: { teacher_id: teacherId, school_id: schoolId, deleted_at: null },
+                            include: {
+                                class: { select: { id: true } },
+                                subject: { select: { name: true } }
+                            }
+                        });
+                        const timetableWhere: any = { ...baseWhere, day_of_week: dayNum };
+                        if (assignments.length > 0) {
+                            timetableWhere.OR = assignments.map((a: any) => {
+                                const cond: any = { class_id: a.class_id };
+                                if (a.subject?.name) cond.subject = { equals: a.subject.name, mode: 'insensitive' };
+                                return cond;
+                            });
+                        } else {
+                            timetableWhere.teacher_id = teacherId;
+                        }
+                        return prisma.timetable.findMany({
+                            where: timetableWhere,
+                            include: { class: true, teacher: { select: { full_name: true } } },
+                            take: 5,
+                            orderBy: { start_time: 'asc' }
+                        });
+                    })(),
                     // 11. Recent activity (audit logs) for this teacher
                     prisma.auditLog.findMany({
                         where: { ...baseWhere, user_id: teacherId }, 

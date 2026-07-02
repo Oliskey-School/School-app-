@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
@@ -224,15 +224,15 @@ const TransportManagementScreen = () => {
                                             </div>
                                             <div className="grid grid-cols-3 gap-4 pt-4 border-t border-gray-50">
                                                 <div>
-                                                    <p className="text-[10px] uppercase font-bold text-gray-400">Morning</p>
+                                                    <p className="text-xs uppercase font-bold text-gray-400">Morning</p>
                                                     <p className="font-bold text-gray-700">{route.morning_departure}</p>
                                                 </div>
                                                 <div>
-                                                    <p className="text-[10px] uppercase font-bold text-gray-400">Afternoon</p>
+                                                    <p className="text-xs uppercase font-bold text-gray-400">Afternoon</p>
                                                     <p className="font-bold text-gray-700">{route.afternoon_departure}</p>
                                                 </div>
                                                 <div>
-                                                    <p className="text-[10px] uppercase font-bold text-gray-400">Fee/Month</p>
+                                                    <p className="text-xs uppercase font-bold text-gray-400">Fee/Month</p>
                                                     <p className="font-bold text-gray-700">₦{route.monthly_fee?.toLocaleString()}</p>
                                                 </div>
                                             </div>

@@ -2,10 +2,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
+import { useAuth } from '../../context/AuthContext';
 import { HelpingHandIcon } from '../../constants';
 
 interface VolunteeringOpportunity {
-    id: number;
+    id: string;
     title: string;
     description: string;
     date: string;
@@ -14,9 +15,11 @@ interface VolunteeringOpportunity {
 }
 
 const VolunteeringScreen: React.FC = () => {
+    const { user } = useAuth();
     const [opportunities, setOpportunities] = useState<VolunteeringOpportunity[]>([]);
     const [loading, setLoading] = useState(true);
-    const [signedUpEvents, setSignedUpEvents] = useState<Set<number>>(new Set());
+    const [signedUpEvents, setSignedUpEvents] = useState<Set<string>>(new Set());
+    const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
 
     const fetchOpportunities = useCallback(async () => {
         try {
@@ -24,7 +27,7 @@ const VolunteeringScreen: React.FC = () => {
 
             if (data) {
                 setOpportunities(data.map((item: any) => ({
-                    id: item.id,
+                    id: String(item.id),
                     title: item.title,
                     description: item.description,
                     date: item.date,
@@ -39,23 +42,47 @@ const VolunteeringScreen: React.FC = () => {
         }
     }, []);
 
+    const fetchMySignups = useCallback(async () => {
+        try {
+            const data = await api.getMyVolunteerSignups();
+            if (Array.isArray(data)) {
+                setSignedUpEvents(new Set(data.map((s: any) => String(s.opportunity_id || s.opportunity?.id))));
+            }
+        } catch {
+            // Non-blocking — start with empty set if fetch fails
+        }
+    }, []);
+
     // Real-time synchronization
     useAutoSync(['volunteering_opportunities', 'volunteers'], fetchOpportunities);
 
     useEffect(() => {
         fetchOpportunities();
-    }, [fetchOpportunities]);
+        fetchMySignups();
+    }, [fetchOpportunities, fetchMySignups]);
 
-    const handleSignUpToggle = (id: number) => {
-        const newSet = new Set(signedUpEvents);
-        if (newSet.has(id)) {
-            newSet.delete(id);
-        } else {
-            newSet.add(id);
-            // In a real app, we would POST to a 'volunteers' table here
-            toast.success("Thanks for volunteering! (This is a demo action)");
+    const handleSignUpToggle = async (id: string) => {
+        if (pendingIds.has(id)) return;
+
+        if (signedUpEvents.has(id)) {
+            // No cancel route available — remove from local state only
+            setSignedUpEvents(prev => { const s = new Set(prev); s.delete(id); return s; });
+            return;
         }
-        setSignedUpEvents(newSet);
+
+        setPendingIds(prev => new Set(prev).add(id));
+        try {
+            await api.volunteerSignup(id, {
+                full_name: user?.user_metadata?.full_name || user?.email || 'Parent',
+            });
+            setSignedUpEvents(prev => new Set(prev).add(id));
+            toast.success('Signed up successfully!');
+        } catch (err) {
+            console.error('Volunteer signup error:', err);
+            toast.error('Failed to sign up. Please try again.');
+        } finally {
+            setPendingIds(prev => { const s = new Set(prev); s.delete(id); return s; });
+        }
     };
 
     return (
@@ -77,6 +104,7 @@ const VolunteeringScreen: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {opportunities.map(opp => {
                             const isSignedUp = signedUpEvents.has(opp.id);
+                            const isPending = pendingIds.has(opp.id);
                             const spotsLeft = opp.spotsAvailable - (opp.spotsFilled + (isSignedUp ? 1 : 0));
                             const isFull = spotsLeft <= 0;
 
@@ -84,7 +112,7 @@ const VolunteeringScreen: React.FC = () => {
                                 <div key={opp.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow">
                                     <div className="flex justify-between items-start mb-2">
                                         <h4 className="font-bold text-gray-800 text-lg">{opp.title}</h4>
-                                        <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider ${isFull ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'
+                                        <span className={`text-xs font-bold px-2 py-1 rounded-full uppercase tracking-wider ${isFull ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'
                                             }`}>
                                             {isFull ? 'Full' : 'Open'}
                                         </span>
@@ -105,15 +133,15 @@ const VolunteeringScreen: React.FC = () => {
                                         </p>
                                         <button
                                             onClick={() => handleSignUpToggle(opp.id)}
-                                            disabled={isFull && !isSignedUp}
+                                            disabled={(isFull && !isSignedUp) || isPending}
                                             className={`py-2.5 px-6 text-sm font-bold rounded-xl transition-all shadow-sm active:scale-95 ${isSignedUp
                                                 ? 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100'
-                                                : isFull
+                                                : isFull || isPending
                                                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none'
                                                     : 'bg-green-600 text-white hover:bg-green-700 hover:shadow-green-200'
                                                 }`}
                                         >
-                                            {isSignedUp ? 'Cancel' : isFull ? 'Full' : 'Sign Up'}
+                                            {isPending ? 'Signing up...' : isSignedUp ? 'Cancel' : isFull ? 'Full' : 'Sign Up'}
                                         </button>
                                     </div>
                                 </div>

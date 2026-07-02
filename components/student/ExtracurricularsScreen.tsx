@@ -146,7 +146,7 @@ const ExtracurricularsScreen: React.FC = () => {
                                     const config = ACTIVITY_CATEGORY_CONFIG[activity.category] || ACTIVITY_CATEGORY_CONFIG.Club;
                                     const Icon = typeof activity.icon === 'string' ? getIcon(activity.icon) : (activity.icon || UsersIcon);
                                     return (
-                                        <div key={activity.id} className={`p-4 rounded-xl shadow-sm border-l-4 ${config.bg} ${config.color.replace('text-', 'border-')}`}>
+                                        <div key={activity.id} className={`p-4 rounded-xl shadow-sm border ${config.bg} ${config.color.replace('text-', 'border-')}`}>
                                             <div className="flex items-start space-x-3">
                                                 <div className={`p-2 rounded-lg ${config.bg}`}>
                                                     <Icon className={`w-6 h-6 ${config.color}`} />

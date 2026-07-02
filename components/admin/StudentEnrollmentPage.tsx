@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+﻿import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
 import { UserIcon, BookOpenIcon, CheckCircleIcon, UploadIcon, IdentificationIcon, AcademicCapIcon, HomeIcon, PhoneIcon, MailIcon } from '../../constants';
 import { useProfile } from '../../context/ProfileContext';
@@ -142,7 +142,7 @@ const StudentEnrollmentPage: React.FC<EnrollmentPageProps> = ({ onComplete, hand
                         <UserIcon className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600 shrink-0" />
                         New Student Enrollment
                     </h2>
-                    <p className="text-[10px] sm:text-sm text-gray-500 truncate sm:whitespace-normal">Register student, assign curriculum, and upload docs.</p>
+                    <p className="text-xs sm:text-sm text-gray-500 truncate sm:whitespace-normal">Register student, assign curriculum, and upload docs.</p>
                 </div>
                 <button onClick={handleBack} className="p-1 sm:p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-indigo-600 transition-colors shrink-0 flex items-center gap-1 font-medium text-sm">
                     <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
@@ -161,7 +161,7 @@ const StudentEnrollmentPage: React.FC<EnrollmentPageProps> = ({ onComplete, hand
 
                             {/* 1. STUDENT INFO */}
                             <section className="bg-white p-4 sm:p-6 rounded-2xl border border-gray-100 shadow-sm">
-                                <h3 className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 sm:mb-6 flex items-center gap-2 border-b border-gray-100 pb-2">
+                                <h3 className="text-xs sm:text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 sm:mb-6 flex items-center gap-2 border-b border-gray-100 pb-2">
                                     <IdentificationIcon className="w-4 h-4" /> Student Information
                                 </h3>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
@@ -232,7 +232,7 @@ const StudentEnrollmentPage: React.FC<EnrollmentPageProps> = ({ onComplete, hand
 
                             {/* 2. PARENT INFO */}
                             <section className="bg-white p-4 sm:p-6 rounded-2xl border border-gray-100 shadow-sm">
-                                <h3 className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 sm:mb-6 flex items-center gap-2 border-b border-gray-100 pb-2">
+                                <h3 className="text-xs sm:text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 sm:mb-6 flex items-center gap-2 border-b border-gray-100 pb-2">
                                     <HomeIcon className="w-4 h-4" /> Guardian Details
                                 </h3>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
@@ -292,7 +292,7 @@ const StudentEnrollmentPage: React.FC<EnrollmentPageProps> = ({ onComplete, hand
 
                             {/* 3. CURRICULUM */}
                             <section className="bg-white p-4 sm:p-6 rounded-2xl border border-gray-100 shadow-sm">
-                                <h3 className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 sm:mb-6 flex items-center gap-2 border-b border-gray-100 pb-2">
+                                <h3 className="text-xs sm:text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 sm:mb-6 flex items-center gap-2 border-b border-gray-100 pb-2">
                                     <AcademicCapIcon className="w-4 h-4" /> Academic Track
                                 </h3>
                                 <div className="grid grid-cols-1 sm:grid-cols-1 gap-3 sm:gap-4 overflow-x-auto pb-1 hide-scrollbar">
@@ -309,7 +309,7 @@ const StudentEnrollmentPage: React.FC<EnrollmentPageProps> = ({ onComplete, hand
 
                             {/* 4. DOCUMENTS */}
                             <section className="bg-white p-4 sm:p-6 rounded-2xl border border-gray-100 shadow-sm">
-                                <h3 className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 sm:mb-6 flex items-center gap-2 border-b border-gray-100 pb-2">
+                                <h3 className="text-xs sm:text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 sm:mb-6 flex items-center gap-2 border-b border-gray-100 pb-2">
                                     <CheckCircleIcon className="w-4 h-4" /> Documents
                                 </h3>
 

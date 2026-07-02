@@ -179,7 +179,7 @@ const MyPaymentHistory: React.FC<MyPaymentHistoryProps> = ({ teacherId }) => {
                                 <h3 className="text-xl font-bold text-gray-900">Payment Receipt</h3>
                                 <div className="flex flex-col items-end">
                                     <PaymentStatusBadge status={selectedPayment.status} />
-                                    <span className="text-[10px] text-gray-400 mt-1">ID: {teacherId}</span>
+                                    <span className="text-xs text-gray-400 mt-1">ID: {teacherId}</span>
                                 </div>
                             </div>
 

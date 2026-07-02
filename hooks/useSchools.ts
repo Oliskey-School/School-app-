@@ -45,7 +45,7 @@ export const useSchoolsDirectory = (jurisdictionIds: string[], filters: SchoolFi
     queryKey: ['schools', 'directory', jurisdictionIds, filters],
     queryFn: async () => {
       // Use the new enhanced API method
-      const data = await api.getSchoolsEnhanced(jurisdictionIds, filters);
+      const data = await (api as any).getSchoolsEnhanced(jurisdictionIds, filters);
       return data || [];
     },
     enabled: jurisdictionIds.length > 0,

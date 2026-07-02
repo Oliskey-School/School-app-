@@ -103,6 +103,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
                 full_name: (updates as any).full_name ?? (updates as any).name,
                 phone: (updates as any).phone,
                 avatar_url: (updates as any).avatar_url ?? (updates as any).avatarUrl,
+                display_name: (updates as any).display_name,
             });
 
             // CRITICAL: Trigger global auth refresh so the header avatar / name / phone

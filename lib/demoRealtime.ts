@@ -172,8 +172,7 @@ class DemoRealtimeService {
   invalidateCache() {
     this.broadcast({
       type: 'CACHE_INVALIDATE',
-      timestamp: Date.now(),
-    });
+    } as any);
   }
 
   /**

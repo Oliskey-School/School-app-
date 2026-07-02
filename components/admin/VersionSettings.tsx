@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
@@ -91,14 +91,14 @@ export default function VersionSettings() {
                         <div 
                             key={v.id} 
                             className={`p-5 flex items-center justify-between transition-all hover:bg-gray-50 ${
-                                currentSchool?.platform_version === v.version ? 'bg-blue-50/30 border-l-4 border-primary' : ''
+                                currentSchool?.platform_version === v.version ? 'bg-blue-50 ring-1 ring-blue-200 rounded-lg' : ''
                             }`}
                         >
                             <div className="flex-1 min-w-0 pr-4">
                                 <div className="flex items-center gap-2">
                                     <span className="text-base font-bold text-gray-900">v{v.version}</span>
                                     {currentSchool?.platform_version === v.version && (
-                                        <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded text-[10px] font-bold">ACTIVE</span>
+                                        <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs font-bold">ACTIVE</span>
                                     )}
                                 </div>
                                 <p className="text-sm text-gray-600 mt-1 line-clamp-1">{v.description}</p>

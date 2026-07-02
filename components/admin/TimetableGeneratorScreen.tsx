@@ -3,7 +3,6 @@ import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
 
 import { useAuth } from '../../context/AuthContext';
-import { loadSchedule, dayName } from '../../lib/timetableSchedule';
 import {
     CalendarIcon,
     SparklesIcon,
@@ -152,6 +151,7 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ sch
                 await fetchTimetableStatuses();
             } catch (e) {
                 console.error(e);
+                toast.error('Failed to load classes');
             }
         };
 
@@ -183,42 +183,30 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ sch
                 return t ? t.name : 'Unknown Teacher';
             };
 
-            // Map saved rows into the Editor grid robustly: per day, dedupe by start
-            // time (keep the latest, so re-saves don't pile up), sort, and place the
-            // Nth teaching slot into the Nth teaching period — independent of the exact
-            // times. Key format matches the Editor: `${DayName}-${fullScheduleIndex}`.
-            const DEPARTMENTS = ['Science', 'Art', 'Commercial'];
-            const schedule = loadSchedule(schoolId);
-            const teaching = schedule.map((p, i) => ({ p, i })).filter(x => !x.p.isBreak);
-            const deptMap: { [key: string]: { [dept: string]: { subject: string; teacher: string } } } = {};
-            // Group rows by day -> start_time (a period may hold several rows: the
-            // department split for SSS). Duplicate rows (no `notes`) collapse to the last.
-            const byDay: { [d: string]: { [st: string]: any[] } } = {};
-            (data || []).forEach((e: any) => {
-                const d = e.day_of_week ? dayName(Number(e.day_of_week)) : (e.day || 'Monday');
-                const st = (e.start_time || '').slice(0, 5);
-                byDay[d] = byDay[d] || {};
-                byDay[d][st] = byDay[d][st] || [];
-                byDay[d][st].push(e);
-            });
-            Object.keys(byDay).forEach((dName) => {
-                const times = Object.keys(byDay[dName]).sort();
-                times.forEach((st, order) => {
-                    if (order >= teaching.length) return;
-                    const key = `${dName}-${teaching[order].i}`;
-                    const rows = byDay[dName][st];
-                    const deptRows = rows.filter(r => DEPARTMENTS.includes(r.notes));
-                    if (deptRows.length > 0) {
-                        const cell: { [dept: string]: { subject: string; teacher: string } } = {};
-                        deptRows.forEach(r => { cell[r.notes] = { subject: r.subject, teacher: r.teacher_id ? getTeacherName(r.teacher_id) : '' }; subjectsSet.add(r.subject); });
-                        deptMap[key] = cell;
-                    } else {
-                        const entry = rows[rows.length - 1];
-                        timetableMap[key] = entry.subject;
-                        subjectsSet.add(entry.subject);
-                        if (entry.teacher_id) teacherAssignmentsMap[key] = getTeacherName(entry.teacher_id);
+            data.forEach((entry) => {
+                // Map database format to UI format: "Monday-Period 1"
+                // Assuming simple mapping for now as per previous logic
+                const PERIODS = [
+                    { name: 'Period 1', start: '09:00' },
+                    { name: 'Period 2', start: '09:45' },
+                    { name: 'Period 3', start: '10:30' },
+                    { name: 'Period 4', start: '11:30' },
+                    { name: 'Period 5', start: '12:15' },
+                    { name: 'Period 6', start: '13:45' },
+                    { name: 'Period 7', start: '14:30' },
+                    { name: 'Period 8', start: '15:15' },
+                ];
+
+                const period = PERIODS.find(p => p.start === entry.start_time);
+                if (period) {
+                    const key = `${entry.day}-${period.name}`;
+                    timetableMap[key] = entry.subject;
+                    subjectsSet.add(entry.subject);
+
+                    if (entry.teacher_id) {
+                        teacherAssignmentsMap[key] = getTeacherName(entry.teacher_id);
                     }
-                });
+                }
             });
 
             const timetableData = {
@@ -226,7 +214,6 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ sch
                 subjects: Array.from(subjectsSet),
                 timetable: timetableMap,
                 teacherAssignments: teacherAssignmentsMap,
-                deptCells: deptMap,
                 suggestions: [],
                 teacherLoad: [],
                 status: data.length > 0 ? data[0].status : 'Draft',
@@ -265,22 +252,13 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ sch
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => navigateTo('timetableBuilder', 'Timetable Builder')}
-                            className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg hover:shadow-indigo-200 transition-all flex items-center gap-2"
-                        >
-                            <PlusIcon className="w-5 h-5" />
-                            Create Global Timetable
-                        </button>
-                        <button
-                            onClick={() => handleOpenPage()}
-                            className="px-4 py-3 bg-white border border-indigo-200 text-indigo-700 font-semibold rounded-xl hover:bg-indigo-50 transition-all flex items-center gap-2"
-                        >
-                            <SparklesIcon className="w-5 h-5" />
-                            Classic AI Generator
-                        </button>
-                    </div>
+                    <button
+                        onClick={() => handleOpenPage()}
+                        className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg hover:shadow-indigo-200 transition-all flex items-center gap-2"
+                    >
+                        <PlusIcon className="w-5 h-5" />
+                        Create Global Timetable
+                    </button>
                 </div>
 
                 {/* DASHBOARD GRID */}

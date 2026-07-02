@@ -1,8 +1,8 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { api } from '../../lib/api';
+import { toast } from 'react-hot-toast';
 import { ChevronLeftIcon, ChevronRightIcon, EVENT_TYPE_CONFIG, CakeIcon, CalendarIcon, ClockIcon } from '../../constants';
-import { mockCalendarEvents } from '../../data';
 import { CalendarEvent } from '../../types';
 
 interface BirthdayHighlight {
@@ -35,6 +35,7 @@ const CalendarScreen: React.FC<CalendarScreenProps & { schoolId?: string }> = ({
             setEvents(data || []);
         } catch (error: any) {
             console.error('Error fetching calendar events:', error);
+            toast.error('Failed to load calendar events');
         } finally {
             setLoading(false);
         }

@@ -7,7 +7,7 @@ import { requireTenant } from '../middleware/tenant.middleware';
 import {
     getSchoolDocuments, getExternalIntegrations, getThirdPartyApps, getAppInstallations,
     updateExternalIntegration, syncExternalIntegration, installApp, uninstallApp,
-    getTeacherSalaries, getBudgets, createBudget, getPtaMeetings, getAccessibilitySettings,
+    getTeacherSalaries, createTeacherSalary, updateTeacherSalary, getBudgets, createBudget, getPtaMeetings, createPtaMeeting, getAccessibilitySettings,
     getPayslips, getPaymentTransactions, getLeaveRequestsTop, getEmptyList, getArrears
 } from '../controllers/misc.controller';
 import { getVerificationRequests, reviewVerificationRequest } from '../controllers/idVerification.controller';
@@ -59,6 +59,7 @@ import extracurricularRoutes from './extracurricular.routes';
 import hostelRoutes from './hostel.routes';
 import transportRoutes from './transport.routes';
 import chatRoutes from './chat.routes';
+import parentChatPermissionRoutes from './parentChatPermission.routes';
 import planRoutes from './plan.routes';
 import anonymousReportRoutes from './anonymousReport.routes';
 import gameRoutes from './game.routes';
@@ -81,9 +82,13 @@ import storeRoutes from './store.routes';
 import vendorRoutes from './vendor.routes';
 import offlineChannelRoutes from './offline-channel.routes';
 import pwaRoutes from './pwa.routes';
+import supportRoutes from './support.routes';
 import * as QuizController from '../controllers/quiz.controller';
 import * as ParentController from '../controllers/parent.controller';
 import { getStudentFeesLegacy } from '../controllers/fee.controller';
+import leaveBalanceRoutes from './leaveBalance.routes';
+import scholarshipRoutes, { applicationRouter as scholarshipApplicationRoutes, recipientRouter as scholarshipRecipientRoutes } from './scholarship.routes';
+import sponsorshipRoutes, { requestRouter as sponsorshipRequestRoutes } from './sponsorship.routes';
 
 const router = Router();
 
@@ -152,11 +157,13 @@ router.use('/hostels', hostelRoutes);
 router.use('/transport', transportRoutes);
 router.use('/chat', chatRoutes);
 router.use('/conversations', chatRoutes);
+router.use('/admin/parent-chat-permissions', parentChatPermissionRoutes);
 router.use('/plans', planRoutes);
 router.use('/anonymous-reports', anonymousReportRoutes);
 router.use('/games', gameRoutes);
 router.use('/gamification', gameRoutes);
 router.use('/pd', pdRoutes);
+router.use('/support/tickets', supportRoutes);
 router.use('/inspections', inspectionRoutes);
 router.use('/academic-policies', policyRoutes);
 router.use('/infrastructure', infrastructureRoutes);
@@ -188,24 +195,27 @@ router.get('/app-installations', authenticate, requireTenant, getAppInstallation
 router.post('/app-installations', authenticate, requireTenant, installApp);
 router.delete('/app-installations/by-app/:appId', authenticate, requireTenant, uninstallApp);
 router.get('/teacher-salaries', authenticate, requireTenant, getTeacherSalaries);
+router.post('/teacher-salaries', authenticate, requireTenant, createTeacherSalary);
+router.put('/teacher-salaries/:id', authenticate, requireTenant, updateTeacherSalary);
 router.get('/payroll/budgets', authenticate, requireTenant, getBudgets);
 router.post('/payroll/budgets', authenticate, requireTenant, createBudget);
 router.get('/community/pta-meetings', authenticate, requireTenant, getPtaMeetings);
+router.post('/community/pta-meetings', authenticate, requireTenant, createPtaMeeting);
 router.get('/accessibility-settings', authenticate, getAccessibilitySettings);
 router.get('/payslips', authenticate, requireTenant, getPayslips);
 router.get('/payment-transactions', authenticate, requireTenant, getPaymentTransactions);
 router.get('/leave-requests', authenticate, requireTenant, getLeaveRequestsTop);
-router.get('/leave-balances', authenticate, requireTenant, getEmptyList);
-router.get('/scholarships', authenticate, requireTenant, getEmptyList);
-router.get('/scholarship-applications', authenticate, requireTenant, getEmptyList);
-router.get('/scholarship-recipients', authenticate, requireTenant, getEmptyList);
+router.use('/leave-balances', leaveBalanceRoutes);
+router.use('/scholarships', scholarshipRoutes);
+router.use('/scholarship-applications', scholarshipApplicationRoutes);
+router.use('/scholarship-recipients', scholarshipRecipientRoutes);
 router.get('/id-verification-requests', authenticate, requireTenant, getVerificationRequests);
 router.put('/id-verification-requests/:id', authenticate, requireTenant, reviewVerificationRequest);
 router.get('/compliance-checklists', authenticate, requireTenant, getComplianceChecks);
 router.post('/compliance-checklists/run', authenticate, requireTenant, runComplianceChecks);
 router.get('/arrears', authenticate, requireTenant, getArrears);
-router.get('/sponsorships', authenticate, requireTenant, getEmptyList);
-router.get('/sponsorship-requests', authenticate, requireTenant, getEmptyList);
+router.use('/sponsorships', sponsorshipRoutes);
+router.use('/sponsorship-requests', sponsorshipRequestRoutes);
 // 🚨 DEBUG ROUTES: Only for testing — must be mounted BEFORE the offline-channel
 // catch-all at '/', otherwise its authenticate middleware blocks /debug requests.
 if (process.env.NODE_ENV !== 'production') {

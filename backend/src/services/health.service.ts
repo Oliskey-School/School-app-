@@ -25,18 +25,28 @@ export class HealthService {
     }
 
     static async createHealthLog(schoolId: string, branchId: string | undefined, data: any) {
-        // Destructure to sanitize incoming data
-        const { school_id, branch_id, description, student_id, ...logData } = data;
+        // Explicitly pick only known HealthLog model fields to avoid Prisma unknown-argument errors.
+        const {
+            student_id, log_type, temperature, symptoms, condition,
+            medication_administered, notes, description, parent_notified,
+            logged_by, follow_up, logged_date,
+        } = data;
 
         const log = await prisma.healthLog.create({
             data: {
-                ...logData,
-                notes: description, // Map frontend description to backend notes
                 school_id: schoolId,
                 branch_id: branchId || null,
-                logged_date: logData.logged_date ? new Date(logData.logged_date) : new Date(),
-                parent_notified: logData.parent_notified === true,
-                ...(student_id ? { student: { connect: { id: student_id } } } : {})
+                log_type: log_type || 'general',
+                notes: notes || description || null,
+                logged_date: logged_date ? new Date(logged_date) : new Date(),
+                parent_notified: parent_notified === true,
+                ...(temperature !== undefined ? { temperature } : {}),
+                ...(symptoms !== undefined ? { symptoms } : {}),
+                ...(condition !== undefined ? { condition } : {}),
+                ...(medication_administered !== undefined ? { medication_administered } : {}),
+                ...(logged_by !== undefined ? { logged_by } : {}),
+                ...(follow_up !== undefined ? { follow_up } : {}),
+                ...(student_id ? { student: { connect: { id: student_id } } } : {}),
             }
         });
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { StoreProduct, StoreOrder } from '../../types';
 import { ShoppingCartIcon, ReceiptIcon } from '../../constants';
 import { api } from '../../lib/api';
+import { toast } from 'react-hot-toast';
 
 // Backend endpoints for /api/store are not yet implemented. This screen attempts
 // to fetch them so the moment they exist, real data flows through. Until then we
@@ -79,6 +80,11 @@ const OnlineStoreScreen: React.FC = () => {
                 } else {
                     setProducts(Array.isArray(productsResp) ? productsResp : (productsResp?.data || []));
                     setOrders(Array.isArray(ordersResp) ? ordersResp : (ordersResp?.data || []));
+                }
+            } catch (err: any) {
+                if (!cancelled) {
+                    console.error('Error loading store data:', err);
+                    toast.error('Failed to load store data');
                 }
             } finally {
                 if (!cancelled) setLoading(false);

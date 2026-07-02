@@ -31,5 +31,17 @@ declare global {
         readonly VITE_FLUTTERWAVE_PUBLIC_KEY: string;
         readonly VITE_FIREBASE_VAPID_KEY: string;
         readonly VITE_GEMINI_API_KEY: string;
+        readonly GEMINI_API_KEY: string;
+        readonly VITE_RESEND_API_KEY: string;
+        readonly VITE_FROM_EMAIL: string;
+        readonly VITE_SENTRY_DSN: string;
+        readonly VITE_SENTRY_TRACES_SAMPLE_RATE: string;
+        readonly VITE_APP_VERSION: string;
+        readonly MODE: string;
+    }
+
+    interface ImportMeta {
+        readonly env: ImportMetaEnv;
+        readonly glob: (pattern: string, options?: { eager?: boolean; as?: string }) => Record<string, any>;
     }
 }

@@ -1,4 +1,4 @@
-
+﻿
 import React, { useState, useMemo, useEffect, useRef, lazy, Suspense, useCallback } from 'react';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { lazyWithRetry } from '../../lib/lazyRetry';
@@ -25,7 +25,6 @@ import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 
 // Lazy load all view components
-import IncomingClassModal from './IncomingClassModal'; // Import non-lazy for speed/critical alert
 const GlobalSearchScreen = lazyWithRetry(() => import('../shared/GlobalSearchScreen'));
 import EmailVerificationPrompt from '../auth/EmailVerificationPrompt';
 const StudyBuddy = lazyWithRetry(() => import('../student/StudyBuddy'));
@@ -164,16 +163,16 @@ const TodayFocus: React.FC<{
                 <div className="space-y-2">
                     <NextUpTask {...nextTask} />
                     {(nextTask.totalCount > 1) ? (
-                        <button 
+                        <button
                             onClick={() => navigateTo('assignments', 'My Assignments')}
-                            className="w-full text-[10px] text-gray-500 text-center font-medium bg-gray-100/50 py-2 rounded-full hover:bg-gray-200/50 transition-colors"
+                            className="w-full text-xs text-gray-500 text-center font-medium bg-gray-100/50 py-2.5 rounded-full hover:bg-gray-200/50 transition-colors"
                         >
                             + {nextTask.totalCount - 1} more assessment{(nextTask.totalCount - 1) > 1 ? 's' : ''} waiting for you
                         </button>
                     ) : (
-                        <button 
+                        <button
                             onClick={() => navigateTo('assignments', 'My Assignments')}
-                            className="w-full text-[10px] text-gray-400 text-center font-medium hover:text-gray-600 transition-colors"
+                            className="w-full text-xs text-gray-400 text-center font-medium hover:text-gray-600 transition-colors"
                         >
                             View All Tasks
                         </button>
@@ -191,11 +190,11 @@ const TodayFocus: React.FC<{
             {schedule.length > 0 && (
                 <div className="bg-white p-4 rounded-2xl shadow-sm">
                     <div className="flex justify-between items-center mb-3">
-                        <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Today's Schedule</h4>
+                        <h4 className="text-sm font-semibold text-gray-600">Today's Schedule</h4>
                         {schedule.length > 3 && (
-                            <button 
+                            <button
                                 onClick={() => navigateTo('timetable', 'Timetable Dashboard')}
-                                className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800"
+                                className="text-xs font-bold text-indigo-600 hover:text-indigo-800"
                             >
                                 See More
                             </button>
@@ -205,16 +204,16 @@ const TodayFocus: React.FC<{
                         {schedule.slice(0, 3).map((entry, i) => (
                             <div key={i} className="flex items-center gap-3">
                                 <span className="text-xs font-bold text-gray-500 w-12">{entry.start_time || entry.startTime}</span>
-                                <div className={`w-1 h-8 rounded-full ${SUBJECT_COLORS[entry.subject] || 'bg-indigo-400'}`} />
+                                <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${SUBJECT_COLORS[entry.subject] || 'bg-indigo-400'}`} />
                                 <div className="flex-1 overflow-hidden">
                                     <p className="text-sm font-bold text-gray-800 leading-none truncate">{entry.subject}</p>
-                                    <p className="text-[10px] text-gray-400 mt-1 truncate">
-                                        {entry.class_name} • {entry.teacher_name || 'Assigned'}
+                                    <p className="text-xs text-gray-400 mt-1 truncate">
+                                        {entry.class_name} â€¢ {entry.teacher_name || 'Assigned'}
                                     </p>
                                 </div>
                             </div>
                         ))}
-                        {schedule.length === 0 && <p className="text-[10px] text-gray-400 text-center italic">No classes scheduled for today.</p>}
+                        {schedule.length === 0 && <p className="text-xs text-gray-400 text-center italic">No classes scheduled for today.</p>}
                     </div>
                 </div>
             )}
@@ -274,7 +273,7 @@ const Overview: React.FC<{
             const sessions = await api.getActiveVirtualClasses(currentBranchId || undefined);
             setLiveClass(Array.isArray(sessions) && sessions.length > 0 ? sessions[0] : null);
         } catch {
-            /* non-fatal — button simply won't show */
+            /* non-fatal â€” button simply won't show */
         }
     }, [currentBranchId]);
 
@@ -283,7 +282,7 @@ const Overview: React.FC<{
     }, [fetchLiveClass]);
 
     useEffect(() => {
-        // Show the button straight from the start event and keep it shown — do NOT
+        // Show the button straight from the start event and keep it shown â€” do NOT
         // re-fetch here, or a slower/empty query could wipe it after a split second.
         const onStarted = (e: any) => {
             const d = e?.detail || {};
@@ -311,7 +310,34 @@ const Overview: React.FC<{
         { label: 'AI Adventure Quest', description: 'Turn any text into a fun quiz!', color: 'from-teal-400 to-blue-500', action: () => navigateTo('adventureQuest', 'AI Adventure Quest', {}) },
     ];
 
-    if (loading) return <div className="p-8 text-center text-gray-500">Loading overview...</div>;
+    if (loading) return (
+        <div className="p-4 lg:p-6 bg-gray-50 min-h-full animate-pulse">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 space-y-6">
+                    <div className="space-y-3">
+                        <div className="h-5 bg-gray-200 rounded-lg w-28" />
+                        <div className="bg-white rounded-3xl h-36" />
+                        <div className="h-9 bg-gray-100 rounded-full w-full" />
+                    </div>
+                    <div className="space-y-3">
+                        <div className="h-5 bg-gray-200 rounded-lg w-20" />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="bg-gray-200 rounded-2xl h-24" />
+                            <div className="bg-gray-200 rounded-2xl h-24" />
+                        </div>
+                    </div>
+                </div>
+                <div className="lg:col-span-1 space-y-6">
+                    <div className="space-y-3">
+                        <div className="h-5 bg-gray-200 rounded-lg w-32" />
+                        <div className="grid grid-cols-3 gap-3">
+                            {[0,1,2,3].map(i => <div key={i} className="bg-gray-200 rounded-2xl h-20" />)}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
 
     return (
         <div className="p-4 lg:p-6 bg-gray-50 min-h-full">
@@ -398,7 +424,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
     const [scrolled, setScrolled] = useState(false);
     const [viewStack, setViewStack] = useState<ViewStackItem[]>(() => {
         const HOME: ViewStackItem[] = [{ view: 'overview', title: 'Student Dashboard', props: {} }];
-        // Restore the saved stack, but never trust an empty/corrupt value — an empty
+        // Restore the saved stack, but never trust an empty/corrupt value â€” an empty
         // stack leaves the dashboard with no current view and crashes on load. Always
         // fall back to the home (overview) screen so "Home" reliably returns here.
         try {
@@ -437,6 +463,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
         if (!socket || !user?.id) return;
         const channel = `user:${user.id}:notification`;
         const onNotification = (n: any) => {
+            if (n?.id) localStorage.setItem(`reminderShown:${n.id}`, '1');
             setReminderBanner({
                 title: n?.title || 'New Reminder',
                 message: n?.message || 'You have a new reminder.',
@@ -446,12 +473,51 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
         return () => { socket.off(channel, onNotification); };
     }, [socket, user?.id]);
 
-    // Auto-dismiss the banner after 4 seconds.
+    // Offline-safe: when the student comes online / opens the dashboard, surface the
+    // most recent unread reminder they haven't seen yet (a reminder sent while they
+    // were offline still shows). Each reminder is shown once (tracked by its id).
+    useEffect(() => {
+        if (!user?.id || !currentSchool?.id) return;
+        let active = true;
+        (async () => {
+            try {
+                const notifs = await api.getMyNotifications(currentSchool.id);
+                if (!active || !Array.isArray(notifs)) return;
+                const mine = notifs
+                    .filter((n: any) => !n.is_read && String(n.user_id) === String(user.id))
+                    .sort((a: any, b: any) =>
+                        new Date(b.created_at || b.timestamp || 0).getTime() -
+                        new Date(a.created_at || a.timestamp || 0).getTime());
+                const latest = mine.find((n: any) => n.id && !localStorage.getItem(`reminderShown:${n.id}`));
+                if (latest) {
+                    localStorage.setItem(`reminderShown:${latest.id}`, '1');
+                    setReminderBanner({ title: latest.title || 'New Reminder', message: latest.message || '' });
+                }
+            } catch { /* non-fatal */ }
+        })();
+        return () => { active = false; };
+    }, [user?.id, currentSchool?.id]);
+
+    // Auto-dismiss the reminder banner after 4 seconds.
     useEffect(() => {
         if (!reminderBanner) return;
         const t = setTimeout(() => setReminderBanner(null), 4000);
         return () => clearTimeout(t);
     }, [reminderBanner]);
+
+    // Unread message banner: shown once per browser session when student comes
+    // online and has messages they missed (e.g. sent while they were offline).
+    const [unreadMsgCount, setUnreadMsgCount] = useState(0);
+    useEffect(() => {
+        const SESSION_KEY = 'unread_msg_banner_shown';
+        if (sessionStorage.getItem(SESSION_KEY)) return;
+        api.getUnreadMessageCount().then(count => {
+            if (count > 0) {
+                setUnreadMsgCount(count);
+                sessionStorage.setItem(SESSION_KEY, '1');
+            }
+        }).catch(() => {});
+    }, []);
 
     const forceUpdate = () => setVersion(v => v + 1);
 
@@ -552,7 +618,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
         };
 
         // Guard: an empty view stack (e.g. right after a reset/Home navigation) leaves
-        // currentView undefined — reading `.view` here used to crash the whole dashboard.
+        // currentView undefined â€” reading `.view` here used to crash the whole dashboard.
         const targetNav = currentView ? viewToNavMap[currentView.view] : undefined;
         if (targetNav) {
             setActiveBottomNav(targetNav);
@@ -710,7 +776,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
     useEffect(() => {
         window.STUDENT_NAVIGATE = navigateTo;
         window.STUDENT_COMPONENTS = Object.keys(viewComponents);
-        console.log('🛡️ [StudentDashboard] Audit triggers exposed to window.');
+        console.log('ðŸ›¡ï¸ [StudentDashboard] Audit triggers exposed to window.');
         return () => {
             // @ts-ignore - for cleanup
             delete window.STUDENT_NAVIGATE;
@@ -730,7 +796,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
             <div className="flex flex-col items-center justify-center h-full p-6 text-center bg-gray-50">
                 <div className="bg-white p-8 rounded-2xl shadow-lg max-w-md w-full">
                     <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <span className="text-3xl">🎓</span>
+                        <span className="text-3xl">ðŸŽ“</span>
                     </div>
                     <h2 className="text-2xl font-bold text-gray-800 mb-2">Student Profile Not Found</h2>
                     <p className="text-gray-600 mb-6">
@@ -746,7 +812,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                         </button>
                     </div>
                     <div className="mt-4 pt-4 border-t border-gray-100">
-                        <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Secure Session Active</p>
+                        <p className="text-xs text-gray-400 uppercase tracking-widest font-bold">Secure Session Active</p>
                     </div>
                 </div>
             </div>
@@ -756,7 +822,9 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
     const currentNavigation = viewStack[viewStack.length - 1] || { view: 'overview', title: 'Student Dashboard' };
     const ComponentToRender = viewComponents[currentNavigation.view as keyof typeof viewComponents];
 
-    const isFullScreen = ['chat', 'classBattle', 'mathSprintGame', 'geoGuesserGame', 'codeChallengeGame', 'gamePlayer', 'peekabooLetters', 'mathBattleArena', 'cbtExamGame', 'cbtPlayer', 'countingShapesTap', 'simonSays', 'alphabetFishing', 'beanBagToss', 'redLightGreenLight', 'spellingSparkle', 'vocabularyAdventure', 'virtualScienceLab', 'debateDash', 'geometryJeopardy', 'sharkTank', 'physicsLab', 'stockMarket', 'cbtExamGame', 'vocabularyPictionary', 'simpleMachineHunt', 'historicalHotSeat'].includes(currentNavigation.view);
+    const isFullScreen = ['messages', 'newChat', 'chat', 'classBattle', 'mathSprintGame', 'geoGuesserGame', 'codeChallengeGame', 'gamePlayer', 'peekabooLetters', 'mathBattleArena', 'cbtExamGame', 'cbtPlayer', 'countingShapesTap', 'simonSays', 'alphabetFishing', 'beanBagToss', 'redLightGreenLight', 'spellingSparkle', 'vocabularyAdventure', 'virtualScienceLab', 'debateDash', 'geometryJeopardy', 'sharkTank', 'physicsLab', 'stockMarket', 'cbtExamGame', 'vocabularyPictionary', 'simpleMachineHunt', 'historicalHotSeat'].includes(currentNavigation.view);
+    // messages/newChat keep the nav so users can switch tabs; chat and games go fully immersive
+    const hideBottomNav = isFullScreen && currentNavigation.view !== 'messages' && currentNavigation.view !== 'newChat';
 
     return (
         <GamificationProvider studentId={student?.id}>
@@ -770,7 +838,29 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                             <p className="font-bold text-gray-900 text-sm truncate">{reminderBanner.title}</p>
                             <p className="text-gray-600 text-sm">{reminderBanner.message}</p>
                         </div>
-                        <button onClick={() => setReminderBanner(null)} className="text-gray-400 hover:text-gray-600 text-lg leading-none px-1" aria-label="Dismiss">×</button>
+                        <button onClick={() => setReminderBanner(null)} className="text-gray-400 hover:text-gray-600 text-lg leading-none px-1" aria-label="Dismiss">Ã—</button>
+                    </div>
+                </div>
+            )}
+            {unreadMsgCount > 0 && (
+                <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[99] w-[92%] max-w-md animate-fade-in" style={{ top: reminderBanner ? '5rem' : '1rem' }}>
+                    <div className="flex items-center gap-3 rounded-2xl bg-white shadow-2xl ring-1 ring-blue-200 px-4 py-3">
+                        <div className="flex-shrink-0 w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center">
+                            <MegaphoneIcon className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="font-bold text-gray-900 text-sm">
+                                {unreadMsgCount === 1 ? '1 unread message' : `${unreadMsgCount} unread messages`}
+                            </p>
+                            <p className="text-gray-500 text-xs">You received messages while you were away</p>
+                        </div>
+                        <button
+                            onClick={() => { setUnreadMsgCount(0); navigateTo('messages', 'Messages'); }}
+                            className="flex-shrink-0 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-xl transition-colors"
+                        >
+                            View
+                        </button>
+                        <button onClick={() => setUnreadMsgCount(0)} className="text-gray-400 hover:text-gray-600 text-lg leading-none" aria-label="Dismiss">Ã—</button>
                     </div>
                 </div>
             )}
@@ -779,8 +869,9 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                 onBack={viewStack.length > 1 ? handleBack : undefined}
                 activeScreen={activeBottomNav}
                 setActiveScreen={handleBottomNavClick}
-                hideHeader={isFullScreen || currentNavigation.view === 'profile'}
+                hideHeader={hideBottomNav || currentNavigation.view === 'profile'}
                 hidePadding={isFullScreen}
+                hideBottomNav={hideBottomNav}
             >
                 <div key={`${viewStack.length}-${currentNavigation.view}`} className="h-full w-full">
                     <ErrorBoundary>
@@ -796,6 +887,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                                 }
                                 if (currentNavigation.view === 'chat') {
                                     componentProps.currentUserId = student?.id;
+                                    componentProps.forceChatPanel = !!(currentNavigation.props?.targetUserId || currentNavigation.props?.conversationId);
                                 }
 
                                 return <ComponentToRender {...componentProps} />;

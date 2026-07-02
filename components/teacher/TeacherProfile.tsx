@@ -12,6 +12,7 @@ import { THEME_CONFIG, SUBJECT_COLORS } from '../../constants';
 import { DashboardType } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
+import AIUnlockCard from '../shared/AIUnlockCard';
 
 interface TeacherProfileProps {
   navigateTo: (view: string, title: string, props?: any) => void;
@@ -126,6 +127,9 @@ const TeacherProfile: React.FC<TeacherProfileProps> = ({ navigateTo }) => {
             ))}
           </div>
         </div>
+
+        {/* AI Plan */}
+        <AIUnlockCard />
       </main>
 
       {/* Action Buttons */}

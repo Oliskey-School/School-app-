@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
 import {
     TrendingUp,
     TrendingDown,
@@ -35,6 +36,7 @@ const EnrollmentTrendsWidget = () => {
             setData(result);
         } catch (error) {
             console.error('Fetch trends error:', error);
+            toast.error('Failed to load data');
         } finally {
             setLoading(false);
         }
@@ -92,7 +94,7 @@ const EnrollmentTrendsWidget = () => {
                                     <div className="w-full bg-emerald-400 rounded-t" style={{ height: `${Math.max((d.enrolled / maxVal) * 100, 2)}px` }} title={`+${d.enrolled} enrolled`} />
                                     {d.withdrawn > 0 && <div className="w-full bg-red-300 rounded-b" style={{ height: `${Math.max((d.withdrawn / maxVal) * 100, 2)}px` }} title={`-${d.withdrawn} withdrawn`} />}
                                 </div>
-                                <span className="text-[10px] text-gray-400 mt-1 font-bold">{d.month.split(' ')[0].slice(0, 3)}</span>
+                                <span className="text-xs text-gray-400 mt-1 font-bold">{d.month.split(' ')[0].slice(0, 3)}</span>
                             </div>
                         ))}
                         {displayData.length === 0 && (

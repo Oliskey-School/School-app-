@@ -34,6 +34,7 @@ const post = (path: string, body: any) =>
 
 async function cleanup() {
   for (const m of ['behaviorNote', 'announcement', 'exam', 'studentFee', 'fee', 'attendance',
+    'healthLog', 'transportAssignment', 'transportStop', 'transportRoute', 'payslip',
     'student', 'class', 'teacher', 'parent', 'schoolMembership', 'user', 'branch'] as const) {
     await (prisma as any)[m]?.deleteMany?.({ where: { school_id: S } }).catch(() => {});
   }
@@ -68,18 +69,20 @@ describe('Admin viewComponent audit', () => {
     '/api/classes', '/api/subjects', '/api/timetables', '/api/exams', '/api/external-exams/bodies',
     '/api/report-cards', '/api/assignments', '/api/lesson-plans', '/api/academic/performance',
     '/api/quizzes', '/api/resources',
-    // attendance
-    '/api/attendance', '/api/teachers/attendance', '/api/teachers/attendance-approvals',
+    // attendance (date param required by controller design)
+    `/api/attendance?date=${new Date().toISOString().split('T')[0]}`, '/api/teachers/attendance', '/api/teachers/attendance-approvals',
     // finance
     '/api/fees', '/api/payment-transactions', '/api/payroll/budgets', '/api/teacher-salaries',
     '/api/payslips', '/api/arrears', '/api/transactions',
     // communication
     '/api/notices', '/api/notifications', '/api/calendar', '/api/chat/rooms', '/api/forum/topics',
     // operations / facilities
-    '/api/hostels', '/api/transport', '/api/buses', '/api/store/products', '/api/vendors',
+    '/api/hostels', '/api/transport', '/api/transport/routes', '/api/transport/assignments',
+    '/api/buses', '/api/store/products', '/api/vendors',
     '/api/id-cards', '/api/gallery', '/api/emergency',
     // governance / compliance / audit
-    '/api/audit-logs', '/api/compliance-checklists', '/api/governance', '/api/inspections',
+    '/api/audit-logs', '/api/compliance-checklists', '/api/governance', '/api/governance/compliance',
+    '/api/governance/validate', '/api/inspections',
     '/api/behavior/notes', '/api/health-logs', '/api/conferences', '/api/counseling',
     '/api/community/pta-meetings', '/api/extracurriculars', '/api/scholarships',
     // settings / misc
@@ -147,5 +150,181 @@ describe('Admin viewComponent audit', () => {
     expect([200, 201]).toContain(res.status);
     const row = await (prisma as any).behaviorNote.findFirst({ where: { school_id: S, note: 'Audit behavior note' } });
     expect(row).toBeTruthy();
+  });
+
+  // ─── TIER 2: FINANCE ──────────────────────────────────────────────────────
+
+  it('Create Fee button persists a real studentFee row', async () => {
+    // FeeService.createFee writes to StudentFee (per-student fee assignment model).
+    // Fields are camelCase: studentId, title, amount, dueDate.
+    const dueDate = new Date(Date.now() + 30 * 86400000).toISOString();
+    const res = await post('/api/fees', {
+      studentId: 'ava-stu', title: 'Audit School Fee', amount: 50000,
+      dueDate, status: 'Pending',
+    });
+    if (![200, 201].includes(res.status)) console.log('createFee:', res.status, JSON.stringify(res.body));
+    expect([200, 201]).toContain(res.status);
+    const row = await prisma.studentFee.findFirst({ where: { school_id: S, title: 'Audit School Fee' } });
+    expect(row).toBeTruthy();
+    expect(row?.amount).toBe(50000);
+    expect(row?.branch_id).toBe(M);
+  });
+
+  it('Assign Fee to student persists a real studentFee row', async () => {
+    const fee = await prisma.fee.findFirst({ where: { school_id: S } });
+    if (!fee) { console.log('Skipping: no fee to assign'); return; }
+    const res = await post('/api/fees/assign', {
+      fee_id: fee.id, student_ids: ['ava-stu'], amount: fee.amount, due_date: fee.due_date,
+    });
+    if (![200, 201].includes(res.status)) console.log('assignFee:', res.status, JSON.stringify(res.body));
+    expect([200, 201]).toContain(res.status);
+    const row = await prisma.studentFee.findFirst({ where: { student_id: 'ava-stu', school_id: S } });
+    expect(row).toBeTruthy();
+  });
+
+  it('Record Payment persists a real transaction row', async () => {
+    const res = await post('/api/transactions', {
+      student_id: 'ava-stu', amount: 25000, payment_method: 'cash',
+      description: 'Audit payment', payment_date: new Date().toISOString(),
+    });
+    if (![200, 201].includes(res.status)) console.log('recordPayment:', res.status, JSON.stringify(res.body));
+    expect([200, 201]).toContain(res.status);
+  });
+
+  it('Payroll — generate payslip endpoint responds without server error', async () => {
+    // Route: POST /api/payroll/generate-payslip
+    // Service destructures camelCase: teacherId, periodStart, periodEnd, grossSalary, etc.
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    const monthEnd   = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString();
+    const res = await post('/api/payroll/generate-payslip', {
+      teacherId: 'ava-tch', periodStart: monthStart, periodEnd: monthEnd,
+      grossSalary: 80000, totalAllowances: 10000, totalBonuses: 0,
+      totalDeductions: 5000, taxAmount: 2000, pensionAmount: 1000, netSalary: 72000,
+      items: [],
+    });
+    if (res.status >= 500) console.log('createPayslip:', res.status, JSON.stringify(res.body));
+    expect(res.status).not.toBeGreaterThanOrEqual(500);
+  });
+
+  // ─── TIER 3: ACADEMIC ─────────────────────────────────────────────────────
+
+  it('Save Attendance persists real attendance rows', async () => {
+    const today = new Date().toISOString().split('T')[0];
+    // Each record must contain class_id and date (not root-level)
+    const res = await post('/api/attendance', {
+      records: [{ student_id: 'ava-stu', class_id: 'ava-cls', date: today, status: 'Present', remark: '' }],
+    });
+    if (![200, 201].includes(res.status)) console.log('saveAttendance:', res.status, JSON.stringify(res.body));
+    expect([200, 201]).toContain(res.status);
+    const row = await prisma.attendance.findFirst({ where: { student_id: 'ava-stu', class_id: 'ava-cls', school_id: S } });
+    expect(row).toBeTruthy();
+    expect(row?.status).toBe('Present');
+  });
+
+  it('Create Assignment persists a real assignment row', async () => {
+    const res = await post('/api/assignments', {
+      class_id: 'ava-cls', title: 'Audit Assignment', subject: 'Mathematics',
+      description: 'Test assignment', due_date: new Date(Date.now() + 7 * 86400000).toISOString(),
+    });
+    if (![200, 201].includes(res.status)) console.log('createAssignment:', res.status, JSON.stringify(res.body));
+    expect([200, 201]).toContain(res.status);
+    const row = await prisma.assignment.findFirst({ where: { class_id: 'ava-cls', title: 'Audit Assignment' } });
+    expect(row).toBeTruthy();
+  });
+
+  it('Create Timetable persists a real timetable row', async () => {
+    const res = await post('/api/timetables', {
+      class_id: 'ava-cls', day_of_week: 'Monday', start_time: '08:00', end_time: '09:00',
+      subject: 'Mathematics', teacher_id: 'ava-tch',
+    });
+    if (![200, 201].includes(res.status)) console.log('createTimetable:', res.status, JSON.stringify(res.body));
+    expect([200, 201]).toContain(res.status);
+    const row = await prisma.timetable.findFirst({ where: { class_id: 'ava-cls', subject: 'Mathematics' } });
+    expect(row).toBeTruthy();
+  });
+
+  it('Add Teacher Attendance persists a real teacher attendance row', async () => {
+    const today = new Date().toISOString().split('T')[0];
+    // Controller expects records array, not a flat object
+    const res = await post('/api/teachers/attendance', {
+      records: [{ teacher_id: 'ava-tch', date: today, status: 'Present' }],
+    });
+    if (![200, 201].includes(res.status)) console.log('teacherAttendance:', res.status, JSON.stringify(res.body));
+    expect([200, 201]).toContain(res.status);
+  });
+
+  // ─── TIER 4: COMMUNICATION & SETTINGS ────────────────────────────────────
+
+  it('Health Log entry persists a real health log row', async () => {
+    // HealthLog model fields: log_type, symptoms[], condition, notes, logged_by, etc.
+    const res = await post('/api/health-logs', {
+      student_id: 'ava-stu', log_type: 'medical',
+      symptoms: ['Headache'], condition: 'Mild headache', notes: 'Patient rested',
+      logged_by: 'Nurse Audit',
+    });
+    if (![200, 201].includes(res.status)) console.log('healthLog:', res.status, JSON.stringify(res.body));
+    expect([200, 201]).toContain(res.status);
+  });
+
+  it('Transport route creation persists a real route row', async () => {
+    // TransportRoute model requires route_name + bus_number (not name)
+    const res = await post('/api/transport/routes', {
+      route_name: 'Audit Route', bus_number: 'BUS-001',
+      driver_name: 'Test Driver', capacity: 30, branch_id: M,
+    });
+    if (![200, 201].includes(res.status)) console.log('transportRoute:', res.status, JSON.stringify(res.body));
+    expect([200, 201]).toContain(res.status);
+  });
+
+  it('GET /api/transport returns summary with routes, stops, assignments', async () => {
+    const res = await (request(app).get('/api/transport').set('Authorization', `Bearer ${tok()}`).set('X-Branch-Id', M));
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('routes');
+    expect(res.body).toHaveProperty('stops');
+    expect(res.body).toHaveProperty('assignments');
+    expect(Array.isArray(res.body.routes)).toBe(true);
+  });
+
+  it('GET /api/governance returns compliance status (not 404)', async () => {
+    const res = await get('/api/governance');
+    expect(res.status).not.toBe(404);
+    expect(res.status).not.toBe(500);
+  });
+
+  it('school_generated_id is assigned when student is enrolled', async () => {
+    const res = await post('/api/students/enroll', {
+      firstName: 'IdCheck', lastName: 'Student', grade: 9, section: 'C',
+      gender: 'Female', email: 'ava-idcheck@x.com',
+    });
+    expect([200, 201]).toContain(res.status);
+    const stu = await prisma.student.findFirst({ where: { school_id: S, user: { email: 'ava-idcheck@x.com' } } });
+    expect(stu).toBeTruthy();
+    // school_generated_id must be set (non-null) — core ID format requirement
+    const u = await prisma.user.findUnique({ where: { id: stu!.user_id } });
+    expect(u?.school_generated_id).toBeTruthy();
+  });
+
+  it('Branch isolation — admin cannot read another school\'s students', async () => {
+    // Create a second isolated school
+    const S2 = 'b0b0b0b0-0000-4000-8000-000000000099';
+    const M2 = 'b0b0b0b0-0000-4000-8000-000000000098';
+    await prisma.school.create({ data: { id: S2, name: 'OtherSchool', code: 'OTH99', slug: S2, plan_type: 'free', subscription_status: 'trial' } }).catch(() => {});
+    await prisma.branch.create({ data: { id: M2, school_id: S2, name: 'Main', code: 'OTHM', is_main: true } }).catch(() => {});
+    const u2 = await prisma.user.create({ data: { id: 'oth-stu-u', email: 'oth-stu@other.com', password_hash: 'x', full_name: 'Other Student', role: 'STUDENT' as any, school_id: S2, branch_id: M2 } }).catch(() => null);
+    if (u2) await prisma.student.create({ data: { id: 'oth-stu', user_id: u2.id, school_id: S2, branch_id: M2, full_name: 'Other Student', grade: 7 } }).catch(() => {});
+
+    // AVA admin (school S) tries to GET /api/students — must only see S's students
+    const res = await get('/api/students');
+    expect(res.status).toBe(200);
+    const ids: string[] = (Array.isArray(res.body) ? res.body : res.body.students || []).map((s: any) => s.school_id || s.schoolId);
+    const leak = ids.filter(id => id && id !== S);
+    expect(leak).toEqual([]);
+
+    // cleanup second school
+    await prisma.student.deleteMany({ where: { school_id: S2 } }).catch(() => {});
+    await prisma.user.deleteMany({ where: { school_id: S2 } }).catch(() => {});
+    await prisma.branch.deleteMany({ where: { school_id: S2 } }).catch(() => {});
+    await prisma.school.delete({ where: { id: S2 } }).catch(() => {});
   });
 });

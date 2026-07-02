@@ -45,35 +45,22 @@ const IntegrationHub: React.FC = () => {
         try {
             setLoading(true);
 
-            // Fetch government integrations
-            const { data: integrationsData } = await api
-                .from('external_integrations')
-                .select('*')
-                .eq('school_id', currentSchool!.id)
-                .order('integration_name');
+            // FLAG: api.getIntegrations() and api.getThirdPartyApps() are not yet defined in lib/api.ts.
+            // Using api.get() directly for now. Add named methods when backend routes are confirmed.
+            const [integrationsData, appsData, installationsData] = await Promise.allSettled([
+                api.get<any[]>(`/external-integrations?schoolId=${currentSchool!.id}`),
+                api.get<any[]>('/third-party-apps'),
+                api.get<any[]>(`/app-installations?schoolId=${currentSchool!.id}`),
+            ]);
 
-            setIntegrations(integrationsData || []);
-
-            // Fetch third-party apps
-            const { data: appsData } = await api
-                .from('third_party_apps')
-                .select('*')
-                .eq('is_published', true)
-                .order('rating', { ascending: false });
-
-            setThirdPartyApps(appsData || []);
-
-            // Fetch installed apps
-            const { data: installationsData } = await api
-                .from('app_installations')
-                .select('app_id')
-                .eq('school_id', currentSchool!.id)
-                .eq('is_active', true);
-
-            setInstalledApps(installationsData?.map(i => i.app_id) || []);
+            setIntegrations(integrationsData.status === 'fulfilled' ? (integrationsData.value || []) : []);
+            setThirdPartyApps(appsData.status === 'fulfilled' ? (appsData.value || []) : []);
+            const installs = installationsData.status === 'fulfilled' ? (installationsData.value || []) : [];
+            setInstalledApps(installs.map((i: any) => i.app_id));
 
         } catch (error: any) {
             console.error('Error fetching data:', error);
+            toast.error('Failed to load integrations');
         } finally {
             setLoading(false);
         }

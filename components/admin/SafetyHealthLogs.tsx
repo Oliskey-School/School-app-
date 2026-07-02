@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
 import { useAutoSync } from '../../hooks/useAutoSync';
 
@@ -351,12 +351,12 @@ const IncidentTab = ({ incidents, setIsAdding }: IncidentTabProps) => (
                             </div>
                             <p className="text-sm text-gray-600 mt-1">{inc.description}</p>
                             <div className="flex items-center space-x-4 mt-3">
-                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${inc.severity === 'Critical' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'
+                                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${inc.severity === 'Critical' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'
                                     }`}>{inc.severity}</span>
                                 {inc.parent_notified && (
                                     <div className="flex items-center space-x-1 text-green-600">
                                         <CheckCircle2 className="w-3 h-3" />
-                                        <span className="text-[10px] font-bold">Parent Notified</span>
+                                        <span className="text-xs font-bold">Parent Notified</span>
                                     </div>
                                 )}
                             </div>
@@ -403,11 +403,11 @@ const DrillTab = ({ drills, setIsAdding }: DrillTabProps) => (
                     </div>
                     <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-50">
                         <div>
-                            <p className="text-[10px] uppercase font-bold text-gray-400">Duration</p>
+                            <p className="text-xs uppercase font-bold text-gray-400">Duration</p>
                             <p className="font-bold text-gray-700">{drill.duration_minutes} mins</p>
                         </div>
                         <div>
-                            <p className="text-[10px] uppercase font-bold text-gray-400">Participants</p>
+                            <p className="text-xs uppercase font-bold text-gray-400">Participants</p>
                             <p className="font-bold text-gray-700">{drill.participants_count}</p>
                         </div>
                     </div>

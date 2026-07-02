@@ -33,7 +33,7 @@ export const updateVendor = async (req: AuthRequest, res: Response) => {
         const { school_id } = req.user;
         const { id } = req.params;
         
-        const vendor = await VendorService.updateVendor(id, school_id, req.body);
+        const vendor = await VendorService.updateVendor(id as string, school_id, req.body);
         res.json(vendor);
     } catch (error: any) {
         console.error('Error in updateVendor controller:', error);
@@ -46,7 +46,7 @@ export const deleteVendor = async (req: AuthRequest, res: Response) => {
         const { school_id } = req.user;
         const { id } = req.params;
         
-        await VendorService.deleteVendor(id, school_id);
+        await VendorService.deleteVendor(id as string, school_id);
         res.json({ message: 'Vendor deleted successfully' });
     } catch (error: any) {
         console.error('Error in deleteVendor controller:', error);

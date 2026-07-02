@@ -9,14 +9,17 @@ export const getTimetable = async (req: AuthRequest, res: Response) => {
         const { className } = req.query;
         let { teacherId } = req.query;
 
-        if (req.user.role === 'TEACHER') {
-            const teacher = await (prisma as any).teacher.findUnique({
-                where: { user_id: req.user.id },
-                select: { id: true }
-            });
+        if ((req.user.role || '').toLowerCase() === 'teacher') {
+            // For real users the middleware already loaded teacher_profile; reuse it.
+            // For demo users (no teacher_profile on req.user) fall back to a DB lookup.
+            const teacherRecord = req.user.teacher_profile
+                || await (prisma as any).teacher.findUnique({
+                    where: { user_id: req.user.id },
+                    select: { id: true }
+                });
 
-            if (teacher) {
-                teacherId = teacher.id;
+            if (teacherRecord?.id) {
+                teacherId = teacherRecord.id;
             } else {
                 return res.json([]);
             }
@@ -74,6 +77,17 @@ export const deleteTimetableByClass = async (req: AuthRequest, res: Response) =>
         const schoolId = req.user.school_id;
         const { classId } = req.params;
         await TimetableService.deleteTimetableByClass(schoolId, classId as string);
+        res.json({ success: true });
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const notifyPublished = async (req: AuthRequest, res: Response) => {
+    try {
+        const schoolId = req.user.school_id;
+        const { class_names } = req.body;
+        await TimetableService.notifyPublished(schoolId, class_names || []);
         res.json({ success: true });
     } catch (error: any) {
         res.status(500).json({ message: error.message });

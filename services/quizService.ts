@@ -18,7 +18,7 @@ export async function fetchCBTExams(schoolId?: string, classId?: string): Promis
 
 export async function fetchQuizSubmission(quizId: string | number, studentId: string): Promise<any> {
     try {
-        return await api.getQuizSubmission(quizId, studentId);
+        return await (api as any).getQuizSubmission(quizId, studentId);
     } catch (err) {
         console.error('Error fetching quiz submission:', err);
         return null;

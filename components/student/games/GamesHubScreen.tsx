@@ -1,4 +1,4 @@
-
+﻿
 import React, { useState, useMemo, useEffect } from 'react';
 import { PlayIcon, Gamepad2 as GameControllerIcon, TrophyIcon, BriefcaseIcon, ChevronRightIcon, Search as SearchIcon, Sword, Mic2, Sparkles as SparklesIcon } from 'lucide-react';
 import { toast } from 'react-hot-toast';
@@ -106,7 +106,7 @@ const LevelAccordion: React.FC<{ level: string; games: EducationalGame[]; defaul
                                         else if (game.gameName === 'Simple Machine Scavenger Hunt') navigateTo('simpleMachineHunt', 'Scavenger Hunt');
                                         else if (game.gameName === 'Historical Hot Seat') navigateTo('historicalHotSeat', 'Historical Hot Seat');
                                         else if (game.gameName === 'Vocabulary Ninja') navigateTo('vocabularyNinja', 'Vocabulary Ninja');
-                                        else toast('Game coming soon!', { icon: '🚧' });
+                                        else toast('Game coming soon!', { icon: 'ðŸš§' });
                                     }}
                                 />
                             )
@@ -159,12 +159,12 @@ const LeaderboardSection: React.FC = () => {
                             </span>
                             <div>
                                 <p className="font-bold text-gray-800 leading-none">{entry.player?.full_name || 'Anonymous'}</p>
-                                <p className="text-[10px] text-gray-500 font-bold uppercase mt-1">{entry.game_name}</p>
+                                <p className="text-xs text-gray-500 font-bold uppercase mt-1">{entry.game_name}</p>
                             </div>
                         </div>
                         <div className="text-right">
                             <p className="text-lg font-black text-orange-600 leading-none">{entry.score}</p>
-                            <p className="text-[10px] text-gray-400 font-bold uppercase mt-1">Points</p>
+                            <p className="text-xs text-gray-400 font-bold uppercase mt-1">Points</p>
                         </div>
                     </div>
                 ))}
@@ -268,7 +268,7 @@ const GamesHubScreen: React.FC<GamesHubScreenProps> = ({ navigateTo, student }) 
         {
             title: 'Math Battle',
             description: 'PvP Arithmetic Duels.',
-            icon: <div className="text-2xl font-bold text-white">÷</div>,
+            icon: <div className="text-2xl font-bold text-white">Ã·</div>,
             bgColor: 'bg-pink-500 bg-gradient-to-br from-pink-500 to-rose-600',
             action: () => navigateTo('mathBattleArena', 'Math Battle Arena')
         },
@@ -289,7 +289,7 @@ const GamesHubScreen: React.FC<GamesHubScreenProps> = ({ navigateTo, student }) 
         {
             title: 'Science Lab',
             description: 'Virtual experiments.',
-            icon: <div className="text-2xl font-bold text-white">🧪</div>,
+            icon: <div className="text-2xl font-bold text-white">ðŸ§ª</div>,
             bgColor: 'bg-teal-500 bg-gradient-to-br from-teal-500 to-green-600',
             action: () => navigateTo('physicsLab', 'Physics Lab')
         },
@@ -434,7 +434,7 @@ const GamesHubScreen: React.FC<GamesHubScreenProps> = ({ navigateTo, student }) 
                         <div className="flex -space-x-4">
                             {[1, 2, 3].map(i => (
                                 <div key={i} className="w-14 h-14 rounded-2xl bg-white shadow-lg flex items-center justify-center text-2xl animate-bounce" style={{ animationDelay: `${i * 0.2}s` }}>
-                                    {['🎁', '🎲', '🧩'][i-1]}
+                                    {['ðŸŽ', 'ðŸŽ²', 'ðŸ§©'][i-1]}
                                 </div>
                             ))}
                         </div>

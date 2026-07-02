@@ -1,5 +1,18 @@
 import { Request, Response } from 'express';
 import { OnboardingService } from '../services/onboarding.service';
+import prisma from '../config/database';
+
+export const checkSchoolCode = async (req: Request, res: Response) => {
+    const raw = String(req.query.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
+    if (!raw || raw.length < 3) {
+        return res.status(400).json({ available: false, message: 'Code must be at least 3 characters.' });
+    }
+    const existing = await prisma.school.findUnique({ where: { code: raw }, select: { is_onboarded: true } });
+    if (existing?.is_onboarded) {
+        return res.json({ available: false, message: `School code "${raw}" is already taken. Please choose a different code.` });
+    }
+    return res.json({ available: true });
+};
 
 export const createSchoolOnboard = async (req: Request, res: Response) => {
     try {

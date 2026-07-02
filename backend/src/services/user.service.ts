@@ -122,6 +122,7 @@ export class UserService {
         const full_name = updates.full_name ?? updates.name;
         const avatar_url = updates.avatar_url ?? updates.avatarUrl;
         const phone = updates.phone;
+        const display_name = updates.display_name;
 
         const userData: any = {};
         if (full_name !== undefined) userData.full_name = full_name;
@@ -153,7 +154,8 @@ export class UserService {
                 } else if (role === 'parent') {
                     await prisma.parent.updateMany({ where: { user_id: userId }, data: profileData });
                 } else if (role === 'student') {
-                    const { phone: _omitPhone, ...studentData } = profileData; // Student has no phone column
+                    const { phone: _omitPhone, ...studentData } = profileData;
+                    if (display_name !== undefined) studentData.display_name = display_name;
                     await prisma.student.updateMany({ where: { user_id: userId }, data: studentData });
                 }
             } catch (err: any) {

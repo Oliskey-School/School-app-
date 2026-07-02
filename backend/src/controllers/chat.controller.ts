@@ -1,8 +1,12 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { ChatService } from '../services/chat.service';
+import { DEMO_SCHOOL_ID } from '../config/env';
 
 const chatService = new ChatService();
+
+const resolveSchoolId = (req: AuthRequest): string | undefined =>
+    req.user?.school_id || (req.user?.is_demo ? DEMO_SCHOOL_ID : undefined);
 
 export const getChatRooms = async (req: AuthRequest, res: Response) => {
     try {
@@ -38,10 +42,32 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
     }
 };
 
+export const markRoomAsRead = async (req: AuthRequest, res: Response) => {
+    try {
+        const { roomId } = req.params;
+        const userId = req.user?.id;
+        if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+        await chatService.markRoomAsRead(roomId as string, userId);
+        res.json({ success: true });
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const getUnreadCount = async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = req.user?.id;
+        if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+        const count = await chatService.getUnreadCount(userId);
+        res.json({ count });
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 export const getChatContacts = async (req: AuthRequest, res: Response) => {
     try {
-        // Fall back to the authenticated user's context when query params are absent.
-        const schoolId = (req.query.schoolId as string) || req.user?.school_id;
+        const schoolId = (req.query.schoolId as string) || resolveSchoolId(req);
         const studentId = (req.query.studentId as string) || req.user?.id;
         const contacts = await chatService.getChatContacts(schoolId as string, studentId as string);
         res.json(contacts);
@@ -50,20 +76,56 @@ export const getChatContacts = async (req: AuthRequest, res: Response) => {
     }
 };
 
+export const getRoleContacts = async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = req.user?.id;
+        const role = req.user?.role || req.user?.app_metadata?.role || 'student';
+        const schoolId = resolveSchoolId(req);
+        const branchId = req.user?.active_branch_id || req.user?.branch_id || (req.query.branchId as string);
+
+        if (!userId || !schoolId) return res.status(401).json({ message: 'Unauthorized' });
+
+        const contacts = await chatService.getRoleBasedContacts(userId, role, schoolId, branchId);
+        res.json(contacts);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 export const getOrCreateDirectChat = async (req: AuthRequest, res: Response) => {
     try {
-        const { targetUserId, schoolId } = req.body;
+        const { targetUserId } = req.body;
         const userId = req.user?.id;
+        const schoolId = resolveSchoolId(req);
         if (!userId) return res.status(401).json({ message: 'Unauthorized' });
         if (!targetUserId) return res.status(400).json({ message: 'targetUserId is required' });
-        const room = await chatService.getOrCreateDirectChat(userId, targetUserId, schoolId || req.user?.school_id);
+        const room = await chatService.getOrCreateDirectChat(userId, targetUserId, schoolId || '');
         res.json(room);
     } catch (error: any) {
-        // A non-existent participant (e.g. a demo contact that is not a real user)
-        // is a bad-request / not-found condition, not a server error.
         if (error?.code === 'P2003' || error?.code === 'P2025') {
             return res.status(404).json({ message: 'This contact is not available for chat yet.' });
         }
         res.status(400).json({ message: error.message || 'Could not start chat' });
+    }
+};
+
+export const createGroupChat = async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = req.user?.id;
+        const schoolId = resolveSchoolId(req);
+        const { name, memberIds } = req.body;
+
+        if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+        if (!schoolId) return res.status(401).json({ message: 'School not found' });
+        if (!name?.trim()) return res.status(400).json({ message: 'Group name is required' });
+        if (!Array.isArray(memberIds) || memberIds.length === 0)
+            return res.status(400).json({ message: 'At least one member is required' });
+        if (memberIds.length > 400)
+            return res.status(400).json({ message: 'Maximum 400 members allowed' });
+
+        const room = await chatService.createGroupChat(userId, schoolId, name.trim(), memberIds);
+        res.json(room);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
     }
 };

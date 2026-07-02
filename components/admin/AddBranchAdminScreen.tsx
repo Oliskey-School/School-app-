@@ -126,7 +126,7 @@ const AddBranchAdminScreen: React.FC<AddBranchAdminScreenProps> = ({ forceUpdate
 
                 <div className="bg-white p-6 rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 space-y-5 max-w-2xl mx-auto w-full">
                     <div>
-                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Full Name</label>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5 ml-1">Full Name</label>
                         <div className="relative group">
                             <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-400 group-focus-within:text-indigo-500 transition-colors">
                                 <UserIcon className="w-5 h-5" />
@@ -143,7 +143,7 @@ const AddBranchAdminScreen: React.FC<AddBranchAdminScreenProps> = ({ forceUpdate
                     </div>
 
                     <div>
-                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Email Address</label>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5 ml-1">Email Address</label>
                         <div className="relative group">
                             <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-400 group-focus-within:text-indigo-500 transition-colors">
                                 <MailIcon className="w-5 h-5" />
@@ -160,7 +160,7 @@ const AddBranchAdminScreen: React.FC<AddBranchAdminScreenProps> = ({ forceUpdate
                     </div>
 
                     <div>
-                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Phone Number</label>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5 ml-1">Phone Number</label>
                         <div className="relative group">
                             <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-400 group-focus-within:text-indigo-500 transition-colors">
                                 <PhoneIcon className="w-5 h-5" />
@@ -176,7 +176,7 @@ const AddBranchAdminScreen: React.FC<AddBranchAdminScreenProps> = ({ forceUpdate
                     </div>
 
                     <div>
-                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Assign to Branch</label>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5 ml-1">Assign to Branch</label>
                         <select
                             value={selectedBranchId}
                             onChange={e => setSelectedBranchId(e.target.value)}
@@ -188,7 +188,7 @@ const AddBranchAdminScreen: React.FC<AddBranchAdminScreenProps> = ({ forceUpdate
                                 <option key={b.id} value={b.id}>{b.name} {b.is_main ? '(Main)' : ''}</option>
                             ))}
                         </select>
-                        <p className="text-[10px] text-slate-400 mt-2 uppercase font-bold tracking-wider flex items-center gap-1">
+                        <p className="text-xs text-slate-400 mt-2 font-medium flex items-center gap-1">
                             <span className="w-1 h-1 bg-amber-500 rounded-full"></span>
                             Branch Admins can only manage data within their assigned branch.
                         </p>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -66,7 +66,16 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
         load();
     }, [load]);
 
-    if (loading) return <div className="flex items-center justify-center h-screen bg-gray-50"><p className="text-indigo-600 font-medium animate-pulse">Loading child data...</p></div>;
+    if (loading) return (
+        <div className="p-4 space-y-4 animate-pulse">
+            <div className="h-32 bg-gray-200 rounded-2xl" />
+            <div className="grid grid-cols-2 gap-3">
+                <div className="h-24 bg-gray-200 rounded-2xl" />
+                <div className="h-24 bg-gray-200 rounded-2xl" />
+            </div>
+            <div className="h-40 bg-gray-200 rounded-2xl" />
+        </div>
+    );
     if (children.length === 0) return (
         <div className="flex flex-col items-center justify-center h-[60vh] p-6 text-center">
             <CircleUser className="w-20 h-20 text-gray-300 mb-4" />
@@ -107,7 +116,7 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
                                                 setActiveChildIndex(idx);
                                                 setIsSwitcherOpen(false);
                                                 
-                                                // 🚨 Switch Branch Context to match the child's branch
+                                                // ðŸš¨ Switch Branch Context to match the child's branch
                                                 const selectedStudent = students.find(s => s.id === c.id);
                                                 if (selectedStudent?.branchId) {
                                                     switchBranch(selectedStudent.branchId);
@@ -127,7 +136,7 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
                         </AnimatePresence>
 
                         <p className="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full inline-block mt-1">
-                            {child.grade} {child.school_name ? `· ${child.school_name}` : ''}
+                            {child.grade} {child.school_name ? `Â· ${child.school_name}` : ''}
                         </p>
                     </div>
                     <div className="bg-gray-100 w-10 h-10 rounded-full flex items-center justify-center border-2 border-white shadow-sm overflow-hidden">
@@ -162,7 +171,7 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
                                 <div className={`${item.bg} p-3 rounded-2xl group-hover:scale-110 transition-transform`}>
                                     <item.icon className={`w-5 h-5 ${item.color}`} />
                                 </div>
-                                <span className="text-[10px] font-bold text-gray-500">{item.label}</span>
+                                <span className="text-xs font-bold text-gray-500">{item.label}</span>
                             </button>
                         ))}
                     </div>
@@ -187,7 +196,7 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
                         <div>
                             <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Attendance</p>
                             <p className="text-gray-900 font-bold">
-                                {child.attendance.status === 'present' ? '✅ Attended today' : '🔴 Marked Absent'}
+                                {child.attendance.status === 'present' ? 'âœ… Attended today' : 'ðŸ”´ Marked Absent'}
                             </p>
                             <p className="text-xs text-gray-500">Arrived {child.attendance.time || 'N/A'}</p>
                         </div>
@@ -225,7 +234,7 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
                         </div>
                         <div>
                             <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Finances</p>
-                            <p className="text-gray-900 font-bold">₦{child.fee_balance.toLocaleString()} outstanding</p>
+                            <p className="text-gray-900 font-bold">â‚¦{child.fee_balance.toLocaleString()} outstanding</p>
                             {child.fee_balance > 0 && <div className="mt-1 w-2 h-2 bg-red-500 rounded-full animate-pulse" />}
                         </div>
                     </div>
@@ -246,7 +255,7 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
                                 <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Latest Performance</p>
                                 <p className="text-gray-900 font-bold">
                                     {child.latest_result.subject}: {child.latest_result.score}% 
-                                    <span className="ml-2 text-emerald-600 text-sm">↑</span>
+                                    <span className="ml-2 text-emerald-600 text-sm">â†‘</span>
                                 </p>
                             </div>
                         </div>

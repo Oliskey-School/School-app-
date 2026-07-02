@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Student, ClassInfo } from '../../types';
 import { toast } from 'react-hot-toast';
 import {
@@ -135,7 +135,6 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
         late: 0,
         leave: 0,
     });
-    const [enrollments, setEnrollments] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
     const academicPerformance = student.academicPerformance || [];
@@ -158,54 +157,29 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
         setLoading(true);
         try {
             // Fetch current student profile again to get latest data
-            const profiles = await api.getStudents(student.schoolId, undefined, { classId: student.id });
-            if (profiles && profiles.length > 0) {
-                setStudent(profiles[0]);
+            try {
+                const fresh = await api.getStudentById(student.id);
+                if (fresh) setStudent(prev => ({ ...prev, ...fresh }));
+            } catch (e) {
+                console.warn('Could not refresh student record', e);
             }
 
-            // Fetch enrollments with strict tenant isolation
-            const enrollmentResults = await api
-                .from('student_enrollments')
-                .select('classes(name, section)')
-                .eq('student_id', student.id)
-                .eq('school_id', student.schoolId);
-
-            if (enrollmentResults.data) {
-                setEnrollments(enrollmentResults.data.map((e: any) => `${e.classes.name}${e.classes.section ? ` (${e.classes.section})` : ''}`));
-            }
-
-            // Fetch attendance with strict tenant isolation
-            const { data: attendanceRecords, error: attendanceError } = await api
-                .from('student_attendance')
-                .select('status')
-                .eq('student_id', student.id)
-                .eq('school_id', student.schoolId);
-
-            if (attendanceError) {
-                console.error('Error fetching attendance:', attendanceError);
-                return;
-            }
-
+            // Fetch attendance via backend API
+            const attendanceRecords: any[] = await api.getStudentAttendance(student.id).catch(() => []);
             if (attendanceRecords && attendanceRecords.length > 0) {
-                const counts = {
-                    present: 0,
-                    absent: 0,
-                    late: 0,
-                    leave: 0,
-                };
-
+                const counts = { present: 0, absent: 0, late: 0, leave: 0 };
                 attendanceRecords.forEach((record: any) => {
-                    const status = record.status.toLowerCase();
+                    const status = (record?.status || '').toLowerCase();
                     if (status === 'present') counts.present++;
                     else if (status === 'absent') counts.absent++;
                     else if (status === 'late') counts.late++;
                     else if (status === 'leave' || status === 'on leave') counts.leave++;
                 });
-
                 setAttendanceData(counts);
             }
         } catch (err) {
             console.error('Error loading profile data:', err);
+            toast.error('Failed to load student data');
         } finally {
             setLoading(false);
         }
@@ -388,7 +362,7 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
                                         />
                                         <div className="absolute inset-0 flex flex-col items-center justify-center">
                                             <span className="text-3xl font-black text-gray-800">{(Object.values(attendanceData) as number[]).reduce((a, b) => a + b, 0) > 0 ? Math.round(((attendanceData.present + attendanceData.late) / (Object.values(attendanceData) as number[]).reduce((a, b) => a + b, 0)) * 100) : 0}%</span>
-                                            <span className="text-[10px] text-gray-400 font-bold uppercase">Present</span>
+                                            <span className="text-xs text-gray-400 font-bold uppercase">Present</span>
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-2 gap-3 w-full">
@@ -400,7 +374,7 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
                                         ].map(item => (
                                             <div key={item.label} className={`${item.color} p-3 rounded-2xl text-center`}>
                                                 <p className="text-lg font-black">{item.val}</p>
-                                                <p className="text-[10px] uppercase font-bold opacity-70">{item.label}</p>
+                                                <p className="text-xs uppercase font-bold opacity-70">{item.label}</p>
                                             </div>
                                         ))}
                                     </div>
@@ -421,8 +395,8 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
                                     <div key={note.id} className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
                                         <p className="text-sm text-gray-700 font-medium italic">"{note.note}"</p>
                                         <div className="flex items-center justify-between mt-3">
-                                            <span className="text-[10px] font-black text-purple-600 uppercase bg-purple-100 px-2 py-0.5 rounded-full">{note.type}</span>
-                                            <p className="text-[10px] text-gray-400 font-bold">{new Date(note.date).toLocaleDateString()}</p>
+                                            <span className="text-xs font-black text-purple-600 uppercase bg-purple-100 px-2 py-0.5 rounded-full">{note.type}</span>
+                                            <p className="text-xs text-gray-400 font-bold">{new Date(note.date).toLocaleDateString()}</p>
                                         </div>
                                     </div>
                                 )) : <p className="text-sm text-gray-400 text-center py-6 font-medium italic">Perfect conduct record.</p>}
@@ -439,28 +413,28 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
                     className="flex flex-col items-center justify-center space-y-1 py-3 bg-indigo-50 text-indigo-700 font-bold rounded-2xl hover:bg-indigo-100 transition-all border border-indigo-100 active:scale-95 shadow-sm"
                 >
                     <UserGroupIcon className="w-5 h-5" />
-                    <span className="text-[10px] uppercase">Assign Class</span>
+                    <span className="text-xs uppercase">Assign Class</span>
                 </button>
                 <button
                     onClick={() => navigateTo('adminSelectTermForReport', `Select Term for ${student.name}`, { student })}
                     className="flex flex-col items-center justify-center space-y-1 py-3 bg-white text-gray-600 font-bold rounded-2xl hover:bg-gray-50 transition-all border border-gray-100 active:scale-95 shadow-sm"
                 >
                     <DocumentTextIcon className="w-5 h-5" />
-                    <span className="text-[10px] uppercase">Reports</span>
+                    <span className="text-xs uppercase">Reports</span>
                 </button>
                 <button
                     onClick={() => toast('ID Card module coming soon!', { icon: '🆔' })}
                     className="flex flex-col items-center justify-center space-y-1 py-3 bg-white text-gray-600 font-bold rounded-2xl hover:bg-gray-50 transition-all border border-gray-100 active:scale-95 shadow-sm"
                 >
                     <CheckCircleIcon className="w-5 h-5" />
-                    <span className="text-[10px] uppercase">ID Card</span>
+                    <span className="text-xs uppercase">ID Card</span>
                 </button>
                 <button
                     onClick={() => setShowDeleteModal(true)}
                     className="flex flex-col items-center justify-center space-y-1 py-3 bg-red-50 text-red-600 font-bold rounded-2xl hover:bg-red-100 transition-all border border-red-100 active:scale-95 shadow-sm"
                 >
                     <TrashIcon className="w-5 h-5" />
-                    <span className="text-[10px] uppercase text-red-500">Delete</span>
+                    <span className="text-xs uppercase text-red-500">Delete</span>
                 </button>
             </div>
 

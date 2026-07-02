@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { FileBarChart, Users, GraduationCap, Award, Download, Building, CheckCircle, Clock } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
@@ -123,7 +123,7 @@ const MasterReportingHub: React.FC = () => {
                                 <p className="text-xs text-gray-400">Exported by Admin • 2 hours ago</p>
                             </div>
                         </div>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-green-600 bg-green-50 px-2 py-1 rounded">Success</span>
+                        <span className="text-xs font-bold uppercase tracking-wider text-green-600 bg-green-50 px-2 py-1 rounded">Success</span>
                     </div>
                 </div>
             </div>

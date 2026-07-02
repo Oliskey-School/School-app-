@@ -21,27 +21,11 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ classInfo, naviga
     const fetchStudents = async () => {
         setLoading(true);
         try {
-            // Inject strict multi-tenant filters
-            const effectiveSchoolId = classInfo.schoolId || (classInfo as any).school_id || profile?.schoolId;
-            const effectiveBranchId = classInfo.branch_id || (classInfo as any).branch_id || profile?.branchId;
-
-            console.log('🔍 [ClassDetail] fetchStudents started:', { 
-                classId: classInfo.id, 
-                effectiveSchoolId, 
-                effectiveBranchId, 
-                profileBranchId: profile?.branchId 
-            });
-
-            // Use the more robust api.getStudents pattern (working in Attendance)
-            const studentData = await api.getStudents(
-                effectiveSchoolId,
-                effectiveBranchId && effectiveBranchId !== 'all' ? effectiveBranchId : undefined,
-                {
-                    classId: classInfo.id,
-                    grade: classInfo.grade,
-                    section: classInfo.section
-                }
-            );
+            // Use the dedicated class-students endpoint so the backend uses the
+            // JWT school_id (not a potentially stale classInfo.schoolId) and the
+            // active X-Branch-Id header. This also handles the grade+section fallback
+            // for students who exist by grade/section but have no enrollment record.
+            const studentData = await api.getStudentsByClassId(classInfo.id);
 
             if (studentData) {
                 setStudents(studentData.map((s: any) => ({
@@ -105,7 +89,7 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ classInfo, naviga
             {students.map(student => (
               <button
                 key={student.id}
-                onClick={() => navigateTo('studentProfile', student.name, { student })}
+                onClick={() => navigateTo('studentProfile', student.name, { student, subjectContext: classInfo.subject })}
                 className="w-full bg-white rounded-xl shadow-sm p-3 flex items-center space-x-4 transition-all hover:shadow-md hover:ring-2 hover:ring-purple-200"
                 aria-label={`View profile for ${student.name}`}
               >

@@ -60,28 +60,47 @@ const ClassGradebookScreen: React.FC<{
     const [currentTerm, setCurrentTerm] = useState<any>(null);
     const [isPeriodOpen, setIsPeriodOpen] = useState(true);
 
+    // Generate full year range from school's app_start_year to SS3 future graduation
+    const generateYearRange = (): string[] => {
+        const settings = (currentSchool as any)?.settings;
+        const startYear: number = settings?.app_start_year
+            ? Number(settings.app_start_year)
+            : new Date().getFullYear() - 1;
+        // Show up to 3 years ahead so current SS1 students can see their SS3 year
+        const endYear = new Date().getFullYear() + 3;
+        const years: string[] = [];
+        for (let y = startYear; y <= endYear; y++) {
+            years.push(`${y}/${y + 1}`);
+        }
+        return years;
+    };
+
     // Fetch Academic Periods from Backend
     useEffect(() => {
         const fetchPeriods = async () => {
             if (!currentSchool?.id) return;
             try {
                 const data = await api.getAcademicTerms(currentSchool.id);
+                const allYears = generateYearRange();
 
                 if (data && data.length > 0) {
-                    const uniqueSessions = Array.from(new Set(data.map((t: any) => t.academic_year as string)));
-                    setSessions(uniqueSessions);
+                    // Merge DB years with generated range (DB years take priority for term data)
+                    const dbYears = Array.from(new Set(data.map((t: any) => t.academic_year as string)));
+                    const mergedYears = Array.from(new Set([...allYears, ...dbYears])).sort();
+                    setSessions(mergedYears);
                     setTerms(data);
 
-                    // Set default current session and term
-                    const current = data.find(t => t.is_current) || data[0];
+                    // Default to current active term, or current calendar year session
+                    const current = data.find((t: any) => t.is_current) || data[0];
                     setCurrentSession(current.academic_year);
                     setCurrentTerm(current);
                 } else {
-                    // Fallback if empty
-                    setSessions(["2024/2025"]);
-                    const fallbackTerm = { name: "First Term", academic_year: "2024/2025", start_date: '2024-09-01', end_date: '2025-07-30' };
+                    setSessions(allYears);
+                    const nowYear = new Date().getFullYear();
+                    const currentAcademicYear = `${nowYear}/${nowYear + 1}`;
+                    const fallbackTerm = { name: "First Term", academic_year: currentAcademicYear, start_date: `${nowYear}-09-01`, end_date: `${nowYear + 1}-07-30` };
                     setTerms([fallbackTerm]);
-                    setCurrentSession("2024/2025");
+                    setCurrentSession(currentAcademicYear);
                     setCurrentTerm(fallbackTerm);
                 }
             } catch (err) {
@@ -155,12 +174,12 @@ const ClassGradebookScreen: React.FC<{
                 return;
             }
 
-            const grade = clsObj.grade;
-            const section = clsObj.section;
             const subject = clsObj.subject;
 
-            // 1. Fetch Students
-            const studentData = await api.getStudentsByClass(grade, section, schoolId, currentBranchId);
+            // 1. Fetch Students — use classId directly to avoid grade/section parsing issues
+            const studentData = clsObj.id
+                ? await api.getStudentsByClassId(clsObj.id)
+                : await api.getStudentsByClass(clsObj.grade, clsObj.section, schoolId, currentBranchId);
 
             if (studentData.length === 0) {
                 setStudents([]);
@@ -213,7 +232,7 @@ const ClassGradebookScreen: React.FC<{
 
     useEffect(() => {
         loadData();
-    }, [selectedClass, selectedSubject, classes]);
+    }, [selectedClass, selectedSubject, classes, currentSession, currentTerm?.id, currentTerm?.name]);
 
     useAutoSync(['report_card_records', 'report_cards'], loadData);
 
@@ -344,8 +363,18 @@ const ClassGradebookScreen: React.FC<{
                         <div className="flex flex-wrap items-center gap-2 mt-1">
                             <select
                                 value={currentSession}
-                                onChange={(e) => setCurrentSession(e.target.value)}
-                                className="text-[10px] font-black uppercase tracking-widest bg-gray-50 border-gray-200 rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-purple-200"
+                                onChange={(e) => {
+                                    const newSession = e.target.value;
+                                    setCurrentSession(newSession);
+                                    // Auto-select first term for this session, or clear if none
+                                    const sessionTerms = terms.filter(t => t.academic_year === newSession);
+                                    if (sessionTerms.length > 0) {
+                                        setCurrentTerm(sessionTerms.find(t => t.is_current) || sessionTerms[0]);
+                                    } else {
+                                        setCurrentTerm(null);
+                                    }
+                                }}
+                                className="text-xs font-black uppercase tracking-widest bg-gray-50 border-gray-200 rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-purple-200"
                             >
                                 {sessions.map(s => <option key={s} value={s}>{s}</option>)}
                             </select>
@@ -355,13 +384,17 @@ const ClassGradebookScreen: React.FC<{
                                     const selected = terms.find(t => t.id === e.target.value || t.name === e.target.value);
                                     if (selected) setCurrentTerm(selected);
                                 }}
-                                className="text-[10px] font-black uppercase tracking-widest bg-gray-50 border-gray-200 rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-purple-200"
+                                className="text-xs font-black uppercase tracking-widest bg-gray-50 border-gray-200 rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-purple-200"
+                                disabled={filteredTerms.length === 0}
                             >
-                                {filteredTerms.map((t, idx) => (
-                                    <option key={`${t.id || t.name}-${idx}`} value={t.id || t.name}>
-                                        {t.name}
-                                    </option>
-                                ))}
+                                {filteredTerms.length === 0
+                                    ? <option value="">No terms set up</option>
+                                    : filteredTerms.map((t, idx) => (
+                                        <option key={`${t.id || t.name}-${idx}`} value={t.id || t.name}>
+                                            {t.name}
+                                        </option>
+                                    ))
+                                }
                             </select>
                         </div>
                         <p className="text-sm text-gray-500">Manage CA and Exam scores efficiently</p>
@@ -546,7 +579,7 @@ const ClassGradebookScreen: React.FC<{
                                     {/* Score Inputs */}
                                     <div className="grid grid-cols-3 gap-2 mb-3">
                                         <div>
-                                            <label className="block text-[10px] font-medium text-gray-500 mb-1">Test 1 (20)</label>
+                                            <label className="block text-xs font-medium text-gray-500 mb-1">Test 1 (20)</label>
                                             <input
                                                 type="text"
                                                 value={student.test1}
@@ -556,7 +589,7 @@ const ClassGradebookScreen: React.FC<{
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-[10px] font-medium text-gray-500 mb-1">Test 2 (20)</label>
+                                            <label className="block text-xs font-medium text-gray-500 mb-1">Test 2 (20)</label>
                                             <input
                                                 type="text"
                                                 value={student.test2}
@@ -566,7 +599,7 @@ const ClassGradebookScreen: React.FC<{
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-[10px] font-medium text-gray-500 mb-1">Exam (60)</label>
+                                            <label className="block text-xs font-medium text-gray-500 mb-1">Exam (60)</label>
                                             <input
                                                 type="text"
                                                 value={student.exam}

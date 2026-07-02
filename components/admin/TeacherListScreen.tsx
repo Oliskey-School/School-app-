@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { SearchIcon, PlusIcon, FilterIcon, UsersIcon, AcademicCapIcon, ClipboardListIcon } from '../../constants';
 import { useAuth } from '../../context/AuthContext';
 import { useProfile } from '../../context/ProfileContext';
@@ -47,6 +47,7 @@ const TeacherCard: React.FC<{ teacher: Teacher; onSelect: (teacher: Teacher) => 
             <div className="flex-1 min-w-0">
                 <p className="font-bold text-lg text-gray-900 truncate">{teacher.name}</p>
                 <p className="text-xs text-gray-500 mb-1 font-mono">{formatSchoolId(teacher.schoolGeneratedId || teacher.id, 'Teacher')}</p>
+                {teacher.email && <p className="text-xs text-gray-400 truncate mb-1">{teacher.email}</p>}
                 <div className="mt-1">
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
                         {Array.isArray(teacher.subjects) && teacher.subjects.length > 0 ? teacher.subjects[0] : 'Unassigned'}
@@ -56,7 +57,7 @@ const TeacherCard: React.FC<{ teacher: Teacher; onSelect: (teacher: Teacher) => 
 
             {/* Status Badge in Bottom Right */}
             <div className="absolute bottom-4 right-4">
-                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${teacher.status === 'Active'
+                <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider ${teacher.status === 'Active'
                     ? 'bg-green-100 text-green-700'
                     : 'bg-red-100 text-red-700'
                     }`}>
@@ -72,6 +73,7 @@ const TeacherListScreen: React.FC<TeacherListScreenProps> = ({ navigateTo, curre
     const { profile } = useProfile();
     const [searchTerm, setSearchTerm] = useState('');
     const [filterSubject, setFilterSubject] = useState<string>('All');
+    const [filterStatus, setFilterStatus] = useState<string>('All');
     const [teachers, setTeachers] = useState<Teacher[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -148,7 +150,8 @@ const TeacherListScreen: React.FC<TeacherListScreenProps> = ({ navigateTo, curre
 
         const matchesSearch = safeName.includes(safeSearch) || safeEmail.includes(safeSearch);
         const matchesSubject = filterSubject === 'All' || (Array.isArray(teacher.subjects) && teacher.subjects.includes(filterSubject));
-        return matchesSearch && matchesSubject;
+        const matchesStatus = filterStatus === 'All' || teacher.status === filterStatus;
+        return matchesSearch && matchesSubject && matchesStatus;
     });
 
     return (
@@ -211,7 +214,7 @@ const TeacherListScreen: React.FC<TeacherListScreenProps> = ({ navigateTo, curre
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                     <div className="relative">
                         <FilterIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                         <select
@@ -222,6 +225,16 @@ const TeacherListScreen: React.FC<TeacherListScreenProps> = ({ navigateTo, curre
                             {subjects.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                     </div>
+                    <select
+                        className="px-3 py-2.5 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-blue-500 transition-all text-sm appearance-none"
+                        value={filterStatus}
+                        onChange={(e) => setFilterStatus(e.target.value)}
+                    >
+                        <option value="All">All Status</option>
+                        <option value="Active">Active</option>
+                        <option value="On Leave">On Leave</option>
+                        <option value="Inactive">Inactive</option>
+                    </select>
                 </div>
             </div>
 

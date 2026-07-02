@@ -24,19 +24,19 @@ export const DigitalReportCard: React.FC<ReportProps> = ({ summary, grades, scho
             {/* Stats Grid */}
             <div className="grid grid-cols-4 gap-4 mb-8">
                 <div className="bg-indigo-50 p-4 rounded-2xl text-center">
-                    <p className="text-[10px] font-bold text-indigo-400 uppercase mb-1">Position</p>
+                    <p className="text-xs font-bold text-indigo-400 uppercase mb-1">Position</p>
                     <p className="text-2xl font-black text-indigo-700">{summary.position_in_class} / {summary.total_students_in_class}</p>
                 </div>
                 <div className="bg-emerald-50 p-4 rounded-2xl text-center">
-                    <p className="text-[10px] font-bold text-emerald-400 uppercase mb-1">Average</p>
+                    <p className="text-xs font-bold text-emerald-400 uppercase mb-1">Average</p>
                     <p className="text-2xl font-black text-emerald-700">{Math.round(summary.average_score)}%</p>
                 </div>
                 <div className="bg-blue-50 p-4 rounded-2xl text-center">
-                    <p className="text-[10px] font-bold text-blue-400 uppercase mb-1">Attendance</p>
+                    <p className="text-xs font-bold text-blue-400 uppercase mb-1">Attendance</p>
                     <p className="text-2xl font-black text-blue-700">{summary.attendance_count || 'N/A'}</p>
                 </div>
                 <div className="bg-purple-50 p-4 rounded-2xl text-center">
-                    <p className="text-[10px] font-bold text-purple-400 uppercase mb-1">Grade</p>
+                    <p className="text-xs font-bold text-purple-400 uppercase mb-1">Grade</p>
                     <p className="text-2xl font-black text-purple-700">{summary.average_score >= 75 ? 'A' : 'B'}</p>
                 </div>
             </div>
@@ -44,7 +44,7 @@ export const DigitalReportCard: React.FC<ReportProps> = ({ summary, grades, scho
             {/* Grades Table */}
             <table className="w-full border-collapse mb-8 font-sans">
                 <thead>
-                    <tr className="bg-gray-900 text-white text-[10px] uppercase tracking-widest">
+                    <tr className="bg-gray-900 text-white text-xs uppercase tracking-widest">
                         <th className="p-3 text-left">Subject</th>
                         <th className="p-3 text-center">CA (40)</th>
                         <th className="p-3 text-center">Exam (60)</th>
@@ -68,7 +68,7 @@ export const DigitalReportCard: React.FC<ReportProps> = ({ summary, grades, scho
             {/* Remarks */}
             <div className="space-y-4 font-sans">
                 <div className="p-4 bg-gray-50 rounded-2xl">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Principal's Remark</p>
+                    <p className="text-xs font-bold text-gray-400 uppercase mb-1">Principal's Remark</p>
                     <p className="text-sm italic text-gray-700 leading-relaxed">
                         "{summary.principal_remark || 'A very good performance. Keep maintaining this standard.'}"
                     </p>
@@ -79,11 +79,11 @@ export const DigitalReportCard: React.FC<ReportProps> = ({ summary, grades, scho
             <div className="mt-12 flex justify-between items-end opacity-50">
                 <div className="text-center">
                     <div className="w-32 border-b border-gray-900 mb-2"></div>
-                    <p className="text-[10px] font-bold">Class Teacher Signature</p>
+                    <p className="text-xs font-bold">Class Teacher Signature</p>
                 </div>
                 <div className="text-center">
                     <div className="w-32 border-b border-gray-900 mb-2"></div>
-                    <p className="text-[10px] font-bold">School Registrar Seal</p>
+                    <p className="text-xs font-bold">School Registrar Seal</p>
                 </div>
             </div>
         </div>

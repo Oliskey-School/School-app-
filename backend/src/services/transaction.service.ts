@@ -31,7 +31,7 @@ export class TransactionService {
             }
 
             if (isValid) {
-                const existingPayment = await prisma.payment.findUnique({
+                const existingPayment = await prisma.payment.findFirst({
                     where: { reference }
                 });
 
@@ -43,14 +43,15 @@ export class TransactionService {
                     SocketService.emitToSchool(schoolId, 'finance:updated', { action: 'verify_payment', paymentId: updated.id });
                     return updated;
                 } else {
-                    const inserted = await prisma.payment.create({
+                    const inserted = await (prisma.payment.create as any)({
                         data: {
                             school_id: schoolId,
                             branch_id: branchId && branchId !== 'all' ? branchId : null,
                             reference,
                             amount,
                             status: 'success',
-                            purpose: 'fee_payment'
+                            purpose: 'fee_payment',
+                            payment_method: 'gateway'
                         }
                     });
                     SocketService.emitToSchool(schoolId, 'finance:updated', { action: 'create_payment', paymentId: inserted.id });
@@ -89,7 +90,7 @@ export class TransactionService {
     }
 
     static async createTransaction(schoolId: string, branchId: string | undefined, data: any) {
-        const transaction = await prisma.payment.create({
+        const transaction = await (prisma.payment.create as any)({
             data: {
                 school_id: schoolId,
                 branch_id: branchId && branchId !== 'all' ? branchId : (data.branch_id || null),
@@ -97,6 +98,7 @@ export class TransactionService {
                 reference: data.reference,
                 status: data.status || 'pending',
                 purpose: data.purpose,
+                payment_method: data.payment_method || 'manual',
                 metadata: data.metadata || {}
             }
         });

@@ -30,7 +30,12 @@ interface RecentPayslip {
     status: string;
 }
 
-const PayrollDashboard: React.FC = () => {
+interface PayrollDashboardProps {
+    navigateTo?: (view: string, title: string, props?: any) => void;
+    [key: string]: any;
+}
+
+const PayrollDashboard: React.FC<PayrollDashboardProps> = ({ navigateTo }) => {
     const { currentSchool, currentBranchId } = useAuth();
     const [stats, setStats] = useState<PayrollStats>({
         totalTeachers: 0,
@@ -286,7 +291,9 @@ const PayrollDashboard: React.FC = () => {
                                 {formatCurrency(stats.outstandingArrears)} in unpaid arrears requires attention
                             </p>
                         </div>
-                        <button className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium">
+                        <button
+                            onClick={() => navigateTo?.('arrearsTracker', 'Arrears Tracker')}
+                            className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium">
                             View Arrears
                         </button>
                     </div>
@@ -296,15 +303,21 @@ const PayrollDashboard: React.FC = () => {
                 <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
                     <h3 className="text-lg font-bold text-gray-900 mb-4">Quick Actions</h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <button className="flex items-center justify-center space-x-2 px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium">
+                        <button
+                            onClick={() => navigateTo?.('payslipGenerator', 'Payslip Generator')}
+                            className="flex items-center justify-center space-x-2 px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium">
                             <DocumentTextIcon className="w-5 h-5" />
                             <span>Generate Payslips</span>
                         </button>
-                        <button className="flex items-center justify-center space-x-2 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium">
+                        <button
+                            onClick={() => navigateTo?.('payslipGenerator', 'Payslip Generator')}
+                            className="flex items-center justify-center space-x-2 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium">
                             <CheckCircleIcon className="w-5 h-5" />
                             <span>Approve Payslips</span>
                         </button>
-                        <button className="flex items-center justify-center space-x-2 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium">
+                        <button
+                            onClick={() => navigateTo?.('paymentHistory', 'Payment History')}
+                            className="flex items-center justify-center space-x-2 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium">
                             <ChartBarIcon className="w-5 h-5" />
                             <span>View Reports</span>
                         </button>

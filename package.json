@@ -4,7 +4,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "postinstall": "npx prisma generate && npx prisma generate --schema=backend/prisma/schema.prisma",
+    "postinstall": "npx prisma generate && npx prisma generate --schema=backend/prisma/schema.prisma && node scripts/patch-otplib.js",
     "preview": "vite preview",
     "test": "vitest",
     "test:run": "vitest run",
@@ -25,7 +25,7 @@
     "start:all": "concurrently \"npm run dev\" \"npm run server\"",
     "prestart:all": "npm run kill-ports",
     "clean": "npx rimraf node_modules/.vite .vite",
-    "setup": "npm install && echo '\n✅ Dependencies installed!\n\nNext steps:\n1. Run: npm run db:migrate\n2. Run: npm run db:seed\n3. Run: npm run start:all\n4. Visit: http://localhost:5173\n'"
+    "setup": "npm install && echo '\n\u00e2\u0153\u2026 Dependencies installed!\n\nNext steps:\n1. Run: npm run db:migrate\n2. Run: npm run db:seed\n3. Run: npm run start:all\n4. Visit: http://localhost:5173\n'"
   },
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"

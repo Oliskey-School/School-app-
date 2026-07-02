@@ -6,7 +6,7 @@ export const getTemplateByType = async (req: Request, res: Response) => {
     try {
         const { type } = req.params;
         const template = await prisma.inspectionTemplate.findUnique({
-            where: { inspection_type: type },
+            where: { inspection_type: type as string },
         });
 
         if (!template) {
@@ -105,7 +105,7 @@ export const getSchoolInspectionHistory = async (req: Request, res: Response) =>
     try {
         const { schoolId } = req.params;
         const history = await prisma.inspection.findMany({
-            where: { school_id: schoolId },
+            where: { school_id: schoolId as string },
             include: {
                 template: true,
                 escalations: true

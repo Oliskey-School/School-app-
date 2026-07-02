@@ -93,6 +93,7 @@ export const AdminSidebar = ({ activeScreen, setActiveScreen, onLogout, schoolNa
                 <div className="space-y-1">
                     <SidebarItem id="home" icon={<HomeIcon />} label="Home" isActive={activeScreen === 'home'} onClick={() => setActiveScreen('home')} activeColor="text-indigo-600" />
                     <SidebarItem id="branches" icon={<BuildingLibraryIcon />} label="Branches" isActive={activeScreen === 'branches'} onClick={() => setActiveScreen('branches')} activeColor="text-indigo-600" />
+                    <SidebarItem id="teacherList" icon={<UserGroupIcon />} label="Teachers" isActive={activeScreen === 'teacherList'} onClick={() => setActiveScreen('teacherList')} activeColor="text-indigo-600" />
                     <SidebarItem id="studentApprovals" icon={<CheckCircleIcon />} label="Approvals" isActive={activeScreen === 'studentApprovals'} onClick={() => setActiveScreen('studentApprovals')} activeColor="text-indigo-600" />
                     <SidebarItem id="feeManagement" icon={<DocumentTextIcon />} label="Fee Management" isActive={activeScreen === 'feeManagement'} onClick={() => setActiveScreen('feeManagement')} activeColor="text-indigo-600" />
                     <SidebarItem id="messages" icon={<MessagesIcon />} label="Messages" isActive={activeScreen === 'messages'} onClick={() => setActiveScreen('messages')} activeColor="text-indigo-600" />

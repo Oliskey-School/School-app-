@@ -194,4 +194,11 @@ const UserSeeder: React.FC = () => {
     );
 };
 
-export default UserSeeder;
+// Only render in development — this component uses legacy Supabase shims
+// and would destroy production data if exposed.
+const UserSeederGuard: React.FC = () => {
+    if (import.meta.env.MODE === 'production') return null;
+    return <UserSeeder />;
+};
+
+export default UserSeederGuard;

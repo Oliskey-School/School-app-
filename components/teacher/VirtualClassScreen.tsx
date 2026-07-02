@@ -14,7 +14,7 @@ import api from '../../lib/api';
 import { useTeacherClasses } from '../../hooks/useTeacherClasses';
 import { getFormattedClassName } from '../../constants';
 import { parseClassName } from '../../utils/classUtils';
-import LiveClassRoom from '../video/LiveClassRoom';
+import LiveClassRoom, { buildJitsiUrl } from '../video/LiveClassRoom';
 
 // --- Customized Icons for Premium Feel ---
 const XIcon = (props: React.SVGProps<SVGSVGElement>) => <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>;
@@ -22,6 +22,7 @@ const HandIcon = (props: React.SVGProps<SVGSVGElement>) => <svg {...props} xmlns
 const GridViewIcon = (props: React.SVGProps<SVGSVGElement>) => <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>;
 const FullScreenIcon = (props: React.SVGProps<SVGSVGElement>) => <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>;
 const DotsHorizontalIcon = (props: React.SVGProps<SVGSVGElement>) => <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" /></svg>;
+const TrashIcon = (props: React.SVGProps<SVGSVGElement>) => <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>;
 const ReactionIcon = (props: React.SVGProps<SVGSVGElement>) => <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 const ChevronLeftIcon = (props: React.SVGProps<SVGSVGElement>) => <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>;
 const ChevronRightIcon = (props: React.SVGProps<SVGSVGElement>) => <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>;
@@ -93,7 +94,7 @@ const ParticipantTile: React.FC<ParticipantProps & { size: 'xs' | 'sm' | 'md' | 
             <div className={`absolute bottom-2 left-2 z-20 max-w-[90%]`}>
                 <div className={`flex items-center space-x-1.5 bg-white/90 backdrop-blur-md px-1.5 py-0.5 md:px-2 md:py-1 rounded-md md:rounded-lg shadow-sm border border-white/50 ${size === 'xs' ? 'scale-75 origin-bottom-left' : ''}`}>
                     {isSpeaking ? <AudioVisualizer /> : <div className="w-1.5 h-1.5 rounded-full bg-slate-400"></div>}
-                    <span className="text-[10px] md:text-xs font-semibold text-slate-800 truncate select-none">{name}</span>
+                    <span className="text-xs md:text-xs font-semibold text-slate-800 truncate select-none">{name}</span>
                 </div>
             </div>
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300 pointer-events-none" />
@@ -105,7 +106,7 @@ const ChatBubble: React.FC<{ name: string, message: string, time: string, isYou?
     <div className={`flex flex-col ${isYou ? 'items-end' : 'items-start'} mb-4 animate-slide-in-up`}>
         <div className="flex items-baseline space-x-2 mb-1 px-1">
             <span className={`text-xs font-bold ${isYou ? 'text-indigo-600' : 'text-slate-600'}`}>{name}</span>
-            <span className="text-[10px] text-slate-400">{time}</span>
+            <span className="text-xs text-slate-400">{time}</span>
         </div>
         <div className={`px-4 py-2.5 rounded-2xl max-w-[85%] text-sm shadow-sm leading-relaxed ${isYou ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white text-slate-700 border border-slate-100 rounded-tl-none'}`}>
             {message}
@@ -128,7 +129,8 @@ const ClassSelectionScreen: React.FC<{
     onStartClass: (session: ClassSession, subject: string, topic: string, duration: string, initialMuted: boolean, initialCameraOff: boolean) => void;
     userId?: string;
     schoolId?: string;
-}> = ({ onStartClass, userId, schoolId }) => {
+    displayName?: string;
+}> = ({ onStartClass, userId, schoolId, displayName }) => {
     const [selectedClass, setSelectedClass] = useState<ClassSession | null>(null);
     const [subject, setSubject] = useState('');
     const [topic, setTopic] = useState('');
@@ -138,6 +140,8 @@ const ClassSelectionScreen: React.FC<{
     const [lobbyMuted, setLobbyMuted] = useState(false);
     const [lobbyCameraOff, setLobbyCameraOff] = useState(false);
     const [refreshTrigger, setRefreshTrigger] = useState(0);
+    const [pastSessions, setPastSessions] = useState<any[]>([]);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
     const videoPreviewRef = useRef<HTMLVideoElement>(null);
 
     const { classes: rawClasses, loading: classesLoading } = useTeacherClasses();
@@ -157,7 +161,7 @@ const ClassSelectionScreen: React.FC<{
             subject: c.subject || 'General',
             description: `Class Session for ${getFormattedClassName(c.grade, c.section)}`,
             time: 'Now',
-            studentsCount: c.studentCount || Math.floor(Math.random() * 20) + 10 // Fallback if no count yet
+            studentsCount: c.studentCount || 0
         }));
 
         setClasses(formattedClasses);
@@ -169,8 +173,26 @@ const ClassSelectionScreen: React.FC<{
     }, [selectedClass]);
 
     useEffect(() => {
-        if (selectedClass) setSubject(selectedClass.subject);
-    }, [selectedClass]);
+        // Show ALL sessions so the teacher can delete any of them,
+        // including live ones they accidentally left running.
+        api.getMyVirtualClassSessions().then(sessions => {
+            setPastSessions(sessions);
+        }).catch(() => {});
+    }, [refreshTrigger]);
+
+    const handleDeleteSession = async (id: string) => {
+        if (!window.confirm('Delete this session? Students will no longer see it.')) return;
+        setDeletingId(id);
+        try {
+            await api.deleteVirtualClassSession(id);
+            setPastSessions(prev => prev.filter(s => s.id !== id));
+            toast.success('Session deleted');
+        } catch (e: any) {
+            toast.error('Could not delete session');
+        } finally {
+            setDeletingId(null);
+        }
+    };
 
     useEffect(() => {
         let stream: MediaStream | null = null;
@@ -201,7 +223,7 @@ const ClassSelectionScreen: React.FC<{
                             <CalendarIcon className="w-5 h-5 text-indigo-500" />
                             <h2>Classes</h2>
                         </div>
-                        <div className="space-y-3 h-[400px] overflow-y-auto custom-scrollbar lg:pr-2">
+                        <div className="space-y-3 h-[240px] overflow-y-auto custom-scrollbar lg:pr-2">
                             {loading && <p className="text-center text-slate-400 py-4">Loading classes...</p>}
                             {!loading && classes.length === 0 && <p className="text-center text-slate-400 py-4">No classes found.</p>}
                             {classes.map((cls) => (
@@ -216,13 +238,63 @@ const ClassSelectionScreen: React.FC<{
                                             <p className="text-xs text-slate-400 mt-1 line-clamp-1">{cls.description}</p>
                                         </div>
                                         <div className="text-right flex-shrink-0">
-                                            <span className="block text-[10px] md:text-xs font-semibold text-indigo-600 bg-indigo-100 px-2 py-1 rounded-full">{cls.time}</span>
-                                            <span className="block text-[10px] text-slate-400 mt-1">{cls.studentsCount} Students</span>
+                                            <span className="block text-xs md:text-xs font-semibold text-indigo-600 bg-indigo-100 px-2 py-1 rounded-full">{cls.time}</span>
+                                            <span className="block text-xs text-slate-400 mt-1">{cls.studentsCount} Students</span>
                                         </div>
                                     </div>
                                 </div>
                             ))}
                         </div>
+
+                        {/* Past Sessions */}
+                        {pastSessions.length > 0 && (
+                            <div className="pt-4 border-t border-slate-200">
+                                <div className="flex items-center space-x-2 text-slate-600 font-semibold mb-2">
+                                    <TrashIcon className="w-4 h-4 text-slate-400" />
+                                    <h3 className="text-sm">Past Sessions</h3>
+                                </div>
+                                <div className="space-y-2 max-h-[160px] overflow-y-auto custom-scrollbar lg:pr-2">
+                                    {pastSessions.map(s => {
+                                        const now = new Date();
+                                        const isLive = s.status === 'active' && (!s.end_time || new Date(s.end_time) > now);
+                                        const isExpired = s.status === 'active' && s.end_time && new Date(s.end_time) < now;
+                                        const statusLabel = isLive ? 'Still Live' : isExpired ? 'Expired' : 'Ended';
+                                        return (
+                                            <div key={s.id} className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 gap-2">
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="text-xs font-semibold text-slate-700 truncate">{s.subject || s.title}</p>
+                                                    <p className="text-xs text-slate-400">{new Date(s.start_time).toLocaleDateString()} · <span className={isLive ? 'text-red-500 font-semibold' : ''}>{statusLabel}</span></p>
+                                                </div>
+                                                <div className="flex items-center gap-1 flex-shrink-0">
+                                                    {isLive && (
+                                                        <button
+                                                            onClick={() => window.open(
+                                                                buildJitsiUrl(s.id, displayName || 'Teacher'),
+                                                                `jitsi_${s.id.replace(/-/g, '')}`
+                                                            )}
+                                                            className="px-2 py-1 text-xs font-bold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all active:scale-95 whitespace-nowrap"
+                                                        >
+                                                            Rejoin
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        onClick={() => handleDeleteSession(s.id)}
+                                                        disabled={deletingId === s.id}
+                                                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all disabled:opacity-50"
+                                                        title="Delete session"
+                                                    >
+                                                        {deletingId === s.id
+                                                            ? <div className="w-3.5 h-3.5 border-2 border-red-300 border-t-red-500 rounded-full animate-spin" />
+                                                            : <TrashIcon className="w-3.5 h-3.5" />
+                                                        }
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
                     </div>
                     <div className="lg:col-span-8 bg-white p-4 md:p-6 rounded-2xl shadow-lg border border-slate-200 flex flex-col md:flex-row gap-6 order-1 lg:order-2">
                         <div className="flex-1 space-y-5">
@@ -343,6 +415,11 @@ const VirtualClassScreen: React.FC = () => {
         if (!user) return;
         setIsMuted(initialMuted);
         setIsCameraOff(initialCameraOff);
+
+        // Pre-open a blank window synchronously inside the click-handler so the
+        // browser's popup blocker allows it. We set the real URL after the API call.
+        const jitsiWin = window.open('about:blank', 'jitsi_teacher_class');
+
         try {
             const session = await api.createVirtualClassSession({
                 teacher_id: user.id,
@@ -352,8 +429,17 @@ const VirtualClassScreen: React.FC = () => {
                 topic: topic,
                 status: 'active',
                 start_time: new Date().toISOString(),
-                meeting_url: 'internal_jitsi'
+                meeting_url: 'internal_jitsi',
+                duration_minutes: parseInt(duration),
             });
+
+            // Now we have the session id — set the real Jitsi URL in the pre-opened window.
+            if (jitsiWin) {
+                jitsiWin.location.href = buildJitsiUrl(
+                    session.id,
+                    user?.full_name || user?.name || 'Teacher'
+                );
+            }
 
             // Set the room id FIRST, then open the room, so the teacher and the
             // students all share the exact same live room (keyed by session id).
@@ -370,6 +456,7 @@ const VirtualClassScreen: React.FC = () => {
             }).catch(() => { /* notification is best-effort */ });
             toast.success('Class session started live!');
         } catch (e: any) {
+            jitsiWin?.close();
             toast.error('Failed to start session: ' + e.message);
         }
     };
@@ -386,7 +473,7 @@ const VirtualClassScreen: React.FC = () => {
     // Until the session is created we don't have the room id, so keep showing the
     // class picker. Once it's live, drop the teacher into the shared room.
     if (!activeSession || !activeSessionId) {
-        return <ClassSelectionScreen onStartClass={handleStartClass} schoolId={currentSchool?.id} />;
+        return <ClassSelectionScreen onStartClass={handleStartClass} schoolId={currentSchool?.id} displayName={user?.full_name || user?.name || 'Teacher'} />;
     }
 
     return (
@@ -416,8 +503,8 @@ const _UnusedLegacyLiveUI: React.FC<any> = ({
                     <div className="bg-white/90 backdrop-blur-xl border border-white/50 shadow-sm rounded-full px-4 py-2 flex items-center justify-between w-full max-w-3xl md:w-auto md:space-x-8 pointer-events-auto transition-all">
                         <div className="flex items-center space-x-2 md:space-x-4 overflow-hidden">
                             <div className="flex flex-col items-center leading-none">
-                                <span className="text-[10px] md:text-xs font-bold text-red-500 uppercase tracking-wide flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span> REC</span>
-                                <span className="text-[10px] md:text-xs font-mono text-slate-500 mt-0.5 w-[35px] text-center">{formatTime(elapsedTime)}</span>
+                                <span className="text-xs md:text-xs font-bold text-red-500 uppercase tracking-wide flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span> REC</span>
+                                <span className="text-xs md:text-xs font-mono text-slate-500 mt-0.5 w-[35px] text-center">{formatTime(elapsedTime)}</span>
                             </div>
                             <div className="h-6 w-px bg-slate-200 mx-1 md:mx-0 flex-shrink-0"></div>
                             <div className="flex flex-col overflow-hidden">
@@ -425,10 +512,10 @@ const _UnusedLegacyLiveUI: React.FC<any> = ({
                                     <h2 className="text-xs md:text-sm font-bold text-slate-800 truncate max-w-[100px] md:max-w-[160px]">{activeSession.classDetails.grade}</h2>
                                     <span className="hidden sm:inline text-xs md:text-sm font-semibold text-indigo-600 truncate">{activeSession.subject}</span>
                                 </div>
-                                <span className="text-[10px] md:text-xs text-slate-500 truncate max-w-[140px] md:max-w-xs">{activeSession.topic || 'No topic set'}</span>
+                                <span className="text-xs md:text-xs text-slate-500 truncate max-w-[140px] md:max-w-xs">{activeSession.topic || 'No topic set'}</span>
                             </div>
                         </div>
-                        <div className="text-[10px] md:text-xs font-medium text-slate-500 font-mono hidden sm:block flex-shrink-0 border-l border-slate-200 pl-4 ml-4">Ends in {parseInt(activeSession.duration) - Math.floor(elapsedTime / 60)}m</div>
+                        <div className="text-xs md:text-xs font-medium text-slate-500 font-mono hidden sm:block flex-shrink-0 border-l border-slate-200 pl-4 ml-4">Ends in {parseInt(activeSession.duration) - Math.floor(elapsedTime / 60)}m</div>
                     </div>
                 </div>
                 <div className="absolute top-4 right-4 z-20 hidden md:block">
@@ -460,7 +547,7 @@ const _UnusedLegacyLiveUI: React.FC<any> = ({
                                 <div className="relative rounded-xl md:rounded-2xl overflow-hidden shadow-sm border-2 border-green-400 w-full aspect-video bg-white">
                                     <video ref={videoRef} autoPlay muted playsInline className={`w-full h-full object-cover ${isCameraOff ? 'hidden' : 'block'}`} />
                                     {isCameraOff && <div className="absolute inset-0 flex items-center justify-center bg-slate-100"><div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-indigo-600 flex items-center justify-center text-xl md:text-2xl font-bold text-white">Y</div></div>}
-                                    <div className="absolute bottom-2 left-2 md:bottom-3 md:left-3 bg-white/90 px-2 py-1 rounded text-[10px] md:text-xs backdrop-blur-sm font-bold text-slate-800 shadow-sm">You</div>
+                                    <div className="absolute bottom-2 left-2 md:bottom-3 md:left-3 bg-white/90 px-2 py-1 rounded text-xs md:text-xs backdrop-blur-sm font-bold text-slate-800 shadow-sm">You</div>
                                 </div>
                                 {participants.map(p => (<ParticipantTile key={p.id} {...p} size="sm" />))}
                             </div>
@@ -489,7 +576,7 @@ const _UnusedLegacyLiveUI: React.FC<any> = ({
                     <div className="px-5 pt-4 shrink-0"><div className="flex p-1 bg-slate-100 rounded-xl"><button onClick={() => setActiveSidebarTab('chat')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all shadow-sm ${activeSidebarTab === 'chat' ? 'bg-white text-indigo-600 shadow-md' : 'text-slate-500'}`}>Chat</button><button onClick={() => setActiveSidebarTab('participants')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all shadow-sm ${activeSidebarTab === 'participants' ? 'bg-white text-indigo-600 shadow-md' : 'text-slate-500'}`}>People ({participants.length + 1})</button></div></div>
                     <div className="flex-1 overflow-y-auto p-5 custom-scrollbar min-w-[320px]">
                         {activeSidebarTab === 'chat' ? (
-                            <div className="space-y-6 pb-4"><div className="flex items-center space-x-4"><div className="h-px bg-slate-200 flex-1"></div><span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">Today</span><div className="h-px bg-slate-200 flex-1"></div></div><ChatBubble name="Adebayo" message="Good morning!" time="10:24 AM" /></div>
+                            <div className="space-y-6 pb-4"><div className="flex items-center space-x-4"><div className="h-px bg-slate-200 flex-1"></div><span className="text-xs font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">Today</span><div className="h-px bg-slate-200 flex-1"></div></div><ChatBubble name="Adebayo" message="Good morning!" time="10:24 AM" /></div>
                         ) : (
                             <div className="space-y-2">
                                 <div className="flex items-center justify-between p-3 rounded-xl bg-indigo-50/50 border border-indigo-100"><div className="flex items-center space-x-3"><div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center text-sm font-bold text-white shadow-md ring-2 ring-white">Y</div><div><p className="text-sm font-bold text-slate-800 whitespace-nowrap">You (Host)</p><div className="flex items-center space-x-1 mt-0.5"><span className="w-1.5 h-1.5 rounded-full bg-green-500"></span><p className="text-xs text-slate-500">Connected</p></div></div></div></div>
@@ -508,10 +595,10 @@ const _UnusedLegacyLiveUI: React.FC<any> = ({
 
 const ControlBtn: React.FC<{ icon: React.ReactNode, label: string, active: boolean, onClick: () => void, activeColor?: string, inactiveColor?: string, notificationCount?: number }> = ({ icon, label, active, onClick, activeColor, inactiveColor, notificationCount }) => (
     <div className="group relative flex flex-col items-center flex-shrink-0">
-        <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 text-white text-[10px] px-2 py-1 rounded shadow-lg pointer-events-none whitespace-nowrap hidden md:block z-50">{label}</div>
+        <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 text-white text-xs px-2 py-1 rounded shadow-lg pointer-events-none whitespace-nowrap hidden md:block z-50">{label}</div>
         <button onClick={onClick} className={`p-2.5 md:p-3.5 rounded-xl transition-all duration-200 relative ${active ? activeColor : inactiveColor}`}>
             <span className="w-5 h-5 md:w-6 md:h-6">{icon}</span>
-            {notificationCount && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-full border-2 border-white shadow-sm font-bold">{notificationCount}</span>}
+            {notificationCount && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-4 h-4 flex items-center justify-center rounded-full border-2 border-white shadow-sm font-bold">{notificationCount}</span>}
         </button>
     </div>
 );

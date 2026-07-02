@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+﻿import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { api } from '../../lib/api';
 import { CertificateIcon, AwardIcon, StarIcon, TrophyIcon, UsersIcon, SparklesIcon } from '../../constants';
@@ -112,7 +112,7 @@ const AchievementsScreen: React.FC = () => {
                             <h2 className="text-xl font-bold text-gray-800 mb-3">My Awards</h2>
                             <div className="space-y-3">
                                 {categories.awards.map(award => (
-                                    <div key={award.id} className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-yellow-400">
+                                    <div key={award.id} className="bg-white p-4 rounded-xl shadow-sm border border-yellow-200">
                                         <div className="flex items-center space-x-4">
                                             <div className="flex-shrink-0 text-yellow-500">
                                                 <AwardIcon className="w-6 h-6" />
@@ -136,14 +136,14 @@ const AchievementsScreen: React.FC = () => {
                         <h2 className="text-xl font-bold text-gray-800 mb-3">Other Achievements</h2>
                         <div className="space-y-3">
                             {categories.others.map(ach => (
-                                <div key={ach.id} className="bg-white p-4 rounded-xl shadow-sm flex items-center space-x-4 border-l-4 border-indigo-400">
+                                <div key={ach.id} className="bg-white p-4 rounded-xl shadow-sm flex items-center space-x-4 border border-indigo-200">
                                     <div className="flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center bg-indigo-50">
                                         <StarIcon className="w-6 h-6 text-indigo-600" />
                                     </div>
                                     <div className="flex-grow">
                                         <p className="font-bold text-gray-800">{ach.title}</p>
                                         <p className="text-sm text-gray-500">{ach.description}</p>
-                                        <p className="text-[10px] text-gray-400 mt-1">{new Date(ach.date).toLocaleDateString()}</p>
+                                        <p className="text-xs text-gray-400 mt-1">{new Date(ach.date).toLocaleDateString()}</p>
                                     </div>
                                 </div>
                             ))}

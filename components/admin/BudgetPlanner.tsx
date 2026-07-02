@@ -172,15 +172,15 @@ const BudgetPlanner: React.FC = () => {
                 <>
                     {/* Summary Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                        <div className="bg-white rounded-xl shadow-sm p-6 border-l-4 border-blue-500">
+                        <div className="bg-blue-50 rounded-xl shadow-sm p-6 border border-blue-100">
                             <p className="text-sm text-gray-500 mb-1">Total Allocated</p>
                             <p className="text-2xl font-bold text-gray-900">₦{totalAllocated.toLocaleString()}</p>
                         </div>
-                        <div className="bg-white rounded-xl shadow-sm p-6 border-l-4 border-orange-500">
+                        <div className="bg-orange-50 rounded-xl shadow-sm p-6 border border-orange-100">
                             <p className="text-sm text-gray-500 mb-1">Total Spent</p>
                             <p className="text-2xl font-bold text-orange-600">₦{totalSpent.toLocaleString()}</p>
                         </div>
-                        <div className={`bg-white rounded-xl shadow-sm p-6 border-l-4 ${totalRemaining >= 0 ? 'border-green-500' : 'border-red-500'}`}>
+                        <div className={`rounded-xl shadow-sm p-6 border ${totalRemaining >= 0 ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'}`}>
                             <p className="text-sm text-gray-500 mb-1">Remaining</p>
                             <p className={`text-2xl font-bold ${totalRemaining >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                                 ₦{Math.abs(totalRemaining).toLocaleString()}

@@ -51,7 +51,13 @@ export class PolicyService {
 
     static async bulkCreatePermissionSlips(schoolId: string, slips: any[]) {
         const result = await prisma.permissionSlip.createMany({
-            data: slips.map(s => ({ ...s, school_id: schoolId }))
+            data: slips.map(s => ({
+                school_id: schoolId,
+                title: s.title,
+                description: s.description,
+                status: s.status || 'active',
+                ...(s.branch_id ? { branch_id: s.branch_id } : {}),
+            }))
         });
 
         SocketService.emitToSchool(schoolId, 'notice:updated', { action: 'bulk_create_slips' });

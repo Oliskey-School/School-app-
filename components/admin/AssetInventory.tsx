@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { PackageIcon, QrCodeIcon, MapPinIcon, AlertCircleIcon, TrashIcon, XIcon, PlusIcon } from 'lucide-react';
@@ -135,7 +135,7 @@ const AssetInventory = () => {
                                         <PackageIcon size={24} />
                                     </div>
                                     <h3 className="font-bold text-gray-900 text-lg leading-tight">{asset.name}</h3>
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-1 block">{asset.code || 'NO-CODE'}</span>
+                                    <span className="text-xs font-black uppercase tracking-widest text-gray-400 mt-1 block">{asset.code || 'NO-CODE'}</span>
                                 </div>
                                 
                                 <div className="space-y-2.5">
@@ -149,7 +149,7 @@ const AssetInventory = () => {
                                         <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center mr-3 text-gray-400">
                                             <AlertCircleIcon size={16} />
                                         </div>
-                                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+                                        <span className={`px-2 py-0.5 rounded-md text-xs font-bold uppercase tracking-wider ${
                                             asset.status === 'good' ? 'bg-green-50 text-green-700' : 
                                             asset.status === 'fair' ? 'bg-amber-50 text-amber-700' : 
                                             'bg-red-50 text-red-700'
@@ -161,11 +161,11 @@ const AssetInventory = () => {
 
                                 <div className="mt-6 pt-4 border-t border-gray-50 flex justify-between items-center">
                                     <div>
-                                        <p className="text-[10px] text-gray-400 font-bold uppercase">Current Value</p>
+                                        <p className="text-xs text-gray-400 font-bold uppercase">Current Value</p>
                                         <p className="text-sm font-bold text-gray-900">₦{asset.current_value?.toLocaleString()}</p>
                                     </div>
                                     <div className="text-right">
-                                        <p className="text-[10px] text-gray-400 font-bold uppercase">Condition</p>
+                                        <p className="text-xs text-gray-400 font-bold uppercase">Condition</p>
                                         <span className="text-sm font-bold text-indigo-600">{asset.condition}</span>
                                     </div>
                                 </div>

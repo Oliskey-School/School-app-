@@ -7,25 +7,11 @@ import {
     rejectAttendance,
 } from '../../lib/teacherAttendanceService';
 import { CheckCircleIcon, XCircleIcon, ClockIcon, SearchIcon, UserIcon } from '../../constants';
+import { toast } from 'react-hot-toast';
 
 interface TeacherAttendanceApprovalProps {
     navigateTo: (view: string, title: string, props?: any) => void;
 }
-
-// Simple Toast Notification Component
-const NotificationToast: React.FC<{ message: string; type: 'success' | 'error'; onClose: () => void }> = ({ message, type, onClose }) => {
-    useEffect(() => {
-        const timer = setTimeout(onClose, 3000);
-        return () => clearTimeout(timer);
-    }, [onClose]);
-
-    return (
-        <div className={`fixed bottom-6 right-6 px-6 py-4 rounded-xl shadow-2xl flex items-center space-x-3 transition-all duration-300 transform translate-y-0 z-50 ${type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
-            {type === 'success' ? <CheckCircleIcon className="h-6 w-6" /> : <XCircleIcon className="h-6 w-6" />}
-            <span className="font-semibold">{message}</span>
-        </div>
-    );
-};
 
 const TeacherAttendanceApproval: React.FC<TeacherAttendanceApprovalProps> = ({ navigateTo }) => {
     const { user, currentSchool } = useAuth();
@@ -33,7 +19,6 @@ const TeacherAttendanceApproval: React.FC<TeacherAttendanceApprovalProps> = ({ n
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [processingId, setProcessingId] = useState<string | null>(null);
-    const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
     useEffect(() => {
         loadPendingRequests();
@@ -53,33 +38,27 @@ const TeacherAttendanceApproval: React.FC<TeacherAttendanceApprovalProps> = ({ n
             }
         } catch (error) {
             console.error('Error loading pending requests:', error);
+            toast.error('Failed to load pending attendance requests');
         } finally {
             setLoading(false);
         }
     };
-
-    const showNotification = (message: string, type: 'success' | 'error') => {
-        setNotification({ message, type });
-    };
-
-
 
     const handleApprove = async (attendanceId: string) => {
         if (!user?.id) return;
 
         setProcessingId(attendanceId);
         try {
-            // Pass user.id even if it's a string. We'll update service to accept `string | number`.
             const result = await approveAttendance(attendanceId, user.id as any);
             if (result.success) {
-                showNotification('Attendance approved successfully!', 'success');
+                toast.success('Attendance approved successfully!');
                 loadPendingRequests();
             } else {
-                showNotification(`Failed to approve: ${result.error}`, 'error');
+                toast.error(`Failed to approve: ${result.error}`);
             }
         } catch (error) {
             console.error('Error approving attendance:', error);
-            showNotification('An error occurred while approving attendance.', 'error');
+            toast.error('An error occurred while approving attendance.');
         } finally {
             setProcessingId(null);
         }
@@ -92,17 +71,16 @@ const TeacherAttendanceApproval: React.FC<TeacherAttendanceApprovalProps> = ({ n
 
         setProcessingId(attendanceId);
         try {
-            // Pass user.id even if it's a string. We'll update service to accept `string | number`.
             const result = await rejectAttendance(attendanceId, user.id as any, reason || undefined);
             if (result.success) {
-                showNotification('Attendance rejected.', 'success');
+                toast.success('Attendance rejected.');
                 loadPendingRequests();
             } else {
-                showNotification(`Failed to reject: ${result.error}`, 'error');
+                toast.error(`Failed to reject: ${result.error}`);
             }
         } catch (error) {
             console.error('Error rejecting attendance:', error);
-            showNotification('An error occurred while rejecting attendance.', 'error');
+            toast.error('An error occurred while rejecting attendance.');
         } finally {
             setProcessingId(null);
         }
@@ -115,7 +93,6 @@ const TeacherAttendanceApproval: React.FC<TeacherAttendanceApprovalProps> = ({ n
 
     const formatTime = (timeString: string) => {
         if (!timeString) return 'N/A';
-        // If it's already HH:mm format, just return it or format to AM/PM
         if (timeString.includes(':')) {
             const [hours, minutes] = timeString.split(':');
             const h = parseInt(hours);
@@ -168,9 +145,9 @@ const TeacherAttendanceApproval: React.FC<TeacherAttendanceApprovalProps> = ({ n
 
                 {/* Content Grid */}
                 {loading ? (
-                    <div className="flex flex-col items-center justify-center py-20 animate-pulse">
-                        <div className="h-12 w-12 bg-gray-200 rounded-full mb-4"></div>
-                        <div className="h-4 w-48 bg-gray-200 rounded"></div>
+                    <div className="flex flex-col items-center justify-center py-20 gap-4">
+                        <div className="h-10 w-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                        <p className="text-gray-500 animate-pulse">Loading approval requests...</p>
                     </div>
                 ) : filteredRequests.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -242,18 +219,8 @@ const TeacherAttendanceApproval: React.FC<TeacherAttendanceApprovalProps> = ({ n
                     </div>
                 )}
             </div>
-
-            {/* Notification Toast */}
-            {notification && (
-                <NotificationToast
-                    message={notification.message}
-                    type={notification.type}
-                    onClose={() => setNotification(null)}
-                />
-            )}
         </div>
     );
 };
 
 export default TeacherAttendanceApproval;
-

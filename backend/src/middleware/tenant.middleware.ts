@@ -18,9 +18,12 @@ export const enforceTenant = (schema?: yup.AnyObjectSchema) => {
             return res.status(401).json({ error: 'SecurityException: Tenant context required.' });
         }
 
-        // SPOOF PROTECTION: Attach the tenant-scoped Prisma client
-        // Downstream controllers MUST use req.db instead of global prisma
-        (req as any).db = getTenantPrisma(user.school_id);
+        // SPOOF PROTECTION: Attach the tenant-scoped Prisma client.
+        // Downstream controllers MUST use req.db instead of global prisma.
+        // Both school_id and branch_id are forwarded so all RLS policies
+        // (school-only and school+branch) fire correctly inside transactions.
+        const activeBranch = (req.headers['x-branch-id'] as string) || user.branch_id || null;
+        (req as any).db = getTenantPrisma(user.school_id, activeBranch);
 
         // 1. Write Protection: Ensure school_id in body (if present) matches the authorized tenant
         if (req.method === 'POST' || req.method === 'PUT') {

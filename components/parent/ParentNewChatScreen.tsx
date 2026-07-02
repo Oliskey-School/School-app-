@@ -1,131 +1,193 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { Student, Teacher, Conversation, RoleName, ChatRoom, ChatParticipant } from '../../types';
-import { fetchTeachers } from '../../lib/database';
+﻿import React, { useState, useEffect, useMemo } from 'react';
+import { api } from '../../lib/api';
 import { SearchIcon } from '../../constants';
+import { useProfile } from '../../context/ProfileContext';
 import { useAuth } from '../../context/AuthContext';
+import { toast } from 'react-hot-toast';
 
-type UserListItem = {
-    id: string;
+interface Contact {
+    userId: string;
     name: string;
-    avatarUrl: string;
-    subtitle: string;
-    userType: 'Teacher';
-};
+    fullName?: string;
+    avatarUrl?: string;
+    role: string;
+}
 
 interface ParentNewChatScreenProps {
     navigateTo: (view: string, title: string, props: any) => void;
-    children?: Student[];
-    schoolId?: string;
 }
 
-const UserRow: React.FC<{ user: UserListItem, onSelect: () => void }> = ({ user, onSelect }) => (
-    <button onClick={onSelect} className="w-full flex items-center p-3 space-x-4 text-left bg-white rounded-lg hover:bg-gray-50 transition-colors border border-gray-100 shadow-sm">
-        <img src={user.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.name}`} alt={user.name} className="w-12 h-12 rounded-full object-cover bg-gray-100" />
-        <div className="flex-grow">
-            <p className="font-bold text-gray-800">{user.name}</p>
-            <p className="text-sm text-gray-500">{user.subtitle}</p>
+const ROLE_COLORS: Record<string, string> = {
+    Student:  'bg-orange-100 text-orange-700',
+    Teacher:  'bg-purple-100 text-purple-700',
+    Admin:    'bg-indigo-100 text-indigo-700',
+    Children: 'bg-green-100 text-green-700',
+};
+
+const Avatar: React.FC<{ contact: Contact }> = ({ contact }) => (
+    contact.avatarUrl
+        ? <img src={contact.avatarUrl} alt={contact.name} className="w-11 h-11 rounded-full object-cover ring-2 ring-white shadow-sm flex-shrink-0" />
+        : <div className="w-11 h-11 rounded-full bg-gradient-to-br from-green-200 to-green-300 flex items-center justify-center flex-shrink-0 ring-2 ring-white shadow-sm">
+            <span className="text-sm font-bold text-green-700">{contact.name?.charAt(0)?.toUpperCase() || '?'}</span>
+          </div>
+);
+
+const ContactRow: React.FC<{ contact: Contact; loading?: boolean; onSelect: () => void }> = ({ contact, loading, onSelect }) => (
+    <button
+        onClick={onSelect}
+        disabled={loading}
+        className="w-full flex items-center gap-3 p-3.5 text-left rounded-xl transition-all border bg-white/70 border-gray-100/60 hover:bg-white/90 active:scale-[0.99] disabled:opacity-50"
+    >
+        <Avatar contact={contact} />
+        <div className="flex-1 min-w-0">
+            <p className="font-semibold text-sm text-gray-800 truncate">{contact.name}</p>
+            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full mt-0.5 inline-block ${ROLE_COLORS[contact.role] || 'bg-gray-100 text-gray-600'}`}>
+                {contact.role}
+            </span>
         </div>
+        {loading
+            ? <div className="w-5 h-5 border-2 border-green-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+            : <svg className="w-4 h-4 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+        }
     </button>
 );
 
-const ParentNewChatScreen: React.FC<ParentNewChatScreenProps> = ({ navigateTo, children = [], schoolId }) => {
-    const [searchTerm, setSearchTerm] = useState('');
-    const [dbTeachers, setDbTeachers] = useState<Teacher[]>([]);
+const ParentNewChatScreen: React.FC<ParentNewChatScreenProps> = ({ navigateTo }) => {
+    const { profile } = useProfile();
+    const { user } = useAuth();
+
+    const [contacts, setContacts] = useState<Record<string, Contact[]>>({});
     const [loading, setLoading] = useState(true);
-    const { user: authUser } = useAuth();
+    const [startingChat, setStartingChat] = useState<string | null>(null);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [activeTab, setActiveTab] = useState<string>('');
+
+    const resolvedSchoolId = useMemo(() =>
+        user?.school_id || user?.user_metadata?.school_id || user?.app_metadata?.school_id ||
+        profile?.school_id || profile?.schoolId || '',
+    [user, profile]);
 
     useEffect(() => {
-        const loadTeachers = async () => {
-            if (!schoolId) return;
+        const load = async () => {
             setLoading(true);
             try {
-                const data = await fetchTeachers(schoolId);
-                setDbTeachers(data);
-            } catch (err) {
-                console.error("Error loading teachers:", err);
+                const branchId = profile?.branch_id || profile?.branchId;
+                const data = await api.getRoleContacts(branchId);
+                const grouped: Record<string, Contact[]> = {};
+                for (const [key, arr] of Object.entries(data)) {
+                    if (Array.isArray(arr) && arr.length > 0) {
+                        const label = key.charAt(0).toUpperCase() + key.slice(1);
+                        grouped[label] = (arr as Contact[]).filter(Boolean);
+                    }
+                }
+                setContacts(grouped);
+                const firstGroup = Object.keys(grouped)[0];
+                if (firstGroup) setActiveTab(firstGroup);
+            } catch (e: any) {
+                console.error('Failed to load contacts', e);
+                toast.error('Could not load contacts');
             } finally {
                 setLoading(false);
             }
         };
-        loadTeachers();
-    }, [schoolId]);
+        load();
+    }, [profile?.branch_id, profile?.branchId]);
 
-    const teachers = useMemo((): UserListItem[] => {
-        // Find classes of children
-        const childrenClasses = children.map(c => `${c.grade}${c.section}`);
+    const tabs = Object.keys(contacts);
 
-        // Find teachers who teach those classes
-        const relevantTeachers = dbTeachers.filter(t =>
-            t.status === 'Active' && t.classes?.some(tc => {
-                // Normalize class strings for comparison
-                const tcClean = tc.replace(/\s+/g, '');
-                return childrenClasses.some(cc => tcClean.includes(cc) || cc.includes(tcClean));
-            })
+    const filteredContacts = useMemo(() => {
+        const list = contacts[activeTab] || [];
+        if (!searchTerm.trim()) return list;
+        return list.filter(c =>
+            (c.name || '').toLowerCase().includes(searchTerm.toLowerCase())
         );
+    }, [contacts, activeTab, searchTerm]);
 
-        // If no relevant teachers found via classes, show all active teachers in school
-        const displayList = relevantTeachers.length > 0 ? relevantTeachers : dbTeachers.filter(t => t.status === 'Active');
-
-        return displayList.map(t => ({
-            id: t.user_id || t.id, // Prefer user_id for chat
-            name: t.name,
-            avatarUrl: t.avatarUrl,
-            subtitle: t.subjects?.[0] ? `${t.subjects[0]} Teacher` : 'Staff',
-            userType: 'Teacher'
-        }));
-    }, [children, dbTeachers]);
-
-    const filteredUsers = useMemo(() => {
-        return teachers.filter(user =>
-            (user.name || '').toLowerCase().includes((searchTerm || '').toLowerCase())
-        );
-    }, [searchTerm, teachers]);
-
-    const handleSelectUser = (user: UserListItem) => {
-        // In real app, we navigate to chat with participant details
-        // The ChatScreen handles fetching/creating conversation based on participantId
-        navigateTo('chat', user.name, { 
-            participantId: user.id,
-            participantName: user.name,
-            participantAvatar: user.avatarUrl
-        });
+    const handleSelect = async (contact: Contact) => {
+        setStartingChat(contact.userId);
+        try {
+            navigateTo('chat', contact.name, {
+                targetUserId: contact.userId,
+                targetUserName: contact.name,
+                targetUserAvatar: contact.avatarUrl || null,
+                schoolId: resolvedSchoolId
+            });
+        } finally {
+            setStartingChat(null);
+        }
     };
 
     if (loading) {
-        return <div className="p-8 text-center text-gray-500">Finding teachers...</div>;
+        return (
+            <div className="flex flex-col h-full items-center justify-center gap-3 text-gray-500">
+                <div className="w-8 h-8 border-3 border-green-400 border-t-transparent rounded-full animate-spin" />
+                <p className="text-sm">Loading contacts...</p>
+            </div>
+        );
     }
 
     return (
-        <div className="flex flex-col h-full bg-gray-50">
-            <div className="p-4 bg-white shadow-sm sticky top-0 z-10">
+        <div className="flex flex-col h-full bg-gray-50/80 backdrop-blur-sm">
+            {/* Search */}
+            <div className="p-4 bg-white/80 backdrop-blur-md border-b border-gray-100/60 sticky top-0 z-10 flex-shrink-0">
+                <p className="text-sm font-semibold text-gray-700 mb-3">Select a person to message</p>
                 <div className="relative">
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-3">
-                        <SearchIcon className="text-gray-400" />
-                    </span>
+                    <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                     <input
                         type="text"
-                        placeholder="Search for a teacher..."
+                        placeholder="Search by name..."
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 text-gray-700 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:bg-white transition-all outline-none"
+                        onChange={e => setSearchTerm(e.target.value)}
+                        className="w-full pl-9 pr-4 py-2.5 text-sm bg-gray-100/80 border-none rounded-xl focus:ring-2 focus:ring-green-200 focus:bg-white transition-all outline-none placeholder-gray-400 text-gray-700"
+                        autoFocus
                     />
                 </div>
             </div>
 
-            <main className="flex-grow p-4 space-y-3 overflow-y-auto">
-                {filteredUsers.length > 0 ? (
-                    filteredUsers.map(user => (
-                        <UserRow key={user.id} user={user} onSelect={() => handleSelectUser(user)} />
+            {/* Tabs */}
+            {tabs.length > 1 && (
+                <div className="flex gap-2 px-4 pt-3 pb-1 overflow-x-auto no-scrollbar flex-shrink-0">
+                    {tabs.map(tab => (
+                        <button
+                            key={tab}
+                            onClick={() => setActiveTab(tab)}
+                            className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all border ${
+                                activeTab === tab
+                                    ? 'bg-green-500 text-white border-green-500 shadow-sm'
+                                    : 'bg-white/80 text-gray-600 border-gray-200 hover:border-green-300'
+                            }`}
+                        >
+                            {tab}
+                            <span className="ml-1 opacity-70">({contacts[tab]?.length || 0})</span>
+                        </button>
+                    ))}
+                </div>
+            )}
+
+            {/* Contact list */}
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2">
+                {filteredContacts.length > 0 ? (
+                    filteredContacts.map(c => (
+                        <ContactRow
+                            key={c.userId}
+                            contact={c}
+                            loading={startingChat === c.userId}
+                            onSelect={() => handleSelect(c)}
+                        />
                     ))
                 ) : (
-                    <div className="text-center py-12">
-                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <SearchIcon className="w-8 h-8 text-gray-300" />
+                    <div className="flex flex-col items-center justify-center h-full text-center py-16 gap-3">
+                        <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center">
+                            <SearchIcon className="w-7 h-7 text-gray-300" />
                         </div>
-                        <p className="text-gray-500 font-medium">No teachers found.</p>
+                        <p className="text-gray-500 text-sm font-medium">
+                            {searchTerm ? 'No results found' : 'No contacts available'}
+                        </p>
                     </div>
                 )}
-            </main>
+            </div>
         </div>
     );
 };

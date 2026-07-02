@@ -1,4 +1,4 @@
-
+﻿
 import React, { useState, useEffect } from 'react';
 import {
     ChevronLeft,
@@ -350,7 +350,7 @@ const StudentProfileDashboard: React.FC<StudentProfileDashboardProps> = ({
                                         <div key={idx} className="bg-[#F8F9FF] p-4 rounded-xl border border-[#FAFAFF]">
                                             <p className="text-sm text-gray-700 leading-relaxed font-medium">{note.note}</p>
                                             {(note.by || note.date) && (
-                                                <div className="flex justify-between items-center mt-3 pt-3 border-t border-white text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                                                <div className="flex justify-between items-center mt-3 pt-3 border-t border-white text-xs font-bold text-gray-400 uppercase tracking-wider">
                                                     <span>{note.by || 'Staff'}</span>
                                                     <span>{note.date ? new Date(note.date).toLocaleDateString() : ''}</span>
                                                 </div>
@@ -368,7 +368,7 @@ const StudentProfileDashboard: React.FC<StudentProfileDashboardProps> = ({
 
             {/* Admin Action Bar (Docked Bottom) */}
             <div className="bg-white/80 backdrop-blur-md border-t border-gray-100 p-4 sticky bottom-0 z-10">
-                <p className="text-[10px] font-bold text-gray-400 text-center uppercase tracking-widest mb-3">Admin Actions</p>
+                <p className="text-xs font-bold text-gray-400 text-center uppercase tracking-widest mb-3">Admin Actions</p>
                 <div className="grid grid-cols-4 gap-3">
                     <button
                         onClick={() => navigateTo('addStudent', `Edit ${student.name}`, { studentToEdit: student })}

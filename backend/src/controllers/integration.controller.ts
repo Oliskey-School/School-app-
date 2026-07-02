@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import { IntegrationService } from '../services/integration.service';
-import { AuthRequest } from '../middleware/auth';
+import { AuthRequest } from '../middleware/auth.middleware';
 
 export const getIntegrations = async (req: AuthRequest, res: Response) => {
     try {
@@ -17,7 +17,7 @@ export const updateIntegration = async (req: AuthRequest, res: Response) => {
     try {
         const { school_id } = req.user;
         const { id } = req.params;
-        const integration = await IntegrationService.updateIntegration(id, school_id, req.body);
+        const integration = await IntegrationService.updateIntegration(id as string, school_id, req.body);
         res.json(integration);
     } catch (error: any) {
         console.error('Error in updateIntegration controller:', error);
@@ -73,7 +73,7 @@ export const uninstallApp = async (req: AuthRequest, res: Response) => {
     try {
         const { school_id } = req.user;
         const { appId } = req.params;
-        await IntegrationService.uninstallApp(school_id, appId);
+        await IntegrationService.uninstallApp(school_id, appId as string);
         res.json({ message: 'App uninstalled successfully' });
     } catch (error: any) {
         console.error('Error in uninstallApp controller:', error);

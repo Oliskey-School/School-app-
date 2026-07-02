@@ -12,6 +12,26 @@ router.get('/', getResources);
 router.post('/', createResource);
 router.delete('/:id', deleteResource);
 
+router.get('/:id/related', async (req: any, res) => {
+    try {
+        const { default: prisma } = await import('../config/database');
+        const schoolId = req.user.school_id;
+        const source = await (prisma as any).resource.findFirst({
+            where: { id: req.params.id, school_id: schoolId }
+        }).catch(() => null);
+        const related = await (prisma as any).resource.findMany({
+            where: {
+                school_id: schoolId,
+                id: { not: req.params.id },
+                ...(source?.subject ? { subject: source.subject } : {}),
+            },
+            orderBy: { created_at: 'desc' },
+            take: 6,
+        }).catch(() => []);
+        res.json(related);
+    } catch (e: any) { res.json([]); }
+});
+
 // PD Course Catalog
 router.get('/courses', async (req: any, res) => {
     try {

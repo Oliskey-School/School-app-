@@ -49,7 +49,7 @@ const SurveysAndPolls: React.FC<SurveysAndPollsProps> = ({ schoolId }) => {
     const fetchSurveys = async () => {
         try {
             setLoading(true);
-            const data = await api.getSurveys(schoolId || '');
+            const data = await (api as any).getSurveys(schoolId || '');
             setSurveys(data || []);
         } catch (error: any) {
             console.error('Error fetching surveys:', error);
@@ -60,7 +60,7 @@ const SurveysAndPolls: React.FC<SurveysAndPollsProps> = ({ schoolId }) => {
 
     const fetchQuestions = async (surveyId: string) => {
         try {
-            const data = await api.getSurveyQuestions(surveyId);
+            const data = await (api as any).getSurveyQuestions(surveyId);
             setQuestions(data || []);
 
             // Check if user has already responded (direct query for efficiency)
@@ -116,7 +116,7 @@ const SurveysAndPolls: React.FC<SurveysAndPollsProps> = ({ schoolId }) => {
                 rating: q.question_type === 'Rating' ? responses[q.id] : null
             }));
 
-            await api.submitSurveyResponse(responseData);
+            await (api as any).submitSurveyResponse(responseData);
 
             // Update local state or trigger a refresh if needed
             toast.success('Thank you for your feedback! 🎉');

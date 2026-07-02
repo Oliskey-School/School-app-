@@ -1,7 +1,9 @@
+﻿
 
-
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'react-hot-toast';
+import { ChevronDown } from 'lucide-react';
 import {
   SearchIcon,
   CheckCircleIcon,
@@ -23,6 +25,15 @@ import { useAuth } from '../../context/AuthContext';
 import { useProfile } from '../../context/ProfileContext';
 import { useAutoSync } from '../../hooks/useAutoSync';
 
+type StudentStatus = 'Active' | 'Withdrawn' | 'Pending';
+const ALL_STATUSES: StudentStatus[] = ['Active', 'Withdrawn', 'Pending'];
+
+const STATUS_STYLES: Record<StudentStatus, string> = {
+  Active: 'bg-green-100 text-green-700',
+  Withdrawn: 'bg-red-100 text-red-600',
+  Pending: 'bg-yellow-100 text-yellow-700',
+};
+
 const AttendanceStatusIndicator: React.FC<{ status: AttendanceStatus }> = ({ status }) => {
   switch (status) {
     case 'Present':
@@ -38,37 +49,82 @@ const AttendanceStatusIndicator: React.FC<{ status: AttendanceStatus }> = ({ sta
   }
 };
 
-const StudentRow: React.FC<{ student: any; onSelect: (student: Student) => void; }> = ({ student, onSelect }) => (
-  <div className="w-full text-left bg-white rounded-lg p-2 flex items-center justify-between transition-all hover:bg-gray-100 ring-1 ring-gray-100">
-    <button
-      key={student.id}
-      onClick={() => onSelect(student)}
-      className="flex items-center space-x-3 flex-grow min-w-0"
-      aria-label={`View profile for ${student.name}`}
-    >
-      <img
-        src={student.avatarUrl || student.avatar_url || `https://ui-avatars.com/api/?name=${student.name}`}
-        alt={student.name}
-        className="w-10 h-10 rounded-full object-cover"
-        loading="lazy"
-      />
-      <div className="flex-grow min-w-0 text-left">
-        <p className="font-bold text-sm text-gray-800 truncate">{student.name || student.full_name}</p>
-        <p className="text-xs text-gray-500">
-          ID: {student.schoolGeneratedId || student.school_generated_id || 'Pending'}
-          {(student.user?.initial_password || student.initial_password) && (
-             <span className="ml-2 text-indigo-600 bg-indigo-50 px-1 py-0.5 rounded text-[10px]">
-               Pass: {student.user?.initial_password || student.initial_password}
-             </span>
+const StudentRow: React.FC<{
+  student: any;
+  onSelect: (student: Student) => void;
+  onStatusChange: (student: any, newStatus: StudentStatus) => void;
+}> = ({ student, onSelect, onStatusChange }) => {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const currentStatus: StudentStatus = (student.status as StudentStatus) || 'Active';
+  const otherStatuses = ALL_STATUSES.filter(s => s !== currentStatus);
+
+  return (
+    <div className="w-full text-left bg-white rounded-lg p-2 flex items-center justify-between transition-all hover:bg-gray-100 ring-1 ring-gray-100 relative">
+      <button
+        onClick={() => onSelect(student)}
+        className="flex items-center space-x-3 flex-grow min-w-0"
+        aria-label={`View profile for ${student.name}`}
+      >
+        <img
+          src={student.avatarUrl || student.avatar_url || `https://ui-avatars.com/api/?name=${student.name}`}
+          alt={student.name}
+          className="w-10 h-10 rounded-full object-cover"
+          loading="lazy"
+        />
+        <div className="flex-grow min-w-0 text-left">
+          <p className="font-bold text-sm text-gray-800 truncate">{student.name || student.full_name}</p>
+          <p className="text-xs text-gray-500">
+            ID: {student.schoolGeneratedId || student.school_generated_id || 'Pending'}
+            {(student.user?.initial_password || student.initial_password) && (
+              <span className="ml-2 text-indigo-600 bg-indigo-50 px-1 py-0.5 rounded text-xs">
+                Pass: {student.user?.initial_password || student.initial_password}
+              </span>
+            )}
+          </p>
+        </div>
+      </button>
+
+      <div className="flex items-center gap-2 px-2 flex-shrink-0">
+        <AttendanceStatusIndicator status={student.attendanceStatus} />
+        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${STATUS_STYLES[currentStatus] ?? 'bg-gray-100 text-gray-600'}`}>
+          {currentStatus}
+        </span>
+        <div className="relative">
+          {menuOpen && (
+            <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
           )}
-        </p>
+          <button
+            onClick={(e) => { e.stopPropagation(); setMenuOpen(v => !v); }}
+            className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-gray-200 text-gray-400 transition-colors"
+            aria-label="Change student status"
+          >
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${menuOpen ? 'rotate-180' : ''}`} />
+          </button>
+          {menuOpen && (
+            <div className="absolute right-0 top-8 z-50 bg-white rounded-xl shadow-lg border border-gray-100 py-1.5 min-w-[150px]">
+              <p className="text-[9px] text-gray-400 px-3 pb-1.5 font-semibold uppercase tracking-widest">Change status</p>
+              {otherStatuses.map(s => (
+                <button
+                  key={s}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMenuOpen(false);
+                    onStatusChange(student, s);
+                  }}
+                  className={`w-full text-left px-3 py-1.5 text-xs font-medium hover:bg-gray-50 transition-colors ${
+                    s === 'Active' ? 'text-green-700' : s === 'Withdrawn' ? 'text-red-600' : 'text-yellow-700'
+                  }`}
+                >
+                  Mark as {s}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
-    </button>
-    <div className="flex items-center space-x-3 px-2">
-      <AttendanceStatusIndicator status={student.attendanceStatus || student.status} />
     </div>
-  </div>
-);
+  );
+};
 
 const StageAccordion: React.FC<{ title: string; count: number; children: React.ReactNode, defaultOpen?: boolean }> = ({ title, count, children, defaultOpen = false }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
@@ -148,13 +204,16 @@ interface StudentListScreenProps {
   filter?: { grade: number; section?: string; };
   navigateTo: (view: string, title: string, props?: any) => void;
   currentBranchId?: string | null;
-  schoolId?: string; // Added prop
+  schoolId?: string;
 }
 
 const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateTo, currentBranchId, schoolId: propSchoolId }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'stage' | 'class'>('stage');
-  const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Withdrawn' | 'Pending'>('All');
+  const [statusFilter, setStatusFilter] = useState<'All' | StudentStatus>('All');
+  const [pendingStatusChange, setPendingStatusChange] = useState<{ student: any; status: StudentStatus } | null>(null);
+  const [withdrawalReason, setWithdrawalReason] = useState('');
+  const [isChangingStatus, setIsChangingStatus] = useState(false);
 
   const { user } = useAuth();
   const { profile } = useProfile();
@@ -163,7 +222,6 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
   const schoolId = propSchoolId || profile?.schoolId || profile?.school_id || user?.user_metadata?.school_id;
   const queryKey = ['students', schoolId, currentBranchId];
 
-  // Use React Query for student data management
   const { data: students = [], isLoading, isError, error: fetchError, refetch } = useQuery({
     queryKey,
     queryFn: async () => {
@@ -187,17 +245,42 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
       }));
     },
     enabled: !!schoolId,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60 * 5,
   });
 
-  // Auto-sync
   useAutoSync(['students'], () => {
-    console.log('🔄 [StudentList] Auto-sync triggered');
     refetch();
   });
 
   const handleStudentSelect = (student: Student) => {
     navigateTo('studentProfileAdminView', student.name, { student });
+  };
+
+  const handleStatusChange = (student: any, newStatus: StudentStatus) => {
+    if (newStatus === 'Withdrawn') {
+      setPendingStatusChange({ student, status: newStatus });
+      setWithdrawalReason('');
+    } else {
+      applyStatusChange(student, newStatus, '');
+    }
+  };
+
+  const applyStatusChange = async (student: any, status: StudentStatus, reason: string) => {
+    setIsChangingStatus(true);
+    try {
+      await api.updateStudent(student.id, {
+        status,
+        ...(status === 'Withdrawn' && reason.trim() ? { withdrawal_reason: reason.trim() } : {}),
+      });
+      queryClient.invalidateQueries({ queryKey });
+      toast.success(`${student.name} marked as ${status}`);
+      setPendingStatusChange(null);
+      setWithdrawalReason('');
+    } catch {
+      toast.error('Failed to update status. Please try again.');
+    } finally {
+      setIsChangingStatus(false);
+    }
   };
 
   const filteredStudentsList = useMemo(() => {
@@ -243,7 +326,6 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
         if (!stages.junior[className]) stages.junior[className] = [];
         stages.junior[className].push(student);
       } else if (student.grade >= 10) {
-        // Senior Secondary (10-12 and above)
         if (!stages.senior[className]) stages.senior[className] = [];
         stages.senior[className].push(student);
       }
@@ -259,9 +341,7 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
         return sectionA.localeCompare(sectionB);
       });
       const sortedGroup: { [className: string]: Student[] } = {};
-      sortedClasses.forEach(className => {
-        sortedGroup[className] = classGroup[className];
-      });
+      sortedClasses.forEach(cn => { sortedGroup[cn] = classGroup[cn]; });
       return sortedGroup;
     };
 
@@ -328,7 +408,7 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
       return (
         <div className="space-y-3">
           {filteredStudentsList.map(student => (
-            <StudentRow key={student.id} student={student} onSelect={handleStudentSelect} />
+            <StudentRow key={student.id} student={student} onSelect={handleStudentSelect} onStatusChange={handleStatusChange} />
           ))}
         </div>
       );
@@ -337,9 +417,9 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
     if (viewMode === 'class') {
       return (
         <div className="space-y-3">
-          {Object.entries(studentsByClass).map(([className, students]) => (
-            <ClassAccordion key={className} title={className} count={students.length} defaultOpen={true}>
-              {students.map(s => <StudentRow key={s.id} student={s} onSelect={handleStudentSelect} />)}
+          {Object.entries(studentsByClass).map(([className, classStudents]) => (
+            <ClassAccordion key={className} title={className} count={classStudents.length} defaultOpen={true}>
+              {classStudents.map(s => <StudentRow key={s.id} student={s} onSelect={handleStudentSelect} onStatusChange={handleStatusChange} />)}
             </ClassAccordion>
           ))}
         </div>
@@ -350,9 +430,9 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
       <>
         {seniorCount > 0 && (
           <StageAccordion title="Senior Secondary" count={seniorCount}>
-            {Object.entries(studentsByStageAndClass.senior).map(([className, students]: [string, Student[]]) => (
-              <SubStageAccordion key={className} title={className} count={students.length}>
-                {students.map(s => <StudentRow key={s.id} student={s} onSelect={handleStudentSelect} />)}
+            {Object.entries(studentsByStageAndClass.senior).map(([className, stageStudents]: [string, Student[]]) => (
+              <SubStageAccordion key={className} title={className} count={stageStudents.length}>
+                {stageStudents.map(s => <StudentRow key={s.id} student={s} onSelect={handleStudentSelect} onStatusChange={handleStatusChange} />)}
               </SubStageAccordion>
             ))}
           </StageAccordion>
@@ -360,9 +440,9 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
 
         {juniorCount > 0 && (
           <StageAccordion title="Junior Secondary" count={juniorCount}>
-            {Object.entries(studentsByStageAndClass.junior).map(([className, students]: [string, Student[]]) => (
-              <SubStageAccordion key={className} title={className} count={students.length}>
-                {students.map(s => <StudentRow key={s.id} student={s} onSelect={handleStudentSelect} />)}
+            {Object.entries(studentsByStageAndClass.junior).map(([className, stageStudents]: [string, Student[]]) => (
+              <SubStageAccordion key={className} title={className} count={stageStudents.length}>
+                {stageStudents.map(s => <StudentRow key={s.id} student={s} onSelect={handleStudentSelect} onStatusChange={handleStatusChange} />)}
               </SubStageAccordion>
             ))}
           </StageAccordion>
@@ -372,18 +452,18 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
           <StageAccordion title="Primary School" count={primaryCount}>
             {upperPrimaryCount > 0 && (
               <SubStageAccordion title="Upper Primary (4-6)" count={upperPrimaryCount}>
-                {Object.entries(studentsByStageAndClass.primary.upper).map(([className, students]: [string, Student[]]) => (
-                  <ClassAccordion key={className} title={className} count={students.length}>
-                    {students.map(s => <StudentRow key={s.id} student={s} onSelect={handleStudentSelect} />)}
+                {Object.entries(studentsByStageAndClass.primary.upper).map(([className, stageStudents]: [string, Student[]]) => (
+                  <ClassAccordion key={className} title={className} count={stageStudents.length}>
+                    {stageStudents.map(s => <StudentRow key={s.id} student={s} onSelect={handleStudentSelect} onStatusChange={handleStatusChange} />)}
                   </ClassAccordion>
                 ))}
               </SubStageAccordion>
             )}
             {lowerPrimaryCount > 0 && (
               <SubStageAccordion title="Lower Primary (1-3)" count={lowerPrimaryCount}>
-                {Object.entries(studentsByStageAndClass.primary.lower).map(([className, students]: [string, Student[]]) => (
-                  <ClassAccordion key={className} title={className} count={students.length}>
-                    {students.map(s => <StudentRow key={s.id} student={s} onSelect={handleStudentSelect} />)}
+                {Object.entries(studentsByStageAndClass.primary.lower).map(([className, stageStudents]: [string, Student[]]) => (
+                  <ClassAccordion key={className} title={className} count={stageStudents.length}>
+                    {stageStudents.map(s => <StudentRow key={s.id} student={s} onSelect={handleStudentSelect} onStatusChange={handleStatusChange} />)}
                   </ClassAccordion>
                 ))}
               </SubStageAccordion>
@@ -393,9 +473,9 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
 
         {preschoolCount > 0 && (
           <StageAccordion title="Preschool / Nursery" count={preschoolCount}>
-            {Object.entries(studentsByStageAndClass.preschool).map(([className, students]: [string, Student[]]) => (
-              <ClassAccordion key={className} title={className} count={students.length}>
-                {students.map(s => <StudentRow key={s.id} student={s} onSelect={handleStudentSelect} />)}
+            {Object.entries(studentsByStageAndClass.preschool).map(([className, stageStudents]: [string, Student[]]) => (
+              <ClassAccordion key={className} title={className} count={stageStudents.length}>
+                {stageStudents.map(s => <StudentRow key={s.id} student={s} onSelect={handleStudentSelect} onStatusChange={handleStatusChange} />)}
               </ClassAccordion>
             ))}
           </StageAccordion>
@@ -416,38 +496,38 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
 
         {!filter && (
           <>
-          <div className="flex space-x-2">
-            <button
-              onClick={() => setViewMode('stage')}
-              className={`flex-1 py-1.5 text-sm font-medium rounded-lg transition-colors ${viewMode === 'stage' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-gray-200' : 'text-gray-500 hover:bg-gray-200'}`}
-            >
-              By Stage
-            </button>
-            <button
-              onClick={() => setViewMode('class')}
-              className={`flex-1 py-1.5 text-sm font-medium rounded-lg transition-colors ${viewMode === 'class' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-gray-200' : 'text-gray-500 hover:bg-gray-200'}`}
-            >
-              By Class
-            </button>
-          </div>
-          <div className="flex space-x-2 overflow-x-auto pb-0.5">
-            {(['All', 'Active', 'Withdrawn', 'Pending'] as const).map(s => (
+            <div className="flex space-x-2">
               <button
-                key={s}
-                onClick={() => setStatusFilter(s)}
-                className={`flex-shrink-0 px-3 py-1 text-xs font-medium rounded-full transition-colors ${
-                  statusFilter === s
-                    ? s === 'All' ? 'bg-indigo-600 text-white'
-                      : s === 'Active' ? 'bg-green-600 text-white'
-                      : s === 'Withdrawn' ? 'bg-red-500 text-white'
-                      : 'bg-yellow-500 text-white'
-                    : 'bg-white text-gray-600 ring-1 ring-gray-200'
-                }`}
+                onClick={() => setViewMode('stage')}
+                className={`flex-1 py-1.5 text-sm font-medium rounded-lg transition-colors ${viewMode === 'stage' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-gray-200' : 'text-gray-500 hover:bg-gray-200'}`}
               >
-                {s}
+                By Stage
               </button>
-            ))}
-          </div>
+              <button
+                onClick={() => setViewMode('class')}
+                className={`flex-1 py-1.5 text-sm font-medium rounded-lg transition-colors ${viewMode === 'class' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-gray-200' : 'text-gray-500 hover:bg-gray-200'}`}
+              >
+                By Class
+              </button>
+            </div>
+            <div className="flex space-x-2 overflow-x-auto pb-0.5">
+              {(['All', 'Active', 'Withdrawn', 'Pending'] as const).map(s => (
+                <button
+                  key={s}
+                  onClick={() => setStatusFilter(s)}
+                  className={`flex-shrink-0 px-3 py-1 text-xs font-medium rounded-full transition-colors ${
+                    statusFilter === s
+                      ? s === 'All' ? 'bg-indigo-600 text-white'
+                        : s === 'Active' ? 'bg-green-600 text-white'
+                        : s === 'Withdrawn' ? 'bg-red-500 text-white'
+                        : 'bg-yellow-500 text-white'
+                      : 'bg-white text-gray-600 ring-1 ring-gray-200'
+                  }`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
           </>
         )}
       </div>
@@ -459,6 +539,41 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
       <div className="fixed bottom-24 right-6 lg:bottom-12 lg:right-12 z-40">
         <button onClick={() => navigateTo('addStudent', 'Add New Student', {})} className="bg-indigo-600 text-white p-4 rounded-full shadow-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" aria-label="Add new student"><PlusIcon className="h-6 w-6" /></button>
       </div>
+
+      {/* Withdrawal reason modal */}
+      {pendingStatusChange?.status === 'Withdrawn' && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
+            <h3 className="font-bold text-gray-900 text-lg mb-1">Withdraw Student</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Please provide a reason for withdrawing <strong className="text-gray-700">{pendingStatusChange.student.name}</strong>.
+            </p>
+            <textarea
+              value={withdrawalReason}
+              onChange={e => setWithdrawalReason(e.target.value)}
+              placeholder="Reason for withdrawal (e.g. relocated, transferred, financial)..."
+              className="w-full border border-gray-200 rounded-xl p-3 text-sm resize-none h-24 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              autoFocus
+            />
+            <div className="flex gap-3 mt-4">
+              <button
+                onClick={() => { setPendingStatusChange(null); setWithdrawalReason(''); }}
+                disabled={isChangingStatus}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => applyStatusChange(pendingStatusChange.student, 'Withdrawn', withdrawalReason)}
+                disabled={!withdrawalReason.trim() || isChangingStatus}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {isChangingStatus ? 'Saving…' : 'Confirm Withdrawal'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

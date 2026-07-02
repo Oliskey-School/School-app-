@@ -8,6 +8,7 @@ router.use(authenticate);
 
 router.post('/record-payment', recordPayment);
 router.get('/history', getPaymentHistory);
+router.get('/payment-history', getPaymentHistory); // alias used by parent FeeStatusScreen
 router.delete('/payments/:id', deletePayment);
 router.post('/bulk-fetch', bulkFetchFees);
 router.post('/', createFee);

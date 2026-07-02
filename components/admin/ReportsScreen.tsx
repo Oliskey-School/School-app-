@@ -228,7 +228,7 @@ const ReportsScreen: React.FC<ReportsScreenProps> = ({ schoolId, currentBranchId
   return (
     <div className="p-4 space-y-5 bg-gray-50">
       {error && (
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 rounded-xl shadow-sm text-sm font-semibold">
+        <div className="bg-red-50 border border-red-200 text-red-700 p-4 mb-4 rounded-xl shadow-sm text-sm font-semibold">
           {error}
         </div>
       )}

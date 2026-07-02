@@ -73,7 +73,7 @@ export class MobileSyncManager {
                         await syncEngine.triggerSync();
                     }
                 } else {
-                    syncEngine.pause();
+                    (syncEngine as any).pause?.();
                 }
             });
         } catch (e) {

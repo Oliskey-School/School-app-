@@ -165,9 +165,9 @@ const BehaviorLogScreen = () => {
                     </div>
                 ) : (
                     filteredLogs.map(log => (
-                        <div key={log.id} className={`bg-white p-5 rounded-2xl shadow-sm border transition-all hover:shadow-md ${
-                            log.type === 'positive' ? 'border-l-4 border-l-emerald-500 border-gray-100' :
-                            log.type === 'negative' ? 'border-l-4 border-l-red-500 border-gray-100' : 'border-l-4 border-l-gray-300 border-gray-100'
+                        <div key={log.id} className={`p-5 rounded-2xl shadow-sm border transition-all hover:shadow-md ${
+                            log.type === 'positive' ? 'bg-emerald-50 border-emerald-200' :
+                            log.type === 'negative' ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'
                         }`}>
                             <div className="flex items-start space-x-4">
                                 <div className={`p-3 rounded-full ${log.type === 'positive' ? 'bg-emerald-50 text-emerald-600' : log.type === 'negative' ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-500'}`}>

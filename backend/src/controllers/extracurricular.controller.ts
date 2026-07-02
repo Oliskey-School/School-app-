@@ -47,7 +47,7 @@ export const leaveActivity = async (req: AuthRequest, res: Response) => {
         const student = await StudentService.getStudentProfileByUserId(req.user.school_id, req.user.branch_id, req.user.id);
         if (!student) return res.status(404).json({ message: 'Student profile not found' });
 
-        await ExtracurricularService.leaveActivity(req.user.school_id, student.id, activityId);
+        await ExtracurricularService.leaveActivity(req.user.school_id, student.id, activityId as string);
         res.status(204).send();
     } catch (error: any) {
         res.status(error.statusCode || 500).json({ message: error.message });

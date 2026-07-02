@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { Teacher } from '../../types';
 import { MailIcon, PhoneIcon, ChartBarIcon, CalendarIcon, EditIcon, gradeColors, SUBJECT_COLORS, TrashIcon } from '../../constants';
@@ -21,6 +21,8 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
     const [teacher, setTeacher] = useState<Teacher | undefined>(initialTeacher);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [refreshKey, setRefreshKey] = useState(Date.now());
+    const [showStatusDropdown, setShowStatusDropdown] = useState(false);
+    const [pendingStatus, setPendingStatus] = useState<string | null>(null);
 
     // Use the new hook for real-time analytics
     const { stats, loading: statsLoading } = useTeacherStats(teacher?.id || '', teacher?.schoolId || '', null);
@@ -49,49 +51,31 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
         loadTeacher();
     });
 
-    // Computed classes visualization
-    // If we have detailed class info in mockClasses, use it. Otherwise, create a placeholder.
-    const displayClasses = (teacher?.classes || []).map(classItem => {
-        // Normalize to string - can be string[] or [{class: {name: '...'}}] or [{name: '...'}]
-        const classNameStr = (typeof classItem === 'string' 
-            ? classItem 
-            : (classItem as any)?.class?.name || (classItem as any)?.name || 'Unknown Class') || 'Unknown Class';
+    // Computed classes visualization — deduplicated by class+subject key
+    const displayClasses = (() => {
+        const seen = new Set<string>();
+        return (teacher?.classes || []).reduce((acc: any[], classItem: any) => {
+            const classNameStr = (typeof classItem === 'string'
+                ? classItem
+                : classItem?.class?.name || classItem?.name || 'Unknown Class') || 'Unknown Class';
 
-        // Parse "Grade 7 - Math" or "10A - Physics" or "SSS 1 - Math"
-        let displayName = classNameStr;
-        let subject = (teacher?.subjects && teacher?.subjects[0]) || 'General';
+            let displayName = classNameStr;
+            let subject = (teacher?.subjects?.[0]) || 'General';
 
-        // Check if subject is already in the string
-        if (typeof classNameStr === 'string' && classNameStr.includes('-')) {
-            const parts = classNameStr.split(/\s*[-–]\s*/);
-            if (parts.length > 1) {
-                displayName = parts[0];
-                subject = parts[1];
+            if (typeof classNameStr === 'string' && classNameStr.includes('-')) {
+                const parts = classNameStr.split(/\s*[-–]\s*/);
+                if (parts.length > 1) { displayName = parts[0]; subject = parts[1]; }
             }
-        } else if (typeof classNameStr === 'string') {
-             // Basic split attempt for other delimiters if any
-             const parts = classNameStr.split(/\s*[-–]\s*/);
-             if (parts.length > 1) {
-                 displayName = parts[0];
-                 subject = parts[1];
-             }
-        }
 
-        // Try to detect if it's just a number like "10" -> "Grade 10"
-        // But if it's "SSS 1", keep "SSS 1"
-        if (/^\d+$/.test(displayName.trim())) {
-            displayName = `Grade ${displayName.trim()}`;
-        }
-        // If it looks like "10A", make it "Grade 10A" (Optional, maybe keep it as is?)
-        // Let's rely on the input being correct now.
+            if (/^\d+$/.test(displayName.trim())) displayName = `Grade ${displayName.trim()}`;
 
-        return {
-            id: Math.random(),
-            displayName,
-            subject,
-            studentCount: 0
-        };
-    });
+            const key = `${displayName}||${subject}`;
+            if (seen.has(key)) return acc;
+            seen.add(key);
+            acc.push({ id: key, displayName, subject, studentCount: classItem?.class?.student_count || 0 });
+            return acc;
+        }, []);
+    })();
 
     const handleDelete = async () => {
         try {
@@ -142,24 +126,39 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
                                         </span>
                                     )}
                                 </div>
-                                <button
-                                    onClick={async () => {
-                                        try {
-                                            const newStatus = teacher.status === 'Active' ? 'On Leave' : 'Active';
-                                            await api.updateTeacher(teacher.id, { status: newStatus });
-
-                                            setTeacher({ ...teacher, status: newStatus });
-                                            forceUpdate();
-                                        } catch (err: any) {
-                                            toast.error('Failed to update status: ' + err.message);
-                                        }
-                                    }}
-                                    className="mt-2 sm:mt-0 sm:ml-2 text-xs text-indigo-600 hover:text-indigo-800 font-semibold underline"
-                                >
-                                    Change
-                                </button>
+                                <div className="relative mt-2 sm:mt-0 sm:ml-2">
+                                    <button
+                                        onClick={() => setShowStatusDropdown(v => !v)}
+                                        className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold underline"
+                                    >
+                                        Change
+                                    </button>
+                                    {showStatusDropdown && (
+                                        <div className="absolute left-0 top-6 z-50 bg-white border border-gray-200 rounded-xl shadow-lg py-1 min-w-[130px]">
+                                            {['Active', 'On Leave', 'Inactive'].map(s => (
+                                                <button
+                                                    key={s}
+                                                    onClick={() => { setPendingStatus(s); setShowStatusDropdown(false); }}
+                                                    className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${teacher.status === s ? 'font-bold text-indigo-600' : 'text-gray-700'}`}
+                                                >{s}</button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                             <p className={`text-sm font-semibold inline-block px-2 py-0.5 rounded mt-2 ${SUBJECT_COLORS[teacher.subjects?.[0] || ''] || 'bg-gray-200'}`}>{(teacher.subjects || []).join(', ')}</p>
+                            {((teacher as any).branch_name || (teacher as any).branchName) && (
+                                <p className="text-xs text-gray-500 mt-1">
+                                    <span className="font-medium">Branch:</span> {(teacher as any).branch_name || (teacher as any).branchName}
+                                </p>
+                            )}
+                            {(teacher as any).curriculum_eligibility?.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-2 justify-center sm:justify-start">
+                                    {((teacher as any).curriculum_eligibility as string[]).map((c: string) => (
+                                        <span key={c} className="px-2 py-0.5 text-xs bg-indigo-50 text-indigo-700 rounded-full font-medium">{c}</span>
+                                    ))}
+                                </div>
+                            )}
                             <div className="flex flex-wrap justify-center sm:justify-start gap-4 mt-2">
                                 <a href={`mailto:${teacher.email}`} className="flex items-center space-x-1 text-sm text-gray-600 hover:text-indigo-600"><MailIcon className="w-4 h-4" /><span>Email</span></a>
                                 <a href={`tel:${teacher.phone}`} className="flex items-center space-x-1 text-sm text-gray-600 hover:text-indigo-600"><PhoneIcon className="w-4 h-4" /><span>Call</span></a>
@@ -190,12 +189,12 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
 
                         {/* Assigned Classes */}
                         <div className="bg-white p-4 rounded-xl shadow-sm">
-                            <h4 className="font-bold text-gray-800 mb-2">Assigned Classes ({statsLoading ? '...' : stats.totalClasses})</h4>
+                            <h4 className="font-bold text-gray-800 mb-2">Assigned Classes ({displayClasses.length})</h4>
                             <div className="space-y-2">
                                 {displayClasses.length > 0 ? displayClasses.map((c, idx) => (
                                     <div key={idx} className="bg-gray-50 p-3 rounded-lg flex justify-between items-center">
                                         <p className="font-semibold text-gray-700 text-sm sm:text-base truncate mr-2">{c.displayName} - {c.subject}</p>
-                                        <span className={`text-[10px] sm:text-xs font-semibold px-2 py-1 rounded-full bg-gray-200 flex-shrink-0 whitespace-nowrap`}>{c.studentCount > 0 ? `${c.studentCount} students` : 'Class Info'}</span>
+                                        <span className={`text-xs sm:text-xs font-semibold px-2 py-1 rounded-full bg-gray-200 flex-shrink-0 whitespace-nowrap`}>{c.studentCount > 0 ? `${c.studentCount} students` : 'Class Info'}</span>
                                     </div>
                                 )) : <p className="text-gray-500 text-sm italic">No classes assigned.</p>}
                             </div>
@@ -234,6 +233,27 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
                 message={`Are you sure you want to delete ${teacher.full_name || teacher.name}? This action cannot be undone.`}
                 confirmText="Delete"
                 isDanger
+            />
+
+            <ConfirmationModal
+                isOpen={!!pendingStatus}
+                onClose={() => setPendingStatus(null)}
+                onConfirm={async () => {
+                    if (!pendingStatus) return;
+                    try {
+                        await api.updateTeacher(teacher.id, { status: pendingStatus });
+                        setTeacher({ ...teacher, status: pendingStatus as any });
+                        toast.success(`Status changed to ${pendingStatus}`);
+                        forceUpdate();
+                    } catch (err: any) {
+                        toast.error('Failed to update status: ' + err.message);
+                    } finally {
+                        setPendingStatus(null);
+                    }
+                }}
+                title="Change Teacher Status"
+                message={`Change ${teacher.full_name || teacher.name}'s status to "${pendingStatus}"?`}
+                confirmText="Confirm"
             />
         </div>
     );

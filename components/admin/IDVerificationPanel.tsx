@@ -53,6 +53,7 @@ export default function IDVerificationPanel() {
             setRequests(filter !== 'all' ? list.filter((r: any) => r.status === filter) : list);
         } catch (error) {
             console.error('Load requests error:', error);
+            toast.error('Failed to load verification requests');
         } finally {
             setLoading(false);
         }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Globe, Shield, CheckCircle, XCircle, AlertCircle, Save, ExternalLink } from 'lucide-react';
 import { toast } from 'react-hot-toast';
@@ -30,7 +30,7 @@ const PaymentGatewaySettings: React.FC<GatewaySettingsProps> = ({ navigateTo }) 
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Paystack Card */}
-                <Card className={`border-l-4 ${settings.paystackEnabled ? 'border-l-indigo-500' : 'border-l-gray-300'}`}>
+                <Card className={settings.paystackEnabled ? 'ring-2 ring-indigo-400' : 'ring-1 ring-gray-200'}>
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <CardTitle className="text-xl font-bold flex items-center gap-2">
                             <img src="https://paystack.com/favicon.png" alt="Paystack" className="w-6 h-6" />
@@ -54,16 +54,16 @@ const PaymentGatewaySettings: React.FC<GatewaySettingsProps> = ({ navigateTo }) 
                         <div className="pt-2">
                             <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Capabilities</h4>
                             <div className="flex flex-wrap gap-2">
-                                <span className="px-2 py-1 bg-gray-100 text-gray-600 text-[10px] rounded font-bold uppercase">Cards</span>
-                                <span className="px-2 py-1 bg-gray-100 text-gray-600 text-[10px] rounded font-bold uppercase">Bank Transfer</span>
-                                <span className="px-2 py-1 bg-gray-100 text-gray-600 text-[10px] rounded font-bold uppercase">USSD</span>
+                                <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded font-bold uppercase">Cards</span>
+                                <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded font-bold uppercase">Bank Transfer</span>
+                                <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded font-bold uppercase">USSD</span>
                             </div>
                         </div>
                     </CardContent>
                 </Card>
 
                 {/* Flutterwave Card */}
-                <Card className={`border-l-4 ${settings.flutterwaveEnabled ? 'border-l-orange-500' : 'border-l-gray-300'}`}>
+                <Card className={settings.flutterwaveEnabled ? 'ring-2 ring-orange-400' : 'ring-1 ring-gray-200'}>
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <CardTitle className="text-xl font-bold flex items-center gap-2">
                             <img src="https://flutterwave.com/favicon.png" alt="Flutterwave" className="w-6 h-6" />
@@ -87,9 +87,9 @@ const PaymentGatewaySettings: React.FC<GatewaySettingsProps> = ({ navigateTo }) 
                         <div className="pt-2">
                             <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Capabilities</h4>
                             <div className="flex flex-wrap gap-2">
-                                <span className="px-2 py-1 bg-gray-100 text-gray-600 text-[10px] rounded font-bold uppercase">Cards</span>
-                                <span className="px-2 py-1 bg-gray-100 text-gray-600 text-[10px] rounded font-bold uppercase">MoMo</span>
-                                <span className="px-2 py-1 bg-gray-100 text-gray-600 text-[10px] rounded font-bold uppercase">QR</span>
+                                <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded font-bold uppercase">Cards</span>
+                                <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded font-bold uppercase">MoMo</span>
+                                <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded font-bold uppercase">QR</span>
                             </div>
                         </div>
                     </CardContent>

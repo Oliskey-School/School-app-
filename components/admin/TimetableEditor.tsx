@@ -1,24 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
+import { toast } from 'react-hot-toast';
 import { XCircleIcon, SparklesIcon, BriefcaseIcon, CheckCircleIcon, PlusIcon, EditIcon, CalendarIcon, SaveIcon, CloudUploadIcon, RefreshIcon, ChevronLeftIcon } from '../../constants';
-import { SUBJECT_COLORS } from '../../constants';
+import { SUBJECT_COLORS, TIMETABLE_PERIODS as PERIODS, TIMETABLE_DAYS as DAYS } from '../../constants';
 import { TimetableEntry } from '../../types';
 import { api } from '../../lib/api';
 import { notifyClass } from '../../lib/database';
-import { loadSchedule, saveSchedule, loadDaySchedule, saveDaySchedule, clearDayOverride, hasDayOverride, DEFAULT_PERIODS, PeriodDef } from '../../lib/timetableSchedule';
-import { getSubjectsForGrade } from '../../lib/schoolSystem';
-
-// Map a class NAME to a representative grade so we can show the right subjects.
-const gradeForClassName = (name: string): number => {
-    const n = (name || '').toLowerCase();
-    if (/sss|senior/.test(n)) return 12;            // Senior Secondary
-    if (/jss|junior/.test(n)) return 9;             // Junior Secondary
-    if (/(primary|pry|basic|grade)\s*0*[456]\b/.test(n)) return 6; // Upper Primary
-    if (/(primary|pry|basic|grade)\s*0*[123]\b/.test(n)) return 3; // Lower Primary
-    if (/pre[-\s]?nursery/.test(n)) return 0;
-    if (/nursery|kg|kindergarten/.test(n)) return 1;
-    return 0;                                        // creche / unknown -> early years
-};
 
 // --- TYPES ---
 type Timetable = { [key: string]: string | null };
@@ -44,11 +31,7 @@ const formatTime12Hour = (timeStr: string) => {
     return `${h}:${minutes} ${ampm}`;
 };
 
-// The period structure (incl. breaks) comes from the SHARED schedule so the
-// Editor matches the Timetable Builder and break times are editable/persisted.
-const PERIODS: PeriodDef[] = DEFAULT_PERIODS;
-
-const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+// PERIODS and DAYS are imported from ../../constants (shared with TimetableScreen)
 
 // --- SUB-COMPONENTS ---
 
@@ -141,7 +124,7 @@ const TimetableCell: React.FC<{ subject: string | null; teacher: string | null; 
                     {teacher && (
                         <div className="flex items-center justify-center mt-1 space-x-1">
                             <BriefcaseIcon className="w-3 h-3 text-gray-500/70" />
-                            <span className="text-[10px] text-gray-600 font-medium truncate max-w-full">
+                            <span className="text-xs text-gray-600 font-medium truncate max-w-full">
                                 {teacher}
                             </span>
                         </div>
@@ -221,7 +204,7 @@ const MobileDayEditor: React.FC<{
             {periods.map((period, idx) => {
                 if (period.isBreak) return (
                     <div key={idx} className="flex items-center justify-center py-4 bg-gray-50/50 rounded-2xl border border-gray-100 border-dashed">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">{period.name}</span>
+                        <span className="text-xs font-bold text-gray-400 uppercase tracking-[0.2em]">{period.name}</span>
                     </div>
                 );
 
@@ -238,7 +221,7 @@ const MobileDayEditor: React.FC<{
                         {/* Time Column */}
                         <div className="w-20 bg-gray-50 border-r border-gray-100 p-4 flex flex-col justify-center items-center text-center">
                             <span className="font-bold text-gray-700 text-sm leading-none">{period.name.split(' ')[1] || period.name}</span>
-                            <span className="text-[10px] font-medium text-gray-400 mt-1 leading-tight">{formatTime12Hour(period.start)}<br />{formatTime12Hour(period.end)}</span>
+                            <span className="text-xs font-medium text-gray-400 mt-1 leading-tight">{formatTime12Hour(period.start)}<br />{formatTime12Hour(period.end)}</span>
                         </div>
 
                         {/* Content Column */}
@@ -310,66 +293,7 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
     const selectedClass = currentSchedule.className || '';
     const status = currentSchedule.status || 'Draft';
 
-    // SSS classes split into departments — a period can run Science, Art and
-    // Commercial subjects at once so each student attends their department class.
-    const DEPARTMENTS = ['Science', 'Art', 'Commercial'];
-    const isSeniorClass = /sss|senior/i.test(selectedClass);
-    // deptCells: { `${day}-${index}`: { Science?: {subject,teacher}, Art?:..., Commercial?:... } }
-    const deptCells: { [key: string]: { [dept: string]: { subject: string; teacher?: string } } } = currentSchedule.deptCells || {};
-    const [deptEditKey, setDeptEditKey] = useState<string | null>(null);
-    const setDeptCellsState = (next: any) => {
-        const ns = [...schedules];
-        if (ns[activeIndex]) { ns[activeIndex] = { ...ns[activeIndex], deptCells: next }; setSchedules(ns); }
-    };
-    const updateDeptEntry = (key: string, dept: string, field: 'subject' | 'teacher', value: string) => {
-        const cur = { ...(deptCells[key] || {}) };
-        cur[dept] = { ...(cur[dept] || { subject: '' }), [field]: value } as any;
-        setDeptCellsState({ ...deptCells, [key]: cur });
-    };
-    const clearDeptCell = (key: string) => {
-        const n = { ...deptCells }; delete n[key]; setDeptCellsState(n);
-    };
-
-    // Subjects palette shows what's relevant for the class on screen (its level),
-    // not the entire catalogue. Senior classes combine every department so the FULL
-    // senior subject list is available. Falls back to all subjects if level is unknown.
-    const paletteSubjects = useMemo(() => {
-        const grade = gradeForClassName(selectedClass);
-        const subs = (isSeniorClass || (grade >= 12 && grade <= 14))
-            ? Array.from(new Set([
-                ...getSubjectsForGrade(grade),
-                ...getSubjectsForGrade(grade, 'Science'),
-                ...getSubjectsForGrade(grade, 'Arts'),
-                ...getSubjectsForGrade(grade, 'Commercial'),
-            ]))
-            : getSubjectsForGrade(grade);
-        return (Array.isArray(subs) && subs.length) ? subs : Object.keys(SUBJECT_COLORS);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedClass]);
-
-    // Subjects for one department's dropdown in the split editor — only that track's
-    // subjects (core + specialism), not the whole class list. UI uses 'Art'; the
-    // curriculum helper uses 'Arts'.
-    const deptSubjects = (dept: string): string[] => {
-        const grade = gradeForClassName(selectedClass);
-        const subs = getSubjectsForGrade(grade, dept === 'Art' ? 'Arts' : dept);
-        return (Array.isArray(subs) && subs.length) ? subs : paletteSubjects;
-    };
-
-    // Palette collapses to 6 chips; "Show all" reveals the rest.
-    const [paletteOpen, setPaletteOpen] = useState(false);
-    const PALETTE_COLLAPSED = 6;
-
     const [teachers, setTeachers] = useState<string[]>(['Mr. Anderson', 'Ms. Davis', 'Mrs. Wilson', 'Mr. Brown', 'Dr. Clark']);
-    // Shared, editable period schedule (incl. breaks). Loaded once we know the school.
-    const [periods, setPeriods] = useState<PeriodDef[]>(DEFAULT_PERIODS);
-    const [editingBreaks, setEditingBreaks] = useState(false);
-    // Per-day times: which day the times modal is editing ('All' = base), the draft
-    // being edited, and a version counter to re-read overrides after a save.
-    const [editDay, setEditDay] = useState<string>('All');
-    const [modalPeriods, setModalPeriods] = useState<PeriodDef[]>(DEFAULT_PERIODS);
-    const [scheduleVersion, setScheduleVersion] = useState(0);
-    const [toastMessage, setToastMessage] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
 
@@ -401,7 +325,6 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                 // Single-class legacy mode
                 setSchedules([{
                     className: timetableData.className || '',
-                    // loadTimetable passes `timetable`; older callers pass `schedule`.
                     timetable: timetableData.timetable || timetableData.schedule || {},
                     teacherAssignments: timetableData.teacherAssignments || {},
                     deptCells: timetableData.deptCells || {},
@@ -434,44 +357,6 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
         };
         fetchContext();
     }, []);
-
-    // Load the editable, persisted period schedule for this school (shared with the
-    // Timetable Builder) once we know the school id.
-    useEffect(() => {
-        if (userSchoolId) setPeriods(loadSchedule(userSchoolId));
-    }, [userSchoolId, scheduleVersion]);
-
-    // Effective times for each weekday — a day's override if set, else the base.
-    const dayPeriodsMap = useMemo(() => {
-        const map: { [day: string]: PeriodDef[] } = {};
-        DAYS.forEach(d => { map[d] = userSchoolId ? loadDaySchedule(userSchoolId, d) : periods; });
-        return map;
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [userSchoolId, periods, scheduleVersion]);
-
-    const openTimesEditor = (day: string) => {
-        setEditDay(day);
-        setModalPeriods(day === 'All' ? loadSchedule(userSchoolId || undefined) : loadDaySchedule(userSchoolId || undefined, day));
-        setEditingBreaks(true);
-    };
-    const updateBreakTime = (index: number, field: 'start' | 'end', value: string) => {
-        setModalPeriods(prev => prev.map((p, i) => i === index ? { ...p, [field]: value } : p));
-    };
-    const saveBreakTimes = () => {
-        if (editDay === 'All') {
-            saveSchedule(modalPeriods, userSchoolId || undefined);
-            setPeriods(modalPeriods);
-        } else {
-            saveDaySchedule(modalPeriods, userSchoolId || undefined, editDay);
-        }
-        setScheduleVersion(v => v + 1);
-        setEditingBreaks(false);
-        setToastMessage(editDay === 'All' ? 'Times saved for all days.' : `Times saved for ${editDay}.`);
-    };
-    const resetDayToBase = () => {
-        if (editDay !== 'All') { clearDayOverride(userSchoolId || undefined, editDay); setScheduleVersion(v => v + 1); }
-        setModalPeriods(loadSchedule(userSchoolId || undefined));
-    };
 
     // ... (rest of code)
 
@@ -522,19 +407,19 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                 );
 
                 if (clientConflict) {
-                    setToastMessage(`⚠️ Multi-Class Conflict: ${assignedTeacherName} is assigned in another class at this time!`);
+                    toast(`Multi-Class Conflict: ${assignedTeacherName} is assigned in another class at this time!`, { icon: '⚠️' });
                 } else {
                     // DB check
                     const conflictData = await api.checkTimetableConflict({
                         teacherId: teacher.id,
                         day: day,
-                        startTime: periods[periodIndex].start,
-                        endTime: periods[periodIndex].end,
+                        startTime: PERIODS[periodIndex].start,
+                        endTime: PERIODS[periodIndex].end,
                         excludeClassId: selectedClass
                     });
 
                     if (conflictData?.conflict) {
-                        setToastMessage(`⚠️ DB Conflict: ${assignedTeacherName} is busy in ${conflictData.class_name}`);
+                        toast(`DB Conflict: ${assignedTeacherName} is busy in ${conflictData.class_name}`, { icon: '⚠️' });
                     }
                 }
             }
@@ -564,10 +449,10 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                 throw new Error(`${failures.length} schedules failed to save. Check conflicts.`);
             }
 
-            setToastMessage('All timetables saved successfully!');
+            toast.success('All timetables saved successfully!');
         } catch (error: any) {
             console.error('Error saving timetable:', error);
-            setToastMessage('Save Failed: ' + error.message);
+            toast.error('Save Failed: ' + error.message);
         } finally {
             setIsSaving(false);
         }
@@ -587,14 +472,14 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                 return saveIndividualTimetable(sched, 'Published');
             }));
 
-            setToastMessage('All timetables Published!');
+            toast.success('Timetable published and sent live!');
             // Notify for each
             schedules.forEach(s => {
                 notifyClass(s.className, 'Timetable Published', `Timetable for ${s.className} is now live.`).catch(console.error);
             });
 
         } catch (err: any) {
-            setToastMessage("Error: " + err.message);
+            toast.error('Publish failed: ' + err.message);
         } finally {
             setIsSaving(false);
         }
@@ -608,28 +493,9 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
 
         // 1. Prepare entries and validate conflicts first
         for (const day of DAYS) {
-            const dpForDay = dayPeriodsMap[day] || periods; // this day's times (override or base)
-            for (let i = 0; i < periods.length; i++) {
-                if (periods[i].isBreak) continue;
-                const slot = dpForDay[i] || periods[i];
+            for (let i = 0; i < PERIODS.length; i++) {
+                if (PERIODS[i].isBreak) continue;
                 const key = `${day}-${i}`;
-
-                // SSS department split: one row per department (tagged in `notes`).
-                const dep = (sched.deptCells || {})[key];
-                if (dep && DEPARTMENTS.some(d => dep[d]?.subject)) {
-                    for (const d of DEPARTMENTS) {
-                        const e = dep[d];
-                        if (!e?.subject) continue;
-                        const t = (window as any).__teacherData?.find((tt: any) => tt.name === e.teacher);
-                        entries.push({
-                            day, period_index: i, start_time: slot.start, end_time: slot.end,
-                            subject: e.subject, class_name: className, teacher_id: t?.id || null,
-                            notes: d, status: statusToSave, school_id: userSchoolId,
-                        });
-                    }
-                    continue;
-                }
-
                 const subject = schedTimetable[key];
                 const teacherName = schedAssignments[key];
 
@@ -647,8 +513,8 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                              const conflictData = await api.checkTimetableConflict({
                                  teacherId: teacher.id,
                                  day: day,
-                                 startTime: slot.start,
-                                 endTime: slot.end,
+                                 startTime: PERIODS[i].start,
+                                 endTime: PERIODS[i].end,
                                  excludeClassId: className
                              });
 
@@ -664,8 +530,8 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                     entries.push({
                         day: day,
                         period_index: i,
-                        start_time: slot.start,
-                        end_time: slot.end,
+                        start_time: PERIODS[i].start,
+                        end_time: PERIODS[i].end,
                         subject,
                         class_name: className,
                         teacher_id: teacherId,
@@ -695,7 +561,7 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
 
     const handleAiGenerate = async () => {
         if (!teachers.length || Object.keys(SUBJECT_COLORS).length === 0) {
-            setToastMessage("Please ensure teachers and subjects are loaded.");
+            toast.error("Please ensure teachers and subjects are loaded.");
             return;
         }
 
@@ -711,7 +577,7 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                 subjects: Object.keys(SUBJECT_COLORS),
                 teachers: teacherData, // Now includes employment_type, available_days, subject_specialization
                 days: DAYS,
-                periodsPerDay: periods.length
+                periodsPerDay: PERIODS.length
             });
 
             if (result && result.schedule) {
@@ -730,21 +596,21 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                     if (val.pt_teachers_scheduled_correctly === false ||
                         val.all_pt_on_available_days === false) {
                         const warnings = val.warnings?.join(', ') || 'PT teacher constraints may not be satisfied';
-                        setToastMessage(`⚠️ Schedule generated with warnings: ${warnings}`);
+                        toast('Schedule generated with warnings: ' + warnings, { icon: '⚠️' });
                     } else if (val.warnings && val.warnings.length > 0) {
-                        setToastMessage(`✅ Schedule generated! Note: ${val.warnings[0]}`);
+                        toast.success('Schedule generated! Note: ' + val.warnings[0]);
                     } else {
-                        setToastMessage("✅ AI Schedule Generated with PT/FT Constraints!");
+                        toast.success('AI Schedule Generated with PT/FT Constraints!');
                     }
                 } else {
-                    setToastMessage("✅ AI Schedule Generated Successfully!");
+                    toast.success('AI Schedule Generated Successfully!');
                 }
 
                 setShowAiModal(false);
             }
         } catch (error: any) {
             console.error(error);
-            setToastMessage("AI Error: " + error.message);
+            toast.error("AI generation failed: " + error.message);
         } finally {
             setIsGenerating(false);
         }
@@ -753,7 +619,7 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
     // Mobile specific handlers
     const handleMobileSlotClick = (periodName: string) => {
         // Map name to index
-        const idx = periods.findIndex(p => p.name === periodName);
+        const idx = PERIODS.findIndex(p => p.name === periodName);
         if (idx !== -1) {
             setEditingSlot({ day: selectedDay, period: idx.toString() });
         }
@@ -769,13 +635,12 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
 
     return (
         <div className="flex flex-col h-full bg-gray-50 relative">
-            {toastMessage && <Toast message={toastMessage} onClear={() => setToastMessage('')} />}
 
             <MobileSubjectPicker
                 isOpen={!!editingSlot}
                 onClose={() => setEditingSlot(null)}
                 onSelect={handleMobileSubjectSelect}
-                subjects={paletteSubjects}
+                subjects={Object.keys(SUBJECT_COLORS)}
             />
 
             {/* HEADER */}
@@ -789,22 +654,42 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                             <div>
                                 <h2 className="text-xl md:text-2xl font-extrabold text-gray-900 tracking-tight flex items-center gap-2">
                                     Timetable Editor
-                                    <span className={`px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full border ${status === 'Published' ? 'bg-green-50 text-green-600 border-green-200' : 'bg-amber-50 text-amber-600 border-amber-200'}`}>
+                                    <span className={`px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider rounded-full border ${status === 'Published' ? 'bg-green-50 text-green-600 border-green-200' : 'bg-amber-50 text-amber-600 border-amber-200'}`}>
                                         {status}
                                     </span>
                                 </h2>
-                                <p className="text-gray-500 text-xs md:text-sm font-medium">Drag subjects, or Tap to edit</p>
+                                <p className="text-gray-500 text-xs md:text-sm font-medium">Drag subjects, AI Auto-Fill, or Tap to edit</p>
                             </div>
                         </div>
                     </div>
 
-                    {/* Class Name (fixed — set by the class you opened) */}
+                    {/* Class Name Input */}
                     <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200">
                         <span className="text-xs font-bold text-gray-400 uppercase">Class:</span>
-                        <span className="text-sm font-bold text-gray-800">{selectedClass || '—'}</span>
+                        <input
+                            type="text"
+                            value={selectedClass}
+                            onChange={(e) => {
+                                const newSchedules = [...schedules];
+                                if (newSchedules[activeIndex]) {
+                                    newSchedules[activeIndex].className = e.target.value;
+                                    setSchedules(newSchedules);
+                                }
+                            }}
+                            placeholder="e.g. Grade 5A"
+                            className="bg-transparent text-sm font-bold text-gray-800 focus:outline-none w-32"
+                        />
                     </div>
 
                     <div className="flex items-center space-x-3 overflow-x-auto pb-1 lg:pb-0 no-scrollbar">
+                        <button
+                            onClick={() => setShowAiModal(true)}
+                            className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100 font-bold text-xs"
+                        >
+                            <SparklesIcon className="w-4 h-4" /> AI Auto-Fill
+                        </button>
+
+                        <div className="h-8 w-[1px] bg-gray-200 mx-2 hidden sm:block"></div>
 
                         <button
                             onClick={handlePublishClick}
@@ -880,16 +765,10 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                         <div>
                             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Subjects Palette</h3>
                             <div className="grid grid-cols-2 gap-3">
-                                {(paletteOpen ? paletteSubjects : paletteSubjects.slice(0, PALETTE_COLLAPSED)).map(subject => (
+                                {Object.keys(SUBJECT_COLORS).map(subject => (
                                     <DraggableSubject key={subject} subjectName={subject} />
                                 ))}
                             </div>
-                            {paletteSubjects.length > PALETTE_COLLAPSED && (
-                                <button onClick={() => setPaletteOpen(o => !o)}
-                                    className="mt-3 w-full text-center text-xs font-semibold text-indigo-600 hover:text-indigo-700">
-                                    {paletteOpen ? 'Show less ▴' : `Show all ${paletteSubjects.length} ▾`}
-                                </button>
-                            )}
                         </div>
                         {/* Teachers List could go here */}
                     </aside>
@@ -939,7 +818,7 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                             <div className="flex-1 overflow-y-auto p-4 md:p-6">
                                 <MobileDayEditor
                                     day={selectedDay}
-                                    periods={periods}
+                                    periods={PERIODS}
                                     timetable={timetable}
                                     onEditSlot={handleMobileSlotClick}
                                 />
@@ -949,110 +828,43 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                         // DESKTOP GRID VIEW
                         <div className="p-8 h-full overflow-visible pr-16 min-w-max pt-6">
                             <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 overflow-hidden inline-block min-w-full rounded-tl-none">
-                                <div className="grid gap-[1px] bg-gray-100" style={{ gridTemplateColumns: `100px repeat(${periods.length}, minmax(130px, 1fr))` }}>
+                                <div className="grid gap-[1px] bg-gray-100" style={{ gridTemplateColumns: `100px repeat(${PERIODS.length}, minmax(130px, 1fr))` }}>
 
                                     {/* Header Row */}
                                     <div className="bg-gray-50/80 backdrop-blur p-4 z-10 sticky top-0 left-0 border-b border-gray-200"></div> {/* Corner */}
-                                    {periods.map(period => (
+                                    {PERIODS.map(period => (
                                         <div key={period.name} className="text-center py-4 px-2 bg-gray-50/80 backdrop-blur z-10 sticky top-0 border-b border-gray-200">
                                             <div className="font-bold text-gray-700 text-xs uppercase tracking-wider mb-1">{period.name}</div>
-                                            <div className="text-[10px] font-medium text-gray-400 bg-white inline-block px-2 py-0.5 rounded-full border border-gray-100 shadow-sm">
+                                            <div className="text-xs font-medium text-gray-400 bg-white inline-block px-2 py-0.5 rounded-full border border-gray-100 shadow-sm">
                                                 {formatTime12Hour(period.start)} - {formatTime12Hour(period.end)}
                                             </div>
                                         </div>
                                     ))}
 
                                     {/* Data Rows */}
-                                    {DAYS.map(day => {
-                                        const dp = dayPeriodsMap[day] || periods;
-                                        const override = !!userSchoolId && hasDayOverride(userSchoolId, day);
-                                        return (
+                                    {DAYS.map(day => (
                                         <React.Fragment key={day}>
-                                            <div className="bg-white font-bold text-gray-800 text-xs uppercase tracking-widest flex flex-col items-center justify-center p-4 border-r border-gray-100 sticky left-0 z-10 shadow-[4px_0_10px_rgba(0,0,0,0.02)]">
-                                                <span>{day.slice(0, 3)}</span>
-                                                {override && <span className="text-[9px] text-amber-600 normal-case font-semibold mt-1">{dp[0]?.start}–{dp[dp.length - 1]?.end}</span>}
+                                            <div className="bg-white font-bold text-gray-800 text-xs uppercase tracking-widest flex items-center justify-center p-4 border-r border-gray-100 writing-vertical-lr rotate-180 md:rotate-0 md:writing-horizontal-tb sticky left-0 z-10 shadow-[4px_0_10px_rgba(0,0,0,0.02)]">
+                                                {day.slice(0, 3)}
                                             </div>
-                                            {periods.map((period, index) => {
-                                                const cellK = `${day}-${index}`;
-                                                const depts = deptCells[cellK];
-                                                const hasDepts = !period.isBreak && depts && Object.keys(depts).length > 0;
-                                                return (
-                                                <div key={`${day}-${period.name}`} className="bg-white min-h-[6rem] relative">
-                                                    {!period.isBreak && override && <span className="absolute top-0.5 left-1 text-[8px] text-amber-500 font-semibold z-10">{dp[index]?.start}</span>}
-                                                    {/* SSS: split a period into department subjects */}
-                                                    {isSeniorClass && !period.isBreak && (
-                                                        <button onClick={() => setDeptEditKey(cellK)} title="Split by department"
-                                                            className="absolute top-0.5 right-0.5 z-20 text-[9px] font-bold text-indigo-500 bg-white/80 rounded px-1 hover:bg-indigo-50">⊞</button>
-                                                    )}
-                                                    {hasDepts ? (
-                                                        <div className="h-full min-h-[80px] rounded-xl border border-indigo-200 bg-indigo-50/40 p-1 flex flex-col gap-0.5">
-                                                            {DEPARTMENTS.filter(d => depts[d]?.subject).map(d => (
-                                                                <div key={d} className="rounded bg-white px-1.5 py-0.5 text-[10px] leading-tight">
-                                                                    <span className="font-bold text-indigo-600">{d.slice(0, 3)}:</span> <span className="text-gray-800">{depts[d].subject}</span>
-                                                                    {depts[d].teacher && <span className="block text-[8px] text-gray-500 truncate">{depts[d].teacher}</span>}
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    ) : (
-                                                        <TimetableCell
-                                                            isBreak={period.isBreak}
-                                                            subject={period.isBreak ? period.name : timetable[cellK] || null}
-                                                            teacher={teacherAssignments[cellK] || null}
-                                                            onDrop={(e) => handleDrop(day, index, e)}
-                                                            onClear={() => clearCell(day, index)}
-                                                        />
-                                                    )}
+                                            {PERIODS.map((period, index) => (
+                                                <div key={`${day}-${period.name}`} className="bg-white min-h-[6rem]">
+                                                    <TimetableCell
+                                                        isBreak={period.isBreak}
+                                                        subject={period.isBreak ? period.name : timetable[`${day}-${index}`] || null}
+                                                        teacher={teacherAssignments[`${day}-${index}`] || null}
+                                                        onDrop={(e) => handleDrop(day, index, e)}
+                                                        onClear={() => clearCell(day, index)}
+                                                    />
                                                 </div>
-                                            ); })}
+                                            ))}
                                         </React.Fragment>
-                                    ); })}
+                                    ))}
                                 </div>
                             </div>
                         </div>
                     )}
                 </main>
-
-                {/* Department split editor (SSS): set Science / Art / Commercial subjects for one period */}
-                {deptEditKey && (
-                    <div className="fixed inset-0 z-[120] bg-black/50 flex items-center justify-center p-4" onClick={() => setDeptEditKey(null)}>
-                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
-                            <div className="p-5 border-b border-gray-100 flex items-center justify-between">
-                                <div>
-                                    <h3 className="text-lg font-bold text-gray-900">Split period by department</h3>
-                                    <p className="text-xs text-gray-500">Each department's students attend their own subject this period. Leave blank to skip a department.</p>
-                                </div>
-                                <button onClick={() => setDeptEditKey(null)} className="text-gray-400 hover:text-gray-700 text-2xl leading-none">×</button>
-                            </div>
-                            <div className="p-5 space-y-3">
-                                {DEPARTMENTS.map(dept => {
-                                    const entry = deptCells[deptEditKey]?.[dept] || { subject: '', teacher: '' };
-                                    return (
-                                        <div key={dept} className="rounded-xl border border-gray-200 p-3">
-                                            <p className="text-xs font-bold text-indigo-600 mb-2">{dept}</p>
-                                            <div className="flex gap-2">
-                                                <select value={entry.subject} onChange={e => updateDeptEntry(deptEditKey, dept, 'subject', e.target.value)}
-                                                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-sm">
-                                                    <option value="">— subject —</option>
-                                                    {deptSubjects(dept).map(s => <option key={s} value={s}>{s}</option>)}
-                                                </select>
-                                                <select value={entry.teacher || ''} onChange={e => updateDeptEntry(deptEditKey, dept, 'teacher', e.target.value)}
-                                                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-sm">
-                                                    <option value="">— teacher —</option>
-                                                    {teachers.map(t => <option key={t} value={t}>{t}</option>)}
-                                                </select>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                            <div className="p-5 border-t border-gray-100 flex justify-between gap-2">
-                                <button onClick={() => { clearDeptCell(deptEditKey); setDeptEditKey(null); }} className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-100">Clear split</button>
-                                <button onClick={() => setDeptEditKey(null)} className="px-4 py-2 rounded-xl text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700">Done</button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
             </div>
         </div>
     );

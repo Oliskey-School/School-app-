@@ -35,6 +35,7 @@ const ManageVolunteeringScreen: React.FC = () => {
             setOpportunities(data || []);
         } catch (err) {
             console.error('Error fetching opportunities:', err);
+            toast.error('Failed to load volunteering opportunities');
         } finally {
             setLoading(false);
         }

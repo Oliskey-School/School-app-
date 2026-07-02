@@ -344,9 +344,9 @@ export const getParentTodayUpdate = async (req: AuthRequest, res: Response) => {
 export const getTeacherAvailability = async (req: AuthRequest, res: Response) => {
     try {
         const { teacherId } = req.params;
-        const rawDate = (req.query.date as string) || (new Date().toISOString());
+        const rawDate = (req.query.date as string | undefined) || new Date().toISOString();
         const date = new Date(rawDate);
-        const result = await ParentService.getTeacherAvailability(req.user.school_id, teacherId, date);
+        const result = await ParentService.getTeacherAvailability(req.user.school_id, teacherId as string, date);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });

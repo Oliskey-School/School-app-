@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
@@ -120,11 +120,11 @@ const HostelTab = ({ hostels, onAdd, onDelete }: { hostels: Hostel[]; onAdd: () 
                         </div>
                         <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-50">
                             <div>
-                                <p className="text-[10px] uppercase font-bold text-gray-400">Capacity</p>
+                                <p className="text-xs uppercase font-bold text-gray-400">Capacity</p>
                                 <p className="font-bold text-gray-700">{h.capacity} beds</p>
                             </div>
                             <div>
-                                <p className="text-[10px] uppercase font-bold text-gray-400">Added</p>
+                                <p className="text-xs uppercase font-bold text-gray-400">Added</p>
                                 <p className="font-bold text-gray-700">{new Date(h.created_at).toLocaleDateString()}</p>
                             </div>
                         </div>

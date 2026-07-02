@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { api } from '../../lib/api'; import { Student, Teacher } from '../../types';
+import { api } from '../../lib/api';
+import { Student, Teacher } from '../../types';
 import IDCardGenerator from '../shared/IDCardGenerator';
 import { CreditCard } from 'lucide-react';
 import { getFormattedClassName } from '../../constants';
+import { toast } from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
 
 interface IDCardManagementProps {
@@ -46,6 +48,7 @@ const IDCardManagement: React.FC<IDCardManagementProps> = ({ initialUser, initia
             })));
         } catch (error) {
             console.error('Error fetching students:', error);
+            toast.error('Failed to load students');
         } finally {
             setLoading(false);
         }
@@ -64,6 +67,7 @@ const IDCardManagement: React.FC<IDCardManagementProps> = ({ initialUser, initia
             })));
         } catch (error) {
             console.error('Error fetching teachers:', error);
+            toast.error('Failed to load teachers');
         } finally {
             setLoading(false);
         }

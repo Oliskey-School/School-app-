@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
@@ -140,7 +140,7 @@ const ManagePermissionSlipsScreen: React.FC<ManagePermissionSlipsScreenProps> = 
 
     const filteredSlips = recentSlips.filter(slip =>
         slip.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        slip.students?.name.toLowerCase().includes(searchTerm.toLowerCase())
+        (slip.students?.name ?? '').toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     return (
@@ -283,7 +283,7 @@ const ManagePermissionSlipsScreen: React.FC<ManagePermissionSlipsScreenProps> = 
                             <div className="overflow-hidden">
                                 <table className="min-w-full text-left">
                                     <thead>
-                                        <tr className="border-b border-gray-100 text-gray-400 text-[10px] uppercase tracking-wider">
+                                        <tr className="border-b border-gray-100 text-gray-400 text-xs uppercase tracking-wider">
                                             <th className="pb-4 px-2 font-bold">Student</th>
                                             <th className="pb-4 px-2 font-bold">Event & Location</th>
                                             <th className="pb-4 px-2 font-bold">Date</th>
@@ -309,7 +309,7 @@ const ManagePermissionSlipsScreen: React.FC<ManagePermissionSlipsScreenProps> = 
                                                             </div>
                                                             <div>
                                                                 <div className="font-bold text-gray-800 group-hover:text-indigo-900">{slip.students?.full_name || slip.students?.name}</div>
-                                                                <div className="text-[10px] text-gray-400 font-medium uppercase tracking-tight">Class {slip.students?.grade}{slip.students?.section}</div>
+                                                                <div className="text-xs text-gray-400 font-medium uppercase tracking-tight">Class {slip.students?.grade}{slip.students?.section}</div>
                                                             </div>
                                                         </div>
                                                     </td>
@@ -324,7 +324,7 @@ const ManagePermissionSlipsScreen: React.FC<ManagePermissionSlipsScreenProps> = 
                                                         {new Date(slip.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                                                     </td>
                                                     <td className="py-4 px-2">
-                                                        <span className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${
+                                                        <span className={`px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider ${
                                                             slip.status === 'Approved' ? 'bg-green-100 text-green-700 border border-green-200' :
                                                             slip.status === 'Rejected' ? 'bg-red-100 text-red-700 border border-red-200' :
                                                             'bg-amber-100 text-amber-700 border border-amber-200 animate-pulse'

@@ -6,9 +6,10 @@ interface SelectTermForReportScreenProps {
   student: Student;
   navigateTo: (view: string, title: string, props: any) => void;
   handleBack: () => void;
+  subjectContext?: string;
 }
 
-const SelectTermForReportScreen: React.FC<SelectTermForReportScreenProps> = ({ student, navigateTo, handleBack }) => {
+const SelectTermForReportScreen: React.FC<SelectTermForReportScreenProps> = ({ student, navigateTo, handleBack, subjectContext }) => {
   if (!student) return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Select a student first.</div>;
   const terms = ["First Term", "Second Term", "Third Term"];
   
@@ -109,7 +110,7 @@ const SelectTermForReportScreen: React.FC<SelectTermForReportScreenProps> = ({ s
 
 
   const handleSelectTerm = (term: string) => {
-    navigateTo('reportCardInput', `Report: ${student.name}`, { student, term, session: selectedSession });
+    navigateTo('reportCardInput', `Report: ${student.name}`, { student, term, session: selectedSession, subjectContext });
   };
 
   return (
@@ -125,7 +126,7 @@ const SelectTermForReportScreen: React.FC<SelectTermForReportScreenProps> = ({ s
         <div>
           <div className="flex items-center justify-between mb-4 px-2">
             <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Select Academic Session</label>
-            <span className="text-[10px] font-bold text-purple-600 bg-purple-50 px-3 py-1 rounded-full border border-purple-100">
+            <span className="text-xs font-bold text-purple-600 bg-purple-50 px-3 py-1 rounded-full border border-purple-100">
                Swipe SideWays →
             </span>
           </div>
@@ -153,7 +154,7 @@ const SelectTermForReportScreen: React.FC<SelectTermForReportScreenProps> = ({ s
                   </div>
                 )}
                 
-                <div className={`text-[10px] font-bold mb-1 uppercase tracking-widest ${selectedSession === item.session ? 'text-purple-600' : 'text-gray-400'}`}>
+                <div className={`text-xs font-bold mb-1 uppercase tracking-widest ${selectedSession === item.session ? 'text-purple-600' : 'text-gray-400'}`}>
                   {item.gradeName}
                 </div>
                 <div className={`text-base font-bold ${selectedSession === item.session ? 'text-gray-900' : 'text-gray-500'}`}>
@@ -162,17 +163,17 @@ const SelectTermForReportScreen: React.FC<SelectTermForReportScreenProps> = ({ s
                 
                 <div className="mt-3 flex flex-wrap gap-1 justify-center">
                   {item.isStart && (
-                    <span className="text-[8px] font-bold px-2 py-0.5 rounded-lg bg-green-500 text-white shadow-sm">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-green-500 text-white shadow-sm">
                       STARTED
                     </span>
                   )}
                   {item.isCurrent && (
-                    <span className="text-[8px] font-bold px-2 py-0.5 rounded-lg bg-blue-500 text-white shadow-sm">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-blue-500 text-white shadow-sm">
                       CURRENT
                     </span>
                   )}
                   {item.isFuture && (
-                    <span className="text-[8px] font-bold px-2 py-0.5 rounded-lg bg-purple-500 text-white shadow-sm">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-purple-500 text-white shadow-sm">
                       REMAINING
                     </span>
                   )}

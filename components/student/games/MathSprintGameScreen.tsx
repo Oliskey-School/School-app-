@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+﻿import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Student } from '../../../types';
 import { PlayIcon, PauseIcon, Calculator, Timer, Trophy } from 'lucide-react';
 import { toast } from 'react-hot-toast';
@@ -85,7 +85,7 @@ const MathSprintGameScreen: React.FC<MathSprintGameScreenProps> = ({ navigateTo,
             num1 = Math.floor(Math.random() * 12) + 1;
             num2 = Math.floor(Math.random() * 12) + 1;
             answer = num1 * num2;
-            equation = `${num1} × ${num2}`;
+            equation = `${num1} Ã— ${num2}`;
         }
 
         // Generate Options
@@ -120,7 +120,7 @@ const MathSprintGameScreen: React.FC<MathSprintGameScreenProps> = ({ navigateTo,
             // Add time bonus for every 5 streak
             if (streak > 0 && streak % 5 === 0) {
                 setTimeLeft(t => t + 5);
-                toast.success('+5 Seconds!', { icon: '⏱️' });
+                toast.success('+5 Seconds!', { icon: 'â±ï¸' });
             }
         } else {
             // Wrong
@@ -151,11 +151,11 @@ const MathSprintGameScreen: React.FC<MathSprintGameScreenProps> = ({ navigateTo,
                 <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center mb-6 animate-bounce">
                     <Calculator className="w-12 h-12 text-white" />
                 </div>
-                <h1 className="text-4xl font-extrabold mb-2 text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-orange-400">Math Sprint</h1>
+                <h1 className="text-4xl font-extrabold mb-2 text-yellow-300">Math Sprint</h1>
                 <p className="text-lg text-indigo-100 mb-8 max-w-md">Race against the clock! Solve as many problems as possible in 60 seconds.</p>
 
                 <div className="bg-white/10 p-4 rounded-xl mb-8 backdrop-blur-sm">
-                    <p className="font-semibold text-yellow-300">🔥 Streak Bonus</p>
+                    <p className="font-semibold text-yellow-300">ðŸ”¥ Streak Bonus</p>
                     <p className="text-sm">Get answers right in a row to multiply your score!</p>
                 </div>
 
@@ -174,7 +174,7 @@ const MathSprintGameScreen: React.FC<MathSprintGameScreenProps> = ({ navigateTo,
             <div className="flex flex-col items-center justify-center h-full bg-gradient-to-br from-indigo-900 to-purple-900 text-white p-6 text-center">
                 <Trophy className="w-24 h-24 text-yellow-400 mb-4 animate-pulse" />
                 <h2 className="text-3xl font-bold mb-2">Time's Up!</h2>
-                <div className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-br from-yellow-300 to-orange-500 mb-4">{score}</div>
+                <div className="text-6xl font-black text-yellow-300 mb-4">{score}</div>
                 <p className="text-xl text-indigo-200 mb-8">Great job, {student?.name.split(' ')[0] || 'Champion'}!</p>
                 <div className="flex gap-4">
                     <button onClick={() => navigateTo('gamesHub', 'Games Hub')} className="px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 font-bold transition">Exit</button>
@@ -196,7 +196,7 @@ const MathSprintGameScreen: React.FC<MathSprintGameScreenProps> = ({ navigateTo,
                         <span className="font-black text-lg lg:text-xl text-yellow-400">{comboMultiplier}x</span>
                     </div>
                     <div>
-                        <p className="text-[10px] lg:text-xs text-slate-400 uppercase font-bold tracking-wider">Score</p>
+                        <p className="text-xs lg:text-xs text-slate-400 uppercase font-bold tracking-wider">Score</p>
                         <p className="text-xl lg:text-2xl font-bold font-mono text-white">{score}</p>
                     </div>
                 </div>
@@ -226,7 +226,7 @@ const MathSprintGameScreen: React.FC<MathSprintGameScreenProps> = ({ navigateTo,
                 <div className="h-8 flex items-center justify-center">
                     {streak > 2 && (
                         <div className="text-orange-400 font-bold animate-bounce tracking-widest uppercase text-sm lg:text-base border border-orange-500/30 px-3 py-1 rounded-full bg-orange-500/10">
-                            {streak} Streak! 🔥
+                            {streak} Streak! ðŸ”¥
                         </div>
                     )}
                 </div>
@@ -256,7 +256,7 @@ const MathSprintGameScreen: React.FC<MathSprintGameScreenProps> = ({ navigateTo,
             </div>
 
             <div className="p-3 text-center text-slate-500 text-xs lg:text-sm shrink-0 bg-slate-900/50 backdrop-blur-sm border-t border-white/5">
-                Stats: {streak} Streak • Level {Math.min(Math.ceil((student?.grade || 5) / 3) + Math.floor(score / 500), 10)}
+                Stats: {streak} Streak â€¢ Level {Math.min(Math.ceil((student?.grade || 5) / 3) + Math.floor(score / 500), 10)}
             </div>
         </div>
     );

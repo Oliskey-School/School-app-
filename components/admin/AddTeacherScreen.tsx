@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+﻿import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { Formik, Form, Field, ErrorMessage, FormikHelpers } from 'formik';
@@ -675,7 +675,7 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                                     />
                                     <div>
                                         <span className="font-semibold text-gray-800 text-sm">Nigerian</span>
-                                        <p className="text-[10px] text-gray-500">Requires TRCN</p>
+                                        <p className="text-xs text-gray-500">Requires TRCN</p>
                                     </div>
                                 </label>
 
@@ -691,7 +691,7 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                                     />
                                     <div>
                                         <span className="font-semibold text-gray-800 text-sm">British</span>
-                                        <p className="text-[10px] text-gray-500">Requires QTS/Intl Cert</p>
+                                        <p className="text-xs text-gray-500">Requires QTS/Intl Cert</p>
                                     </div>
                                 </label>
                             </div>
@@ -735,7 +735,7 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                                 }} />
                                 {uploadedDocs.length > 0 && (
                                     <div className="mt-2 text-left space-y-1">
-                                        <p className="text-[10px] font-bold text-gray-400 uppercase">New Selection:</p>
+                                        <p className="text-xs font-bold text-gray-400 uppercase">New Selection:</p>
                                         {uploadedDocs.map((file, i) => (
                                             <p key={i} className="text-xs text-green-600 flex items-center gap-1">
                                                 <CheckCircleIcon className="w-3 h-3" /> {file.name}

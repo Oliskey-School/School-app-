@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { Student, ClassInfo, AttendanceStatus } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
+import { toast } from 'react-hot-toast';
 import DonutChart from '../ui/DonutChart';
 import { CheckCircleIcon, XCircleIcon, ClockIcon, ExclamationCircleIcon, CalendarIcon } from '../../constants';
 import { useAutoSync } from '../../hooks/useAutoSync';
@@ -83,6 +84,7 @@ const ClassAttendanceDetailScreen: React.FC<ClassAttendanceDetailScreenProps> = 
             setStudentsInClass(mergedStudents);
         } catch (err) {
             console.error("Error loading class attendance detail:", err);
+            toast.error('Failed to load attendance records');
         } finally {
             setLoading(false);
         }

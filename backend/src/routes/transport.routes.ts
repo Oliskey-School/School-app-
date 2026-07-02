@@ -7,6 +7,20 @@ const router = Router();
 
 router.use(authenticate, requireTenant);
 
+// Root summary: returns all transport data in one response for overview screens
+router.get('/', async (req: any, res) => {
+    try {
+        const [routes, stops, assignments] = await Promise.all([
+            TransportService.getRoutes(req.user.school_id, req.query.branchId),
+            TransportService.getStops(undefined),
+            TransportService.getAssignments(req.user.school_id),
+        ]);
+        res.json({ routes, stops, assignments });
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
 router.get('/routes', async (req: any, res) => {
     try {
         const routes = await TransportService.getRoutes(req.user.school_id, req.query.branchId);

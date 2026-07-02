@@ -1,4 +1,4 @@
-
+﻿
 import React, { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
 import { Quiz, Question, QuestionOption, Student } from '../../types';
@@ -60,13 +60,13 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, cbtExamId, 
         setFocusViolations(prev => {
           const newVal = prev + 1;
           if (newVal >= 3) {
-            toast.error(`❌ Anti-cheat triggered: Limit (3/3) exceeded. Auto-submitting assessment...`, { duration: 5000 });
+            toast.error(`âŒ Anti-cheat triggered: Limit (3/3) exceeded. Auto-submitting assessment...`, { duration: 5000 });
             // Small delay to allow the toast to be seen before submission/redirect
             setTimeout(() => {
               finishQuiz(true);
             }, 1500);
           } else {
-            toast.error(`⚠️ Warning: View changed! Violation ${newVal}/3 recorded.`);
+            toast.error(`âš ï¸ Warning: View changed! Violation ${newVal}/3 recorded.`);
           }
           return newVal;
         });
@@ -198,7 +198,7 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, cbtExamId, 
     setIsSubmitting(true);
 
     if (autoSubmit) {
-      toast('Violation limit reached! Auto-submitting... (v1.2)', { icon: '🚫' });
+      toast('Violation limit reached! Auto-submitting... (v1.2)', { icon: 'ðŸš«' });
     } else {
       toast.loading('Submitting assessment... (v1.2)');
     }
@@ -273,13 +273,13 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, cbtExamId, 
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-6 overflow-y-auto">
         <div className="bg-white rounded-3xl shadow-xl p-8 max-w-lg w-full border border-orange-100 animate-fade-in my-auto">
           <div className="w-20 h-20 bg-orange-100 rounded-2xl flex items-center justify-center mx-auto mb-6 transform rotate-3 shadow-inner">
-            <span className="text-4xl">📜</span>
+            <span className="text-4xl">ðŸ“œ</span>
           </div>
           <h2 className="text-3xl font-extrabold text-gray-900 text-center mb-4">Assessment Rules</h2>
 
           <div className="space-y-4 mb-8">
             <div className="flex items-start gap-4 p-4 bg-red-50 rounded-2xl border border-red-100">
-              <span className="text-2xl mt-1">🚫</span>
+              <span className="text-2xl mt-1">ðŸš«</span>
               <div>
                 <h4 className="font-bold text-red-800">No Window Switching</h4>
                 <p className="text-sm text-red-700 leading-relaxed">Changing tabs or minimizing the browser 3 times will trigger an <strong>automatic submission</strong> and you will be returned to the dashboard.</p>
@@ -287,7 +287,7 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, cbtExamId, 
             </div>
 
             <div className="flex items-start gap-4 p-4 bg-blue-50 rounded-2xl border border-blue-100">
-              <span className="text-2xl mt-1">⏱️</span>
+              <span className="text-2xl mt-1">â±ï¸</span>
               <div>
                 <h4 className="font-bold text-blue-800">Timed Assessment</h4>
                 <p className="text-sm text-blue-700 leading-relaxed">The timer starts as soon as you begin. Ensure you have a stable connection and enough time to finish.</p>
@@ -295,7 +295,7 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, cbtExamId, 
             </div>
 
             <div className="flex items-start gap-4 p-4 bg-green-50 rounded-2xl border border-green-100">
-              <span className="text-2xl mt-1">☝️</span>
+              <span className="text-2xl mt-1">â˜ï¸</span>
               <div>
                 <h4 className="font-bold text-green-800">Single Attempt</h4>
                 <p className="text-sm text-green-700 leading-relaxed">You cannot retake this assessment once submitted. Ensure your answers are finalized before time runs out.</p>
@@ -364,7 +364,7 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, cbtExamId, 
             </button>
             <div>
               <h3 className="font-bold text-slate-800 truncate max-w-[180px] leading-tight">{quizInfo?.title}</h3>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
                 Question {currentQuestionIndex + 1} of {questions.length}
               </p>
             </div>
@@ -423,8 +423,8 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, cbtExamId, 
                     {option.text}
                   </span>
                   {isSelected && (
-                    <div className="w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center text-white text-[10px]">
-                      ✓
+                    <div className="w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center text-white text-xs">
+                      âœ“
                     </div>
                   )}
                 </button>

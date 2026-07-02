@@ -5,16 +5,21 @@ import {
     UserGroupIcon,
     CalendarIcon,
     EditIcon,
-    CheckCircleIcon
 } from '../../constants';
 import { useAuth } from '../../context/AuthContext';
 
+// NOTE: The backend does not yet expose a dedicated leave-balances endpoint.
+// FLAG: api.getLeaveBalances() and api.updateLeaveBalance() need to be added to
+// lib/api.ts and a matching route added in backend/src/routes/fee.routes.ts (or payroll).
+// For now the screen derives balance data from leave requests and shows a read-only view.
+// The edit action is disabled until the backend endpoint exists.
+
 interface TeacherBalance {
-    id: number;
-    teacher_id: number;
+    id: string;
+    teacher_id: string;
     teacher_name: string;
     leave_type: string;
-    leave_type_id: number;
+    leave_type_id: string;
     total_days: number;
     used_days: number;
     remaining_days: number;
@@ -27,7 +32,6 @@ interface LeaveBalanceProps {
 const LeaveBalance: React.FC<LeaveBalanceProps> = () => {
     const { currentSchool } = useAuth();
     const [balances, setBalances] = useState<TeacherBalance[]>([]);
-    const [teachers, setTeachers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [editingBalance, setEditingBalance] = useState<TeacherBalance | null>(null);
     const [newTotal, setNewTotal] = useState(0);
@@ -38,96 +42,53 @@ const LeaveBalance: React.FC<LeaveBalanceProps> = () => {
     }, [currentSchool]);
 
     const fetchData = async () => {
+        if (!currentSchool) return;
         try {
             setLoading(true);
-            await Promise.all([fetchBalances(), fetchTeachers()]);
-        } catch (error) {
-            console.error('Error fetching data:', error);
+            // Derive balance data from leave requests — approved requests reduce balance
+            const requests = await api.getLeaveRequests(undefined, currentSchool.id);
+            const approved = (requests || []).filter((r: any) => r.status === 'Approved');
+
+            // Aggregate per teacher + leave_type
+            const map: Record<string, TeacherBalance> = {};
+            approved.forEach((r: any) => {
+                const key = `${r.teacher_id}_${r.leave_type_id || r.leave_type}`;
+                if (!map[key]) {
+                    map[key] = {
+                        id: key,
+                        teacher_id: r.teacher_id,
+                        teacher_name: r.teachers?.full_name || r.teacher_name || 'Unknown',
+                        leave_type: r.leave_types?.name || r.leave_type || 'Unknown',
+                        leave_type_id: r.leave_type_id || '',
+                        total_days: 30, // Default allocation — update when backend provides real balances
+                        used_days: 0,
+                        remaining_days: 30,
+                    };
+                }
+                map[key].used_days += r.days_requested || 0;
+                map[key].remaining_days = map[key].total_days - map[key].used_days;
+            });
+
+            setBalances(Object.values(map));
+        } catch (error: any) {
+            console.error('Error fetching leave data:', error);
+            toast.error('Failed to load leave balances');
         } finally {
             setLoading(false);
         }
     };
 
-    const fetchBalances = async () => {
-        if (!currentSchool) return;
-        const { data, error } = await api
-            .from('leave_balances')
-            .select(`
-        *,
-        teachers!inner (
-          full_name,
-          school_id
-        ),
-        leave_types (
-          name
-        )
-      `)
-            .eq('teachers.school_id', currentSchool.id)
-            .order('teacher_id');
-
-        if (error) {
-            console.error('Error fetching balances:', error);
-            return;
-        }
-
-        const formatted: TeacherBalance[] = (data || []).map((item: any) => ({
-            id: item.id,
-            teacher_id: item.teacher_id,
-            teacher_name: item.teachers?.full_name || 'Unknown',
-            leave_type: item.leave_types?.name || 'Unknown',
-            leave_type_id: item.leave_type_id,
-            total_days: item.total_days,
-            used_days: item.used_days,
-            remaining_days: item.remaining_days
-        }));
-
-        setBalances(formatted);
-    };
-
-    const fetchTeachers = async () => {
-        if (!currentSchool) return;
-        const { data, error } = await api
-            .from('teachers')
-            .select('id, full_name')
-            .eq('school_id', currentSchool.id)
-            .order('full_name');
-
-        if (error) {
-            console.error('Error fetching teachers:', error);
-            return;
-        }
-
-        setTeachers(data || []);
-    };
-
     const handleUpdateBalance = async () => {
         if (!editingBalance) return;
-
-        try {
-            const newRemaining = newTotal - editingBalance.used_days;
-
-            const { error } = await api
-                .from('leave_balances')
-                .update({
-                    total_days: newTotal,
-                    remaining_days: newRemaining
-                })
-                .eq('id', editingBalance.id);
-
-            if (error) throw error;
-
-            toast.success('Balance updated successfully');
-            setEditingBalance(null);
-            setNewTotal(0);
-            fetchBalances();
-        } catch (error: any) {
-            console.error('Error updating balance:', error);
-            toast.error('Failed to update balance');
-        }
+        // FLAG: This requires api.updateLeaveBalance(id, { total_days, remaining_days })
+        // which does not yet exist. Showing a toast until the backend endpoint is added.
+        toast.error('Leave balance editing requires a backend update. Please contact your developer.');
+        setEditingBalance(null);
+        setNewTotal(0);
     };
 
     const groupByTeacher = () => {
-        const grouped: { [key: number]: TeacherBalance[] } = {};
+        const grouped: { [key: string]: TeacherBalance[] } = {};
         balances.forEach((balance) => {
             if (!grouped[balance.teacher_id]) {
                 grouped[balance.teacher_id] = [];
@@ -168,7 +129,7 @@ const LeaveBalance: React.FC<LeaveBalanceProps> = () => {
                 <div className="bg-white rounded-lg p-4 border border-gray-200">
                     <p className="text-sm text-gray-600">Total Available Days</p>
                     <p className="text-2xl font-bold text-gray-900">
-                        {balances.reduce((sum, b) => sum + b.remaining_days, 0)}
+                        {balances.reduce((sum, b) => sum + Math.max(0, b.remaining_days), 0)}
                     </p>
                 </div>
             </div>
@@ -193,7 +154,7 @@ const LeaveBalance: React.FC<LeaveBalanceProps> = () => {
                                             <div>
                                                 <h4 className="font-semibold text-gray-900">{balance.leave_type}</h4>
                                                 <p className="text-sm text-gray-600 mt-1">
-                                                    {balance.remaining_days} of {balance.total_days} days
+                                                    {Math.max(0, balance.remaining_days)} of {balance.total_days} days
                                                 </p>
                                             </div>
                                             <button
@@ -202,6 +163,7 @@ const LeaveBalance: React.FC<LeaveBalanceProps> = () => {
                                                     setNewTotal(balance.total_days);
                                                 }}
                                                 className="p-1 hover:bg-gray-100 rounded"
+                                                title="Edit allocation"
                                             >
                                                 <EditIcon className="w-4 h-4 text-gray-600" />
                                             </button>
@@ -212,12 +174,12 @@ const LeaveBalance: React.FC<LeaveBalanceProps> = () => {
                                             <div className="w-full bg-gray-200 rounded-full h-2">
                                                 <div
                                                     className="bg-indigo-600 h-2 rounded-full transition-all"
-                                                    style={{ width: `${(balance.remaining_days / balance.total_days) * 100}%` }}
+                                                    style={{ width: `${Math.min(100, Math.max(0, (balance.remaining_days / balance.total_days) * 100))}%` }}
                                                 ></div>
                                             </div>
                                             <div className="flex justify-between text-xs text-gray-600">
                                                 <span>Used: {balance.used_days}</span>
-                                                <span>Available: {balance.remaining_days}</span>
+                                                <span>Available: {Math.max(0, balance.remaining_days)}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -230,9 +192,9 @@ const LeaveBalance: React.FC<LeaveBalanceProps> = () => {
                 {Object.keys(groupedBalances).length === 0 && (
                     <div className="text-center p-12 bg-gray-50 rounded-lg border border-gray-200">
                         <CalendarIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                        <p className="text-gray-600">No leave balances configured yet</p>
+                        <p className="text-gray-600">No leave balances found</p>
                         <p className="text-sm text-gray-500 mt-2">
-                            Leave balances are created when teachers are assigned leave types
+                            Balances appear here once teachers have approved leave requests
                         </p>
                     </div>
                 )}
@@ -310,4 +272,3 @@ const LeaveBalance: React.FC<LeaveBalanceProps> = () => {
 };
 
 export default LeaveBalance;
-

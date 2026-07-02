@@ -1,15 +1,14 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
-import { 
-    CheckCircleIcon, 
-    XCircleIcon, 
+import {
+    CheckCircleIcon,
+    XCircleIcon,
     ChevronLeftIcon,
     SearchIcon,
     LockIcon,
     EyeIcon,
-    EyeOffIcon,
-    RefreshCwIcon
+    EyeOffIcon
 } from '../../constants';
 import { useAutoSync } from '../../hooks/useAutoSync';
 
@@ -195,7 +194,7 @@ const StudentApprovalsScreen: React.FC<StudentApprovalsScreenProps> = ({ handleB
                     </button>
                     <div>
                         <h1 className="text-lg font-bold text-gray-900 leading-none">Student Approvals</h1>
-                        <p className="text-[10px] sm:text-xs text-gray-500 mt-1">{pendingStudents.length} awaiting review</p>
+                        <p className="text-xs sm:text-xs text-gray-500 mt-1">{pendingStudents.length} awaiting review</p>
                     </div>
                 </div>
 
@@ -269,10 +268,10 @@ const StudentApprovalsScreen: React.FC<StudentApprovalsScreenProps> = ({ handleB
                                                 className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                                             />
                                         </th>
-                                        <th className="p-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Student Information</th>
-                                        <th className="p-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest hidden md:table-cell">Academic Context</th>
-                                        <th className="p-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest hidden sm:table-cell">Submission Date</th>
-                                        <th className="p-4 text-right text-[10px] font-bold text-gray-400 uppercase tracking-widest">Decision</th>
+                                        <th className="p-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Student Information</th>
+                                        <th className="p-4 text-xs font-bold text-gray-400 uppercase tracking-widest hidden md:table-cell">Academic Context</th>
+                                        <th className="p-4 text-xs font-bold text-gray-400 uppercase tracking-widest hidden sm:table-cell">Submission Date</th>
+                                        <th className="p-4 text-right text-xs font-bold text-gray-400 uppercase tracking-widest">Decision</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-50">
@@ -303,7 +302,7 @@ const StudentApprovalsScreen: React.FC<StudentApprovalsScreenProps> = ({ handleB
                                                         {student.creator && (
                                                             <div className="flex items-center gap-1 mt-1">
                                                                 <span className="w-1 h-1 bg-indigo-400 rounded-full"></span>
-                                                                <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-tight">Source: {student.creator.full_name}</p>
+                                                                <p className="text-xs text-indigo-400 font-bold uppercase tracking-tight">Source: {student.creator.full_name}</p>
                                                             </div>
                                                         )}
                                                     </div>
@@ -311,15 +310,15 @@ const StudentApprovalsScreen: React.FC<StudentApprovalsScreenProps> = ({ handleB
                                             </td>
                                             <td className="p-4 hidden md:table-cell">
                                                 <div className="flex flex-col items-start gap-1">
-                                                    <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-md text-[10px] font-bold">
+                                                    <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-md text-xs font-bold">
                                                         GRADE {student.grade}{student.section}
                                                     </span>
-                                                    <span className="text-[10px] text-gray-400 font-medium">{student.branch_name || 'Main Campus'}</span>
+                                                    <span className="text-xs text-gray-400 font-medium">{student.branch_name || 'Main Campus'}</span>
                                                 </div>
                                             </td>
                                             <td className="p-4 hidden sm:table-cell">
                                                 <p className="text-[11px] font-bold text-gray-600">{new Date(student.created_at || student.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</p>
-                                                <p className="text-[10px] text-gray-400">{new Date(student.created_at || student.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                                                <p className="text-xs text-gray-400">{new Date(student.created_at || student.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                                             </td>
                                             <td className="p-4 text-right">
                                                 <div className="flex items-center justify-end gap-1 sm:gap-2">
@@ -445,7 +444,7 @@ const StudentApprovalsScreen: React.FC<StudentApprovalsScreenProps> = ({ handleB
                         <div className="p-6 bg-gray-50 border-t border-gray-100">
                             <div className="bg-indigo-600/5 rounded-xl p-3 mb-6 flex gap-3">
                                 <div className="text-xl">💡</div>
-                                <p className="text-[10px] text-indigo-700 font-bold leading-relaxed">
+                                <p className="text-xs text-indigo-700 font-bold leading-relaxed">
                                     Secure Transfer: Please provide these credentials to students privately. They are required to authenticate and reset their secure access key.
                                 </p>
                             </div>

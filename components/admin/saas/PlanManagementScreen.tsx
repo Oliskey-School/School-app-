@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useSaaS } from '../../../contexts/SaaSContext';
 import { Plan } from '../../../types';
 import api from '../../../lib/api';
@@ -34,7 +34,7 @@ const PlanManagementScreen: React.FC<PlanManagementScreenProps> = ({ navigateTo 
 
         try {
             if (editingPlan.id) {
-                await api.updatePlan(editingPlan.id, editingPlan);
+                await api.updatePlan(String(editingPlan.id), editingPlan);
             } else {
                 await api.createPlan(editingPlan);
             }
@@ -52,7 +52,7 @@ const PlanManagementScreen: React.FC<PlanManagementScreenProps> = ({ navigateTo 
         if (!confirm('Are you sure you want to delete this plan? This may affect existing subscriptions.')) return;
 
         try {
-            await api.deletePlan(id);
+            await api.deletePlan(String(id));
             toast.success('Plan deleted');
             refreshPlans();
         } catch (error: any) {
@@ -169,9 +169,9 @@ const PlanManagementScreen: React.FC<PlanManagementScreenProps> = ({ navigateTo 
                                             <Copy className="w-4 h-4" />
                                         </button>
                                         {plan.is_active ? (
-                                            <span className="bg-green-100 text-green-800 text-[10px] px-2 py-0.5 rounded-full font-bold">ACTIVE</span>
+                                            <span className="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full font-bold">ACTIVE</span>
                                         ) : (
-                                            <span className="bg-gray-100 text-gray-800 text-[10px] px-2 py-0.5 rounded-full font-bold">DRAFT</span>
+                                            <span className="bg-gray-100 text-gray-800 text-xs px-2 py-0.5 rounded-full font-bold">DRAFT</span>
                                         )}
                                     </div>
                                 </div>
@@ -181,7 +181,7 @@ const PlanManagementScreen: React.FC<PlanManagementScreenProps> = ({ navigateTo 
                                 </div>
 
                                 <div className="space-y-4 mb-8">
-                                    <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest border-b pb-2">At a glance</h4>
+                                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest border-b pb-2">At a glance</h4>
                                     {Object.entries(plan.limits || {}).map(([key, val]) => (
                                         <div key={key} className="flex justify-between text-sm">
                                             <span className="text-gray-500 capitalize">{key.replace('max_', '').replace('_', ' ')} limit</span>
@@ -190,7 +190,7 @@ const PlanManagementScreen: React.FC<PlanManagementScreenProps> = ({ navigateTo 
                                     ))}
                                     <div className="flex flex-wrap gap-2 pt-2">
                                         {Object.entries(plan.features || {}).map(([key, val]) => val && (
-                                            <span key={key} className="px-2 py-1 bg-indigo-50 text-indigo-700 text-[10px] rounded font-medium capitalize">
+                                            <span key={key} className="px-2 py-1 bg-indigo-50 text-indigo-700 text-xs rounded font-medium capitalize">
                                                 {key.replace('_', ' ')}
                                             </span>
                                         ))}
@@ -296,7 +296,7 @@ const PlanManagementScreen: React.FC<PlanManagementScreenProps> = ({ navigateTo 
                                 <div className="grid grid-cols-3 gap-4">
                                     {['max_students', 'max_teachers', 'storage_gb'].map(limit => (
                                         <div key={limit}>
-                                            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">{limit.replace('_', ' ')}</label>
+                                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">{limit.replace('_', ' ')}</label>
                                             <input
                                                 type="number"
                                                 className="w-full px-3 py-2 bg-gray-50 border-none rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm"

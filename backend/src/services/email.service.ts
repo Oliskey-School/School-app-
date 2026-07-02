@@ -182,11 +182,11 @@ export class EmailService {
                             <span style="font-size: 36px; font-weight: bold; color: white; letter-spacing: 8px;">${code}</span>
                         </div>
                         <p style="color: #6b7280; font-size: 14px;">
-                            This code will expire in <strong>10 minutes</strong>.
+                            This code will expire in <strong>60 seconds</strong>. If it expires, request a new one.
                         </p>
                         <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;">
                         <p style="color: #dc2626; font-size: 14px;">
-                            <strong>Security Notice:</strong> If you didn't request this password reset, someone may be trying to access your account. Please contact your school administrator immediately.
+                            <strong>Security Notice:</strong> If you didn't request this password reset, please ignore this email.
                         </p>
                     </div>
                 `

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { useAutoSync } from '../../hooks/useAutoSync';
@@ -123,7 +123,7 @@ const AcademicAnalytics: React.FC<AcademicAnalyticsProps> = ({ schoolId, current
                         <div>
                             <p className="text-xs sm:text-sm text-gray-600">Overall GPA</p>
                             <p className="text-2xl sm:text-3xl font-bold text-indigo-600">{metrics.overallGPA}</p>
-                            <p className="text-[10px] sm:text-xs text-gray-500 mt-1">out of 4.0</p>
+                            <p className="text-xs sm:text-xs text-gray-500 mt-1">out of 4.0</p>
                         </div>
                         <div className="p-2 sm:p-3 bg-indigo-100 rounded-lg">
                             <Award className="h-5 w-5 sm:h-6 sm:w-6 text-indigo-600" />
@@ -136,7 +136,7 @@ const AcademicAnalytics: React.FC<AcademicAnalyticsProps> = ({ schoolId, current
                         <div>
                             <p className="text-xs sm:text-sm text-gray-600">Pass Rate</p>
                             <p className="text-2xl sm:text-3xl font-bold text-green-600">{metrics.passRate}%</p>
-                            <p className="text-[10px] sm:text-xs text-green-500 mt-1 flex items-center">
+                            <p className="text-xs sm:text-xs text-green-500 mt-1 flex items-center">
                                 <TrendingUp className="h-3 w-3 mr-1" />
                                 +{metrics.improvement}% from last term
                             </p>
@@ -152,7 +152,7 @@ const AcademicAnalytics: React.FC<AcademicAnalyticsProps> = ({ schoolId, current
                         <div>
                             <p className="text-xs sm:text-sm text-gray-600">Top Performer</p>
                             <p className="text-base sm:text-lg font-bold text-gray-900 truncate max-w-[120px] sm:max-w-none">{metrics.topPerformer}</p>
-                            <p className="text-[10px] sm:text-xs text-gray-500 mt-1">GPA: 4.0</p>
+                            <p className="text-xs sm:text-xs text-gray-500 mt-1">GPA: 4.0</p>
                         </div>
                         <div className="p-2 sm:p-3 bg-yellow-100 rounded-lg">
                             <Award className="h-5 w-5 sm:h-6 sm:w-6 text-yellow-600" />
@@ -165,7 +165,7 @@ const AcademicAnalytics: React.FC<AcademicAnalyticsProps> = ({ schoolId, current
                         <div>
                             <p className="text-xs sm:text-sm text-gray-600">Total Students</p>
                             <p className="text-2xl sm:text-3xl font-bold text-gray-900">{classComparison.reduce((sum, c) => sum + c.studentCount, 0)}</p>
-                            <p className="text-[10px] sm:text-xs text-gray-500 mt-1">across {classComparison.length} classes</p>
+                            <p className="text-xs sm:text-xs text-gray-500 mt-1">across {classComparison.length} classes</p>
                         </div>
                         <div className="p-2 sm:p-3 bg-blue-100 rounded-lg">
                             <Users className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />

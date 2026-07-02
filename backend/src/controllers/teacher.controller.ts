@@ -25,20 +25,19 @@ export const getMyProfile = async (req: AuthRequest, res: Response) => {
         if (!result) {
             return res.status(404).json({ message: 'Teacher profile not found' });
         }
-        // Scope the teacher's classes to their ACTIVE branch so switching branches
-        // shows that branch's environment (and is empty if they teach none there).
-        // School-wide classes (branch_id null) remain visible in every branch.
-        const branchId = getEffectiveBranchId(req.user, undefined);
-        if (branchId && branchId !== 'all' && Array.isArray(result.classes)) {
-            const homeBranch = req.user.branch_id;
-            result.classes = result.classes.filter((ct: any) => {
-                const cb = ct?.class?.branch_id;
-                if (cb === branchId) return true;
-                // A class with no branch belongs to the teacher's HOME branch only —
-                // it must NOT leak into other branches when they switch.
-                if (cb == null && branchId === homeBranch) return true;
-                return false;
-            });
+        // Show only classes assigned for the teacher's ACTIVE branch.
+        // Classes with null branch_id are school-wide and always visible.
+        // Strictly excluding other branches' classes is what gives each branch
+        // its own isolated class environment — a Lekki admin assigns Lekki classes
+        // to the teacher and only those appear when the teacher switches to Lekki.
+        if (Array.isArray(result.classes)) {
+            const branchId = getEffectiveBranchId(req.user, undefined);
+            if (branchId && branchId !== 'all') {
+                result.classes = result.classes.filter((ct: any) => {
+                    const ab: string | null = ct?.branch_id ?? null;
+                    return ab === null || ab === branchId;
+                });
+            }
         }
         res.json(result);
     } catch (error: any) {

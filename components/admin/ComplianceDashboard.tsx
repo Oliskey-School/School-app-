@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
+import { toast } from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import {
@@ -47,7 +48,8 @@ const ComplianceDashboard = () => {
             setMetrics(data);
         } catch (err) {
             console.error('Error fetching compliance metrics:', err);
-            // Fallback if error
+            toast.error('Failed to load compliance metrics');
+            // Fallback to prevent empty/broken UI
             setMetrics({
                 facilities_score: 100,
                 equipment_score: 100,
@@ -92,7 +94,7 @@ const ComplianceDashboard = () => {
                 <div className={`px-6 py-3 rounded-2xl border-2 flex items-center space-x-3 ${getStatusColor(overallScore)}`}>
                     <ShieldCheck className="w-6 h-6" />
                     <div>
-                        <p className="text-[10px] uppercase font-black tracking-widest opacity-70">Overall Status</p>
+                        <p className="text-xs uppercase font-black tracking-widest opacity-70">Overall Status</p>
                         <p className="text-xl font-bold">{overallScore}% Compliant</p>
                     </div>
                 </div>

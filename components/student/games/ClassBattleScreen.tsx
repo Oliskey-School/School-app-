@@ -1,11 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { Swords, Users, Copy, Crown, Check, X, Share2, Trophy, ChevronLeft, Loader2, Zap } from 'lucide-react';
 import { socketService } from '../../../lib/socketService';
 import { api } from '../../../lib/api';
 
 /**
- * Class Battle — live multiplayer quiz.
+ * Class Battle â€” live multiplayer quiz.
  * A student hosts a battle for their class+subject, classmates join with a code,
  * and everyone answers the same questions at the same time with a live scoreboard.
  */
@@ -157,15 +157,15 @@ const ClassBattleScreen: React.FC<ClassBattleScreenProps> = ({ student, studentI
     };
 
     const copyCode = async () => {
-        try { await navigator.clipboard.writeText(code); toast.success('Code copied — share it with your class!'); }
-        catch { toast(code, { icon: '📋' }); }
+        try { await navigator.clipboard.writeText(code); toast.success('Code copied â€” share it with your class!'); }
+        catch { toast(code, { icon: 'ðŸ“‹' }); }
     };
 
     const shareCode = async () => {
-        const text = `Join my Class Battle! Open the school app → Games → Class Battle → Join, and enter code ${code}. Let's learn together! 🎮`;
+        const text = `Join my Class Battle! Open the school app â†’ Games â†’ Class Battle â†’ Join, and enter code ${code}. Let's learn together! ðŸŽ®`;
         try {
             if ((navigator as any).share) await (navigator as any).share({ title: 'Class Battle', text });
-            else { await navigator.clipboard.writeText(text); toast.success('Invite copied — paste it to your class group!'); }
+            else { await navigator.clipboard.writeText(text); toast.success('Invite copied â€” paste it to your class group!'); }
         } catch { /* user cancelled */ }
     };
 
@@ -195,12 +195,12 @@ const ClassBattleScreen: React.FC<ClassBattleScreenProps> = ({ student, studentI
                 {/* MENU */}
                 {phase === 'menu' && (
                     <>
-                        <Header title="Class Battle" sub={setup?.className ? `${setup.className} • play solo or together` : 'Play solo or together'} />
+                        <Header title="Class Battle" sub={setup?.className ? `${setup.className} â€¢ play solo or together` : 'Play solo or together'} />
                         <button onClick={() => { setSolo(true); setPhase('create'); }} className="w-full bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-6 text-left text-white shadow-lg hover:opacity-95 transition flex items-center gap-4">
                             <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center"><Zap className="w-6 h-6" /></div>
                             <div>
                                 <h3 className="font-black text-lg">Play Solo</h3>
-                                <p className="text-sm text-emerald-50/90 mt-0.5">Practice on your own — answer the questions and beat your best score.</p>
+                                <p className="text-sm text-emerald-50/90 mt-0.5">Practice on your own â€” answer the questions and beat your best score.</p>
                             </div>
                         </button>
                         <p className="text-center text-xs font-bold uppercase tracking-widest text-gray-400">or play together</p>
@@ -286,7 +286,7 @@ const ClassBattleScreen: React.FC<ClassBattleScreenProps> = ({ student, studentI
                                     <div key={p.id} className="flex items-center gap-3 p-2 rounded-xl bg-gray-50">
                                         <div className="w-9 h-9 rounded-full bg-orange-100 text-orange-700 font-black flex items-center justify-center">{p.name.charAt(0).toUpperCase()}</div>
                                         <span className="font-bold text-gray-800">{p.name}</span>
-                                        {p.id === me.id && <span className="text-[10px] font-bold text-indigo-500 uppercase">You</span>}
+                                        {p.id === me.id && <span className="text-xs font-bold text-indigo-500 uppercase">You</span>}
                                     </div>
                                 ))}
                             </div>
@@ -305,11 +305,11 @@ const ClassBattleScreen: React.FC<ClassBattleScreenProps> = ({ student, studentI
                         )}
 
                         {isHost ? (
-                            <button onClick={startBattle} className="w-full py-4 rounded-2xl bg-gradient-to-r from-orange-500 to-rose-600 text-white font-black text-lg shadow-lg hover:opacity-95 flex items-center justify-center gap-2">
+                            <button onClick={() => startBattle()} className="w-full py-4 rounded-2xl bg-gradient-to-r from-orange-500 to-rose-600 text-white font-black text-lg shadow-lg hover:opacity-95 flex items-center justify-center gap-2">
                                 <Zap className="w-6 h-6" /> Start Battle
                             </button>
                         ) : (
-                            <div className="text-center text-gray-500 font-bold py-3 flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Waiting for the host to start…</div>
+                            <div className="text-center text-gray-500 font-bold py-3 flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Waiting for the host to startâ€¦</div>
                         )}
                     </>
                 )}
@@ -352,7 +352,7 @@ const ClassBattleScreen: React.FC<ClassBattleScreenProps> = ({ student, studentI
                         </div>
 
                         {phase === 'question' && picked !== null && (
-                            <p className="text-center text-gray-500 font-bold text-sm flex items-center justify-center gap-2"><Check className="w-4 h-4 text-green-500" /> Answer locked — waiting for others…</p>
+                            <p className="text-center text-gray-500 font-bold text-sm flex items-center justify-center gap-2"><Check className="w-4 h-4 text-green-500" /> Answer locked â€” waiting for othersâ€¦</p>
                         )}
 
                         {reveal && (
@@ -383,14 +383,14 @@ const ClassBattleScreen: React.FC<ClassBattleScreenProps> = ({ student, studentI
                 {/* ENDED */}
                 {phase === 'ended' && (
                     <>
-                        <Header title="Battle Over!" sub="Great game — well played" />
+                        <Header title="Battle Over!" sub="Great game â€” well played" />
                         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
                             <div className="flex items-end justify-center gap-3 mb-6">
                                 {[1, 0, 2].map(rank => {
                                     const p = final[rank];
                                     if (!p) return <div key={rank} className="w-20" />;
                                     const heights = ['h-24', 'h-32', 'h-20'];
-                                    const medals = ['🥈', '🥇', '🥉'];
+                                    const medals = ['ðŸ¥ˆ', 'ðŸ¥‡', 'ðŸ¥‰'];
                                     return (
                                         <div key={rank} className="flex flex-col items-center">
                                             <div className="text-3xl mb-1">{medals[rank]}</div>

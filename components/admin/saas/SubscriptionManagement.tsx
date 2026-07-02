@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../../lib/api';
+import { useAuth } from '../../../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import {
     Calendar,
@@ -12,8 +13,6 @@ import {
     Search,
     Filter,
     Download,
-    CreditCard as PaymentIcon,
-    Globe
 } from 'lucide-react';
 import { initializePaystackPayment, initializeFlutterwavePayment } from '../../../lib/paymentGateways';
 import { toast } from 'react-hot-toast';
@@ -37,11 +36,26 @@ interface SubscriptionManagementProps {
     navigateTo?: (screen: string) => void;
 }
 
+const PLAN_MONTHLY_PRICES: Record<string, number> = {
+    'Free': 0,
+    'Basic': 15000,
+    'Premium': 50000,
+    'Enterprise': 150000,
+};
+
+interface RenewalModal {
+    subscription: Subscription;
+    amount: string;
+    gateway: 'paystack' | 'flutterwave';
+}
+
 export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ navigateTo }) => {
+    const { currentSchool } = useAuth();
     const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<'all' | 'active' | 'trial' | 'past_due' | 'canceled'>('all');
     const [searchTerm, setSearchTerm] = useState('');
+    const [renewalModal, setRenewalModal] = useState<RenewalModal | null>(null);
     const [stats, setStats] = useState({
         total: 0,
         active: 0,
@@ -57,29 +71,18 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
     const fetchSubscriptions = async () => {
         try {
             setLoading(true);
+            // Use the real REST endpoint instead of the legacy api.from() Supabase shim
+            const data: Subscription[] = await api.get('/subscription/all');
 
-            // Fetch subscriptions with school and plan details
-            const { data, error } = await api
-                .from('subscriptions')
-                .select(`
-                    *,
-                    schools (name, email),
-                    plans (name)
-                `)
-                .order('created_at', { ascending: false });
-
-            if (error) throw error;
-
-            const formatted = data?.map(sub => ({
+            const formatted = (Array.isArray(data) ? data : []).map((sub: any) => ({
                 ...sub,
-                school_name: sub.schools?.name || 'Unknown School',
-                contact_email: sub.schools?.email || 'admin@school.com',
-                plan_name: sub.plans?.name || 'Unknown Plan'
-            })) || [];
+                school_name: sub.school_name || sub.schools?.name || 'Unknown School',
+                contact_email: sub.contact_email || sub.schools?.email || 'admin@school.com',
+                plan_name: sub.plan_name || sub.plans?.name || 'Unknown Plan',
+            }));
 
             setSubscriptions(formatted);
 
-            // Calculate stats
             const statsData = {
                 total: formatted.length,
                 active: formatted.filter(s => s.status === 'active').length,
@@ -89,20 +92,31 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
             };
             setStats(statsData);
 
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error fetching subscriptions:', error);
+            toast.error('Failed to load subscriptions');
         } finally {
             setLoading(false);
         }
     };
 
-    const handleRenewSubscription = async (subscription: Subscription) => {
-        const gateway = confirm('Renew with Paystack? (Cancel for Flutterwave)') ? 'paystack' : 'flutterwave';
+    const openRenewalModal = (subscription: Subscription) => {
+        const planPrice = PLAN_MONTHLY_PRICES[subscription.plan_name || ''] ?? 50000;
+        setRenewalModal({ subscription, amount: String(planPrice), gateway: 'paystack' });
+    };
 
+    const handleConfirmRenewal = () => {
+        if (!renewalModal) return;
+        const { subscription, amount, gateway } = renewalModal;
+        const numericAmount = parseFloat(amount);
+        if (isNaN(numericAmount) || numericAmount < 0) {
+            toast.error('Please enter a valid amount');
+            return;
+        }
         try {
             const config = {
                 email: subscription.contact_email || 'admin@school.com',
-                amount: 50000, // Monthly fee example in NGN
+                amount: numericAmount,
                 currency: 'NGN',
                 reference: `RNW-${subscription.id}-${Date.now()}`,
                 callback_url: window.location.href,
@@ -116,8 +130,9 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
             }
 
             toast.success(`Redirecting to ${gateway}...`);
+            setRenewalModal(null);
         } catch (error: any) {
-            toast.error(error.message);
+            toast.error(error.message || 'Failed to initiate payment');
         }
     };
 
@@ -125,23 +140,17 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
         if (!confirm('Are you sure you want to cancel this subscription?')) return;
 
         try {
-            const { error } = await api
-                .from('subscriptions')
-                .update({
-                    status: 'canceled',
-                    canceled_at: new Date().toISOString(),
-                    auto_renew: false,
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', subscriptionId);
+            await api.put(`/subscription/${subscriptionId}`, {
+                status: 'canceled',
+                canceled_at: new Date().toISOString(),
+                auto_renew: false,
+            });
 
-            if (error) throw error;
-
+            toast.success('Subscription canceled successfully');
             fetchSubscriptions();
-            alert('Subscription canceled successfully!');
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error canceling subscription:', error);
-            alert('Failed to cancel subscription');
+            toast.error(error.message || 'Failed to cancel subscription');
         }
     };
 
@@ -359,7 +368,7 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
                                                 <div className="flex items-center gap-2">
                                                     {sub.status !== 'active' && sub.status !== 'canceled' && (
                                                         <button
-                                                            onClick={() => handleRenewSubscription(sub)}
+                                                            onClick={() => openRenewalModal(sub)}
                                                             className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
                                                         >
                                                             Renew
@@ -383,6 +392,52 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
                     )}
                 </CardContent>
             </Card>
+
+            {/* Renewal Confirmation Modal */}
+            {renewalModal && (
+                <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setRenewalModal(null)}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8" onClick={e => e.stopPropagation()}>
+                        <h2 className="text-xl font-bold text-gray-900 mb-1">Renew Subscription</h2>
+                        <p className="text-sm text-gray-500 mb-6">{renewalModal.subscription.school_name} — {renewalModal.subscription.plan_name}</p>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1.5">Amount (₦)</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    value={renewalModal.amount}
+                                    onChange={e => setRenewalModal(prev => prev ? { ...prev, amount: e.target.value } : null)}
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1.5">Payment Gateway</label>
+                                <div className="flex gap-3">
+                                    {(['paystack', 'flutterwave'] as const).map(gw => (
+                                        <button
+                                            key={gw}
+                                            onClick={() => setRenewalModal(prev => prev ? { ...prev, gateway: gw } : null)}
+                                            className={`flex-1 py-2.5 rounded-xl text-sm font-bold border transition-all capitalize ${renewalModal.gateway === gw ? 'bg-indigo-600 text-white border-indigo-600' : 'border-gray-200 text-gray-600 hover:border-indigo-300'}`}
+                                        >
+                                            {gw}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3 mt-8">
+                            <button onClick={() => setRenewalModal(null)} className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 font-bold hover:bg-gray-50 transition-all">
+                                Cancel
+                            </button>
+                            <button onClick={handleConfirmRenewal} className="flex-1 py-3 rounded-xl bg-green-600 text-white font-bold hover:bg-green-700 transition-all">
+                                Proceed to Payment
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
@@ -405,4 +460,3 @@ const StatCard: React.FC<{ title: string; value: number; icon: React.ReactNode; 
 );
 
 export default SubscriptionManagement;
-

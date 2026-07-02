@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
@@ -63,6 +63,7 @@ const FacilityRegisterScreen = () => {
             setFacilities(data as any[] || []);
         } catch (err) {
             console.error('Error fetching facilities:', err);
+            toast.error('Failed to load facilities');
         } finally {
             setLoading(false);
         }
@@ -80,9 +81,10 @@ const FacilityRegisterScreen = () => {
             setIsAdding(false);
             setNewFacility({ name: '', type: 'Classroom', capacity: 0, location: '', status: 'operational' });
             fetchFacilities();
+            toast.success('Facility added successfully');
         } catch (error) {
             console.error('Error adding facility:', error);
-            alert('Failed to add facility. Please check your permissions.');
+            toast.error('Failed to add facility. Please check your permissions.');
         }
     };
 
@@ -225,7 +227,7 @@ const FacilityRegisterScreen = () => {
                                             facility.status === 'maintenance' ? 'Maintenance' : 'Out of Order'}
                                     </span>
                                 </div>
-                                <span className="text-[10px] text-gray-400 italic">
+                                <span className="text-xs text-gray-400 italic">
                                     Last Inspected: {new Date(facility.last_inspected_at).toLocaleDateString()}
                                 </span>
                             </div>

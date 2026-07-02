@@ -1,16 +1,5 @@
-/**
- * TrialBanner
- *
- * Shown at the top of the admin dashboard when:
- *   - Trial has ≤ 7 days remaining  (warning)
- *   - Trial has expired             (error — upgrade required)
- *   - A plan limit is approaching   (student/teacher count near max)
- *
- * Hidden for the demo school and when the plan is active with no issues.
- */
-
 import React from 'react';
-import { AlertTriangle, XCircle, Sparkles } from 'lucide-react';
+import { AlertTriangle, XCircle } from 'lucide-react';
 import { usePlanStatus } from '../../lib/hooks/usePlanStatus';
 
 interface TrialBannerProps {
@@ -18,32 +7,21 @@ interface TrialBannerProps {
 }
 
 const TrialBanner: React.FC<TrialBannerProps> = ({ onUpgradeClick }) => {
-    const { planStatus, loading, isDemo, trialActive, trialDaysLeft, isExpired } = usePlanStatus();
+    const { planStatus, loading, isDemo } = usePlanStatus();
 
     if (loading || isDemo) return null;
 
-    const limits = planStatus?.limits || { max_students: 50, max_teachers: 10 };
-    const usage = planStatus?.usage || { students: 0, teachers: 0 };
+    const { is_term1_free, exam_block_active, days_until_exam_block } = planStatus;
 
-    const studentPct = (limits.max_students || 50) < 2_000_000_000
-        ? (usage.students || 0) / (limits.max_students || 50)
-        : 0;
+    if (is_term1_free) return null;
+    if (!exam_block_active && days_until_exam_block === null) return null;
 
-    const teacherPct = (limits.max_teachers || 10) < 2_000_000_000
-        ? (usage.teachers || 10) / (limits.max_teachers || 10)
-        : 0;
-
-    const nearLimit = studentPct >= 0.85 || teacherPct >= 0.85;
-
-    // Nothing to show
-    if (!isExpired && !(trialActive && trialDaysLeft <= 7) && !nearLimit) return null;
-
-    if (isExpired) {
+    if (exam_block_active) {
         return (
             <div className="bg-red-600 text-white px-4 py-3 flex items-center gap-3">
                 <XCircle className="w-5 h-5 flex-shrink-0" />
                 <div className="flex-1 text-sm font-medium">
-                    Your free trial has expired. Some features are restricted. Upgrade to continue.
+                    Your exam period has started. Upgrade now to unlock exam features.
                 </div>
                 {onUpgradeClick && (
                     <button
@@ -57,51 +35,26 @@ const TrialBanner: React.FC<TrialBannerProps> = ({ onUpgradeClick }) => {
         );
     }
 
-    if (trialActive && trialDaysLeft <= 7) {
-        return (
-            <div className="bg-amber-500 text-white px-4 py-3 flex items-center gap-3">
-                <AlertTriangle className="w-5 h-5 flex-shrink-0" />
-                <div className="flex-1 text-sm font-medium">
-                    Your 30-day free trial ends in <span className="font-bold">{trialDaysLeft} day{trialDaysLeft !== 1 ? 's' : ''}</span>.
-                    Upgrade to keep full access.
-                </div>
-                {onUpgradeClick && (
-                    <button
-                        onClick={onUpgradeClick}
-                        className="bg-white text-amber-600 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-amber-50 flex-shrink-0 flex items-center gap-1"
-                    >
-                        <Sparkles className="w-3 h-3" />
-                        Upgrade
-                    </button>
-                )}
+    return (
+        <div className="bg-amber-500 text-white px-4 py-3 flex items-center gap-3">
+            <AlertTriangle className="w-5 h-5 flex-shrink-0" />
+            <div className="flex-1 text-sm font-medium">
+                Exams start in{' '}
+                <span className="font-bold">
+                    {days_until_exam_block} day{days_until_exam_block !== 1 ? 's' : ''}
+                </span>
+                . Upgrade before then to keep full access.
             </div>
-        );
-    }
-
-    if (nearLimit) {
-        const resource = studentPct >= 0.85 ? 'students' : 'teachers';
-        const used = resource === 'students' ? usage.students : usage.teachers;
-        const max = resource === 'students' ? limits.max_students : limits.max_teachers;
-        return (
-            <div className="bg-indigo-600 text-white px-4 py-3 flex items-center gap-3">
-                <AlertTriangle className="w-5 h-5 flex-shrink-0" />
-                <div className="flex-1 text-sm font-medium">
-                    You have used {used} of {max} {resource} on your current plan.
-                    Upgrade to add more.
-                </div>
-                {onUpgradeClick && (
-                    <button
-                        onClick={onUpgradeClick}
-                        className="bg-white text-indigo-600 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-indigo-50 flex-shrink-0"
-                    >
-                        Upgrade Plan
-                    </button>
-                )}
-            </div>
-        );
-    }
-
-    return null;
+            {onUpgradeClick && (
+                <button
+                    onClick={onUpgradeClick}
+                    className="bg-white text-amber-600 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-amber-50 flex-shrink-0"
+                >
+                    Upgrade
+                </button>
+            )}
+        </div>
+    );
 };
 
 export default TrialBanner;

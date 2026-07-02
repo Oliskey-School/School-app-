@@ -27,7 +27,7 @@ export async function createAssignment(assignmentData: any): Promise<Assignment 
 
 export async function submitAssignment(assignmentId: string, studentId: string, submissionData: any): Promise<boolean> {
     try {
-        await api.submitAssignment(assignmentId, studentId, submissionData);
+        await (api as any).submitAssignment(assignmentId, studentId, submissionData);
         return true;
     } catch (err) {
         console.error('Error submitting assignment:', err);

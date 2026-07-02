@@ -25,7 +25,7 @@ export const getAnonymousReports = async (req: Request, res: Response) => {
 
 export const getReportByTrackCode = async (req: Request, res: Response) => {
     try {
-        const report = await AnonymousReportService.getByTrackCode(req.params.trackCode);
+        const report = await AnonymousReportService.getByTrackCode(req.params.trackCode as string);
         if (!report) return res.status(404).json({ error: 'Report not found' });
         // Only return status and dates for anonymous tracking
         res.json({

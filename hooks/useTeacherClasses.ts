@@ -68,6 +68,9 @@ export const useTeacherClasses = (teacherId?: string | null, branchId?: string |
                         teacherData.classes.forEach((item: any) => {
                             const c = item.class;
                             const s = item.subject;
+                            // Only include classes for the active branch (branch_id null = school-wide, always shown)
+                            const classBranch: string | null = item.branch_id ?? c?.branch_id ?? null;
+                            if (branchId && branchId !== 'all' && classBranch !== null && classBranch !== branchId) return;
 
                             if (c) {
                                 // Add to classes list if not already there OR if it's a different subject assignment
@@ -137,7 +140,7 @@ export const useTeacherClasses = (teacherId?: string | null, branchId?: string |
         };
 
         fetchClassesAndSubjects();
-    }, [profile?.email, profile?.id, profile?.schoolId, authUser?.email, authUser?.id, teacherId, version]);
+    }, [profile?.email, profile?.id, profile?.schoolId, authUser?.email, authUser?.id, teacherId, branchId, version]);
 
     useAutoSync(['class_teachers', 'teacher_classes', 'teacher_subjects'], () => {
         forceUpdate();

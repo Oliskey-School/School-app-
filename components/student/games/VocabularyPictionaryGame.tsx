@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+﻿import React, { useRef, useState, useEffect } from 'react';
 import GameShell from './GameShell';
 import { useGamification } from '../../../context/GamificationContext';
 import { PencilIcon, EraserIcon, TrashIcon, CheckIcon, RefreshCwIcon } from 'lucide-react';
@@ -131,7 +131,7 @@ const VocabularyPictionaryGame: React.FC<VocabularyPictionaryGameProps> = ({ onB
                 {/* Mobile Header - Word Display (Only visible on small screens) */}
                 <div className="md:hidden bg-white p-3 rounded-xl shadow-sm border border-orange-100 flex justify-between items-center shrink-0">
                     <div>
-                        <p className="text-[10px] font-bold text-orange-500 uppercase tracking-widest">Draw This</p>
+                        <p className="text-xs font-bold text-orange-500 uppercase tracking-widest">Draw This</p>
                         <h2 className="text-lg font-black text-gray-800 leading-none">{currentWord.word}</h2>
                     </div>
                     <p className="text-xs text-gray-500 italic max-w-[150px] text-right">"{currentWord.hint}"</p>
@@ -150,7 +150,7 @@ const VocabularyPictionaryGame: React.FC<VocabularyPictionaryGameProps> = ({ onB
                         onTouchEnd={stopDrawing}
                         className="touch-none cursor-crosshair w-full h-full block"
                     />
-                    <div className="absolute top-2 right-2 bg-gray-100/90 backdrop-blur px-2 py-1 rounded-md text-[10px] font-medium text-gray-500 pointer-events-none border border-gray-200 select-none">
+                    <div className="absolute top-2 right-2 bg-gray-100/90 backdrop-blur px-2 py-1 rounded-md text-xs font-medium text-gray-500 pointer-events-none border border-gray-200 select-none">
                         Canvas
                     </div>
                 </div>

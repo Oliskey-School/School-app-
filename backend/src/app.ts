@@ -82,6 +82,17 @@ app.use((req, res, next) => {
                         path.includes('/api/auth/csrf-token') ||
                         path.includes('/api/auth/login') ||
                         path.includes('/api/auth/demo/login') ||
+                        path.includes('/api/auth/google-login') ||
+                        // Pre-auth flows: user has no session/token yet
+                        path.includes('/api/auth/forgot-password') ||
+                        path.includes('/api/auth/reset-password') ||
+                        path.includes('/api/auth/signup') ||
+                        // Public school registration — no session exists yet
+                        path.includes('/api/schools/onboard') ||
+                        path.includes('/api/schools') && req.method === 'POST' ||
+                        // Email verification during signup — user has no token yet
+                        path.includes('/api/verification/verify') ||
+                        path.includes('/api/verification/resend') ||
                         // Public, non-mutating UI translation. Must work before login
                         // (demo/login screens) where no auth header or CSRF cookie exists.
                         path.includes('/api/translate');

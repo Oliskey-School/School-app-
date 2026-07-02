@@ -4,7 +4,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Badge } from '../ui/badge';
-import { useToast } from '../../hooks/use-toast';
+import { toast } from 'react-hot-toast';
 import { BookOpen, AlertCircle, Save, TrendingUp } from 'lucide-react';
 import { CurriculumMismatchWarning } from '../shared/TeacherCurriculumBadges';
 import { useAutoSync } from '../../hooks/useAutoSync';
@@ -40,8 +40,7 @@ export default function ResultsEntryEnhanced({
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [exam, setExam] = useState<any>(null);
-    const { toast } = useToast();
-    const fetchExamDetails = useCallback(async () => {
+const fetchExamDetails = useCallback(async () => {
         if (!examId) return;
         try {
             const data = await api.getExam(examId);
@@ -102,11 +101,7 @@ export default function ResultsEntryEnhanced({
             setResults(resultsMap);
         } catch (error: any) {
             console.error('Error fetching students:', error);
-            toast({
-                title: 'Error Loading Students',
-                description: error.message || 'Failed to load students',
-                variant: 'destructive'
-            });
+            toast.error(error.message || 'Failed to load students');
             setStudents([]);
         } finally {
             setLoading(false);
@@ -148,20 +143,12 @@ export default function ResultsEntryEnhanced({
         const maxExam = selectedCurriculum === 'Nigerian' ? 60 : 50;
 
         if (field === 'ca' && numValue > maxCA) {
-            toast({
-                title: 'Invalid Score',
-                description: `CA score cannot exceed ${maxCA} for ${selectedCurriculum} curriculum.`,
-                variant: 'destructive'
-            });
+            toast.error(`CA score cannot exceed ${maxCA} for ${selectedCurriculum} curriculum.`);
             return;
         }
 
         if (field === 'exam' && numValue > maxExam) {
-            toast({
-                title: 'Invalid Score',
-                description: `Exam score cannot exceed ${maxExam} for ${selectedCurriculum} curriculum.`,
-                variant: 'destructive'
-            });
+            toast.error(`Exam score cannot exceed ${maxExam} for ${selectedCurriculum} curriculum.`);
             return;
         }
 
@@ -201,16 +188,9 @@ export default function ResultsEntryEnhanced({
 
             await api.upsertExamResults(resultRecords);
 
-            toast({
-                title: 'Results Saved',
-                description: `${selectedCurriculum} curriculum results have been recorded.`,
-            });
+            toast.success(`${selectedCurriculum} results saved.`);
         } catch (error: any) {
-            toast({
-                title: 'Save Failed',
-                description: error.message,
-                variant: 'destructive',
-            });
+            toast.error(error.message || 'Failed to save results');
         } finally {
             setSaving(false);
         }

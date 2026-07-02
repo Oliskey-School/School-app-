@@ -228,13 +228,13 @@ const TeacherSettingsScreen: React.FC<TeacherSettingsScreenProps> = ({
                                                 <p className={`font-semibold text-sm ${m.school_id === currentSchool?.id ? 'text-purple-700' : 'text-gray-700'}`}>
                                                     {m.schools?.name || 'School'}
                                                 </p>
-                                                <p className="text-[10px] text-gray-500 capitalize">{m.role}</p>
+                                                <p className="text-xs text-gray-500 capitalize">{m.role}</p>
                                             </div>
                                         </div>
                                         {m.school_id === currentSchool?.id ? (
                                             <div className="flex items-center gap-1">
                                                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                                                <span className="text-[10px] font-bold text-green-600 uppercase">Active</span>
+                                                <span className="text-xs font-bold text-green-600 uppercase">Active</span>
                                             </div>
                                         ) : (
                                             <RefreshIcon className={`w-3 h-3 text-gray-300 ${isSwitching ? 'animate-spin' : ''}`} />

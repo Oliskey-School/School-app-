@@ -507,7 +507,7 @@ class ExpressApiClient {
     }
 
     /** Self-service: edit the authenticated user's own profile (name/phone/avatar). */
-    async updateMyProfile(data: { full_name?: string; name?: string; phone?: string; avatar_url?: string; avatarUrl?: string }): Promise<any> {
+    async updateMyProfile(data: { full_name?: string; name?: string; phone?: string; avatar_url?: string; avatarUrl?: string; display_name?: string }): Promise<any> {
         return this.put('/users/me/profile', data);
     }
 
@@ -994,15 +994,15 @@ class ExpressApiClient {
     }
 
     async getExtracurricularEvents(schoolId: string): Promise<any[]> {
-        return this.get(`/activities/events?school_id=${schoolId}`);
+        return this.get(`/extracurriculars/events?school_id=${schoolId}`);
     }
 
     async joinExtracurricular(activityId: string): Promise<any> {
-        return this.post(`/activities/${activityId}/join`, {});
+        return this.post('/extracurriculars/join', { activityId });
     }
 
     async leaveExtracurricular(activityId: string): Promise<any> {
-        return this.post(`/activities/${activityId}/leave`, {});
+        return this.delete(`/extracurriculars/leave/${activityId}`);
     }
 
     async getLeaderboard(type: string = 'global'): Promise<any[]> {
@@ -1368,7 +1368,7 @@ class ExpressApiClient {
 
     async getMyVolunteerSignups(): Promise<any[]> {
         try {
-            return await this.get('/volunteering/me');
+            return await this.get('/parents/me/volunteer-signups');
         } catch {
             return [];
         }
@@ -1377,14 +1377,15 @@ class ExpressApiClient {
     async getVolunteeringOpportunities(schoolId?: string): Promise<any[]> {
         try {
             const qs = schoolId ? `?schoolId=${schoolId}` : '';
-            return await this.get(`/volunteering${qs}`);
+            const result = await this.get<any>(`/community/volunteering${qs}`);
+            return result?.data || result || [];
         } catch {
             return [];
         }
     }
 
     async volunteerSignup(opportunityId: string, data?: any): Promise<any> {
-        return this.post(`/volunteering/${opportunityId}/signup`, data || {});
+        return this.post('/parents/volunteer-signup', { opportunity_id: opportunityId, ...(data || {}) });
     }
 
     async getStudentAcademicRecords(studentId: string): Promise<any[]> {
@@ -1580,7 +1581,7 @@ class ExpressApiClient {
         }
 
         try {
-            return await this.get(`/fees/payment-history?${queryParams.toString()}`);
+            return await this.get(`/fees/history?${queryParams.toString()}`);
         } catch (err) {
             return [];
         }
@@ -1702,6 +1703,19 @@ class ExpressApiClient {
 
     async recordVirtualAttendance(sessionId: string, studentId: string): Promise<any> {
         return await this.post('/virtual-classes/attendance', { sessionId, studentId });
+    }
+
+    async deleteVirtualClassSession(sessionId: string): Promise<any> {
+        return await this.delete(`/virtual-classes/${sessionId}`);
+    }
+
+    // All sessions for the logged-in teacher (backend auto-scopes by role)
+    async getMyVirtualClassSessions(): Promise<any[]> {
+        try {
+            return await this.get('/virtual-classes');
+        } catch {
+            return [];
+        }
     }
 
     // Quizzes
@@ -2124,6 +2138,10 @@ class ExpressApiClient {
         return this.post('/timetables/check-conflict', data);
     }
 
+    async notifyTimetablePublished(classNames: string[]): Promise<any> {
+        return this.post('/timetables/publish-notify', { class_names: classNames });
+    }
+
     // ============================================
     // LESSON PLANS & NOTES
     // ============================================
@@ -2444,7 +2462,7 @@ class ExpressApiClient {
     }
 
     async createDiscreetRequest(data: any, _options?: { useBackend?: boolean }): Promise<any> {
-        return this.post('/discreet-requests', data);
+        return this.post('/student-reports/discreet', data);
     }
 
     async createResource(data: any, _options?: { useBackend?: boolean }): Promise<any> {
@@ -2563,8 +2581,12 @@ class ExpressApiClient {
         return this.post(`/chat/rooms/${roomId}/messages`, { content, type });
     }
 
-    async getOrCreateDirectChat(targetUserId: string, schoolId: string): Promise<any> {
+    async getOrCreateDirectChat(targetUserId: string, schoolId?: string): Promise<any> {
         return this.post('/chat/direct', { targetUserId, schoolId });
+    }
+
+    async createGroupChat(name: string, memberIds: string[]): Promise<any> {
+        return this.post('/chat/rooms/group', { name, memberIds });
     }
 
     async sendMessage(data: any): Promise<any> {
@@ -2575,6 +2597,46 @@ class ExpressApiClient {
             mediaUrl: data.media_url || data.mediaUrl
         };
         return this.post(`/chat/rooms/${roomId}/messages`, payload);
+    }
+
+    async markRoomAsRead(roomId: string): Promise<void> {
+        return this.post(`/chat/rooms/${roomId}/read`, {});
+    }
+
+    async getUnreadMessageCount(): Promise<number> {
+        try {
+            const result = await this.get('/chat/unread-count');
+            return (result as any)?.count ?? 0;
+        } catch {
+            return 0;
+        }
+    }
+
+    async getRoleContacts(branchId?: string): Promise<any> {
+        const qs = branchId ? `?branchId=${branchId}` : '';
+        return this.get(`/chat/contacts/role${qs}`);
+    }
+
+    // ── Parent-Teacher Chat Permissions (admin only) ──────────────────────────
+    async getParentChatPermissions(params?: { parentId?: string; teacherId?: string }): Promise<any[]> {
+        const qs = new URLSearchParams();
+        if (params?.parentId) qs.append('parentId', params.parentId);
+        if (params?.teacherId) qs.append('teacherId', params.teacherId);
+        return this.get(`/admin/parent-chat-permissions?${qs.toString()}`);
+    }
+    async grantParentChatPermission(body: { parent_id: string; teacher_id: string; duration_type: 'hours' | 'days' | 'forever'; duration_value?: number }): Promise<any> {
+        return this.post('/admin/parent-chat-permissions', body);
+    }
+    async revokeParentChatPermission(id: string): Promise<any> {
+        return this.delete(`/admin/parent-chat-permissions/${id}`);
+    }
+    async getParentsForChatPicker(search?: string): Promise<any[]> {
+        const qs = search ? `?search=${encodeURIComponent(search)}` : '';
+        return this.get(`/admin/parent-chat-permissions/parents${qs}`);
+    }
+    async getTeachersForChatPicker(search?: string): Promise<any[]> {
+        const qs = search ? `?search=${encodeURIComponent(search)}` : '';
+        return this.get(`/admin/parent-chat-permissions/teachers${qs}`);
     }
 
     // ============================================
@@ -3252,7 +3314,7 @@ class ExpressApiClient {
 
     async getPTAMeetings(): Promise<any[]> {
         const result = await this.get<any>('/community/pta-meetings');
-        return result.data || [];
+        return Array.isArray(result) ? result : (result?.data || []);
     }
 
     async createPTAMeeting(data: any): Promise<any> {

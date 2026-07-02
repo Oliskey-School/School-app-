@@ -141,7 +141,12 @@ const UserAccountsScreen: React.FC = () => {
         ),
         [accounts, searchTerm]);
 
-    if (loading) return <div className="p-10 text-center">Loading accounts...</div>;
+    if (loading) return (
+        <div className="flex flex-col items-center justify-center h-full gap-4">
+            <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-gray-500 animate-pulse">Loading user accounts...</p>
+        </div>
+    );
 
     return (
         <div className="flex flex-col h-full bg-gray-50">
@@ -342,7 +347,13 @@ const UserAccountsScreen: React.FC = () => {
                         ))}
                     </div>
                     {filteredAccounts.length === 0 && (
-                        <div className="text-center py-10 text-gray-500">No accounts found matching your search.</div>
+                        <div className="flex flex-col items-center justify-center py-16 text-center">
+                            <div className="p-4 bg-gray-100 rounded-full mb-4">
+                                <UserIcon className="h-10 w-10 text-gray-400" />
+                            </div>
+                            <h3 className="text-base font-bold text-gray-700 mb-1">No Accounts Found</h3>
+                            <p className="text-sm text-gray-500">Try adjusting your search to find what you are looking for.</p>
+                        </div>
                     )}
                 </div>
                 {/* Note on Passwords */}
