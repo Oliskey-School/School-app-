@@ -40,8 +40,16 @@ export const getReportCard = async (req: AuthRequest, res: Response) => {
     }
 };
 
+// Publishing (or unpublishing) makes results visible to students and parents —
+// that authority belongs to school leadership, not the teacher who entered them.
+const canPublish = (role?: string) =>
+    ['admin', 'superadmin', 'proprietor'].includes((role || '').toLowerCase());
+
 export const updateStatus = async (req: AuthRequest, res: Response) => {
     try {
+        if (String(req.body.status).toLowerCase() === 'published' && !canPublish(req.user.role)) {
+            return res.status(403).json({ message: 'Only an admin can publish report cards.' });
+        }
         const branchId = getEffectiveBranchId(req.user, req.body.branch_id || req.body.branchId);
         const result = await ReportCardService.updateStatus(req.user.school_id, branchId, req.params.id as string, req.body.status);
         res.json(result);
@@ -52,6 +60,9 @@ export const updateStatus = async (req: AuthRequest, res: Response) => {
 
 export const publishReportCards = async (req: AuthRequest, res: Response) => {
     try {
+        if (!canPublish(req.user.role)) {
+            return res.status(403).json({ message: 'Only an admin can publish report cards.' });
+        }
         const { term, session } = req.body;
         if (!term || !session) {
             return res.status(400).json({ message: 'Term and session are required' });

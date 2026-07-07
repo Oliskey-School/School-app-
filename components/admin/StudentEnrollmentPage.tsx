@@ -1,4 +1,5 @@
-﻿import React, { useState, useEffect, useMemo } from 'react';
+﻿import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { toast } from 'react-hot-toast';
 import { UserIcon, BookOpenIcon, CheckCircleIcon, UploadIcon, IdentificationIcon, AcademicCapIcon, HomeIcon, PhoneIcon, MailIcon } from '../../constants';
 import { useProfile } from '../../context/ProfileContext';
@@ -33,29 +34,28 @@ const StudentEnrollmentPage: React.FC<EnrollmentPageProps> = ({ onComplete, hand
     });
     const [uploadedDocs, setUploadedDocs] = useState<File[]>([]);
 
-    useEffect(() => {
-        const loadClasses = async () => {
-            const sid = schoolId || profile.schoolId;
-            if (sid) {
-                try {
-                    // Fetch ALL classes for the school across all branches
-                    const classes = await api.getClasses(sid, 'all', true);
-                    setAvailableClasses(classes || []);
-                    if (classes && classes.length > 0) {
-                        setFormData(prev => ({ 
-                            ...prev, 
-                            classId: classes[0].id,
-                            grade: classes[0].grade,
-                            section: classes[0].section 
-                        }));
-                    }
-                } catch (err) {
-                    console.error("Error loading classes:", err);
-                }
+    const loadClasses = useCallback(async () => {
+        const sid = schoolId || profile.schoolId;
+        if (!sid) return;
+        try {
+            const classes = await api.getClasses(sid, 'all', true);
+            setAvailableClasses(classes || []);
+            if (classes && classes.length > 0) {
+                setFormData(prev => ({
+                    ...prev,
+                    classId: classes[0].id,
+                    grade: classes[0].grade,
+                    section: classes[0].section
+                }));
             }
-        };
-        loadClasses();
+        } catch (err) {
+            console.error("Error loading classes:", err);
+        }
     }, [schoolId, profile.schoolId]);
+
+    useEffect(() => { loadClasses(); }, [loadClasses]);
+
+    useAutoSync(['classes'], loadClasses);
 
     const selectedClass = useMemo(() => {
         return availableClasses.find(c => c.id === formData.classId);

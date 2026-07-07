@@ -35,6 +35,7 @@ const AssignmentSubmissionScreen: React.FC<AssignmentSubmissionScreenProps> = ({
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [existingSubmission, setExistingSubmission] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const subjectColor = (assignment && assignment.subject) ? SUBJECT_COLORS[assignment.subject] : 'bg-gray-100 text-gray-800';
   const { currentSchool, user, currentBranchId } = useAuth(); // Need school_id, branch_id and user_id for insert
@@ -95,14 +96,28 @@ const AssignmentSubmissionScreen: React.FC<AssignmentSubmissionScreenProps> = ({
       return;
     }
 
+    setSubmitting(true);
     try {
-      // Prepare file "URLs" (mocking upload since no storage bucket)
-      const fileNames = attachedFiles.map(f => f.name).join(',');
+      // ACTUALLY upload each attached file and store its real URL so the
+      // teacher can open the work. Multiple files → comma-separated URLs.
+      let fileUrls = existingSubmission?.file_url || '';
+      if (attachedFiles.length > 0) {
+        const uploaded: string[] = [];
+        for (const f of attachedFiles) {
+          const res = await api.uploadFileWithCategory(f, 'assignment-submissions');
+          if (res?.url) uploaded.push(res.url);
+        }
+        if (uploaded.length === 0) {
+          toast.error('Your files could not be uploaded. Please try again.');
+          setSubmitting(false);
+          return;
+        }
+        fileUrls = uploaded.join(',');
+      }
 
-      // Submission payload is handled by the backend, but we can pass content
       const submissionPayload = {
         text_submission: textAnswer,
-        file_url: fileNames || (existingSubmission?.file_url),
+        file_url: fileUrls || undefined,
         status: 'Submitted',
       };
 
@@ -130,6 +145,8 @@ const AssignmentSubmissionScreen: React.FC<AssignmentSubmissionScreenProps> = ({
       } else {
         toast.error("Failed to submit assignment: " + (err.message || "Unknown error"));
       }
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -211,15 +228,24 @@ const AssignmentSubmissionScreen: React.FC<AssignmentSubmissionScreenProps> = ({
                       filesToShow.push(...assignment.submission.files);
                     }
 
-                    return filesToShow.map((file, index) => (
-                      <div key={`existing-${index}`} className="flex items-center p-2 bg-gray-100 rounded-lg">
-                        {getFileIcon(file.name)}
-                        <div className="ml-3 flex-grow overflow-hidden">
-                          <p className="text-sm font-medium text-gray-800 truncate">{file.name}</p>
-                          <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
+                    return filesToShow.map((file, index) => {
+                      const isUrl = /^https?:\/\//.test(file.name);
+                      const displayName = isUrl ? decodeURIComponent(file.name.split('/').pop() || file.name) : file.name;
+                      return (
+                        <div key={`existing-${index}`} className="flex items-center p-2 bg-gray-100 rounded-lg">
+                          {getFileIcon(displayName)}
+                          <div className="ml-3 flex-grow overflow-hidden">
+                            <p className="text-sm font-medium text-gray-800 truncate">{displayName}</p>
+                            <p className="text-xs text-gray-500">{isUrl ? 'Uploaded' : formatFileSize(file.size)}</p>
+                          </div>
+                          {isUrl && (
+                            <a href={file.name} target="_blank" rel="noopener noreferrer" className="ml-2 px-2.5 py-1 text-xs font-semibold text-orange-600 hover:underline">
+                              View
+                            </a>
+                          )}
                         </div>
-                      </div>
-                    ));
+                      );
+                    });
                   })()}
                   {attachedFiles.map((file, index) => (
                     <div key={index} className="flex items-center p-2 bg-gray-50 rounded-lg">
@@ -241,8 +267,8 @@ const AssignmentSubmissionScreen: React.FC<AssignmentSubmissionScreenProps> = ({
 
         {!isSubmitted && (
           <div className="p-4 mt-auto bg-white border-t border-gray-200">
-            <button type="submit" className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white bg-orange-500 hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500">
-              Submit Assignment
+            <button type="submit" disabled={submitting} className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white bg-orange-500 hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:opacity-60 disabled:cursor-not-allowed">
+              {submitting ? (attachedFiles.length > 0 ? 'Uploading & submitting…' : 'Submitting…') : 'Submit Assignment'}
             </button>
           </div>
         )}

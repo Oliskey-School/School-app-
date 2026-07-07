@@ -292,13 +292,145 @@ export class GeminiClient {
     }
 }
 
+/**
+ * NVIDIA AI Client — same public surface as GeminiClient, but every request goes
+ * through the app's server-side proxy (`/api/ai/chat`), so the NVIDIA key never
+ * reaches the browser. It ONLY overrides generateContent(); models / chat /
+ * startChat / live all funnel through that override, so every existing AI
+ * feature keeps working unchanged, now powered by NVIDIA (Llama / DeepSeek /
+ * Qwen / Nemotron).
+ */
+export class NvidiaClient extends GeminiClient {
+    constructor(options: { model?: string } = {}) {
+        // The real key lives on the server; this placeholder just satisfies the base.
+        super('nvidia-proxy', options);
+    }
+
+    private static stripJsonFences(text: string): string {
+        const t = (text || '').trim();
+        // Models sometimes wrap JSON in ```json … ``` — unwrap so JSON.parse works.
+        const fence = t.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+        return fence ? fence[1].trim() : t;
+    }
+
+    // Convert Gemini-shaped { role, parts:[{text}|{inlineData}] } content into
+    // OpenAI-shaped messages the NVIDIA endpoint expects. Text-only collapses to
+    // a string; images produce multimodal content for vision models.
+    private static partsToContent(parts: any): any {
+        if (typeof parts === 'string') return parts;
+        const arr = Array.isArray(parts) ? parts : [parts];
+        const out: any[] = [];
+        let textOnly = '';
+        let hasImage = false;
+        for (const p of arr) {
+            if (p == null) continue;
+            if (typeof p === 'string') { textOnly += p; out.push({ type: 'text', text: p }); continue; }
+            if (p.text != null) { textOnly += p.text; out.push({ type: 'text', text: p.text }); continue; }
+            const inline = p.inlineData || p.inline_data;
+            if (inline?.data) {
+                hasImage = true;
+                const mime = inline.mimeType || inline.mime_type || 'image/png';
+                const url = String(inline.data).startsWith('data:') ? inline.data : `data:${mime};base64,${inline.data}`;
+                out.push({ type: 'image_url', image_url: { url } });
+                continue;
+            }
+            if (p.image_url) { hasImage = true; out.push({ type: 'image_url', image_url: p.image_url }); continue; }
+        }
+        return hasImage ? out : textOnly;
+    }
+
+    async generateContent(params: any) {
+        if (!__aiAllowed) {
+            return { text: AI_LOCKED_MESSAGE, blocked: true, error: new Error('AI_NOT_ALLOWED') };
+        }
+
+        // Parse the same param shapes GeminiClient accepts.
+        let model: string | undefined;
+        let contents: any = params;
+        let generationConfig: any = {};
+        let systemInstruction: any;
+        if (params && typeof params === 'object' && !Array.isArray(params) && params.contents) {
+            model = params.model;
+            contents = params.contents;
+            generationConfig = params.generationConfig || params.config || {};
+            systemInstruction = params.systemInstruction || generationConfig.systemInstruction;
+        }
+
+        const messages: any[] = [];
+        const sysText = typeof systemInstruction === 'string'
+            ? systemInstruction
+            : systemInstruction?.parts?.map((p: any) => p.text).filter(Boolean).join('\n');
+        const wantJson = generationConfig?.responseMimeType === 'application/json';
+        const sysParts = [sysText, wantJson ? 'Respond ONLY with valid minified JSON. No markdown, no code fences, no commentary.' : '']
+            .filter(Boolean).join('\n');
+        if (sysParts) messages.push({ role: 'system', content: sysParts });
+
+        // Normalize contents → array of {role, parts}
+        let arr: any[];
+        if (typeof contents === 'string') arr = [{ role: 'user', parts: [{ text: contents }] }];
+        else if (contents?.parts) arr = [{ role: 'user', parts: contents.parts }];
+        else if (Array.isArray(contents)) arr = contents;
+        else arr = [contents];
+
+        for (const c of arr) {
+            if (typeof c === 'string') { messages.push({ role: 'user', content: c }); continue; }
+            const role = c.role === 'model' ? 'assistant' : (c.role || 'user');
+            messages.push({ role, content: NvidiaClient.partsToContent(c.parts ?? c) });
+        }
+
+        try {
+            const { api } = await import('./api');
+            const res: any = await api.aiChat({
+                messages,
+                model,
+                temperature: generationConfig?.temperature,
+                max_tokens: generationConfig?.maxOutputTokens || generationConfig?.max_tokens,
+            });
+            let text = res?.text || '';
+            if (wantJson) text = NvidiaClient.stripJsonFences(text);
+            return {
+                text,
+                usage: res?.usage,
+                candidates: [{ content: { parts: [{ text }] } }],
+                response: { text: () => text, candidates: [{ content: { parts: [{ text }] } }] },
+            };
+        } catch (error: any) {
+            console.error('NVIDIA AI request failed:', error);
+            return { text: `AI Error: ${error?.message || 'Connection failed'}`, error };
+        }
+    }
+}
+
+// Which provider powers the app's AI. Non-secret; the real key is server-side.
+const getAIProvider = (): 'nvidia' | 'gemini' => {
+    try {
+        if (typeof import.meta !== 'undefined' && (import.meta as any).env) {
+            return ((import.meta as any).env.VITE_AI_PROVIDER || 'nvidia').toLowerCase() === 'gemini' ? 'gemini' : 'nvidia';
+        }
+        if (typeof process !== 'undefined' && process.env) {
+            return (process.env.VITE_AI_PROVIDER || 'nvidia').toLowerCase() === 'gemini' ? 'gemini' : 'nvidia';
+        }
+    } catch { /* default below */ }
+    return 'nvidia';
+};
+
 // Singleton Management
 let aiClientInstance: GeminiClient | null = null;
 let aiClientInstanceKey: string | null = null;
 
 export const getAIClient = (apiKey?: string) => {
+    // NVIDIA is the default provider — powered by the server-side proxy, so no
+    // browser key is needed. Every AI feature routes here.
+    if (getAIProvider() === 'nvidia') {
+        if (!aiClientInstance || aiClientInstanceKey !== 'nvidia') {
+            aiClientInstance = new NvidiaClient();
+            aiClientInstanceKey = 'nvidia';
+        }
+        return aiClientInstance;
+    }
+
+    // Legacy Gemini path (VITE_AI_PROVIDER=gemini).
     let envKey = '';
-    // Safe environment variable access for both Vite (Browser) and Node (Test)
     try {
         if (typeof import.meta !== 'undefined' && import.meta.env) {
             envKey = import.meta.env.VITE_GEMINI_API_KEY;
@@ -315,7 +447,7 @@ export const getAIClient = (apiKey?: string) => {
         console.warn("Gemini API Key missing. Ensure VITE_GEMINI_API_KEY is set.");
     }
 
-    if (!aiClientInstance || (finalKey && aiClientInstanceKey !== finalKey)) {
+    if (!aiClientInstance || aiClientInstanceKey === 'nvidia' || (finalKey && aiClientInstanceKey !== finalKey)) {
         aiClientInstance = new GeminiClient(finalKey || 'dummy-key-for-test');
         aiClientInstanceKey = finalKey;
     }

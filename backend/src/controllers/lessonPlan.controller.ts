@@ -18,7 +18,10 @@ export const getLessonPlans = async (req: AuthRequest, res: Response) => {
         }
 
         const branchId = getEffectiveBranchId(req.user, (req.query.branchId || req.query.branch_id) as string);
-        const result = await LessonPlanService.getLessonPlans(req.user.school_id, branchId, teacherId);
+        const classId = req.query.classId as string | undefined;
+        const subjectId = req.query.subjectId as string | undefined;
+        const status = req.query.status as string | undefined;
+        const result = await LessonPlanService.getLessonPlans(req.user.school_id, branchId, teacherId, classId, subjectId, status);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });

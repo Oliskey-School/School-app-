@@ -1,9 +1,10 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import api from '../../lib/api';
-import { XIcon } from '../../constants';
+import { XIcon, SUBJECTS_LIST } from '../../constants';
 import { toast } from 'react-hot-toast';
 import { ClassInfo } from '../../types';
+import MultiSelect from '../ui/MultiSelect';
 
 interface ClassFormScreenProps {
     classToEdit?: ClassInfo;
@@ -22,7 +23,38 @@ const ClassFormScreen: React.FC<ClassFormScreenProps> = ({ classToEdit, schoolId
     const [grade, setGrade] = useState(classToEdit?.grade.toString() || '');
     const [section, setSection] = useState(classToEdit?.section || '');
     const [department, setDepartment] = useState(classToEdit?.department || '');
+    // The class's assigned subjects — what the gradebook offers for this class
+    // and what enrolled students inherit unless the admin picked per-student ones.
+    const [subjects, setSubjects] = useState<string[]>(
+        Array.isArray((classToEdit as any)?.subjects)
+            ? (classToEdit as any).subjects.map((s: any) => (typeof s === 'string' ? s : s?.name)).filter(Boolean)
+            : []
+    );
+    const [subjectOptions, setSubjectOptions] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+
+    // Options = the school's OWN subject rows (the backend seeds the standard
+    // list for brand-new schools). Admin-added subjects appear immediately;
+    // deleted ones vanish. Falls back to the catalog only if the fetch fails.
+    useEffect(() => {
+        const loadOptions = async () => {
+            try {
+                const subs = await api.getSubjects(schoolId, currentBranchId && currentBranchId !== 'all' ? currentBranchId : undefined);
+                const schoolSubjects = (Array.isArray(subs) ? subs : [])
+                    .map((s: any) => (typeof s === 'string' ? s : s?.name))
+                    .filter(Boolean);
+                if (schoolSubjects.length > 0) {
+                    setSubjectOptions(Array.from(new Set(schoolSubjects)));
+                    return;
+                }
+            } catch { /* catalog below still provides options */ }
+            setSubjectOptions((SUBJECTS_LIST || []).map((s: any) => s?.name).filter(Boolean));
+        };
+        loadOptions();
+        const onUpdate = (e: any) => { if (e?.detail?.table === 'subjects') loadOptions(); };
+        window.addEventListener('realtime-update', onUpdate);
+        return () => window.removeEventListener('realtime-update', onUpdate);
+    }, [schoolId, currentBranchId]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -39,6 +71,7 @@ const ClassFormScreen: React.FC<ClassFormScreenProps> = ({ classToEdit, schoolId
                 grade: parseInt(grade),
                 section,
                 department: department || null,
+                subjects,
                 school_id: schoolId,
                 branch_id: currentBranchId
             };
@@ -124,6 +157,16 @@ const ClassFormScreen: React.FC<ClassFormScreenProps> = ({ classToEdit, schoolId
                                     className="w-full p-3 bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                 />
                             </div>
+                        </div>
+                        <div>
+                            <MultiSelect
+                                label="Subjects (taught in this class)"
+                                selected={subjects}
+                                setSelected={setSubjects}
+                                placeholder="Select the subjects this class takes..."
+                                options={subjectOptions}
+                            />
+                            <p className="mt-1 text-xs text-gray-400 italic">These drive the class gradebook and what each enrolled student sees, unless a student has their own subject selection.</p>
                         </div>
                     </div>
                 </main>

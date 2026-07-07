@@ -3,6 +3,7 @@ import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { Heart, TrendingUp, Users, Gift, Award } from 'lucide-react';
 import PremiumLoader from '../ui/PremiumLoader';
+import { initializePaystackPayment } from '../../lib/paymentGateways';
 
 interface Campaign {
     id: number;
@@ -35,6 +36,7 @@ const DonationPortal: React.FC<DonationPortalProps> = ({ schoolId }) => {
     const [loading, setLoading] = useState(true);
     const [showDonateModal, setShowDonateModal] = useState(false);
     const [topDonors, setTopDonors] = useState<any[]>([]);
+    const [processing, setProcessing] = useState(false);
 
     const suggestedAmounts = [100, 500, 1000, 2500, 5000, 10000];
 
@@ -76,39 +78,72 @@ const DonationPortal: React.FC<DonationPortalProps> = ({ schoolId }) => {
             return;
         }
 
-        if (!isAnonymous && (!donorName || !donorEmail)) {
-            toast.error('Please provide your name and email');
+        // An email is always required — it's where the donation receipt goes.
+        // "Anonymous" only hides the name from the public donor list.
+        if (!donorEmail) {
+            toast.error('Please provide your email for the receipt');
+            return;
+        }
+        if (!isAnonymous && !donorName) {
+            toast.error('Please provide your name');
             return;
         }
 
         if (!selectedCampaign) return;
 
+        // Open the REAL payment gateway. The donation is only recorded AFTER the
+        // parent actually pays — never before (the old flow faked success with a
+        // setTimeout and recorded a donation nobody paid for).
+        const reference = `DON-${selectedCampaign.id}-${Date.now()}`;
+        setProcessing(true);
         try {
-            // Use Central API
-            await api.processDonation({
-                campaign_id: selectedCampaign.id,
-                amount: amount,
-                donor_name: donorName,
-                donor_email: donorEmail,
-                donor_phone: donorPhone,
-                is_anonymous: isAnonymous,
-                message: message,
-                currency: 'NGN'
+            await initializePaystackPayment({
+                email: donorEmail,
+                amount,
+                currency: 'NGN',
+                reference,
+                customizations: {
+                    title: 'School Donation',
+                    description: selectedCampaign.campaign_name,
+                },
+                onSuccess: async (response?: any) => {
+                    try {
+                        await api.processDonation({
+                            campaign_id: selectedCampaign.id,
+                            amount,
+                            donor_name: isAnonymous ? '' : donorName,
+                            donor_email: donorEmail,
+                            donor_phone: donorPhone,
+                            is_anonymous: isAnonymous,
+                            message,
+                            currency: 'NGN',
+                            payment_reference: response?.reference || reference,
+                            status: 'Paid',
+                        });
+                        toast.success('Thank you for your donation! 🎉');
+                        setShowDonateModal(false);
+                        resetForm();
+                        fetchCampaigns();
+                    } catch {
+                        // Payment went through but recording failed — tell the truth.
+                        toast.error('Your payment succeeded but we could not record it. Please contact the school with reference: ' + (response?.reference || reference));
+                    } finally {
+                        setProcessing(false);
+                    }
+                },
+                onClose: () => {
+                    setProcessing(false);
+                    toast('Payment cancelled — no donation was made.', { icon: 'ℹ️' });
+                },
             });
-
-            // In production, redirect to Paystack payment page here
-            toast.success('Redirecting to payment gateway...');
-
-            // Simulate payment success
-            setTimeout(() => {
-                toast.success('Thank you for your donation! 🎉');
-                setShowDonateModal(false);
-                resetForm();
-                fetchCampaigns();
-            }, 2000);
-
         } catch (error: any) {
-            toast.error('Failed to process donation');
+            setProcessing(false);
+            // Most common cause: the gateway public key isn't configured.
+            toast.error(
+                error?.message?.includes('public key')
+                    ? 'Online donations are not set up for this school yet. Please contact the school office to donate.'
+                    : 'Could not start the payment. Please try again.'
+            );
             console.error(error);
         }
     };
@@ -348,9 +383,10 @@ const DonationPortal: React.FC<DonationPortalProps> = ({ schoolId }) => {
                                 </button>
                                 <button
                                     onClick={handleDonate}
-                                    className="flex-1 px-4 py-3 bg-gradient-to-r from-pink-600 to-purple-600 text-white rounded-lg hover:from-pink-700 hover:to-purple-700 font-bold"
+                                    disabled={processing}
+                                    className="flex-1 px-4 py-3 bg-gradient-to-r from-pink-600 to-purple-600 text-white rounded-lg hover:from-pink-700 hover:to-purple-700 font-bold disabled:opacity-60 disabled:cursor-not-allowed"
                                 >
-                                    Proceed to Payment
+                                    {processing ? 'Processing…' : 'Proceed to Payment'}
                                 </button>
                             </div>
                         </div>

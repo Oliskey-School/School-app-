@@ -223,9 +223,16 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
                 }
             }
 
-            // Always include the teacher's assigned subject even if not yet in the student's subject list
+            // Always include the teacher's assigned subject even if not yet in the student's subject list.
+            // From the saved records, only bring in EXTRA subjects that actually have
+            // scores — a stale zero-score row for a subject the student no longer
+            // takes must not resurface on the report card.
+            const expectedLower = new Set(expectedSubjects.map((n: string) => String(n).toLowerCase()));
+            const scoredExtras = Array.from(existingRecordsMap.entries())
+                .filter(([name, rec]) => expectedLower.has(String(name).toLowerCase()) || (Number((rec as any)?.total) || 0) > 0)
+                .map(([name]) => name);
             const subjectSeed = subjectContext ? [subjectContext] : [];
-            const allSubjectNames = Array.from(new Set([...subjectSeed, ...expectedSubjects, ...existingRecordsMap.keys()]));
+            const allSubjectNames = Array.from(new Set([...subjectSeed, ...expectedSubjects, ...scoredExtras]));
 
             const initialData: AcademicRecordState[] = allSubjectNames.map(subjectName => {
                 const existingRecord = existingRecordsMap.get(subjectName);

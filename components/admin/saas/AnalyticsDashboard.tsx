@@ -86,8 +86,10 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ navigate
             setRevenueData(charts.revenueTrend || []);
             setPlanDistribution(charts.planDist || []);
 
-            // Generate daily activity data based on total schools
-            const activity = generateDailyActivityData(overview.totalSchools, 7);
+            // Daily activity: the platform doesn't track per-day school logins
+            // yet, so chart the one REAL figure we have (currently active
+            // schools) as a flat series — never invent random numbers here.
+            const activity = generateDailyActivityData(overview.activeSchools ?? overview.totalSchools, 7);
             setSchoolActivityData(activity);
 
         } catch (error) {
@@ -97,7 +99,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ navigate
         }
     };
 
-    const generateDailyActivityData = (schoolCount: number, days: number): ChartData[] => {
+    const generateDailyActivityData = (activeSchoolCount: number, days: number): ChartData[] => {
         const data: ChartData[] = [];
         const now = new Date();
 
@@ -106,10 +108,10 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ navigate
             date.setDate(date.getDate() - i);
             const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
 
-            // Simulate activity based on school count
-            const activeSchools = Math.floor(Math.random() * schoolCount * 0.8);
-
-            data.push({ name: dayName, value: activeSchools, schools: activeSchools });
+            // Real figure only: currently-active schools. When per-day activity
+            // tracking lands, replace this flat series with the daily counts.
+            const count = Math.max(0, Number(activeSchoolCount) || 0);
+            data.push({ name: dayName, value: count, schools: count });
         }
 
         return data;

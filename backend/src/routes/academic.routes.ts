@@ -3,7 +3,7 @@ import {
     saveGrade, getGrades, getSubjects, getAnalytics, getPerformance, 
     getReportCardDetails, getCurricula, getAcademicTracks, getAcademicTerms, 
     upsertReportCard, getReportCardByCriteria, getCurriculumTopics, syncCurriculumData,
-    calculateClassRankings
+    calculateClassRankings, promoteStudents
 } from '../controllers/academic.controller';
 import { getAcademicSettings, saveAcademicSettings } from '../controllers/academicSettings.controller';
 import { authenticate } from '../middleware/auth.middleware';
@@ -31,6 +31,7 @@ router.post('/sync', syncCurriculumData);
 router.post('/grades', getGrades);
 router.put('/grade', saveGrade);
 router.post('/upsert-report-card', upsertReportCard);
+router.post('/promote-students', promoteStudents);
 router.post('/calculate-rankings', authenticate, calculateClassRankings);
 
 export default router;

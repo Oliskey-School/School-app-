@@ -1078,6 +1078,9 @@ model Subject {
   code              String?
   description       String?
   curriculum_type   String?
+  // Admin-picked palette color (Tailwind class set, e.g. "bg-sky-100 text-sky-800
+  // border-sky-200") — used by the timetable builder chips and grid cells.
+  color             String?
   created_at        DateTime          @default(now())
   updated_at        DateTime          @updatedAt
   class_teachers    ClassTeacher[]

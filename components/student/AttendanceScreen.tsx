@@ -60,7 +60,13 @@ const AttendanceScreen: React.FC<AttendanceScreenProps> = ({ studentId }) => {
         if (!currentSchool?.id) return;
         setLoading(true);
         try {
-            const data = await api.getMyAttendance();
+            // A parent (or admin/teacher) opens this screen for a specific child via
+            // the studentId prop — fetch THAT student's attendance. Only a student
+            // viewing their own record falls back to the "me" endpoint (which a
+            // parent has no student profile for, and which used to 500).
+            const data = studentId
+                ? await api.getStudentAttendance(String(studentId))
+                : await api.getMyAttendance();
 
             if (data) {
                 const formatted: StudentAttendance[] = data.map((d: any) => ({
@@ -77,7 +83,7 @@ const AttendanceScreen: React.FC<AttendanceScreenProps> = ({ studentId }) => {
         } finally {
             setLoading(false);
         }
-    }, [currentSchool?.id]);
+    }, [currentSchool?.id, studentId]);
 
     // Real-time synchronization
     useAutoSync(['attendance'], fetchAttendance);

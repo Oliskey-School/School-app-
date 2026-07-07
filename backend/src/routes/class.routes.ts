@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getClasses, getClass, getClassStudents, createClass, updateClass, deleteClass, getClassSubjects, initializeClasses } from '../controllers/class.controller';
+import { getClasses, getClass, getClassStudents, createClass, updateClass, deleteClass, getClassSubjects, getClassSubjectsById, initializeClasses } from '../controllers/class.controller';
 import { authenticate } from '../middleware/auth.middleware';
 
 const router = Router();
@@ -9,6 +9,7 @@ router.post('/initialize', authenticate, initializeClasses);
 router.get('/', authenticate, getClasses);
 router.get('/:id', authenticate, getClass);
 router.get('/:id/students', authenticate, getClassStudents);
+router.get('/:id/subjects', authenticate, getClassSubjectsById);
 router.post('/', authenticate, createClass);
 router.put('/:id', authenticate, updateClass);
 router.delete('/:id', authenticate, deleteClass);

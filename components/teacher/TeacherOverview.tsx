@@ -139,8 +139,12 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
                 // full timetable view so both show identical period times.
                 const schedule = loadSchedule(actualSchoolId);
                 const teaching = schedule.filter((p: any) => !p.isBreak);
-                const remapped = todays.map((entry: any, i: number) => {
-                    const period = teaching[i];
+                const remapped = todays.map((entry: any) => {
+                    // Match by start_time so Today's Schedule shows the correct clock
+                    // time for each period — order-based (i) mapping was wrong for
+                    // teachers who only teach specific periods of the day.
+                    const st = (entry.start_time || '').slice(0, 5);
+                    const period = teaching.find((p: any) => p.start === st);
                     return period ? { ...entry, start_time: period.start, end_time: period.end } : entry;
                 });
                 setTodaySchedule(remapped);
@@ -155,7 +159,7 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
         if (!classesLoading && resolvedTeacherId) {
             fetchData();
         }
-    }, [resolvedTeacherId, resolvedSchoolId, classesLoading, currentBranchId]);
+    }, [resolvedTeacherId, resolvedSchoolId, classesLoading, currentBranchId, version]);
 
     const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     useAutoSync(

@@ -1,5 +1,5 @@
 ﻿
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     ChevronLeft,
     Sparkles,
@@ -49,12 +49,41 @@ const StudentProfileDashboard: React.FC<StudentProfileDashboardProps> = ({
     });
 
     const [performance, setPerformance] = useState<any[]>([]);
+    const [subjectList, setSubjectList] = useState<string[]>([]);
     const [behaviorNotes, setBehaviorNotes] = useState<any[]>([]);
     const [freshStudent, setFreshStudent] = useState<any>(null);
     const s: any = { ...(student || {}), ...(freshStudent || {}) };
 
-    const averageScore = performance && performance.length > 0
-        ? Math.round(performance.reduce((sum, record) => sum + (record?.score || 0), 0) / performance.length)
+    // One card row per subject the student actually TAKES (the admin's
+    // per-student selection, else the class's subjects). Raw performance rows
+    // are one-per-term, so the same subject used to repeat 2-3 times; here we
+    // average a subject's rows into one figure. Subjects the admin removed
+    // disappear; newly added ones show with no score yet.
+    const subjectRows = useMemo(() => {
+        const scoresBySubject = new Map<string, number[]>();
+        (performance || []).forEach((p: any) => {
+            if (!p?.subject) return;
+            const key = String(p.subject).toLowerCase();
+            if (!scoresBySubject.has(key)) scoresBySubject.set(key, []);
+            scoresBySubject.get(key)!.push(Number(p.score) || 0);
+        });
+
+        const names = subjectList.length
+            ? subjectList
+            : Array.from(new Set((performance || []).map((p: any) => p?.subject).filter(Boolean)));
+
+        return names.map((name: string) => {
+            const scores = scoresBySubject.get(String(name).toLowerCase()) || [];
+            return {
+                subject: name,
+                score: scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null,
+            };
+        });
+    }, [performance, subjectList]);
+
+    const scoredRows = subjectRows.filter(r => r.score !== null);
+    const averageScore = scoredRows.length > 0
+        ? Math.round(scoredRows.reduce((sum, r) => sum + (r.score || 0), 0) / scoredRows.length)
         : 0;
 
     const loadFullData = async () => {
@@ -83,14 +112,21 @@ const StudentProfileDashboard: React.FC<StudentProfileDashboardProps> = ({
                 setAttendanceData(counts);
             }
 
-            // Fetch Performance & Notes
+            // Fetch Performance & Notes + the student's authoritative subject
+            // list (admin's per-student selection → class subjects → fallback)
             const { fetchAcademicPerformance, fetchBehaviorNotes } = await import('../../lib/database');
-            const [perf, notes] = await Promise.all([
+            const [perf, notes, subs] = await Promise.all([
                 fetchAcademicPerformance(student.id),
-                (fetchBehaviorNotes as any)(student.id)
+                (fetchBehaviorNotes as any)(student.id),
+                api.getStudentSubjects(student.id).catch(() => [])
             ]);
             setPerformance(perf || []);
             setBehaviorNotes(notes || []);
+            setSubjectList(
+                (Array.isArray(subs) ? subs : [])
+                    .map((sub: any) => (typeof sub === 'string' ? sub : sub?.name))
+                    .filter(Boolean)
+            );
 
         } catch (err) {
             console.error('Error fetching student details:', err);
@@ -113,7 +149,9 @@ const StudentProfileDashboard: React.FC<StudentProfileDashboardProps> = ({
         setIsGeneratingSummary(true);
         try {
             const ai = getAIClient(import.meta.env.VITE_GEMINI_API_KEY || '');
-            const academicStr = performance?.map(p => `${p.subject}: ${p.score}%`).join(', ') || 'No data';
+            const academicStr = subjectRows
+                .map(p => `${p.subject}: ${p.score !== null ? `${p.score}%` : 'no result yet'}`)
+                .join(', ') || 'No data';
             const behaviorStr = behaviorNotes?.map(n => n.note).join('; ') || 'No notes';
 
             const prompt = `Analyze this student's data and provide a concise summary for school administrators:
@@ -194,19 +232,20 @@ const StudentProfileDashboard: React.FC<StudentProfileDashboardProps> = ({
                                 <span className="text-3xl font-bold text-[#5D5CDE]">{averageScore}%</span>
                             </div>
 
-                            {/* Detailed Subject Breakdown */}
+                            {/* Detailed Subject Breakdown — one row per subject the
+                                student takes; '—' until a result is recorded */}
                             <div className="mt-8 space-y-4">
-                                {performance && performance.length > 0 ? (
-                                    performance.map((p, idx) => (
+                                {subjectRows.length > 0 ? (
+                                    subjectRows.map((p, idx) => (
                                         <div key={idx} className="flex items-center gap-4">
                                             <div className="w-24 text-sm font-bold text-gray-500 truncate">{p.subject}</div>
                                             <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
                                                 <div
                                                     className="h-full bg-[#5D5CDE] rounded-full transition-all duration-1000"
-                                                    style={{ width: `${p.score}%` }}
+                                                    style={{ width: `${p.score ?? 0}%` }}
                                                 ></div>
                                             </div>
-                                            <div className="w-10 text-sm font-bold text-[#5D5CDE] text-right">{p.score}%</div>
+                                            <div className="w-10 text-sm font-bold text-[#5D5CDE] text-right">{p.score !== null ? `${p.score}%` : '—'}</div>
                                         </div>
                                     ))
                                 ) : (

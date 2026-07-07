@@ -43,7 +43,7 @@ import {
 import { AuditLog, RoleName } from '../../types';
 import DonutChart from '../ui/DonutChart';
 import { EmergencyBroadcastModal } from './EmergencyBroadcastModal';
-import { AlertTriangle, Activity, Flame, ShieldCheck, Shield, FileText, Rocket, Beaker, Calendar, TrendingUp, Building2, Bus, BarChart3, Database, Monitor, Star, Receipt, Clock, FileCheck, Download, BellRing, LayoutGrid } from 'lucide-react';
+import { AlertTriangle, Activity, Flame, ShieldCheck, Shield, FileText, Rocket, Beaker, Calendar, TrendingUp, Building2, Bus, BarChart3, Database, Monitor, Star, Receipt, Clock, FileCheck, Download, BellRing, LayoutGrid, GraduationCap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useProfile } from '../../context/ProfileContext';
@@ -419,6 +419,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                             <QuickActionCard label="Compliance" icon={<Shield />} onClick={() => navigateTo('complianceOnboarding', 'School Compliance')} color="bg-violet-600" />
                             <QuickActionCard label="Track Attendance" icon={<Calendar />} onClick={() => navigateTo('attendanceTracker', 'Curriculum Attendance')} color="bg-green-600" />
                             <QuickActionCard label="Enter Results" icon={<TrendingUp />} onClick={() => navigateTo('resultsEntry', 'Results Entry')} color="bg-cyan-600" />
+                            <QuickActionCard label="Promotion" icon={<GraduationCap />} onClick={() => navigateTo('sessionPromotion', 'End-of-Session Promotion')} color="bg-indigo-700" />
                             <QuickActionCard label="Launch Hub" icon={<Rocket className="animate-bounce" />} onClick={() => navigateTo('onboardingPage', 'Pilot Onboarding')} color="bg-gray-900" />
                             <QuickActionCard label="Emergency" icon={<AlertTriangle />} onClick={() => setIsBroadcastOpen(true)} color="bg-red-600 animate-pulse" />
                         </div>
@@ -475,6 +476,12 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                                     icon={<BookOpenIcon />}
                                     onClick={() => navigateTo('manageCurriculum', 'Curriculum Configuration')}
                                     color="bg-indigo-600"
+                                />
+                                <QuickActionCard
+                                    label="Lesson Notes"
+                                    icon={<BookOpenIcon />}
+                                    onClick={() => navigateTo('lessonNotes', 'Lesson Notes Review')}
+                                    color="bg-violet-600"
                                 />
 
                             </div>

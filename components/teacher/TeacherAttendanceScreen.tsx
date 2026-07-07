@@ -173,7 +173,6 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
         const effectiveBranchId = currentBranchId || profile?.branchId || (classInfo as any).branchId || (classInfo as any).branch_id;
 
         if (!effectiveSchoolId) {
-            console.error("DEBUG: School ID missing. ClassInfo:", classInfo, "Profile:", profile);
             toast.error("School Context is missing. Please refresh.");
             return;
         }
@@ -191,8 +190,6 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
                 branch_id: effectiveBranchId || null
             };
         });
-
-        console.log("DEBUG: Submitting Attendance Payload:", upsertData);
 
         try {
             await api.saveAttendance(upsertData);
@@ -231,8 +228,16 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
             toast.error("Weekends are disabled! Please select a working day (Mon-Fri).");
             return;
         }
+        // A teacher marks a register for today or a past day — never the future.
+        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        if (dateVal > todayStr) {
+            toast.error("You can't mark attendance for a future date.");
+            return;
+        }
         setSelectedDate(dateVal);
     };
+
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
     return (
         <div className="flex flex-col h-full bg-gray-100">
@@ -247,6 +252,7 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
                         <input
                             type="date"
                             value={selectedDate}
+                            max={todayStr}
                             onChange={handleDateChange}
                             className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm rounded-md bg-gray-50 bg-white"
                         />

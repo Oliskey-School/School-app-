@@ -201,12 +201,17 @@ const AIChatScreen: React.FC<AIChatScreenProps> = ({ onBack, dashboardType }) =>
     };
 
     useEffect(() => {
-        chatContainerRef.current?.scrollTo({ top: chatContainerRef.current.scrollHeight, behavior: 'smooth' });
+        // Auto-scroll to latest message
+        setTimeout(() => {
+            if (chatContainerRef.current) {
+                chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+            }
+        }, 0);
     }, [messages]);
 
     // --- Render ---
     return (
-        <div className="flex flex-col h-full bg-gray-100">
+        <div className="flex flex-col h-screen bg-gray-100">
             <Header
                 title="AI Assistant"
                 avatarUrl={`https://i.pravatar.cc/150?u=${dashboardType.toLowerCase()}`}
@@ -233,7 +238,7 @@ const AIChatScreen: React.FC<AIChatScreenProps> = ({ onBack, dashboardType }) =>
                 ))}
             </div>
 
-            <div className="flex-grow overflow-hidden relative bg-gray-50">
+            <div className="flex-grow overflow-hidden relative bg-gray-50 flex flex-col">
                 {activeTab === 'live' && <LiveSession onClose={() => setActiveTab('chat')} />}
 
                 {activeTab === 'create' && <MediaGenerator />}
@@ -241,7 +246,7 @@ const AIChatScreen: React.FC<AIChatScreenProps> = ({ onBack, dashboardType }) =>
                 {activeTab === 'chat' && (
                     <div className="flex flex-col h-full">
                         {/* Chat Messages */}
-                        <div ref={chatContainerRef} className="flex-grow overflow-y-auto p-4 space-y-4 pb-32" style={{ backgroundImage: "url('https://i.pinimg.com/736x/8c/98/99/8c98994518b575bfd8c949e91d20548b.jpg')", backgroundRepeat: 'repeat', backgroundSize: '400px' }}>
+                        <div ref={chatContainerRef} className="flex-grow overflow-y-auto p-4 space-y-4 pb-24" style={{ backgroundImage: "url('https://i.pinimg.com/736x/8c/98/99/8c98994518b575bfd8c949e91d20548b.jpg')", backgroundRepeat: 'repeat', backgroundSize: '400px' }}>
                             {messages.map((msg, index) => (
                                 <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                                     <div className={`max-w-[85%] rounded-2xl p-3 shadow-sm relative ${msg.role === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-white text-gray-800 rounded-bl-none'}`}>
@@ -262,8 +267,8 @@ const AIChatScreen: React.FC<AIChatScreenProps> = ({ onBack, dashboardType }) =>
                             )}
                         </div>
 
-                        {/* Chat Controls & Input */}
-                        <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-3">
+                        {/* Chat Controls & Input - Fixed at Device Bottom */}
+                        <div className="fixed bottom-0 left-0 right-0 w-full max-w-full bg-white border-t border-gray-200 p-3 shadow-lg z-50">
                             {/* Tool Toggles */}
                             <div className="flex space-x-2 overflow-x-auto pb-2 mb-1 no-scrollbar">
                                 <button onClick={() => setThinkingMode(!thinkingMode)} className={`flex items-center space-x-1 px-3 py-1 rounded-full text-xs font-bold border transition-colors ${thinkingMode ? 'bg-purple-100 text-purple-700 border-purple-300' : 'bg-gray-50 text-gray-600 border-gray-200'}`}>

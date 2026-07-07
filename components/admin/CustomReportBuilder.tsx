@@ -59,7 +59,7 @@ const DATA_SOURCES = [
 const OPERATORS = ['equals', 'not equals', 'contains', 'greater than', 'less than', 'between', 'is empty', 'is not empty'];
 
 const CustomReportBuilder = () => {
-    const { currentSchool } = useAuth();
+    const { currentSchool, currentBranchId } = useAuth() as any;
     const [step, setStep] = useState<'source' | 'fields' | 'filters' | 'preview'>('source');
     const [selectedSource, setSelectedSource] = useState<string | null>(null);
     const [selectedFields, setSelectedFields] = useState<string[]>([]);
@@ -69,6 +69,10 @@ const CustomReportBuilder = () => {
     const [savedReports, setSavedReports] = useState<SavedReport[]>([]);
     const [showSaved, setShowSaved] = useState(false);
     const [loading, setLoading] = useState(false);
+    // REAL rows fetched for the preview/export — this screen must never show
+    // invented data: an admin will print what they see here.
+    const [reportRows, setReportRows] = useState<any[]>([]);
+    const [rowsLoading, setRowsLoading] = useState(false);
 
     useEffect(() => {
         fetchSavedReports();
@@ -118,34 +122,174 @@ const CustomReportBuilder = () => {
 
     const currentSource = DATA_SOURCES.find(s => s.id === selectedSource);
 
-    const generateDemoData = () => {
-        if (!currentSource) return [];
-        const rows = [];
-        const names = ['Femi Adeyemi', 'Chioma Okeke', 'Abubakar Musa', 'Blessing Okafor', 'Tunde Bakare', 'Amina Ibrahim', 'David Eze', 'Grace Nwosu'];
-        const classes = ['JSS 1A', 'JSS 2B', 'SS 1A', 'SS 2C', 'JSS 3A'];
-        for (let i = 0; i < 8; i++) {
-            const row: any = {};
-            selectedFields.forEach(field => {
-                if (field.includes('Name')) row[field] = names[i % names.length];
-                else if (field === 'Class') row[field] = classes[i % classes.length];
-                else if (field === 'Status') row[field] = i % 5 === 0 ? 'Absent' : 'Present';
-                else if (field === 'Date') row[field] = `2026-03-${(10 + i).toString().padStart(2, '0')}`;
-                else if (field.includes('Score') || field === 'Total') row[field] = Math.floor(Math.random() * 40) + 60;
-                else if (field === 'Grade') row[field] = ['A', 'B', 'B', 'C', 'A', 'B', 'A', 'C'][i];
-                else if (field.includes('Amount') || field === 'Balance') row[field] = `₦${(Math.floor(Math.random() * 50) * 1000 + 10000).toLocaleString()}`;
-                else if (field === 'Gender') row[field] = i % 2 === 0 ? 'Male' : 'Female';
-                else if (field === 'Subject') row[field] = ['Mathematics', 'English', 'Physics', 'Chemistry', 'Biology', 'Economics'][i % 6];
-                else if (field === 'Term') row[field] = 'Term 2';
-                else if (field === 'Method') row[field] = ['Paystack', 'Bank Transfer', 'Cash'][i % 3];
-                else row[field] = '—';
-            });
-            rows.push(row);
+    // --- REAL data per source. Each mapper turns an API record into a row keyed
+    // by the human field names offered in step 2.
+    const fetchSourceRows = async (): Promise<any[]> => {
+        const sid = currentSchool?.id;
+        const bid = currentBranchId && currentBranchId !== 'all' ? currentBranchId : undefined;
+        if (!sid || !currentSource) return [];
+        const cls = (r: any) => r.class?.name || r.class_name
+            || (r.grade != null ? `${r.grade}${r.section || ''}` : '—');
+
+        switch (currentSource.id) {
+            case 'students': {
+                const students = await api.getStudents(sid, bid);
+                return (students || []).map((s: any) => ({
+                    'Name': s.full_name || s.name,
+                    'Admission No.': s.school_generated_id || s.admission_number || '—',
+                    'Class': cls(s),
+                    'Gender': s.gender || '—',
+                    'Date of Birth': s.dob ? String(s.dob).slice(0, 10) : '—',
+                    'Parent Name': s.parent_name || s.guardian_name || '—',
+                    'Phone': s.phone || s.user?.phone || '—',
+                    'Address': s.address || '—',
+                    'Status': s.status || '—',
+                }));
+            }
+            case 'teachers': {
+                const teachers = await api.getTeachers(sid, bid);
+                return (teachers || []).map((t: any) => ({
+                    'Name': t.full_name || t.name,
+                    'Staff ID': t.school_generated_id || '—',
+                    'Department': t.department || '—',
+                    'Subject': Array.isArray(t.subject_specialty) ? t.subject_specialty.join(', ') : (t.subject_specialty || '—'),
+                    'Qualification': t.qualification || '—',
+                    'Phone': t.phone || '—',
+                    'Start Date': t.hire_date ? String(t.hire_date).slice(0, 10) : (t.created_at ? String(t.created_at).slice(0, 10) : '—'),
+                    'Status': t.status || 'Active',
+                }));
+            }
+            case 'fees': {
+                const fees = await api.getFees(sid, bid);
+                return (fees || []).map((f: any) => {
+                    const due = Number(f.amount) || 0;
+                    const paid = Number(f.paid_amount ?? f.amount_paid) || (String(f.status).toLowerCase() === 'paid' ? due : 0);
+                    return {
+                        'Student Name': f.student?.full_name || f.student_name || '—',
+                        'Class': cls(f.student || f),
+                        'Fee Type': f.fee_type || f.type || f.description || '—',
+                        'Amount Due': due,
+                        'Amount Paid': paid,
+                        'Balance': Math.max(0, due - paid),
+                        'Payment Date': f.paid_date || f.payment_date ? String(f.paid_date || f.payment_date).slice(0, 10) : '—',
+                        'Method': f.payment_method || '—',
+                        'Receipt No.': f.receipt_number || '—',
+                    };
+                });
+            }
+            case 'grades': {
+                const reportCards = await api.getReportCards(sid, bid);
+                const rows: any[] = [];
+                (reportCards || []).forEach((rc: any) => {
+                    const grades = Array.isArray(rc.academic_records) ? rc.academic_records : [];
+                    grades.forEach((g: any) => rows.push({
+                        'Student Name': rc.student?.full_name || '—',
+                        'Class': cls(rc.student || {}),
+                        'Subject': g.subject || '—',
+                        'CA Score': g.ca ?? ((Number(g.test1) || 0) + (Number(g.test2) || 0)),
+                        'Exam Score': g.exam ?? 0,
+                        'Total': g.total ?? 0,
+                        'Grade': g.grade || '—',
+                        'Term': rc.term || '—',
+                        'Year': rc.session || '—',
+                    }));
+                });
+                return rows;
+            }
+            case 'attendance': {
+                const today = new Date().toISOString().slice(0, 10);
+                const records = await api.getAttendanceByDate(sid, today);
+                return (records || []).map((r: any) => ({
+                    'Student Name': r.student?.full_name || r.student_name || '—',
+                    'Class': cls(r.student || r),
+                    'Date': r.date ? String(r.date).slice(0, 10) : today,
+                    'Status': r.status || '—',
+                    'Time In': r.time_in || '—',
+                    'Time Out': r.time_out || '—',
+                    'Teacher': r.marked_by_name || r.teacher?.full_name || '—',
+                    'Term': r.term || '—',
+                }));
+            }
+            case 'events': {
+                const events = await api.getEvents(sid, bid);
+                return (events || []).map((e: any) => ({
+                    'Event Name': e.title || e.name || '—',
+                    'Date': e.date || e.start_date ? String(e.date || e.start_date).slice(0, 10) : '—',
+                    'Time': e.time || e.start_time || '—',
+                    'Location': e.location || '—',
+                    'Category': e.category || e.type || '—',
+                    'Attendees': e.attendees ?? '—',
+                    'Status': e.status || '—',
+                }));
+            }
+            default:
+                return [];
         }
-        return rows;
     };
 
+    // Apply the step-3 filters to real rows.
+    const applyFilters = (rows: any[]): any[] => {
+        const active = filters.filter(f => f.field && f.operator);
+        if (active.length === 0) return rows;
+        return rows.filter(row => active.every(f => {
+            const raw = row[f.field];
+            const cell = raw == null ? '' : String(raw);
+            const val = f.value || '';
+            const cellNum = parseFloat(cell.replace(/[₦,]/g, ''));
+            const valNum = parseFloat(val);
+            switch (f.operator) {
+                case 'equals': return cell.toLowerCase() === val.toLowerCase();
+                case 'not equals': return cell.toLowerCase() !== val.toLowerCase();
+                case 'contains': return cell.toLowerCase().includes(val.toLowerCase());
+                case 'greater than': return !isNaN(cellNum) && !isNaN(valNum) && cellNum > valNum;
+                case 'less than': return !isNaN(cellNum) && !isNaN(valNum) && cellNum < valNum;
+                case 'between': {
+                    const [lo, hi] = val.split(/[,\-]/).map(v => parseFloat(v.trim()));
+                    return !isNaN(cellNum) && !isNaN(lo) && !isNaN(hi) && cellNum >= lo && cellNum <= hi;
+                }
+                case 'is empty': return cell === '' || cell === '—';
+                case 'is not empty': return cell !== '' && cell !== '—';
+                default: return true;
+            }
+        }));
+    };
+
+    // Load real rows whenever the preview opens (or its inputs change).
+    useEffect(() => {
+        if (step !== 'preview' || !currentSource || selectedFields.length === 0) return;
+        let active = true;
+        setRowsLoading(true);
+        fetchSourceRows()
+            .then(rows => { if (active) setReportRows(applyFilters(rows)); })
+            .catch(err => {
+                console.error('Report data fetch failed:', err);
+                if (active) { setReportRows([]); toast.error('Could not load report data.'); }
+            })
+            .finally(() => { if (active) setRowsLoading(false); });
+        return () => { active = false; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [step, selectedSource, JSON.stringify(filters), selectedFields.length]);
+
     const handleExport = (format: 'csv' | 'pdf') => {
-        toast.success(`Report exported as ${format.toUpperCase()}`);
+        if (reportRows.length === 0) { toast.error('No records to export.'); return; }
+        if (format === 'pdf') {
+            // Browser print dialog — the preview table is what prints.
+            window.print();
+            return;
+        }
+        const esc = (v: any) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+        const csv = [
+            selectedFields.map(esc).join(','),
+            ...reportRows.map(row => selectedFields.map(f => esc(row[f])).join(',')),
+        ].join('\n');
+        const blob = new Blob([`﻿${csv}`], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${(reportName || currentSource?.name || 'report').replace(/[^\w\- ]+/g, '')}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast.success(`Exported ${reportRows.length} records as CSV`);
     };
     const handleAddFilter = () => {
         setFilters(prev => [...prev, { id: Date.now().toString(), field: selectedFields[0] || '', operator: 'equals', value: '' }]);
@@ -347,11 +491,27 @@ const CustomReportBuilder = () => {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-50">
-                                        {generateDemoData().map((row, i) => (
+                                        {rowsLoading ? (
+                                            <tr>
+                                                <td colSpan={selectedFields.length + 1} className="px-4 py-10 text-center text-sm text-gray-400 font-medium">
+                                                    Loading records…
+                                                </td>
+                                            </tr>
+                                        ) : reportRows.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={selectedFields.length + 1} className="px-4 py-10 text-center text-sm text-gray-400 font-medium">
+                                                    No records match this report.
+                                                </td>
+                                            </tr>
+                                        ) : reportRows.map((row, i) => (
                                             <tr key={i} className="hover:bg-gray-50/30 transition-colors">
                                                 <td className="px-4 py-3 text-sm text-gray-400 font-mono">{i + 1}</td>
                                                 {selectedFields.map(field => (
-                                                    <td key={field} className="px-4 py-3 text-sm font-medium text-gray-700 whitespace-nowrap">{row[field]}</td>
+                                                    <td key={field} className="px-4 py-3 text-sm font-medium text-gray-700 whitespace-nowrap">
+                                                        {typeof row[field] === 'number' && (field.includes('Amount') || field === 'Balance')
+                                                            ? `₦${Number(row[field]).toLocaleString()}`
+                                                            : String(row[field] ?? '—')}
+                                                    </td>
                                                 ))}
                                             </tr>
                                         ))}
@@ -359,7 +519,10 @@ const CustomReportBuilder = () => {
                                 </table>
                             </div>
                             <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex items-center justify-between">
-                                <span className="text-sm text-gray-500">Showing 8 demo records</span>
+                                <span className="text-sm text-gray-500">
+                                    {rowsLoading ? 'Loading…' : `Showing ${reportRows.length} record${reportRows.length === 1 ? '' : 's'}`}
+                                    {currentSource?.id === 'attendance' ? ' (today)' : ''}
+                                </span>
                                 <span className="text-xs font-bold text-gray-400">Source: {currentSource?.name}</span>
                             </div>
                         </div>

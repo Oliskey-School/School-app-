@@ -15,7 +15,7 @@ interface TeacherSalaryProfileProps {
     teacherId: string;
 }
 
-const TeacherSalaryProfile: React.FC<TeacherSalaryProfileProps> = ({ teacherId }) => {
+const TeacherSalaryProfile: React.FC<TeacherSalaryProfileProps> = ({ teacherId, navigateTo }) => {
     const [salaryData, setSalaryData] = useState<any>(null);
     const [payslips, setPayslips] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -45,9 +45,12 @@ const TeacherSalaryProfile: React.FC<TeacherSalaryProfileProps> = ({ teacherId }
             }
         } catch (error: any) {
             console.error('Error fetching salary:', error);
-            // Check for specific backend errors if needed
-            if (error.message?.includes('not found')) {
+            // "Not found" is a legitimate empty state (HR hasn't set salary yet);
+            // any OTHER failure is a real service error worth surfacing honestly.
+            if (error.message?.includes('not found') || error.status === 404) {
                 setSalaryData(null);
+            } else {
+                setErrorOccurred(true);
             }
         } finally {
             setLoading(false);
@@ -88,10 +91,16 @@ const TeacherSalaryProfile: React.FC<TeacherSalaryProfileProps> = ({ teacherId }
     if (errorOccurred) {
         return (
             <div className="p-6">
-                <div className="bg-blue-50 border border-blue-200 rounded-xl p-8 text-center">
-                    <DollarSignIcon className="w-16 h-16 text-blue-300 mx-auto mb-4" />
-                    <h3 className="text-xl font-bold text-blue-900 mb-2">Salary Profile Coming Soon</h3>
-                    <p className="text-blue-700 max-w-md mx-auto">Your digital salary profile and configuration are being finalized. Please check back later or contact the finance department for details.</p>
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-8 text-center">
+                    <DollarSignIcon className="w-16 h-16 text-amber-300 mx-auto mb-4" />
+                    <h3 className="text-xl font-bold text-amber-900 mb-2">Couldn't load your salary profile</h3>
+                    <p className="text-amber-700 max-w-md mx-auto mb-4">There was a problem reaching the finance service. Please try again.</p>
+                    <button
+                        onClick={() => { setErrorOccurred(false); setLoading(true); fetchSalaryData(); fetchPayslips(); }}
+                        className="px-5 py-2.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 font-medium"
+                    >
+                        Retry
+                    </button>
                 </div>
             </div>
         );
@@ -212,7 +221,9 @@ const TeacherSalaryProfile: React.FC<TeacherSalaryProfileProps> = ({ teacherId }
                                             {payslip.status}
                                         </span>
                                     </div>
-                                    <button className="ml-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium">
+                                    <button
+                                        onClick={() => navigateTo?.('payslips', 'My Payslips')}
+                                        className="ml-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium">
                                         View Details
                                     </button>
                                 </div>

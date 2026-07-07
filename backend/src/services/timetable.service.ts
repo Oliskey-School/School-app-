@@ -2,8 +2,20 @@ import prisma from '../config/database';
 import { SocketService } from './socket.service';
 
 export class TimetableService {
-    static async getTimetable(schoolId: string, branchId: string | undefined, className?: string, teacherId?: string) {
+    static async getTimetable(
+        schoolId: string,
+        branchId: string | undefined,
+        className?: string,
+        teacherId?: string,
+        opts?: { publishedOnly?: boolean }
+    ) {
         const whereClause: any = { school_id: schoolId };
+
+        // Teachers/students/parents only see what the admin has published —
+        // drafts stay private to the admin until "Publish Live".
+        if (opts?.publishedOnly) {
+            whereClause.status = 'Published';
+        }
 
         // Strict branch isolation: a specific branch shows ONLY its own rows. Untagged
         // (branch_id: null) rows appear only in the "All Branches" view (branchId
@@ -17,33 +29,47 @@ export class TimetableService {
         }
 
         if (teacherId) {
-            // Use ClassTeacher assignments as the authoritative filter so a teacher
-            // only sees timetable slots for the classes+subjects they are actually
-            // assigned to — even if the timetable row's teacher_id was set incorrectly
-            // (e.g. in demo data where all rows share one teacher_id).
+            // Use ClassTeacher formal assignments to filter — this ensures teachers
+            // only see the subjects they are explicitly assigned to teach, not every
+            // entry that shares their teacher_id (demo data assigns one teacher_id to
+            // everything, so raw teacher_id returns the entire school timetable).
+            //
+            // IMPORTANT: skip ClassTeacher rows with no subject_id. A null subject_id
+            // would produce { class_id } with no subject filter, returning ALL subjects
+            // for that class — exactly the bug we're fixing. Only rows that have BOTH
+            // class_id AND subject.name generate a valid timetable condition.
             const assignments = await (prisma as any).classTeacher.findMany({
-                where: {
-                    teacher_id: teacherId,
-                    school_id: schoolId,
-                    deleted_at: null,
-                },
+                where: { teacher_id: teacherId, school_id: schoolId, deleted_at: null },
                 include: {
                     class: { select: { id: true, name: true } },
                     subject: { select: { name: true } },
                 }
             });
 
-            if (assignments.length > 0) {
-                // Build OR conditions: each assignment gives (class_id) + optionally (subject).
-                whereClause.OR = assignments.map((a: any) => {
-                    const cond: any = { class_id: a.class_id };
-                    if (a.subject?.name) {
-                        cond.subject = { equals: a.subject.name, mode: 'insensitive' };
-                    }
-                    return cond;
-                });
+            // Match each assignment by class_id OR class_name. Timetable rows are
+            // often created against a different class record than the assignment
+            // (duplicate class rows with the same name exist, and editor-created
+            // rows may carry only class_name) — id-only matching makes assigned
+            // periods vanish from the teacher's schedule. Branch isolation still
+            // holds: the outer whereClause scopes school_id and branch_id.
+            const subjectConditions = assignments
+                .filter((a: any) => a.class_id && a.subject?.name)
+                .map((a: any) => ({
+                    subject: { equals: a.subject.name, mode: 'insensitive' as const },
+                    OR: [
+                        { class_id: a.class_id },
+                        ...(a.class?.name
+                            ? [{ class_name: { equals: a.class.name, mode: 'insensitive' as const } }]
+                            : []),
+                    ],
+                }));
+
+            if (subjectConditions.length > 0) {
+                whereClause.OR = subjectConditions;
             } else {
-                // Teacher has no ClassTeacher records — fall back to raw teacher_id.
+                // No valid ClassTeacher assignments found — fall back to direct
+                // teacher_id. This handles schools that use the timetable editor to
+                // assign teachers without setting up ClassTeacher records first.
                 whereClause.teacher_id = teacherId;
             }
         }
@@ -107,11 +133,28 @@ export class TimetableService {
     }
 
     static async updateTimetable(schoolId: string, id: string, data: any) {
+        const DOW: Record<string, number> = { monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sunday: 7 };
+        // Resolve day_of_week if a string day name was sent
+        const dow = data.day_of_week != null
+            ? Number(data.day_of_week)
+            : (typeof data.day === 'string' ? (DOW[data.day.toLowerCase()] ?? undefined) : undefined);
+
         const entry = await prisma.timetable.update({
             where: { id, school_id: schoolId },
             data: {
-                ...data,
-                updated_at: new Date()
+                // Whitelist valid Timetable columns only — never spread raw input
+                ...(data.subject !== undefined && { subject: data.subject }),
+                ...(data.class_name !== undefined && { class_name: data.class_name }),
+                ...(data.class_id !== undefined && { class_id: data.class_id }),
+                ...(data.branch_id !== undefined && { branch_id: data.branch_id }),
+                ...(data.teacher_id !== undefined && { teacher_id: data.teacher_id }),
+                ...(dow !== undefined && { day_of_week: dow }),
+                ...(data.start_time !== undefined && { start_time: data.start_time }),
+                ...(data.end_time !== undefined && { end_time: data.end_time }),
+                ...(data.room !== undefined && { room: data.room }),
+                ...(data.notes !== undefined && { notes: data.notes }),
+                ...(data.status !== undefined && { status: data.status }),
+                updated_at: new Date(),
             }
         });
 
@@ -128,11 +171,14 @@ export class TimetableService {
         return result;
     }
 
-    static async deleteTimetableByClass(schoolId: string, identifier: string) {
-        // Try deleting by class_id first, then by class_name for shell classes
+    static async deleteTimetableByClass(schoolId: string, identifier: string, branchId?: string) {
+        // Try deleting by class_id first, then by class_name for shell classes.
+        // Branch-scoped when a branch is given — otherwise a name like "SSS 3"
+        // would wipe the same-named class's timetable in every other branch.
         const result = await prisma.timetable.deleteMany({
-            where: { 
+            where: {
                 school_id: schoolId,
+                ...(branchId && branchId !== 'all' ? { branch_id: branchId } : {}),
                 OR: [
                     { class_id: identifier },
                     { class_name: identifier }
@@ -149,13 +195,16 @@ export class TimetableService {
     }
 
     static async checkTeacherConflict(schoolId: string, data: { teacherId: string, day: string, startTime: string, endTime: string, excludeClassId?: string }) {
-        const conflict = await (prisma as any).timetable.findFirst({
+        const DOW: Record<string, number> = { monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sunday: 7 };
+        const dow = typeof data.day === 'string' ? (DOW[data.day.toLowerCase()] ?? null) : null;
+
+        const conflict = await prisma.timetable.findFirst({
             where: {
                 school_id: schoolId,
                 teacher_id: data.teacherId,
-                day: data.day,
+                ...(dow != null ? { day_of_week: dow } : {}),
                 start_time: data.startTime,
-                class_id: data.excludeClassId ? { not: data.excludeClassId } : undefined
+                deleted_at: null,
             },
             include: {
                 class: { select: { name: true } }
@@ -165,8 +214,8 @@ export class TimetableService {
         if (conflict) {
             return {
                 conflict: true,
-                message: `Teacher is already assigned to class ${(conflict as any).class?.name || 'Unknown'} at this time.`,
-                class_name: (conflict as any).class?.name
+                message: `Teacher is already assigned to class ${conflict.class?.name || 'Unknown'} at this time.`,
+                class_name: conflict.class?.name
             };
         }
 

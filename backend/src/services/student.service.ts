@@ -562,7 +562,16 @@ export class StudentService {
                     ...(queryStatus ? { status: queryStatus } : {})
                 }
             };
-            if (cls?.grade != null) {
+            // When the class HAS an enrollment register, the register IS the
+            // roster. Blending in the grade+section fallback on top used to pull
+            // same-grade twin records that were never enrolled into the list, so
+            // class screens showed duplicate students.
+            const hasEnrollments = await prisma.studentEnrollment.count({
+                where: { class_id: classId, deleted_at: null }
+            }) > 0;
+            if (hasEnrollments) {
+                where.enrollments = enrollmentCond;
+            } else if (cls?.grade != null) {
                 // Fallback: match by grade (and section when the class has one) so
                 // students without an explicit enrollment record are still visible.
                 // school_id at the top of `where` already enforces tenant isolation.

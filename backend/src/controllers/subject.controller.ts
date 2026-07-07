@@ -25,15 +25,44 @@ export const getCurriculumTopics = async (req: AuthRequest, res: Response) => {
 };
 export const createSubject = async (req: AuthRequest, res: Response) => {
     try {
-        const { name } = req.body;
+        const { name, color } = req.body;
         if (!name) {
             return res.status(400).json({ message: 'Subject name is required' });
         }
         // Create the subject in the admin's ACTIVE branch so it stays isolated.
         const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
-        const result = await SubjectService.createSubject(req.user.school_id, branchId, name);
+        const result = await SubjectService.createSubject(req.user.school_id, branchId, name, color);
         res.status(201).json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
+    }
+};
+
+export const updateSubjectColor = async (req: AuthRequest, res: Response) => {
+    try {
+        const role = (req.user.role || '').toLowerCase();
+        if (!['admin', 'superadmin', 'proprietor'].includes(role)) {
+            return res.status(403).json({ message: 'Only an admin can update subjects.' });
+        }
+        const result = await SubjectService.updateSubjectColor(req.user.school_id, req.params.id as string, req.body.color ?? null);
+        res.json(result);
+    } catch (error: any) {
+        const status = error.message === 'Subject not found' ? 404 : 500;
+        res.status(status).json({ message: error.message });
+    }
+};
+
+export const deleteSubject = async (req: AuthRequest, res: Response) => {
+    try {
+        // School-wide subject removal is an admin decision, not a teacher's.
+        const role = (req.user.role || '').toLowerCase();
+        if (!['admin', 'superadmin', 'proprietor'].includes(role)) {
+            return res.status(403).json({ message: 'Only an admin can delete subjects.' });
+        }
+        const result = await SubjectService.deleteSubject(req.user.school_id, req.params.id as string);
+        res.json(result);
+    } catch (error: any) {
+        const status = error.message === 'Subject not found' ? 404 : 500;
+        res.status(status).json({ message: error.message });
     }
 };

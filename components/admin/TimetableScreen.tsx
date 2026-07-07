@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { CalendarIcon, EyeIcon, EditIcon, PlusIcon, CheckCircleIcon, ClockIcon, TIMETABLE_PERIODS, TIMETABLE_DOW } from '../../constants';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
@@ -90,6 +91,8 @@ const TimetableOverview: React.FC<TimetableOverviewProps> = ({ navigateTo, schoo
             setLoading(false);
         }
     };
+
+    useAutoSync(['classes', 'timetables'], fetchTimetables);
 
     const filteredTimetables = timetables.filter(tt => {
         // First filter by Level

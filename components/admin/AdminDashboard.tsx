@@ -67,6 +67,7 @@ const HealthLogScreen = lazyWithRetry(() => import('./HealthLogScreen'));
 const BusDutyRosterScreen = lazyWithRetry(() => import('./BusDutyRosterScreen'));
 const SelectUserTypeToAddScreen = lazyWithRetry(() => import('./SelectUserTypeToAddScreen'));
 const AddTeacherScreen = lazyWithRetry(() => import('./AddTeacherScreen'));
+const AdminLessonNotesScreen = lazyWithRetry(() => import('./AdminLessonNotesScreen'));
 const AddParentScreen = lazyWithRetry(() => import('./AddParentScreen'));
 const ParentListScreen = lazyWithRetry(() => import('./ParentListScreen'));
 const ParentDetailAdminView = lazyWithRetry(() => import('./ParentDetailAdminView'));
@@ -141,6 +142,7 @@ const TransportManagementScreen = lazyWithRetry(() => import('./TransportManagem
 const CustomReportBuilder = lazyWithRetry(() => import('./CustomReportBuilder'));
 const BackupRestoreScreen = lazyWithRetry(() => import('./BackupRestoreScreen'));
 const SessionManagementScreen = lazyWithRetry(() => import('./SessionManagementScreen'));
+const SessionPromotionScreen = lazyWithRetry(() => import('./SessionPromotionScreen'));
 const BehaviorLogScreen = lazyWithRetry(() => import('./BehaviorLogScreen'));
 const ConsentFormScreen = lazyWithRetry(() => import('./ConsentFormScreen'));
 const AutoInvoiceGenerator = lazyWithRetry(() => import('./AutoInvoiceGenerator'));
@@ -369,6 +371,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         managePTAMeetings: ManagePTAMeetingsScreen,
         manageSchoolInfo: SchoolOnboardingScreen,
         manageCurriculum: CurriculumSettingsScreen,
+        lessonNotes: AdminLessonNotesScreen,
         enrollmentPage: StudentEnrollmentPage,
         exams: ExamCandidateRegistration,
         branchTransfer: BranchTransferScreen,
@@ -434,6 +437,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         customReportBuilder: CustomReportBuilder,
         backupRestore: BackupRestoreScreen,
         sessionManagement: SessionManagementScreen,
+        sessionPromotion: SessionPromotionScreen,
         behaviorLog: BehaviorLogScreen,
         consentForms: ConsentFormScreen,
         autoInvoice: AutoInvoiceGenerator,

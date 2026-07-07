@@ -1,3 +1,4 @@
+import { toast } from 'react-hot-toast';
 import React, { useState, useEffect } from 'react';
 import { api } from '../../../lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
@@ -73,7 +74,7 @@ export const SecuritySettings: React.FC<SecuritySettingsProps> = ({ navigateTo }
 
         } catch (error) {
             console.error('Error generating QR code:', error);
-            alert('Failed to generate QR code');
+            toast.error('Failed to generate QR code');
         } finally {
             setLoading(false);
         }
@@ -81,7 +82,7 @@ export const SecuritySettings: React.FC<SecuritySettingsProps> = ({ navigateTo }
 
     const verifyAndEnable2FA = async () => {
         if (!verificationCode || verificationCode.length !== 6) {
-            alert('Please enter a valid 6-digit code');
+            toast.error('Please enter a valid 6-digit code');
             return;
         }
 
@@ -95,11 +96,11 @@ export const SecuritySettings: React.FC<SecuritySettingsProps> = ({ navigateTo }
             setTwoFactorEnabled(true);
             setShowQR(false);
             setVerificationCode('');
-            alert('Two-Factor Authentication enabled successfully!');
+            toast.success('Two-Factor Authentication enabled successfully!');
 
         } catch (error) {
             console.error('Error enabling 2FA:', error);
-            alert('Failed to enable 2FA. Please try again.');
+            toast.error('Failed to enable 2FA. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -116,11 +117,11 @@ export const SecuritySettings: React.FC<SecuritySettingsProps> = ({ navigateTo }
             // In production, disable on backend
             localStorage.removeItem('2fa_enabled');
             setTwoFactorEnabled(false);
-            alert('Two-Factor Authentication disabled');
+            toast.success('Two-Factor Authentication disabled');
 
         } catch (error) {
             console.error('Error disabling 2FA:', error);
-            alert('Failed to disable 2FA');
+            toast.error('Failed to disable 2FA');
         } finally {
             setLoading(false);
         }
@@ -128,7 +129,7 @@ export const SecuritySettings: React.FC<SecuritySettingsProps> = ({ navigateTo }
 
     const copySecret = () => {
         navigator.clipboard.writeText(secret);
-        alert('Secret copied to clipboard!');
+        toast.success('Secret copied to clipboard!');
     };
 
     const handleSaveSettings = async () => {
@@ -137,11 +138,11 @@ export const SecuritySettings: React.FC<SecuritySettingsProps> = ({ navigateTo }
 
             // In production, save to backend/database
             localStorage.setItem('security_settings', JSON.stringify(settings));
-            alert('Security settings saved successfully!');
+            toast.success('Security settings saved successfully!');
 
         } catch (error) {
             console.error('Error saving settings:', error);
-            alert('Failed to save settings');
+            toast.error('Failed to save settings');
         } finally {
             setLoading(false);
         }

@@ -104,12 +104,21 @@ export const getClassSubjects = async (req: AuthRequest, res: Response) => {
     try {
         const grade = parseInt(req.query.grade as string);
         const section = req.query.section as string;
-        
+
         if (isNaN(grade) || !section) {
             return res.status(400).json({ message: 'Grade and section are required' });
         }
 
         const result = await ClassService.getClassSubjects(req.user.school_id, grade, section);
+        res.json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const getClassSubjectsById = async (req: AuthRequest, res: Response) => {
+    try {
+        const result = await ClassService.getClassSubjectsById(req.user.school_id, req.params.id as string);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });

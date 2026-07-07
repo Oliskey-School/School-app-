@@ -89,6 +89,43 @@ const PayslipViewer: React.FC<PayslipViewerProps> = ({ teacherId }) => {
         return 'Pending';
     };
 
+    // Print a clean, single payslip — opens a print-ready window so the teacher
+    // gets a proper PDF via the browser's "Save as PDF", not the whole app.
+    const printPayslip = (p: Payslip) => {
+        const money = (n: number) => `₦${Math.abs(n).toLocaleString()}`;
+        const period = new Date(p.period_start).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        const rows = p.items.map(it => `
+            <tr>
+                <td style="padding:6px 0;color:#374151">${it.name}</td>
+                <td style="padding:6px 0;text-align:right;color:${it.category === 'Earning' ? '#16a34a' : '#dc2626'}">
+                    ${it.category === 'Earning' ? '+' : '-'}${money(it.amount)}
+                </td>
+            </tr>`).join('');
+        const w = window.open('', '_blank', 'width=720,height=900');
+        if (!w) { toast.error('Please allow pop-ups to download your payslip.'); return; }
+        w.document.write(`<!doctype html><html><head><title>Payslip — ${period}</title>
+            <style>
+                body{font-family:system-ui,Arial,sans-serif;color:#111827;padding:40px;max-width:640px;margin:0 auto}
+                h1{font-size:22px;margin:0 0 4px} .muted{color:#6b7280;font-size:13px}
+                table{width:100%;border-collapse:collapse;margin-top:16px;font-size:14px}
+                .net{margin-top:24px;padding:20px;background:#166534;color:#fff;border-radius:12px}
+                .net p{margin:0} .net .big{font-size:28px;font-weight:700;margin-top:4px}
+                .tot{border-top:1px solid #e5e7eb;margin-top:8px;padding-top:8px;font-weight:600}
+            </style></head><body>
+            <h1>Payslip</h1>
+            <p class="muted">Pay period: ${period} (${new Date(p.period_start).toLocaleDateString()} – ${new Date(p.period_end).toLocaleDateString()})</p>
+            <p class="muted">Employee ID: ${teacherId} · Status: ${p.status}</p>
+            <table><tbody>${rows}
+                <tr class="tot"><td style="padding-top:10px">Gross Salary</td><td style="padding-top:10px;text-align:right">${money(p.gross_salary)}</td></tr>
+                <tr><td style="color:#dc2626">Total Deductions</td><td style="text-align:right;color:#dc2626">-${money(p.total_deductions)}</td></tr>
+            </tbody></table>
+            <div class="net"><p>Net Payout</p><p class="big">${money(p.net_salary)}</p></div>
+            <p class="muted" style="margin-top:24px">Generated ${new Date().toLocaleString()}</p>
+            <script>window.onload=function(){window.print();}</script>
+            </body></html>`);
+        w.document.close();
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center h-full">
@@ -108,10 +145,16 @@ const PayslipViewer: React.FC<PayslipViewerProps> = ({ teacherId }) => {
             {/* Payslips List */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {errorOccurred ? (
-                    <div className="col-span-2 bg-blue-50 border border-blue-200 rounded-xl p-8 text-center">
-                        <DollarSignIcon className="w-16 h-16 text-blue-300 mx-auto mb-4" />
-                        <h3 className="text-xl font-bold text-blue-900 mb-2">Payroll Feature Coming Soon</h3>
-                        <p className="text-blue-700">Digital payslip generation is being integrated into your portal. Please contact the HR Department for your current salary statements.</p>
+                    <div className="col-span-2 bg-amber-50 border border-amber-200 rounded-xl p-8 text-center">
+                        <DollarSignIcon className="w-16 h-16 text-amber-300 mx-auto mb-4" />
+                        <h3 className="text-xl font-bold text-amber-900 mb-2">Couldn't load your payslips</h3>
+                        <p className="text-amber-700 mb-4">There was a problem reaching the payroll service. Please try again.</p>
+                        <button
+                            onClick={() => { setErrorOccurred(false); fetchPayslips(); }}
+                            className="px-5 py-2.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 font-medium"
+                        >
+                            Retry
+                        </button>
                     </div>
                 ) : payslips.length === 0 ? (
                     <div className="col-span-2 text-center py-12 text-gray-500">
@@ -240,7 +283,7 @@ const PayslipViewer: React.FC<PayslipViewerProps> = ({ teacherId }) => {
                                     Close
                                 </button>
                                 <button
-                                    onClick={() => toast('PDF download feature coming soon!', { icon: 'ℹ️' })}
+                                    onClick={() => printPayslip(selectedPayslip)}
                                     className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium flex items-center justify-center space-x-2"
                                 >
                                     <DownloadIcon className="w-5 h-5" />

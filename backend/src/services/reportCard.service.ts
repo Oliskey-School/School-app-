@@ -1,4 +1,5 @@
 import prisma from '../config/database';
+import { SocketService } from './socket.service';
 
 export class ReportCardService {
     static async getReportCards(schoolId: string, branchId: string | undefined, teacherId?: string) {
@@ -93,6 +94,10 @@ export class ReportCardService {
             where: { id }
         });
 
+        // Live-refresh the publishing screen, teacher gradebook, and the
+        // student/parent results views the moment a status changes.
+        SocketService.emitToSchool(schoolId, 'report-card:updated', { reportCardId: id, status });
+
         return {
             ...updated,
             status: updated?.status || (updated?.is_published ? 'Published' : 'Submitted')
@@ -117,6 +122,8 @@ export class ReportCardService {
                 status: 'Published'
             }
         });
+
+        SocketService.emitToSchool(schoolId, 'report-card:updated', { term, session, status: 'Published', count: result.count });
 
         return { count: result.count };
     }

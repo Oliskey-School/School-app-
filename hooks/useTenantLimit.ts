@@ -19,16 +19,20 @@ export const useTenantLimit = (entity: 'users' | 'students' | 'teachers' = 'user
 
     const FREE_TIER_LIMIT = 10;
     const OLISKEY_DEMO_SCHOOL_ID = 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
+    const subscriptionStatus = (currentSchool as any)?.subscription_status;
+    const isOnTrial = subscriptionStatus === 'trial';
     const isPremium = currentSchool?.is_premium || currentSchool?.id === OLISKEY_DEMO_SCHOOL_ID;
     const planType = currentSchool?.id === OLISKEY_DEMO_SCHOOL_ID ? 'premium' : (currentSchool?.plan_type || 'free');
 
+    // Schools on free trial have unlimited access — no seat caps, no upgrade prompts.
     // Paid plans (basic/advanced) are billed PER STUDENT, so the student cap is exactly
-    // what the school PAID for (school.student_count). To enrol beyond it they must pay
-    // for the extra seats. Users/teachers stay uncapped on paid plans; Free caps at 10.
+    // what the school PAID for (school.student_count). Free tier caps at 10.
     const PAID_STUDENT_CAPACITY = (currentSchool as any)?.student_count || 0;
-    const MAX_LIMIT = (entity === 'students' && isPremium)
-        ? (PAID_STUDENT_CAPACITY > 0 ? PAID_STUDENT_CAPACITY : Infinity)
-        : (isPremium ? Infinity : FREE_TIER_LIMIT);
+    const MAX_LIMIT = isOnTrial
+        ? Infinity
+        : (entity === 'students' && isPremium)
+            ? (PAID_STUDENT_CAPACITY > 0 ? PAID_STUDENT_CAPACITY : Infinity)
+            : (isPremium ? Infinity : FREE_TIER_LIMIT);
 
     const fetchCount = useCallback(async () => {
         if (!isAuthenticated || !currentSchool?.id) return;
@@ -60,9 +64,7 @@ export const useTenantLimit = (entity: 'users' | 'students' | 'teachers' = 'user
     return {
         currentCount: count,
         maxLimit: MAX_LIMIT,
-        // count >= MAX_LIMIT works for every case: Free caps at 10, paid students cap at
-        // the paid capacity, and uncapped entities have MAX_LIMIT = Infinity (never hit).
-        isLimitReached: count >= MAX_LIMIT,
+        isLimitReached: !isOnTrial && count >= MAX_LIMIT,
         isPremium,
         planType,
         loading,

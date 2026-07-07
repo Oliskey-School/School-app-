@@ -3,6 +3,7 @@ import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 
 import { useAuth } from '../../context/AuthContext';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { Calendar, Download, Filter, TrendingUp, TrendingDown } from 'lucide-react';
 
 interface HeatmapData {
@@ -58,6 +59,8 @@ const AttendanceHeatmap: React.FC<AttendanceHeatmapProps> = ({ schoolId }) => {
             console.error('Error fetching classes:', error);
         }
     };
+
+    useAutoSync(['classes'], fetchClasses);
 
     const fetchHeatmapData = async () => {
         if (!schoolId) return;

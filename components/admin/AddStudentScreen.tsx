@@ -195,18 +195,45 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
         }
     }, [currentBranch?.id, studentToEdit]);
 
-    // Dynamic subject filtering based on curriculum
+    // Subject options come from the SCHOOL's own subject rows — anything the
+    // admin adds (e.g. in the timetable builder) appears here immediately, and
+    // deleted subjects vanish. Falls back to the static curriculum catalog only
+    // while the school list hasn't loaded.
+    const [schoolSubjects, setSchoolSubjects] = useState<string[]>([]);
+    useEffect(() => {
+        if (!schoolId) return;
+        let active = true;
+        const loadSchoolSubjects = async () => {
+            try {
+                const subs = await api.getSubjects(schoolId, currentBranchId && currentBranchId !== 'all' ? currentBranchId : undefined);
+                if (!active) return;
+                setSchoolSubjects(
+                    (Array.isArray(subs) ? subs : [])
+                        .map((s: any) => (typeof s === 'string' ? s : s?.name))
+                        .filter(Boolean)
+                );
+            } catch { /* fall back to catalog below */ }
+        };
+        loadSchoolSubjects();
+        const onUpdate = (e: any) => { if (e?.detail?.table === 'subjects') loadSchoolSubjects(); };
+        window.addEventListener('realtime-update', onUpdate);
+        return () => { active = false; window.removeEventListener('realtime-update', onUpdate); };
+    }, [schoolId, currentBranchId]);
+
     const filteredSubjectOptions = useMemo(() => {
+        if (schoolSubjects.length > 0) {
+            return Array.from(new Set(schoolSubjects)).sort();
+        }
         let standardFiltered = SUBJECTS_LIST;
-        
+
         if (curriculumType === 'Nigerian') {
             standardFiltered = SUBJECTS_LIST.filter(s => s.curriculum === 'Nigerian' || s.curriculum === 'Both');
         } else if (curriculumType === 'British') {
             standardFiltered = SUBJECTS_LIST.filter(s => s.curriculum === 'British' || s.curriculum === 'Both');
         }
-        
+
         return standardFiltered.map(s => s.name).sort();
-    }, [curriculumType]);
+    }, [curriculumType, schoolSubjects]);
 
     const isTeacherRole = useMemo(() => {
         const r = String(profile?.role || '').toUpperCase();

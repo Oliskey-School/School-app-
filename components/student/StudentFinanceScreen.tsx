@@ -100,10 +100,25 @@ const StudentFinanceScreen: React.FC<StudentFinanceScreenProps> = ({ studentId }
                 </div>
             </main>
 
+            {/* A student's fees are settled by their parent/guardian — this screen
+                is their honest window into what's owed and what's been paid. The
+                old "Pay Now" button did nothing when clicked. */}
             <div className="p-4 mt-auto bg-white border-t">
-                <button className="w-full flex justify-center items-center space-x-2 py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white bg-orange-500 hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500">
-                    <span>Pay Now</span>
-                </button>
+                {balance > 0 ? (
+                    <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-center">
+                        <p className="text-sm font-semibold text-amber-800">
+                            {formatter.format(balance)} outstanding
+                        </p>
+                        <p className="text-xs text-amber-700 mt-1">
+                            School fees are paid through your parent or guardian's account. Please ask them to complete this payment.
+                        </p>
+                    </div>
+                ) : (
+                    <div className="rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-center">
+                        <p className="text-sm font-semibold text-green-800">🎉 You're all paid up</p>
+                        <p className="text-xs text-green-700 mt-1">There's nothing outstanding on your account.</p>
+                    </div>
+                )}
             </div>
         </div>
     );

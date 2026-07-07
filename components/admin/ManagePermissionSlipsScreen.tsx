@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
@@ -48,6 +49,8 @@ const ManagePermissionSlipsScreen: React.FC<ManagePermissionSlipsScreenProps> = 
             console.error('Error fetching classes:', err);
         }
     };
+
+    useAutoSync(['classes'], fetchClasses);
 
     const fetchRecentSlips = async () => {
         try {

@@ -381,7 +381,9 @@ export const getMyAttendance = async (req: AuthRequest, res: Response) => {
         const result = await AttendanceService.getAttendanceByStudent(req.user.school_id, branchId, student.id);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        // Non-students (e.g. a parent) hitting a student "me" endpoint get a
+        // clean 403 from the service — honor it instead of masking as a 500.
+        res.status(error.status || 500).json({ message: error.message });
     }
 };
 
@@ -394,7 +396,7 @@ export const getMySubjects = async (req: AuthRequest, res: Response) => {
         const result = await StudentService.getMySubjects(req.user.school_id, student.id);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        res.status(error.status || 500).json({ message: error.message });
     }
 };
 
@@ -406,7 +408,7 @@ export const getMyActivities = async (req: AuthRequest, res: Response) => {
         const result = await StudentService.getMyActivities(req.user.school_id, student.id);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        res.status(error.status || 500).json({ message: error.message });
     }
 };
 

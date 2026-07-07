@@ -22,6 +22,9 @@ interface GradebookEntry {
     remark: string;
     status: 'Draft' | 'Submitted' | 'Published'; // Draft = Saved locally, Submitted = Sent to Admin, Published = Visible to Parents
     isDirty: boolean; // has unsaved changes
+    // false when the admin gave this student a personal subject list that does
+    // NOT include the selected subject — the row shows but stays locked.
+    offersSubject: boolean;
 }
 
 const getGrade = (score: number): string => {
@@ -126,6 +129,52 @@ const ClassGradebookScreen: React.FC<{
         return terms.filter(t => t.academic_year === currentSession);
     }, [terms, currentSession]);
 
+    // Admin mode: the Results Entry selector passes a class WITHOUT a subject
+    // (classes have no subject column). Offer the subjects the admin ASSIGNED
+    // to this class (class form → Subjects); only when the class has none do we
+    // fall back to the whole school list — without any of this the loader bails
+    // on the empty subject and the screen sits on "No students found" forever.
+    useEffect(() => {
+        if (!classInfo || classInfo.subject) return;
+        const loadSubjects = async () => {
+            try {
+                const sid = schoolId || currentSchool?.id;
+
+                // 1. Subjects already on the class object (getClasses includes them)
+                let names: string[] = Array.isArray((classInfo as any).subjects)
+                    ? (classInfo as any).subjects.map((s: any) => (typeof s === 'string' ? s : s?.name)).filter(Boolean)
+                    : [];
+
+                // 2. Fetch the class's assigned subjects by id
+                if (names.length === 0 && classInfo.id && !String(classInfo.id).startsWith('std-')) {
+                    const clsSubs = await api.getClassSubjects(classInfo.id).catch(() => []);
+                    names = (Array.isArray(clsSubs) ? clsSubs : [])
+                        .map((s: any) => (typeof s === 'string' ? s : s?.name))
+                        .filter(Boolean);
+                }
+
+                // 3. Fallback: the whole school's subject list
+                if (names.length === 0) {
+                    const subs = await api.getSubjects(sid, currentBranchId && currentBranchId !== 'all' ? currentBranchId : undefined);
+                    names = (Array.isArray(subs) ? subs : [])
+                        .map((s: any) => (typeof s === 'string' ? s : s?.name))
+                        .filter(Boolean);
+                }
+
+                const list = Array.from(new Set(names));
+                const finalList = list.length ? list : ['General'];
+                const className = (classInfo as any).name
+                    || `Grade ${classInfo.grade}${classInfo.section ? ` ${classInfo.section}` : ''}`;
+                setClasses(finalList.map(sub => ({ ...classInfo, name: className, subject: sub } as any)));
+                setSelectedClass(classInfo.id);
+                setSelectedSubject(finalList[0]);
+            } catch (e) {
+                console.error('Error loading subjects for class', e);
+            }
+        };
+        loadSubjects();
+    }, [classInfo?.id]);
+
     // Fetch Teacher's Classes (Mock or Real)
     useEffect(() => {
         if (classInfo) return; // Skip if we already have class info (Admin mode)
@@ -177,9 +226,27 @@ const ClassGradebookScreen: React.FC<{
             const subject = clsObj.subject;
 
             // 1. Fetch Students — use classId directly to avoid grade/section parsing issues
-            const studentData = clsObj.id
+            const allStudents = clsObj.id
                 ? await api.getStudentsByClassId(clsObj.id)
                 : await api.getStudentsByClass(clsObj.grade, clsObj.section, schoolId, currentBranchId);
+
+            // Session-aware roster: a student belongs to sessions from the year
+            // they were added onward — an older session's gradebook doesn't show
+            // students who weren't in the school yet.
+            const sessionEndYear = parseInt(String(currentSession).split('/')[1] || '', 10);
+            const sessionEnd = isNaN(sessionEndYear) ? null : new Date(sessionEndYear, 7, 31, 23, 59, 59);
+            const studentData = (allStudents || []).filter((s: any) =>
+                !sessionEnd || !s.created_at || new Date(s.created_at) <= sessionEnd
+            );
+
+            // Per-student subject assignment: every class member stays VISIBLE,
+            // but a student whose personal subject list excludes this subject is
+            // locked ("not offering") instead of silently missing from the sheet.
+            const offersSelected = (s: any) => {
+                const assigned: string[] = Array.isArray(s.assigned_subjects) ? s.assigned_subjects.filter(Boolean) : [];
+                if (assigned.length === 0) return true;
+                return assigned.some(n => String(n).toLowerCase() === String(subject).toLowerCase());
+            };
 
             if (studentData.length === 0) {
                 setStudents([]);
@@ -187,13 +254,18 @@ const ClassGradebookScreen: React.FC<{
                 return;
             }
 
-            // 2. Fetch Existing Report Cards (Grades)
-            const merged: GradebookEntry[] = [];
+            // 2. Fetch Existing Report Cards (Grades) — in parallel; one request
+            // per student in sequence made a 30-student class take ~10s to open.
+            const reportCards = await Promise.all(
+                studentData.map((s: any) =>
+                    api.getReportCard(s.id, currentTerm?.name, currentSession, currentBranchId).catch(() => null)
+                )
+            );
 
-            for (const s of studentData) {
+            const merged: GradebookEntry[] = studentData.map((s: any, i: number) => {
                 // Read by term NAME — report cards are stored keyed by term name,
                 // so reads and writes must use the same key for drafts to reload.
-                const rc = await api.getReportCard(s.id, currentTerm?.name, currentSession, currentBranchId);
+                const rc = reportCards[i];
                 // The backend now stores academic records in rc.academic_records
                 const academicRecords = rc?.academic_records || [];
                 // Find record for this subject
@@ -204,11 +276,12 @@ const ClassGradebookScreen: React.FC<{
                 const exam = scoreRecord?.exam || 0;
                 const total = scoreRecord?.total || (test1 + test2 + exam);
 
-                merged.push({
+                return {
                     studentId: s.id,
                     studentName: s.name,
-                    avatarUrl: s.avatarUrl || '',
-                    schoolId: s.schoolId || '', // Use the actual UUID for DB operations
+                    avatarUrl: s.avatarUrl || s.avatar_url || '',
+                    // The human-readable school ID shown under the name
+                    schoolId: s.school_generated_id || s.schoolId || '',
                     test1: test1 === 0 ? '' : test1.toString(),
                     test2: test2 === 0 ? '' : test2.toString(),
                     exam: exam === 0 ? '' : exam.toString(),
@@ -216,9 +289,10 @@ const ClassGradebookScreen: React.FC<{
                     grade: getGrade(total),
                     remark: scoreRecord?.remark || getRemark(total, getGrade(total)),
                     status: (rc?.status as 'Draft' | 'Submitted' | 'Published') || 'Draft',
-                    isDirty: false
-                });
-            }
+                    isDirty: false,
+                    offersSubject: offersSelected(s)
+                };
+            });
 
             setStudents(merged);
 
@@ -241,11 +315,13 @@ const ClassGradebookScreen: React.FC<{
     const handleScoreChange = (index: number, field: 'test1' | 'test2' | 'exam', value: string) => {
         const newStudents = [...students];
         const entry = { ...newStudents[index] };
+        if (!entry.offersSubject) return; // locked — student doesn't offer this subject
 
         // Validation
         let numVal = parseInt(value, 10);
         if (isNaN(numVal)) numVal = 0;
 
+        if (numVal < 0) return; // no negative scores
         if (field === 'test1' && numVal > 20) return; // Max 20
         if (field === 'test2' && numVal > 20) return; // Max 20
         if (field === 'exam' && numVal > 60) return;  // Max 60
@@ -260,6 +336,9 @@ const ClassGradebookScreen: React.FC<{
             const exam = parseInt(entry.exam || '0', 10);
             entry.total = t1 + t2 + exam;
             entry.grade = getGrade(entry.total);
+            // Keep the remark in step with the new grade — otherwise a score
+            // change saves the OLD remark next to the new grade.
+            entry.remark = getRemark(entry.total, entry.grade);
 
             newStudents[index] = entry;
             setStudents(newStudents);
@@ -286,58 +365,66 @@ const ClassGradebookScreen: React.FC<{
 
         setSaving(true);
         try {
-            // Using dynamic session/term from state
-            let successCount = 0;
+            // Using dynamic session/term from state — saved per student in
+            // parallel (each student's report card is independent). Students not
+            // offering this subject are never written for it.
+            const targets = students.filter(s => s.offersSubject && (s.isDirty || status === 'Submitted'));
+            const results = await Promise.all(targets.map(async (entry) => {
+                try {
+                    const rc = await api.getReportCard(entry.studentId, currentTerm?.name, currentSession, currentBranchId);
 
-            for (const entry of students.filter(s => s.isDirty || status === 'Submitted')) {
-                const rc = await api.getReportCard(entry.studentId, currentTerm?.name, currentSession, currentBranchId);
+                    const academicRecords = rc?.academic_records || [];
 
-                let academicRecords = rc?.academic_records || [];
+                    // Update or Add current subject/record
+                    const recordIndex = academicRecords.findIndex((r: any) => r.subject === selectedSubject);
+                    const newRecord = {
+                        subject: selectedSubject,
+                        test1: parseInt(entry.test1 || '0', 10),
+                        test2: parseInt(entry.test2 || '0', 10),
+                        exam: parseInt(entry.exam || '0', 10),
+                        total: entry.total,
+                        grade: entry.grade,
+                        remark: entry.remark
+                    };
 
-                // Update or Add current subject/record
-                const recordIndex = academicRecords.findIndex(r => r.subject === selectedSubject);
-                const newRecord = {
-                    subject: selectedSubject,
-                    test1: parseInt(entry.test1 || '0', 10),
-                    test2: parseInt(entry.test2 || '0', 10),
-                    exam: parseInt(entry.exam || '0', 10),
-                    total: entry.total,
-                    grade: entry.grade,
-                    remark: entry.remark
-                };
+                    if (recordIndex >= 0) {
+                        academicRecords[recordIndex] = newRecord;
+                    } else {
+                        academicRecords.push(newRecord);
+                    }
 
-                if (recordIndex >= 0) {
-                    academicRecords[recordIndex] = newRecord;
-                } else {
-                    academicRecords.push(newRecord);
+                    const reportCardToSave = {
+                        term_id: currentTerm?.id,
+                        term: currentTerm?.name,
+                        session: currentSession,
+                        status: status,
+                        attendance: rc?.attendance || { total: 0, present: 0, absent: 0, late: 0 },
+                        skills: rc?.skills || {},
+                        psychomotor: rc?.psychomotor || {},
+                        // The API returns these in snake_case; reading only camelCase here
+                        // silently wiped existing comments on every grade save. Preserve them.
+                        teacherComment: rc?.teacherComment ?? rc?.teacher_comment ?? '',
+                        principalComment: rc?.principalComment ?? rc?.principal_comment ?? '',
+                        academicRecords
+                    };
+
+                    return await api.upsertReportCard(entry.studentId, reportCardToSave, currentSchool?.id || schoolId, currentBranchId);
+                } catch (e) {
+                    console.error(`Failed to save grades for student ${entry.studentId}`, e);
+                    return null;
                 }
+            }));
+            const successCount = results.filter(Boolean).length;
 
-                const reportCardToSave = {
-                    term_id: currentTerm?.id,
-                    term: currentTerm?.name,
-                    session: currentSession,
-                    status: status,
-                    attendance: rc?.attendance || { total: 0, present: 0, absent: 0, late: 0 },
-                    skills: rc?.skills || {},
-                    psychomotor: rc?.psychomotor || {},
-                    // The API returns these in snake_case; reading only camelCase here
-                    // silently wiped existing comments on every grade save. Preserve them.
-                    teacherComment: rc?.teacherComment ?? rc?.teacher_comment ?? '',
-                    principalComment: rc?.principalComment ?? rc?.principal_comment ?? '',
-                    academicRecords
-                };
-
-                const success = await api.upsertReportCard(entry.studentId, reportCardToSave, currentSchool?.id || schoolId, currentBranchId);
-                if (success) {
-                    successCount++;
-                } else {
-                    console.error(`Failed to save grades for student ${entry.studentId}`);
-                }
-            }
-
-            // Mark all as clean
-            setStudents(students.map(s => ({ ...s, isDirty: false })));
-            if (status === 'Submitted') {
+            // Mark all as clean and reflect the new status on each row's chip
+            setStudents(students.map(s => ({
+                ...s,
+                isDirty: false,
+                status: status === 'Submitted' ? 'Submitted' : s.status,
+            })));
+            if (successCount < targets.length) {
+                toast.error(`Saved ${successCount} of ${targets.length} students — some saves failed.`);
+            } else if (status === 'Submitted') {
                 toast.success(`Successfully submitted grades for ${successCount} students!`);
             } else {
                 toast.success(`Successfully saved draft for ${successCount} students.`);
@@ -495,9 +582,10 @@ const ClassGradebookScreen: React.FC<{
                                                 <input
                                                     type="text"
                                                     value={student.test1}
+                                                    disabled={!student.offersSubject}
                                                     onChange={e => handleScoreChange(idx, 'test1', e.target.value)}
-                                                    className="w-16 text-center border border-gray-300 rounded-md py-1 focus:ring-purple-500 focus:border-purple-500"
-                                                    placeholder="0"
+                                                    className="w-16 text-center border border-gray-300 rounded-md py-1 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
+                                                    placeholder={student.offersSubject ? '0' : '—'}
                                                     aria-label={`Test 1 score for ${student.studentName}`}
                                                 />
                                             </td>
@@ -505,9 +593,10 @@ const ClassGradebookScreen: React.FC<{
                                                 <input
                                                     type="text"
                                                     value={student.test2}
+                                                    disabled={!student.offersSubject}
                                                     onChange={e => handleScoreChange(idx, 'test2', e.target.value)}
-                                                    className="w-16 text-center border border-gray-300 rounded-md py-1 focus:ring-purple-500 focus:border-purple-500"
-                                                    placeholder="0"
+                                                    className="w-16 text-center border border-gray-300 rounded-md py-1 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
+                                                    placeholder={student.offersSubject ? '0' : '—'}
                                                     aria-label={`Test 2 score for ${student.studentName}`}
                                                 />
                                             </td>
@@ -515,19 +604,24 @@ const ClassGradebookScreen: React.FC<{
                                                 <input
                                                     type="text"
                                                     value={student.exam}
+                                                    disabled={!student.offersSubject}
                                                     onChange={e => handleScoreChange(idx, 'exam', e.target.value)}
-                                                    className="w-16 text-center border border-gray-300 rounded-md py-1 focus:ring-purple-500 focus:border-purple-500"
-                                                    placeholder="0"
+                                                    className="w-16 text-center border border-gray-300 rounded-md py-1 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
+                                                    placeholder={student.offersSubject ? '0' : '—'}
                                                     aria-label={`Exam score for ${student.studentName}`}
                                                 />
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-center">
-                                                <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${student.total >= 50 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                                                    {student.total}
-                                                </span>
+                                                {student.offersSubject ? (
+                                                    <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${student.total >= 50 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                                        {student.total}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-sm text-gray-300 font-semibold">—</span>
+                                                )}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-bold text-gray-900">
-                                                {student.grade}
+                                                {student.offersSubject ? student.grade : <span className="text-gray-300">—</span>}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-center">
                                                 <span className={`px-2 py-1 text-xs font-semibold rounded-full ${student.status === 'Published' ? 'bg-green-100 text-green-800' :
@@ -538,7 +632,9 @@ const ClassGradebookScreen: React.FC<{
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                {student.remark}
+                                                {student.offersSubject
+                                                    ? student.remark
+                                                    : <span className="italic text-gray-400">Not offering this subject</span>}
                                             </td>
                                         </tr>
                                     ))}
@@ -569,10 +665,16 @@ const ClassGradebookScreen: React.FC<{
                                             <div className="text-xs text-gray-500">ID: {student.schoolId || 'Pending'}</div>
                                         </div>
                                         <div className="flex flex-col items-end gap-1">
-                                            <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${student.total >= 50 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                                                {student.total}
-                                            </span>
-                                            <span className="text-sm font-bold text-purple-600">{student.grade}</span>
+                                            {student.offersSubject ? (
+                                                <>
+                                                    <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${student.total >= 50 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                                        {student.total}
+                                                    </span>
+                                                    <span className="text-sm font-bold text-purple-600">{student.grade}</span>
+                                                </>
+                                            ) : (
+                                                <span className="text-sm font-bold text-gray-300">—</span>
+                                            )}
                                         </div>
                                     </div>
 
@@ -583,9 +685,10 @@ const ClassGradebookScreen: React.FC<{
                                             <input
                                                 type="text"
                                                 value={student.test1}
+                                                disabled={!student.offersSubject}
                                                 onChange={e => handleScoreChange(idx, 'test1', e.target.value)}
-                                                className="w-full text-center border border-gray-300 rounded-lg py-1.5 text-sm font-semibold focus:ring-purple-500 focus:border-purple-500"
-                                                placeholder="0"
+                                                className="w-full text-center border border-gray-300 rounded-lg py-1.5 text-sm font-semibold focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
+                                                placeholder={student.offersSubject ? '0' : '—'}
                                             />
                                         </div>
                                         <div>
@@ -593,9 +696,10 @@ const ClassGradebookScreen: React.FC<{
                                             <input
                                                 type="text"
                                                 value={student.test2}
+                                                disabled={!student.offersSubject}
                                                 onChange={e => handleScoreChange(idx, 'test2', e.target.value)}
-                                                className="w-full text-center border border-gray-300 rounded-lg py-1.5 text-sm font-semibold focus:ring-purple-500 focus:border-purple-500"
-                                                placeholder="0"
+                                                className="w-full text-center border border-gray-300 rounded-lg py-1.5 text-sm font-semibold focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
+                                                placeholder={student.offersSubject ? '0' : '—'}
                                             />
                                         </div>
                                         <div>
@@ -603,16 +707,17 @@ const ClassGradebookScreen: React.FC<{
                                             <input
                                                 type="text"
                                                 value={student.exam}
+                                                disabled={!student.offersSubject}
                                                 onChange={e => handleScoreChange(idx, 'exam', e.target.value)}
-                                                className="w-full text-center border border-gray-300 rounded-lg py-1.5 text-sm font-semibold focus:ring-purple-500 focus:border-purple-500"
-                                                placeholder="0"
+                                                className="w-full text-center border border-gray-300 rounded-lg py-1.5 text-sm font-semibold focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
+                                                placeholder={student.offersSubject ? '0' : '—'}
                                             />
                                         </div>
                                     </div>
 
                                     {/* Remark */}
                                     <div className="text-xs text-gray-500 text-center px-2 py-1 bg-gray-50 rounded">
-                                        {student.remark}
+                                        {student.offersSubject ? student.remark : <span className="italic text-gray-400">Not offering this subject</span>}
                                     </div>
                                 </div>
                             ))}
@@ -625,17 +730,20 @@ const ClassGradebookScreen: React.FC<{
                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
                         <h4 className="font-bold text-gray-800 mb-3 flex items-center text-sm"><CalculatorIcon className="w-4 h-4 mr-2 text-purple-600" /> Grading Scale</h4>
                         <div className="space-y-2 text-xs sm:text-sm text-gray-600">
+                            {/* Bands MUST match getGrade() above (and the backend's
+                                default Nigerian scale) — a legend that disagrees with
+                                the computed grade misleads teachers. */}
                             <div className="flex justify-between items-center p-1 hover:bg-gray-50 rounded">
                                 <span className="font-medium">A (Excellent)</span>
-                                <span className="text-gray-900 font-bold bg-green-50 px-2 py-0.5 rounded">75 - 100</span>
+                                <span className="text-gray-900 font-bold bg-green-50 px-2 py-0.5 rounded">70 - 100</span>
                             </div>
                             <div className="flex justify-between items-center p-1 hover:bg-gray-50 rounded">
                                 <span className="font-medium">B (Very Good)</span>
-                                <span className="text-gray-900 font-bold bg-blue-50 px-2 py-0.5 rounded">65 - 74</span>
+                                <span className="text-gray-900 font-bold bg-blue-50 px-2 py-0.5 rounded">60 - 69</span>
                             </div>
                             <div className="flex justify-between items-center p-1 hover:bg-gray-50 rounded">
                                 <span className="font-medium">C (Good)</span>
-                                <span className="text-gray-900 font-bold bg-yellow-50 px-2 py-0.5 rounded">50 - 64</span>
+                                <span className="text-gray-900 font-bold bg-yellow-50 px-2 py-0.5 rounded">50 - 59</span>
                             </div>
                             <div className="flex justify-between items-center p-1 hover:bg-gray-50 rounded">
                                 <span className="font-medium">D (Fair)</span>

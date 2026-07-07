@@ -1,18 +1,33 @@
 import dotenv from 'dotenv';
 import path from 'path';
 
-const envPath = path.resolve(process.cwd(), '.env');
-const result = dotenv.config({ path: envPath });
+// Load env from BOTH the current working directory's .env AND the backend's own
+// .env — because the backend can be launched from the repo root (npm run
+// start:all, cwd = root) or from backend/ directly. Without the second path,
+// secrets that live only in backend/.env (e.g. NVIDIA_API_KEY) silently go
+// missing when the server is started from the root. dotenv never overwrites an
+// already-set var, so the first file that defines a key wins.
+const candidateEnvPaths = [
+    path.resolve(process.cwd(), '.env'),          // root .env when run from root; backend/.env when run from backend/
+    path.resolve(process.cwd(), 'backend', '.env'), // backend/.env when run from the repo root
+    path.resolve(__dirname, '..', '..', '.env'),  // backend/.env resolved relative to this file, whatever the cwd
+];
 
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const IS_PRODUCTION = NODE_ENV === 'production';
 
-if (result.error) {
-    if (!IS_PRODUCTION) {
-        console.warn(`[EnvConfig] Missed .env loading: ${result.error.message}`);
-    }
-} else {
+let loadedAny = false;
+const seen = new Set<string>();
+for (const p of candidateEnvPaths) {
+    if (seen.has(p)) continue;
+    seen.add(p);
+    const result = dotenv.config({ path: p });
+    if (!result.error) loadedAny = true;
+}
+if (loadedAny) {
     console.log(`[EnvConfig] Successfully loaded .env variables`);
+} else if (!IS_PRODUCTION) {
+    console.warn(`[EnvConfig] No .env file found in: ${candidateEnvPaths.join(', ')}`);
 }
 
 // Demo school/branch IDs — accept canonical name DEMO_* with legacy fallback DEFAULT_*.
@@ -43,7 +58,13 @@ export const config = {
     googleTranslateApiKey: process.env.GOOGLE_TRANSLATE_API_KEY
         || process.env.GOOGLE_API_KEY
         || process.env.GEMINI_API_KEY
-        || ''
+        || '',
+    // NVIDIA NIM key (build.nvidia.com) powering the app's AI features via the
+    // backend proxy. Server-side only — never exposed to the browser bundle.
+    nvidiaApiKey: process.env.NVIDIA_API_KEY || process.env.NVIDIA_NIM_API_KEY || '',
+    // OpenAI-compatible base (chat/embeddings) + genai base (image/audio).
+    nvidiaBaseUrl: process.env.NVIDIA_BASE_URL || 'https://integrate.api.nvidia.com/v1',
+    nvidiaGenaiBaseUrl: process.env.NVIDIA_GENAI_BASE_URL || 'https://ai.api.nvidia.com/v1'
 };
 
 // Backward-compat constants

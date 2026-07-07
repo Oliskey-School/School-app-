@@ -99,7 +99,14 @@ const ParentProfileScreen: React.FC<ParentProfileScreenProps> = ({ onLogout, nav
   };
 
   const handleItemClick = (id: string) => {
+    // "Help Center" routes to the real Feedback & Support screen instead of a
+    // dead "coming soon" toast — parents get an actual way to reach the school.
     if (id === 'help') {
+      handleItemClick('feedback');
+      return;
+    }
+    // eslint-disable-next-line no-constant-condition
+    if (false) {
       toast('Help Center coming soon!', { icon: 'â„¹ï¸' });
     } else {
       // If mobile, navigate to a new screen instead of just setting activeSetting

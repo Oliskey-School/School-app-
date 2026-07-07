@@ -124,19 +124,32 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     socket.on('teacher:updated', () => {
         queryClient.invalidateQueries({ queryKey: ['teachers'] });
         queryClient.invalidateQueries({ queryKey: ['analytics'] });
+        queryClient.invalidateQueries({ queryKey: ['timetables'] });
         dispatchLegacyUpdate('teachers');
         dispatchLegacyUpdate('analytics');
+        // Class/subject assignment changes live here — trigger useTeacherClasses
+        // re-fetch so the teacher's dashboard, class cards, and timetable update
+        // the moment an admin saves new assignments.
+        dispatchLegacyUpdate('class_teachers');
+        dispatchLegacyUpdate('teacher_classes');
+        dispatchLegacyUpdate('teacher_subjects');
+        // Also refresh timetable views — the server-side filter uses ClassTeacher
+        // records, so new assignments must cause TimetableScreen to re-query.
+        dispatchLegacyUpdate('timetables');
+        dispatchLegacyUpdate('timetable');
     });
 
     // Timetable publish/update — refetch for all roles in the school
     socket.on('timetable:updated', () => {
         queryClient.invalidateQueries({ queryKey: ['timetables'] });
         dispatchLegacyUpdate('timetables');
+        dispatchLegacyUpdate('timetable');
     });
 
     socket.on('timetable:published', (data: { class_name?: string; school_id?: string }) => {
         queryClient.invalidateQueries({ queryKey: ['timetables'] });
         dispatchLegacyUpdate('timetables');
+        dispatchLegacyUpdate('timetable');
     });
 
     socket.on('academic:updated', () => {
@@ -153,6 +166,22 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     socket.on('exam:updated', () => {
         queryClient.invalidateQueries({ queryKey: ['exams'] });
         dispatchLegacyUpdate('exams');
+    });
+
+    // School subject added/removed — every subject list (timetable palette,
+    // class form, gradebook, student My Subjects) refreshes live.
+    socket.on('subject:updated', () => {
+        queryClient.invalidateQueries({ queryKey: ['subjects'] });
+        dispatchLegacyUpdate('subjects');
+    });
+
+    // Report card saved/submitted/published — refresh the teacher gradebook,
+    // the admin publishing screen, and student/parent results views live.
+    socket.on('report-card:updated', () => {
+        queryClient.invalidateQueries({ queryKey: ['report_cards'] });
+        queryClient.invalidateQueries({ queryKey: ['reportCards'] });
+        dispatchLegacyUpdate('report_cards');
+        dispatchLegacyUpdate('report_card_records');
     });
 
     socket.on('hostel:updated', () => {

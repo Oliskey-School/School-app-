@@ -423,7 +423,7 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
                     <span className="text-xs uppercase">Reports</span>
                 </button>
                 <button
-                    onClick={() => toast('ID Card module coming soon!', { icon: '🆔' })}
+                    onClick={() => navigateTo('idCardManagement', 'Student ID Cards', { student })}
                     className="flex flex-col items-center justify-center space-y-1 py-3 bg-white text-gray-600 font-bold rounded-2xl hover:bg-gray-50 transition-all border border-gray-100 active:scale-95 shadow-sm"
                 >
                     <CheckCircleIcon className="w-5 h-5" />

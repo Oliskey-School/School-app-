@@ -177,25 +177,34 @@ const GradeSubmissionScreen: React.FC<GradeSubmissionScreenProps> = ({ submissio
                 <div className="bg-white p-4 rounded-xl shadow-sm">
                   <h3 className="font-bold text-gray-800 mb-2">Attachments</h3>
                   <div className="space-y-2">
-                    {submission.fileUrl.split(',').map((fileName, index) => (
-                      <div key={index} className="flex items-center p-3 bg-gray-50 rounded-lg border border-gray-200">
-                        {getFileIcon(fileName.trim())}
-                        <div className="ml-3 flex-grow overflow-hidden">
-                          <p className="text-sm font-medium text-gray-800 truncate">{fileName.trim()}</p>
-                          <p className="text-xs text-gray-500">Resource File</p>
+                    {submission.fileUrl.split(',').map((rawUrl, index) => {
+                      const fileUrl = rawUrl.trim();
+                      const isUrl = /^https?:\/\//.test(fileUrl) || fileUrl.startsWith('/');
+                      const displayName = isUrl ? decodeURIComponent(fileUrl.split('/').pop() || fileUrl) : fileUrl;
+                      return (
+                        <div key={index} className="flex items-center p-3 bg-gray-50 rounded-lg border border-gray-200">
+                          {getFileIcon(displayName)}
+                          <div className="ml-3 flex-grow overflow-hidden">
+                            <p className="text-sm font-medium text-gray-800 truncate">{displayName}</p>
+                            <p className="text-xs text-gray-500">{isUrl ? 'Student submission' : 'Filename only — no file was uploaded'}</p>
+                          </div>
+                          {isUrl ? (
+                            <a
+                              href={fileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="ml-2 px-3 py-1 bg-white border border-gray-300 rounded text-xs font-semibold text-indigo-700 hover:bg-indigo-50 transition-colors"
+                            >
+                              Open
+                            </a>
+                          ) : (
+                            <span className="ml-2 px-3 py-1 text-xs font-semibold text-gray-400" title="This was submitted before file uploads were enabled">
+                              Unavailable
+                            </span>
+                          )}
                         </div>
-                        <a
-                          href="#"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            toast.success(`Opening ${fileName.trim()}... (Download simulated)`);
-                          }}
-                          className="ml-2 px-3 py-1 bg-white border border-gray-300 rounded text-xs font-semibold text-gray-700 hover:bg-gray-100 transition-colors"
-                        >
-                          View
-                        </a>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}

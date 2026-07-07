@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect, useMemo } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
 import { generateTimetableLocal, AlgoInput, GeneratedScheduleResult } from '../../lib/timetableAlgorithm';
@@ -139,6 +140,8 @@ const TimetableCreator: React.FC<{ navigateTo: (path: string) => void, initialCl
             toast.error("Failed to load initial data.");
         }
     };
+
+    useAutoSync(['classes'], fetchInitialData);
 
     // --- LOGIC: SAVE TO DB ---
 

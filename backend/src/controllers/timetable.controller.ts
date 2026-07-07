@@ -8,8 +8,12 @@ export const getTimetable = async (req: AuthRequest, res: Response) => {
     try {
         const { className } = req.query;
         let { teacherId } = req.query;
+        const role = (req.user.role || '').toLowerCase();
 
-        if ((req.user.role || '').toLowerCase() === 'teacher') {
+        // Admins manage drafts; everyone else only sees published timetables.
+        const publishedOnly = ['teacher', 'student', 'parent'].includes(role);
+
+        if (role === 'teacher') {
             // For real users the middleware already loaded teacher_profile; reuse it.
             // For demo users (no teacher_profile on req.user) fall back to a DB lookup.
             const teacherRecord = req.user.teacher_profile
@@ -32,7 +36,8 @@ export const getTimetable = async (req: AuthRequest, res: Response) => {
             req.user.school_id,
             branchId as string,
             className as string,
-            teacherId as string
+            teacherId as string,
+            { publishedOnly }
         );
         res.json(result);
     } catch (error: any) {
@@ -76,7 +81,8 @@ export const deleteTimetableByClass = async (req: AuthRequest, res: Response) =>
     try {
         const schoolId = req.user.school_id;
         const { classId } = req.params;
-        await TimetableService.deleteTimetableByClass(schoolId, classId as string);
+        const branchId = getEffectiveBranchId(req.user, (req.query.branchId || req.query.branch_id) as string);
+        await TimetableService.deleteTimetableByClass(schoolId, classId as string, branchId as string | undefined);
         res.json({ success: true });
     } catch (error: any) {
         res.status(500).json({ message: error.message });

@@ -44,6 +44,11 @@ export class ClassService {
                     include: {
                         _count: {
                             select: { enrollments: true }
+                        },
+                        // The class's admin-assigned subjects — drives the gradebook
+                        // subject list and what enrolled students inherit.
+                        subjects: {
+                            select: { id: true, name: true }
                         }
                     },
                     orderBy: [
@@ -84,6 +89,7 @@ export class ClassService {
                     branch_id: branchId && branchId !== 'all' ? branchId : null,
                     student_count: 0,
                     studentCount: 0,
+                    subjects: [],
                     is_shell: true
                 }));
             }
@@ -96,41 +102,103 @@ export class ClassService {
         }
     }
 
+    // Map a list of subject names (or {name} objects) to Subject record ids for
+    // this school, creating any subject that doesn't exist yet — so the admin can
+    // type a brand-new subject on the class form and it just works.
+    private static async resolveSubjectIds(schoolId: string, branchId: string | null, subjects: any[]): Promise<string[]> {
+        const names: string[] = Array.from(new Set(
+            (subjects || [])
+                .map((s: any) => (typeof s === 'string' ? s : (s?.name || '')))
+                .map((n: string) => n.trim())
+                .filter(Boolean)
+        ));
+        if (names.length === 0) return [];
+
+        const existing = await prisma.subject.findMany({
+            where: { school_id: schoolId, name: { in: names, mode: 'insensitive' } },
+            select: { id: true, name: true }
+        });
+        const byName = new Map(existing.map(s => [s.name.toLowerCase(), s.id]));
+
+        const ids: string[] = [];
+        for (const name of names) {
+            const found = byName.get(name.toLowerCase());
+            if (found) {
+                ids.push(found);
+            } else {
+                const created = await prisma.subject.create({
+                    data: { school_id: schoolId, branch_id: branchId, name }
+                });
+                ids.push(created.id);
+            }
+        }
+        return ids;
+    }
+
     static async createClass(schoolId: string, branchId: string | undefined, classData: any) {
-        const { level, ...rest } = classData;
+        // `subjects` is a relation — strip it from the spread and connect explicitly.
+        const { level, subjects, ...rest } = classData;
+        const effectiveBranch = branchId && branchId !== 'all' ? branchId : null;
+        const subjectIds = Array.isArray(subjects)
+            ? await this.resolveSubjectIds(schoolId, effectiveBranch, subjects)
+            : [];
+
         const result = await prisma.class.create({
             data: {
                 ...rest,
                 level_category: level || rest.level_category,
                 school_id: schoolId,
-                branch_id: branchId && branchId !== 'all' ? branchId : null
-            }
+                branch_id: effectiveBranch,
+                ...(subjectIds.length ? { subjects: { connect: subjectIds.map(id => ({ id })) } } : {})
+            },
+            include: { subjects: { select: { id: true, name: true } } }
         });
-        
+
         SocketService.emitToSchool(schoolId, 'class:updated', { action: 'create', classId: result.id });
         return result;
     }
 
     static async updateClass(schoolId: string, branchId: string | undefined, id: string, updates: any) {
-        const { level, ...rest } = updates;
+        // `subjects` is a relation — when the caller sends a list, REPLACE the
+        // class's subject links with it (that's what the form's chips represent).
+        const { level, subjects, ...rest } = updates;
+        const data: any = {
+            ...rest,
+            level_category: level || rest.level_category
+        };
+        if (Array.isArray(subjects)) {
+            const effectiveBranch = branchId && branchId !== 'all' ? branchId : null;
+            const subjectIds = await this.resolveSubjectIds(schoolId, effectiveBranch, subjects);
+            data.subjects = { set: subjectIds.map(sid => ({ id: sid })) };
+        }
+
         const result = await prisma.class.update({
             where: { id: id },
-            data: {
-                ...rest,
-                level_category: level || rest.level_category
-            }
+            data,
+            include: { subjects: { select: { id: true, name: true } } }
         });
 
         SocketService.emitToSchool(schoolId, 'class:updated', { action: 'update', classId: id });
         return result;
     }
 
-    static async deleteClass(schoolId: string, branchId: string | undefined, id: string) {
-        await prisma.class.delete({
-            where: { id: id }
+    // Subjects assigned to ONE class, by class id — the admin gradebook uses this
+    // to offer exactly the subjects the class actually takes.
+    static async getClassSubjectsById(schoolId: string, classId: string) {
+        const cls = await prisma.class.findFirst({
+            where: { id: classId, school_id: schoolId },
+            include: { subjects: { select: { id: true, name: true, code: true } } }
         });
-        
+        return cls?.subjects || [];
+    }
+
+    static async deleteClass(schoolId: string, branchId: string | undefined, id: string) {
+        // Cascade: remove timetable entries for this class before deleting it
+        await prisma.timetable.deleteMany({ where: { class_id: id, school_id: schoolId } });
+        await prisma.class.delete({ where: { id: id } });
+
         SocketService.emitToSchool(schoolId, 'class:updated', { action: 'delete', classId: id });
+        SocketService.emitToSchool(schoolId, 'timetable:updated', { action: 'class_deleted', classId: id });
         return true;
     }
 

@@ -50,7 +50,10 @@ const { mockApi } = vi.hoisted(() => ({
             points: 100,
             level: 5,
             badges: []
-        })
+        }),
+        // Dashboard shell polls this for the messages badge — mock so the
+        // component doesn't crash on `api.getUnreadMessageCount is not a function`.
+        getUnreadMessageCount: vi.fn().mockResolvedValue(0)
     }
 }));
 

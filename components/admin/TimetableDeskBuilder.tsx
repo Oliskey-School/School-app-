@@ -1,9 +1,9 @@
-﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
+﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { Calendar, Sparkles, Save, GripVertical, X, AlertTriangle, ArrowLeft, Users, Search } from 'lucide-react';
-import { SUBJECTS_LIST } from '../../constants';
 import { loadSchedule, teachingPeriods, DEFAULT_PERIODS, PeriodDef } from '../../lib/timetableSchedule';
 import { getSubjectsForGrade } from '../../lib/schoolSystem';
 import EditTimesModal from './EditTimesModal';
@@ -193,8 +193,16 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
     // Admin-added subjects (saved to the school) that aren't part of a standard
     // curriculum — surfaced on every class palette.
     const [customSubjects, setCustomSubjects] = useState<string[]>([]);
+    // lowercased name → Subject row id. Every palette chip is a real school
+    // subject row (the backend seeds the standard list for new schools), so
+    // every chip can be deleted — school-wide, for this school only.
+    const [subjectIdByName, setSubjectIdByName] = useState<Record<string, string>>({});
+    // lowercased name → admin-picked display color (Tailwind class set).
+    const [subjectColorByName, setSubjectColorByName] = useState<Record<string, string>>({});
+    const [newSubjectColor, setNewSubjectColor] = useState<string>('');
     const [newSubject, setNewSubject] = useState('');
     const [addingSubject, setAddingSubject] = useState(false);
+    const [deletingSubject, setDeletingSubject] = useState<string | null>(null);
     const [teachers, setTeachers] = useState<any[]>([]);
     const [grid, setGrid] = useState<Grid>({});
     const [levelKey, setLevelKey] = useState<LevelKey>('senior');
@@ -214,9 +222,9 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
     // --- load classes, subjects, teachers, existing timetable ---
     // Extracted so Save can re-seed the grid afterwards (cells then carry their saved
     // ids, so re-saving updates rows instead of creating duplicates).
-    const loadData = async () => {
+    const loadData = async (silent = false) => {
         if (!sid) return;
-        setLoading(true);
+        if (!silent) setLoading(true);
         try {
             const [cls, subs, tch, existing] = await Promise.all([
                 api.getClasses(sid, bid).catch(() => []),
@@ -232,11 +240,19 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
             setTeachers(teachersOnly);
             const subNames = (Array.isArray(subs) ? subs : [])
                 .map((s: any) => (typeof s === 'string' ? s : s?.name)).filter(Boolean);
-            // Merge the school's own subjects (first) with the full curriculum
-            // catalog so EVERY subject is draggable and searchable — not just the
-            // handful already saved in this school.
-            const catalog = (SUBJECTS_LIST || []).map((s: any) => s?.name).filter(Boolean);
-            setSubjects(Array.from(new Set([...subNames, ...catalog])));
+            // Keep each school subject's row id + admin-picked color. Every chip
+            // maps to a row (the backend seeds new schools), so all are deletable.
+            const idMap: Record<string, string> = {};
+            const colorMap: Record<string, string> = {};
+            (Array.isArray(subs) ? subs : []).forEach((s: any) => {
+                if (s?.id && s?.name) idMap[String(s.name).toLowerCase()] = s.id;
+                if (s?.color && s?.name) colorMap[String(s.name).toLowerCase()] = s.color;
+            });
+            setSubjectIdByName(idMap);
+            setSubjectColorByName(colorMap);
+            // The school's OWN subject rows are the single source of truth —
+            // deleting one removes it here and everywhere else in the school.
+            setSubjects(Array.from(new Set(subNames)));
             // A school subject that isn't in any standard curriculum is an admin-added
             // custom subject — keep it so it shows on every class palette.
             setCustomSubjects(Array.from(new Set(
@@ -263,7 +279,7 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
             }
             setGrid(g);
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     };
 
@@ -273,6 +289,10 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
         return () => { active = false; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [sid, bid]);
+
+    // Re-fetch silently (no loading screen) when socket fires class/timetable/subject changes
+    const stableLoadData = useCallback(() => { loadData(true); }, [sid, bid]);
+    useAutoSync(['classes', 'timetables', 'subjects'], stableLoadData);
 
     // Classify by the class NAME first (what the admin typed in Manage Classes), then
     // fall back to grade. Order matters: "Pre-Nursery" must be checked before "Nursery".
@@ -327,11 +347,14 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
     };
     const levelSubjects = useMemo(() => {
         const grade = levelGrade[levelKey] ?? 9;
-        // Senior = full list across all departments; other levels = their curriculum.
+        // The school's OWN subject rows are the source; the level's curriculum
+        // only FILTERS them (senior = all departments). Deleted rows vanish,
+        // and admin-added customs appear on every level.
         const base = levelKey === 'senior' ? seniorAllSubjects(grade) : getSubjectsForGrade(grade);
-        const list = (Array.isArray(base) && base.length) ? base : subjects;
-        // Admin-added custom subjects appear on every class.
-        return Array.from(new Set([...list, ...customSubjects]));
+        const levelSet = new Set((Array.isArray(base) ? base : []).map(n => String(n).toLowerCase()));
+        const inLevel = subjects.filter(n => levelSet.has(String(n).toLowerCase()));
+        const pool = inLevel.length ? inLevel : subjects;
+        return Array.from(new Set([...pool, ...customSubjects]));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [levelKey, subjects, customSubjects]);
 
@@ -354,8 +377,11 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
         teachers.filter(t => Array.isArray(t.subject_specialty) && t.subject_specialty
             .map((s: string) => s.toLowerCase()).includes(subject.toLowerCase()));
     const defaultTeacher = (subject: string) => teachersForSubject(subject)[0]?.id;
+    // Admin-picked color wins; otherwise a stable auto color from the palette.
     const subjectColor = (subject: string) =>
-        SUBJECT_COLORS[Math.abs(subjects.indexOf(subject)) % SUBJECT_COLORS.length] || SUBJECT_COLORS[0];
+        subjectColorByName[String(subject).toLowerCase()]
+        || SUBJECT_COLORS[Math.abs(subjects.indexOf(subject)) % SUBJECT_COLORS.length]
+        || SUBJECT_COLORS[0];
 
     // --- conflicts: same teacher in >1 class at the same period on this day ---
     const conflicts = useMemo(() => {
@@ -391,11 +417,12 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
 
     // --- "Generate with AI": scatter the class's subjects FRESH on every click,
     // overwriting the active day's grid, avoiding the same teacher twice per period.
+    // Generation is instant and local — the admin reviews the result and clicks
+    // Save to persist it (auto-saving here fired 100+ requests per click and made
+    // the button feel frozen).
     const autoGenerate = () => {
         const pool = (levelSubjects.length ? levelSubjects : subjects);
         if (pool.length === 0 || levelColumns.length === 0) { toast.error('Add subjects and classes first.'); return; }
-        // Build next grid synchronously so we can pass it directly to save(),
-        // avoiding the React state-closure timing issue.
         const next = { ...grid };
         for (let p = 0; p < periods.length; p++) {
             const order = shuffled(pool);
@@ -409,8 +436,7 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
             });
         }
         setGrid(next);
-        toast.success(`Scattered ${DAYS.find(d => d.d === day)?.label} for ${LEVELS.find(l => l.key === levelKey)?.label}.`);
-        save(next);
+        toast.success(`Generated ${DAYS.find(d => d.d === day)?.label} for ${LEVELS.find(l => l.key === levelKey)?.label}. Review it, then click Save.`);
     };
 
     // --- add a custom subject (saved to the school, shown on every class) ---
@@ -423,14 +449,39 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
         }
         setAddingSubject(true);
         try {
-            await api.createSubject({ name });
+            const created = await api.createSubject({ name, color: newSubjectColor || undefined });
             setCustomSubjects(prev => Array.from(new Set([...prev, name])));
+            setSubjects(prev => Array.from(new Set([...prev, name])));
+            if (created?.id) setSubjectIdByName(prev => ({ ...prev, [name.toLowerCase()]: created.id }));
+            if (newSubjectColor) setSubjectColorByName(prev => ({ ...prev, [name.toLowerCase()]: newSubjectColor }));
             setNewSubject('');
+            setNewSubjectColor('');
             toast.success(`Added “${name}”.`);
         } catch {
             toast.error('Could not add subject. Please try again.');
         } finally {
             setAddingSubject(false);
+        }
+    };
+
+    // --- delete a school subject (only chips backed by a real Subject row).
+    // The backend broadcasts the change, so every open screen's subject list
+    // (class form, gradebook, student My Subjects) refreshes too.
+    const removeSubject = async (name: string) => {
+        const id = subjectIdByName[name.toLowerCase()];
+        if (!id) return;
+        if (!window.confirm(`Delete "${name}" from your school's subjects? It will disappear from subject lists everywhere. Lessons already on the timetable keep their name.`)) return;
+        setDeletingSubject(name);
+        try {
+            await api.deleteSubject(id);
+            setCustomSubjects(prev => prev.filter(n => n.toLowerCase() !== name.toLowerCase()));
+            setSubjects(prev => prev.filter(n => n.toLowerCase() !== name.toLowerCase()));
+            setSubjectIdByName(prev => { const next = { ...prev }; delete next[name.toLowerCase()]; return next; });
+            toast.success(`Deleted “${name}”.`);
+        } catch {
+            toast.error('Could not delete subject.');
+        } finally {
+            setDeletingSubject(null);
         }
     };
 
@@ -492,16 +543,16 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
 
             if (fail === 0) toast.success(`Timetable saved (${ok} periods).`);
             else toast.error(`Saved ${ok}, ${fail} failed.`);
-            // Re-load so cells pick up their saved ids (and any classes just created)
-            // — re-saving then updates rows instead of duplicating them, and confirms
-            // the lessons actually persisted.
-            await loadData();
+            // Re-load SILENTLY so cells pick up their saved ids (and any classes just
+            // created) without blanking the whole screen behind a loading state —
+            // re-saving then updates rows instead of duplicating them.
+            await loadData(true);
         } finally {
             setSaving(false);
         }
     };
 
-    const goBack = () => handleBack ? handleBack() : navigateTo?.('overview', 'Admin Dashboard');
+    const goBack = () => handleBack ? handleBack() : navigateTo?.('timetableGenerator', 'Timetable');
     const filledCount = (Object.values(grid) as Cell[]).filter(c => c.subject).length;
 
     if (loading) {
@@ -509,7 +560,7 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
     }
 
     return (
-        <div className="w-full p-4 sm:p-6">
+        <div className="w-full h-full overflow-y-auto p-4 sm:p-6">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
                 <div className="flex items-center gap-3">
@@ -531,7 +582,9 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
                     <button onClick={autoGenerate} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-95">
                         <Sparkles className="h-4 w-4" /> <span className="whitespace-nowrap">Generate with AI</span>
                     </button>
-                    <button onClick={save} disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:bg-slate-300">
+                    {/* NOTE: () => save() — passing `save` directly would hand the click
+                        event to the overrideGrid param and silently save 0 periods. */}
+                    <button onClick={() => save()} disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:bg-slate-300">
                         <Save className="h-4 w-4" /> {saving ? 'Saving…' : 'Save'}
                     </button>
                 </div>
@@ -581,12 +634,27 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
                         {levelSubjects.length === 0 && <p className="text-xs text-slate-400 px-1 py-4">No subjects yet. Add subjects first.</p>}
                         {querying && filteredSubjects.length === 0 && <p className="text-xs text-slate-400 px-1 py-3">No subject matches “{subjectQuery}”.</p>}
                         <div className={`flex lg:flex-col flex-wrap gap-2 ${(paletteOpen || querying) ? 'max-h-[60vh] overflow-y-auto' : ''}`}>
-                            {visibleSubjects.map(s => (
-                                <div key={s} draggable onDragStart={() => { dragSubject.current = s; }}
-                                    className={`cursor-grab active:cursor-grabbing select-none flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold ${subjectColor(s)}`}>
-                                    <GripVertical className="h-3 w-3 opacity-50" /> {s}
-                                </div>
-                            ))}
+                            {visibleSubjects.map(s => {
+                                // Chips backed by a real school Subject row are deletable;
+                                // catalog-only names have nothing to delete.
+                                const deletable = !!subjectIdByName[s.toLowerCase()];
+                                return (
+                                    <div key={s} draggable onDragStart={() => { dragSubject.current = s; }}
+                                        className={`cursor-grab active:cursor-grabbing select-none flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold ${subjectColor(s)}`}>
+                                        <GripVertical className="h-3 w-3 opacity-50" /> {s}
+                                        {deletable && (
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); removeSubject(s); }}
+                                                disabled={deletingSubject === s}
+                                                title={`Delete "${s}" from school subjects`}
+                                                className="ml-auto -mr-1 rounded p-0.5 opacity-40 hover:opacity-100 hover:text-rose-600 disabled:opacity-20"
+                                            >
+                                                <X className="h-3 w-3" />
+                                            </button>
+                                        )}
+                                    </div>
+                                );
+                            })}
                         </div>
                         {!querying && levelSubjects.length > COLLAPSED_COUNT && (
                             <button onClick={() => setPaletteOpen(o => !o)}
@@ -611,6 +679,18 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
                                     className="flex-none rounded-lg bg-indigo-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 disabled:bg-slate-300">
                                     {addingSubject ? '…' : 'Add'}
                                 </button>
+                            </div>
+                            {/* Pick the chip/cell color for the new subject (optional) */}
+                            <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                                {SUBJECT_COLORS.map(c => (
+                                    <button
+                                        key={c}
+                                        type="button"
+                                        onClick={() => setNewSubjectColor(prev => prev === c ? '' : c)}
+                                        title="Subject color"
+                                        className={`h-5 w-5 rounded-full border ${c.split(' ')[0]} ${c.split(' ')[2] || ''} ${newSubjectColor === c ? 'ring-2 ring-indigo-500 ring-offset-1' : ''}`}
+                                    />
+                                ))}
                             </div>
                             <p className="mt-1 text-xs text-slate-400">Saved to your school and shown on every class.</p>
                         </div>

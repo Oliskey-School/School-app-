@@ -7,6 +7,7 @@ import { toast } from 'react-hot-toast';
 
 interface FeeDetailsScreenProps {
   student: StudentFeeInfo;
+  navigateTo?: (view: string, title: string, props?: any) => void;
 }
 
 interface PaymentRecord {
@@ -22,9 +23,10 @@ interface PaymentRecord {
 
 const formatter = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 2 });
 
-const FeeDetailsScreen: React.FC<FeeDetailsScreenProps> = ({ student }) => {
+const FeeDetailsScreen: React.FC<FeeDetailsScreenProps> = ({ student, navigateTo }) => {
   const [paymentHistory, setPaymentHistory] = useState<PaymentRecord[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [sendingReminder, setSendingReminder] = useState(false);
 
   useEffect(() => {
     if (student?.id) fetchPaymentHistory();
@@ -124,16 +126,42 @@ const FeeDetailsScreen: React.FC<FeeDetailsScreenProps> = ({ student }) => {
 
       <div className="p-4 mt-auto bg-white border-t space-y-3">
         <button
-          onClick={() => toast('Use the "Record Payment" button on the fee row in Fee Management to log a payment.', { icon: 'ℹ️' })}
+          onClick={() => {
+            if (navigateTo) navigateTo('recordPayment', `Record Payment — ${name}`, { student });
+            else toast('Use the "Record Payment" button on the fee row in Fee Management to log a payment.', { icon: 'ℹ️' });
+          }}
           className="w-full flex justify-center items-center space-x-2 py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white bg-sky-500 hover:bg-sky-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500">
           <PlusIcon className="h-5 w-5" />
           <span>Record Payment</span>
         </button>
         <button
-          onClick={() => toast('Payment reminder feature coming soon.', { icon: '📩' })}
-          className="w-full flex justify-center items-center space-x-2 py-3 px-4 border border-gray-300 rounded-lg shadow-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500">
+          disabled={sendingReminder}
+          onClick={async () => {
+            if (balance <= 0) { toast('This student has no outstanding balance.', { icon: '✅' }); return; }
+            setSendingReminder(true);
+            try {
+              const parents = await api.getParentsByStudentId(student.id);
+              const targets = (parents || []).filter((p: any) => p.user_id || p.id);
+              if (targets.length === 0) {
+                toast.error('No parent is linked to this student yet.');
+                return;
+              }
+              await Promise.all(targets.map((p: any) => api.sendNotification({
+                userId: p.user_id || p.id,
+                title: 'School Fees Reminder',
+                body: `Dear Parent/Guardian, this is a friendly reminder that ${name} has an outstanding fee balance of ${formatter.format(balance)}. Kindly complete the payment at your earliest convenience. Thank you.`,
+                urgency: 'high',
+              })));
+              toast.success(`Reminder sent to ${targets.length} parent${targets.length > 1 ? 's' : ''}.`);
+            } catch {
+              toast.error('Could not send the reminder. Please try again.');
+            } finally {
+              setSendingReminder(false);
+            }
+          }}
+          className="w-full flex justify-center items-center space-x-2 py-3 px-4 border border-gray-300 rounded-lg shadow-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 disabled:opacity-50">
           <MailIcon className="h-5 w-5" />
-          <span>Send Reminder</span>
+          <span>{sendingReminder ? 'Sending…' : 'Send Reminder'}</span>
         </button>
       </div>
     </div>

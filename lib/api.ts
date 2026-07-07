@@ -1657,6 +1657,15 @@ class ExpressApiClient {
         return this.get(`/academic/terms?schoolId=${schoolId}`);
     }
 
+    // End-of-session promotion: every Active student moves up one class,
+    // SSS 3 graduates. Admin only.
+    async promoteStudents(toSession: string, branchId?: string | null): Promise<{ promoted: number; graduated: number; unplaced: number; total: number }> {
+        return this.post('/academic/promote-students', {
+            toSession,
+            branchId: branchId && branchId !== 'all' ? branchId : undefined,
+        });
+    }
+
     async getReportCard(studentId: string | number, term: string, session: string, branchId?: string | null): Promise<any> {
         return this.get(`/academic/get-report?studentId=${studentId}&term=${term}&session=${session}${branchId ? `&branchId=${branchId}` : ''}`);
     }
@@ -1912,7 +1921,11 @@ class ExpressApiClient {
     }
 
     async deleteSubject(id: string): Promise<void> {
-        await this.delete(`/subjects/${id}`);
+        await this.delete(`/subjects/${encodeURIComponent(id)}`);
+    }
+
+    async updateSubjectColor(id: string, color: string | null): Promise<any> {
+        return this.put(`/subjects/${encodeURIComponent(id)}/color`, { color });
     }
 
 
@@ -2130,8 +2143,9 @@ class ExpressApiClient {
         return this.delete(`/timetables/${id}`);
     }
 
-    async deleteTimetableByClass(classId: string): Promise<any> {
-        return this.delete(`/timetables/class/${classId}`);
+    async deleteTimetableByClass(classIdOrName: string, branchId?: string): Promise<any> {
+        const qs = branchId && branchId !== 'all' ? `?branchId=${encodeURIComponent(branchId)}` : '';
+        return this.delete(`/timetables/class/${encodeURIComponent(classIdOrName)}${qs}`);
     }
 
     async checkTimetableConflict(data: { teacherId: string, day: string, startTime: string, endTime: string, excludeClassId?: string }): Promise<any> {
@@ -2164,6 +2178,19 @@ class ExpressApiClient {
 
     async getLessonNotes(classId: string, schoolId: string): Promise<any[]> {
         return this.get(`/lesson-plans?classId=${classId}&schoolId=${schoolId}`);
+    }
+
+    async getAllLessonNotes(branchId?: string, classId?: string, subjectId?: string, status?: string): Promise<any[]> {
+        const params = new URLSearchParams();
+        if (branchId && branchId !== 'all') params.append('branchId', branchId);
+        if (classId) params.append('classId', classId);
+        if (subjectId) params.append('subjectId', subjectId);
+        if (status) params.append('status', status);
+        try { return await this.get(`/lesson-plans?${params.toString()}`); } catch { return []; }
+    }
+
+    async updateLessonNoteStatus(id: string, status: 'approved' | 'rejected'): Promise<any> {
+        return this.put(`/lesson-plans/${id}`, { status });
     }
 
     // ============================================
@@ -3129,6 +3156,29 @@ class ExpressApiClient {
 
     async uploadAvatar(file: File): Promise<{ url: string }> {
         return this.uploadFileWithCategory(file, 'avatar');
+    }
+
+    // ============================================
+    // AI (NVIDIA-powered, via the server-side proxy — key never in the browser)
+    // ============================================
+    async aiStatus(): Promise<{ configured: boolean; provider: string; models: Record<string, string> }> {
+        return this.get('/ai/status');
+    }
+    // chat + vision — messages may contain multimodal content (text + image_url)
+    async aiChat(body: { messages: any[]; model?: string; temperature?: number; max_tokens?: number; response_format?: any }): Promise<{ text: string; model?: string; usage?: any; raw?: any }> {
+        return this.post('/ai/chat', body);
+    }
+    async aiEmbeddings(input: string | string[], model?: string, input_type?: 'query' | 'passage'): Promise<{ model: string; embeddings: number[][]; usage?: any }> {
+        return this.post('/ai/embeddings', { input, model, input_type });
+    }
+    async aiGenerateImage(prompt: string, opts?: { model?: string; width?: number; height?: number; steps?: number; seed?: number; negative_prompt?: string }): Promise<{ model: string; image: string | null; raw?: any }> {
+        return this.post('/ai/image', { prompt, ...(opts || {}) });
+    }
+    async aiTranscribe(audioBase64: string, opts?: { model?: string; language?: string }): Promise<{ text: string; model: string; raw?: any }> {
+        return this.post('/ai/stt', { audio: audioBase64, ...(opts || {}) });
+    }
+    async aiSpeak(text: string, opts?: { model?: string; voice?: string; format?: string }): Promise<{ audio: string | null; raw?: any }> {
+        return this.post('/ai/tts', { text, ...(opts || {}) });
     }
 
     // ============================================

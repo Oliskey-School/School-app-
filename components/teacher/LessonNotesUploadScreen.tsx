@@ -59,9 +59,10 @@ const LessonNotesUploadScreen: React.FC<LessonNotesUploadScreenProps> = ({ handl
         return Array.from(uniqueClasses.values());
     }, [rawClasses]);
 
-    // EXCLUSIVE: Filter subjects based on selected class to ensure strict assignment
+    // Filter subjects to only those the teacher teaches in the selected class.
+    // Returns empty until a class is chosen so Subject stays locked.
     const filteredSubjects = React.useMemo(() => {
-        if (!selectedClassId) return allSubjects;
+        if (!selectedClassId) return [];
 
         const specificAssignments = rawAssignments.filter(a => a.classId === selectedClassId);
 
@@ -152,19 +153,33 @@ const LessonNotesUploadScreen: React.FC<LessonNotesUploadScreenProps> = ({ handl
 
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
-                                <select value={selectedSubjectId} onChange={e => updateField('selectedSubjectId', e.target.value)} className="w-full p-2 border rounded-lg">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Class</label>
+                                <select
+                                    value={selectedClassId}
+                                    onChange={e => {
+                                        updateField('selectedClassId', e.target.value);
+                                        updateField('selectedSubjectId', '');
+                                    }}
+                                    className="w-full p-2 border rounded-lg"
+                                >
+                                    <option value="">Select Class</option>
+                                    {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Subject{!selectedClassId && <span className="text-gray-400 font-normal"> (select class first)</span>}
+                                </label>
+                                <select
+                                    value={selectedSubjectId}
+                                    onChange={e => updateField('selectedSubjectId', e.target.value)}
+                                    disabled={!selectedClassId}
+                                    className="w-full p-2 border rounded-lg disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                >
                                     <option value="">Select Subject</option>
                                     {filteredSubjects.map(s => (
                                         <option key={s.id} value={s.id}>{s.name} ({s.gradeLevel || 'Gen'})</option>
                                     ))}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Class</label>
-                                <select value={selectedClassId} onChange={e => updateField('selectedClassId', e.target.value)} className="w-full p-2 border rounded-lg">
-                                    <option value="">Select Class</option>
-                                    {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                 </select>
                             </div>
                         </div>

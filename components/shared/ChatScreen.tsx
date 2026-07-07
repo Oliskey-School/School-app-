@@ -168,6 +168,21 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
     const [inputText, setInputText]               = useState('');
     const [activeRoomDetails, setActiveRoomDetails] = useState<any>(roomDetails || null);
     const [loadingMessages, setLoadingMessages]   = useState(false);
+
+    // Follow the parent-driven conversation. `activeConversationId` was only
+    // seeded ONCE at mount from the prop, so in the two-pane MessagesLayout,
+    // clicking a different conversation changed the prop but the open chat stayed
+    // stuck on the first one. Sync whenever the incoming id actually changes.
+    // (Guarded by `resolvedId` being truthy so ChatScreen's own standalone
+    // sidebar selection — where the prop stays null — is never clobbered.)
+    useEffect(() => {
+        if (resolvedId && resolvedId !== activeConversationId) {
+            setActiveConversationId(resolvedId);
+            setMessages([]);
+            if (roomDetails) setActiveRoomDetails(roomDetails);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [resolvedId]);
     const [typingUsers, setTypingUsers]           = useState<string[]>([]);
     const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 

@@ -2,21 +2,31 @@ import prisma from '../config/database';
 import { SocketService } from './socket.service';
 
 export class LessonPlanService {
-    static async getLessonPlans(schoolId: string, branchId: string | undefined, teacherId?: string) {
-        const where: any = {
-            school_id: schoolId
-        };
+    static async getLessonPlans(
+        schoolId: string,
+        branchId: string | undefined,
+        teacherId?: string,
+        classId?: string,
+        subjectId?: string,
+        status?: string
+    ) {
+        const where: any = { school_id: schoolId };
 
-        if (teacherId) {
-            where.teacher_id = teacherId;
-        }
+        if (teacherId) where.teacher_id = teacherId;
+        if (classId) where.class_id = classId;
+        if (subjectId) where.subject_id = subjectId;
+        if (status) where.status = status;
 
         if (branchId && branchId !== 'all') {
-            where.branch_id = branchId; // strict branch isolation (untagged → All Branches only)
+            where.branch_id = branchId;
         }
 
         return await prisma.lessonNote.findMany({
             where,
+            include: {
+                teacher: { select: { full_name: true, school_generated_id: true } },
+                class: { select: { name: true } },
+            },
             orderBy: { created_at: 'desc' }
         });
     }

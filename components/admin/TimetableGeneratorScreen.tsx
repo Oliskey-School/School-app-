@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
 
@@ -7,8 +8,11 @@ import {
     CalendarIcon,
     SparklesIcon,
     PlusIcon,
-    EditIcon
+    EditIcon,
+    TIMETABLE_PERIODS,
+    TIMETABLE_DOW,
 } from '../../constants';
+import { loadSchedule } from '../../lib/timetableSchedule';
 
 // --- TYPES ---
 interface TimetableStatus {
@@ -85,6 +89,9 @@ const TagInput = ({ label, tags, onAdd, onRemove, placeholder }: any) => {
 // --- MAIN COMPONENT ---
 const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ schoolId, navigateTo, initialSelectedClasses = [] }) => {
     const { currentBranchId } = useAuth();
+    // All timetable reads are branch-scoped — without this, same-named classes
+    // in other branches pollute the statuses and the per-class editor view.
+    const branchArg = (currentBranchId && currentBranchId !== 'all') ? currentBranchId : undefined;
     // Dashboard State
     const [classes, setClasses] = useState<any[]>([]);
     const [timetableStatuses, setTimetableStatuses] = useState<{ [key: string]: string | null }>({});
@@ -96,7 +103,7 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ sch
 
     // --- FETCH DATA ---
     const fetchClasses = async (id: string) => {
-        const data = await api.getClasses(id, (currentBranchId && currentBranchId !== 'all') ? currentBranchId : undefined);
+        const data = await api.getClasses(id, branchArg);
         return data || [];
     };
 
@@ -110,16 +117,14 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ sch
         }
     };
 
-    const fetchTimetableStatuses = async () => {
-        setIsLoadingStatuses(true);
+    const fetchTimetableStatuses = async (silent = false) => {
+        if (!silent) setIsLoadingStatuses(true);
         try {
-            const data = await api.getTimetable();
+            const data = await api.getTimetable(branchArg);
 
             const statusMap: { [key: string]: string | null } = {};
-            // Group by class and determine overall status
             data?.forEach((row: any) => {
                 const className = row.class_name;
-
                 if (className) {
                     const current = statusMap[className];
                     if (current !== 'Published') {
@@ -131,12 +136,12 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ sch
         } catch (err) {
             console.error(err);
         } finally {
-            setIsLoadingStatuses(false);
+            if (!silent) setIsLoadingStatuses(false);
         }
     };
 
     const fetchTimetableForClass = async (className: string, id: string) => {
-        const data = await api.getTimetable(undefined, className);
+        const data = await api.getTimetable(branchArg, className);
         return data || [];
     };
 
@@ -147,26 +152,41 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ sch
             try {
                 const cls = await fetchClasses(schoolId);
                 setClasses(cls);
-                setIsLoadingClasses(false);
                 await fetchTimetableStatuses();
             } catch (e) {
                 console.error(e);
                 toast.error('Failed to load classes');
+            } finally {
+                setIsLoadingClasses(false);
             }
         };
 
         init();
 
-        // Subscribe to timetable changes
-        return () => { };
+        // Refresh statuses when the tab/window regains focus (covers returning from
+        // the desk builder when AdminDashboard keeps this component mounted).
+        const onFocus = () => fetchTimetableStatuses();
+        window.addEventListener('focus', onFocus);
+        return () => window.removeEventListener('focus', onFocus);
 
     }, [schoolId]);
+
+    // Live-refresh the class list and timetable status cards whenever a class is
+    // added or removed elsewhere (socket → SocketContext → realtime-update event).
+    const refreshOnClassChange = useCallback(async () => {
+        if (!schoolId) return;
+        const cls = await fetchClasses(schoolId);
+        setClasses(cls);
+        fetchTimetableStatuses(true);
+    }, [schoolId]);
+    useAutoSync(['classes', 'timetables'], refreshOnClassChange);
 
 
 
     // --- HELPERS ---
-    const loadTimetable = async (targetClassName: string) => {
+    const loadTimetable = async (targetClass: { id?: string; name: string }) => {
         if (!schoolId) return;
+        const targetClassName = targetClass.name;
         setIsLoadingExisting(true);
         try {
             const data = await fetchTimetableForClass(targetClassName, schoolId);
@@ -180,44 +200,40 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ sch
             // Helper to find teacher name
             const getTeacherName = (id: string | number) => {
                 const t = dbTeachers.find(dt => dt.id === id);
-                return t ? t.name : 'Unknown Teacher';
+                return t ? (t.full_name || t.name) : 'Unknown Teacher';
             };
 
+            // Resolve each saved row's period against the SHARED schedule (the
+            // times the Builder actually saved with — Edit Times can change them),
+            // falling back to the static defaults for legacy rows.
+            const livePeriods = loadSchedule(schoolId, branchArg);
             data.forEach((entry) => {
-                // Map database format to UI format: "Monday-Period 1"
-                // Assuming simple mapping for now as per previous logic
-                const PERIODS = [
-                    { name: 'Period 1', start: '09:00' },
-                    { name: 'Period 2', start: '09:45' },
-                    { name: 'Period 3', start: '10:30' },
-                    { name: 'Period 4', start: '11:30' },
-                    { name: 'Period 5', start: '12:15' },
-                    { name: 'Period 6', start: '13:45' },
-                    { name: 'Period 7', start: '14:30' },
-                    { name: 'Period 8', start: '15:15' },
-                ];
-
-                const period = PERIODS.find(p => p.start === entry.start_time);
-                if (period) {
-                    const key = `${entry.day}-${period.name}`;
-                    timetableMap[key] = entry.subject;
-                    subjectsSet.add(entry.subject);
-
-                    if (entry.teacher_id) {
-                        teacherAssignmentsMap[key] = getTeacherName(entry.teacher_id);
-                    }
+                const dayName = TIMETABLE_DOW[entry.day_of_week as number];
+                if (!dayName) return;
+                const start = (entry.start_time || '').slice(0, 5);
+                let periodIdx = livePeriods.findIndex(p => p.start === start);
+                if (periodIdx === -1) periodIdx = TIMETABLE_PERIODS.findIndex(p => p.start === start);
+                if (periodIdx === -1) return;
+                const key = `${dayName}-${periodIdx}`;
+                timetableMap[key] = entry.subject;
+                subjectsSet.add(entry.subject);
+                if (entry.teacher_id) {
+                    teacherAssignmentsMap[key] = entry.teacher?.full_name || getTeacherName(entry.teacher_id);
                 }
             });
 
             const timetableData = {
                 className: targetClassName,
+                classId: targetClass.id,
+                branchId: branchArg,
+                schoolId,
                 subjects: Array.from(subjectsSet),
                 timetable: timetableMap,
                 teacherAssignments: teacherAssignmentsMap,
                 suggestions: [],
                 teacherLoad: [],
-                status: data.length > 0 ? data[0].status : 'Draft',
-                teachers: dbTeachers.map(t => ({ name: t.name, subjects: t.subjects || [] }))
+                status: (data.length > 0 && data.every((r: any) => r.status === 'Published')) ? 'Published' : 'Draft',
+                teachers: dbTeachers.map(t => ({ name: t.full_name || t.name, subjects: t.subjects || [] }))
             };
 
             navigateTo('timetableEditor', 'Edit Timetable', { timetableData: timetableData });
@@ -230,11 +246,8 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ sch
         }
     };
 
-    const handleOpenPage = (targetClass?: string) => {
-        navigateTo('aiTimetableCreator', 'AI Timetable Generator', {
-            availableClasses: classes,
-            initialSelectedClasses: targetClass ? [targetClass] : [],
-        });
+    const handleOpenPage = (_targetClass?: string) => {
+        navigateTo('timetableBuilder', 'Timetable Builder');
     };
 
     return (
@@ -308,7 +321,7 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ sch
                                             {status ? (
                                                 <div className="flex gap-2 w-full">
                                                     <button
-                                                        onClick={() => loadTimetable(cls.name)}
+                                                        onClick={() => loadTimetable(cls)}
                                                         className="flex-1 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-2"
                                                     >
                                                         <EditIcon className="w-4 h-4" />
@@ -320,7 +333,9 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ sch
                                                             if (window.confirm(`Delete timetable for ${cls.name}?`)) {
                                                                 const deleteTimetable = async () => {
                                                                     try {
-                                                                        await api.deleteTimetableByClass(cls.id);
+                                                                        // Delete by NAME so rows saved against a duplicate
+                                                                        // class record (same name) go too — branch-scoped.
+                                                                        await api.deleteTimetableByClass(cls.name, branchArg);
                                                                         toast.success("Deleted");
                                                                         fetchTimetableStatuses();
                                                                     } catch (err) {

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import Header from '../ui/Header';
+import PromotionCelebration from '../shared/PromotionCelebration';
 import { useAuth } from '../../context/AuthContext';
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import { DashboardType } from '../../types';
@@ -149,6 +150,10 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
 
     return (
         <div className="flex h-screen w-full overflow-hidden bg-gray-50">
+            {/* End-of-session celebration — renders ONLY for a user holding an
+                unseen promotion/graduation notice (students & parents). */}
+            <PromotionCelebration />
+
             {/* Desktop Sidebar */}
             {!hideSidebar && (
                 <aside className="hidden lg:flex w-64 flex-col fixed inset-y-0 left-0 z-40 liquid-glass-solid border-r border-gray-200/70">

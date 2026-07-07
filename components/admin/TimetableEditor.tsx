@@ -1,8 +1,9 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { toast } from 'react-hot-toast';
 import { XCircleIcon, SparklesIcon, BriefcaseIcon, CheckCircleIcon, PlusIcon, EditIcon, CalendarIcon, SaveIcon, CloudUploadIcon, RefreshIcon, ChevronLeftIcon } from '../../constants';
-import { SUBJECT_COLORS, TIMETABLE_PERIODS as PERIODS, TIMETABLE_DAYS as DAYS } from '../../constants';
+import { SUBJECT_COLORS, TIMETABLE_PERIODS as STATIC_PERIODS, TIMETABLE_DAYS as DAYS } from '../../constants';
+import { loadSchedule, PeriodDef } from '../../lib/timetableSchedule';
 import { TimetableEntry } from '../../types';
 import { api } from '../../lib/api';
 import { notifyClass } from '../../lib/database';
@@ -195,7 +196,7 @@ const MobileSubjectPicker: React.FC<{
 
 const MobileDayEditor: React.FC<{
     day: string;
-    periods: typeof PERIODS;
+    periods: PeriodDef[];
     timetable: Timetable;
     onEditSlot: (period: string) => void;
 }> = ({ day, periods, timetable, onEditSlot }) => {
@@ -325,6 +326,8 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                 // Single-class legacy mode
                 setSchedules([{
                     className: timetableData.className || '',
+                    classId: timetableData.classId,
+                    branchId: timetableData.branchId,
                     timetable: timetableData.timetable || timetableData.schedule || {},
                     teacherAssignments: timetableData.teacherAssignments || {},
                     deptCells: timetableData.deptCells || {},
@@ -336,6 +339,15 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
     }, [timetableData]);
 
     const [userSchoolId, setUserSchoolId] = useState<string | null>(null);
+
+    // Period times come from the SHARED schedule (same source as the Timetable
+    // Builder, editable via its "Edit Times") — the static constants are only a
+    // fallback. Using a different set here made Builder-saved lessons land on
+    // the wrong slot (or vanish) and publishing rewrote their times.
+    const PERIODS: PeriodDef[] = useMemo(
+        () => loadSchedule(timetableData?.schoolId || userSchoolId || undefined, timetableData?.branchId) || STATIC_PERIODS,
+        [timetableData?.schoolId, timetableData?.branchId, userSchoolId]
+    );
 
     // Fetch teachers and user context
     useEffect(() => {
@@ -400,7 +412,7 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
             const teacher = (window as any).__teacherData?.find((t: any) => t.name === assignedTeacherName);
 
             if (teacher) {
-                // We should also check client-side against OTHER schedules being edited
+                // Client-side check against other classes being edited simultaneously
                 const clientConflict = schedules.some((s, idx) =>
                     idx !== activeIndex &&
                     s.teacherAssignments?.[key] === assignedTeacherName
@@ -409,17 +421,20 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                 if (clientConflict) {
                     toast(`Multi-Class Conflict: ${assignedTeacherName} is assigned in another class at this time!`, { icon: '⚠️' });
                 } else {
-                    // DB check
-                    const conflictData = await api.checkTimetableConflict({
-                        teacherId: teacher.id,
-                        day: day,
-                        startTime: PERIODS[periodIndex].start,
-                        endTime: PERIODS[periodIndex].end,
-                        excludeClassId: selectedClass
-                    });
-
-                    if (conflictData?.conflict) {
-                        toast(`DB Conflict: ${assignedTeacherName} is busy in ${conflictData.class_name}`, { icon: '⚠️' });
+                    // DB conflict check — advisory only, never blocks the state update
+                    try {
+                        const conflictData = await api.checkTimetableConflict({
+                            teacherId: teacher.id,
+                            day: day,
+                            startTime: PERIODS[periodIndex].start,
+                            endTime: PERIODS[periodIndex].end,
+                            excludeClassId: selectedClass
+                        });
+                        if (conflictData?.conflict) {
+                            toast(`Conflict: ${assignedTeacherName} is busy in ${conflictData.class_name}`, { icon: '⚠️' });
+                        }
+                    } catch {
+                        // Conflict check failure is non-fatal — allow the assignment
                     }
                 }
             }
@@ -473,7 +488,10 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
             }));
 
             toast.success('Timetable published and sent live!');
-            // Notify for each
+            // Broadcast timetable:published socket event to all connected clients
+            const classNames = schedules.map(s => s.className).filter(Boolean);
+            api.notifyTimetablePublished(classNames).catch(console.error);
+            // In-app notification per class
             schedules.forEach(s => {
                 notifyClass(s.className, 'Timetable Published', `Timetable for ${s.className} is now live.`).catch(console.error);
             });
@@ -509,18 +527,22 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                             teacherId = teacher.id;
                             schoolId = teacher.school_id || userSchoolId;
 
-                            // BACKEND CHECK
-                             const conflictData = await api.checkTimetableConflict({
-                                 teacherId: teacher.id,
-                                 day: day,
-                                 startTime: PERIODS[i].start,
-                                 endTime: PERIODS[i].end,
-                                 excludeClassId: className
-                             });
-
-                             if (conflictData?.conflict) {
-                                 if (statusToSave === 'Published') throw new Error(`Conflict for ${className}: ${conflictData.message}`);
-                             }
+                            // Conflict check — only blocks publish, never blocks draft save
+                            try {
+                                const conflictData = await api.checkTimetableConflict({
+                                    teacherId: teacher.id,
+                                    day: day,
+                                    startTime: PERIODS[i].start,
+                                    endTime: PERIODS[i].end,
+                                    excludeClassId: className
+                                });
+                                if (conflictData?.conflict && statusToSave === 'Published') {
+                                    throw new Error(`Conflict for ${className}: ${conflictData.message}`);
+                                }
+                            } catch (err: any) {
+                                // Re-throw publish conflicts; ignore check failures silently
+                                if (statusToSave === 'Published' && err.message?.startsWith('Conflict for')) throw err;
+                            }
                         }
                     }
 
@@ -534,6 +556,8 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                         end_time: PERIODS[i].end,
                         subject,
                         class_name: className,
+                        class_id: sched.classId || timetableData?.classId || undefined,
+                        branch_id: sched.branchId || timetableData?.branchId || undefined,
                         teacher_id: teacherId,
                         status: statusToSave,
                         school_id: schoolId // Ensure this is handled if null (RLS might handle it or default)
@@ -542,16 +566,16 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
             }
         }
 
-        // Database interaction (Batch insert via RPC or basic upsert loop)
-        // Corrected table name from 'timetable_entries' to 'timetable'
+        // Replace the class's rows: delete (branch-scoped — same-named classes in
+        // other branches keep their timetables), then recreate in parallel batches
+        // (the old one-by-one loop took ~300ms per row, so a full week felt frozen).
+        await api.deleteTimetableByClass(className, sched.branchId || timetableData?.branchId);
 
-        // Database interaction
-        await api.deleteTimetableByClass(className);
-
-        if (entries.length > 0) {
-            for (const entry of entries) {
-                await api.createTimetable(entry);
-            }
+        const BATCH = 20;
+        for (let i = 0; i < entries.length; i += BATCH) {
+            const results = await Promise.allSettled(entries.slice(i, i + BATCH).map(e => api.createTimetable(e)));
+            const failed = results.filter(r => r.status === 'rejected').length;
+            if (failed > 0) throw new Error(`${failed} period(s) failed to save for ${className}`);
         }
 
         return true;
@@ -683,10 +707,14 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
 
                     <div className="flex items-center space-x-3 overflow-x-auto pb-1 lg:pb-0 no-scrollbar">
                         <button
-                            onClick={() => setShowAiModal(true)}
-                            className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100 font-bold text-xs"
+                            onClick={handleAiGenerate}
+                            disabled={isGenerating}
+                            className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100 font-bold text-xs disabled:opacity-50"
                         >
-                            <SparklesIcon className="w-4 h-4" /> AI Auto-Fill
+                            {isGenerating
+                                ? <div className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+                                : <SparklesIcon className="w-4 h-4" />}
+                            {isGenerating ? 'Generating...' : 'AI Auto-Fill'}
                         </button>
 
                         <div className="h-8 w-[1px] bg-gray-200 mx-2 hidden sm:block"></div>
@@ -707,19 +735,65 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                 </div>
             </header>
 
-            {/* Custom Publish Confirmation Modal */}
+            {/* Publish Preview Modal */}
             {showPublishModal && (
                 <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in p-4">
-                    <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 animate-scale-up border border-gray-100">
-                        <div className="flex justify-center mb-4">
+                    <div className="bg-white rounded-3xl shadow-2xl max-w-3xl w-full p-6 animate-scale-up border border-gray-100 max-h-[90vh] flex flex-col">
+                        <div className="flex justify-center mb-3">
                             <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
                                 <CloudUploadIcon className="w-6 h-6 text-indigo-600" />
                             </div>
                         </div>
-                        <h3 className="text-xl font-bold text-gray-900 text-center mb-2">Publish Timetable?</h3>
-                        <p className="text-gray-500 text-center text-sm mb-6">
-                            This will make the timetable visible to all students and parents in <strong>{schedules.map(s => s.className).join(', ')}</strong> immediately.
+                        <h3 className="text-xl font-bold text-gray-900 text-center mb-1">Preview & Publish</h3>
+                        <p className="text-gray-500 text-center text-sm mb-4">
+                            Publishing for <strong>{schedules.map(s => s.className).join(', ')}</strong> — visible to teachers and students immediately.
                         </p>
+
+                        {/* Compact read-only timetable preview */}
+                        <div className="overflow-auto flex-1 mb-5 rounded-2xl border border-gray-100">
+                            <table className="w-full text-xs border-collapse min-w-max">
+                                <thead>
+                                    <tr className="bg-gray-50">
+                                        <th className="sticky left-0 bg-gray-50 px-3 py-2 font-bold text-gray-400 text-left uppercase tracking-wider w-14">Day</th>
+                                        {PERIODS.map((p, i) => (
+                                            <th key={i} className={`px-2 py-2 font-bold text-center ${p.isBreak ? 'text-gray-300' : 'text-gray-500'}`}>
+                                                {p.isBreak ? '—' : p.name.replace('Period ', 'P')}
+                                                <div className="font-normal text-gray-300 text-[10px]">{p.start}</div>
+                                            </th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {DAYS.map(day => (
+                                        <tr key={day} className="border-t border-gray-100">
+                                            <td className="sticky left-0 bg-white px-3 py-2 font-bold text-gray-600 text-[11px] uppercase tracking-wider">{day.slice(0, 3)}</td>
+                                            {PERIODS.map((period, idx) => {
+                                                if (period.isBreak) return (
+                                                    <td key={idx} className="px-2 py-2 bg-gray-50 text-center">
+                                                        <span className="text-gray-300">—</span>
+                                                    </td>
+                                                );
+                                                const key = `${day}-${idx}`;
+                                                const subject = timetable[key];
+                                                const colorClass = subject ? (SUBJECT_COLORS[subject] || 'bg-gray-100 text-gray-700') : '';
+                                                return (
+                                                    <td key={idx} className="px-1 py-1">
+                                                        {subject ? (
+                                                            <div className={`rounded-lg px-2 py-1 text-center font-semibold truncate max-w-[90px] ${colorClass}`}>
+                                                                {subject}
+                                                            </div>
+                                                        ) : (
+                                                            <div className="text-center text-gray-200">—</div>
+                                                        )}
+                                                    </td>
+                                                );
+                                            })}
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+
                         <div className="flex space-x-3">
                             <button
                                 onClick={() => setShowPublishModal(false)}
@@ -731,7 +805,7 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                                 onClick={confirmPublish}
                                 className="flex-1 py-3 px-4 rounded-xl font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200"
                             >
-                                Confirm Publish
+                                Publish Live
                             </button>
                         </div>
                     </div>

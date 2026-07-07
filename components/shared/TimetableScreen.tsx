@@ -214,9 +214,13 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
                 });
                 Object.keys(byDay).forEach((d) => {
                     const times = Object.keys(byDay[d]).sort();
-                    times.forEach((st, order) => {
-                        if (order >= teaching.length) return;
-                        const key = `${d}-${teaching[order].name}`;
+                    times.forEach((st) => {
+                        // Match by start_time so each entry lands in its actual period
+                        // column — order-based mapping breaks for teachers who only
+                        // teach specific periods (e.g. only Period 4 would show as Period 1).
+                        const period = teaching.find(p => p.start === st);
+                        if (!period) return;
+                        const key = `${d}-${period.name}`;
                         const rows = byDay[d][st];
                         const teacherName = (r: any) => r.teacher?.full_name || r.teacher?.name || r.teacher_name || null;
                         const deptRows = rows.filter(r => DEPARTMENTS.includes(r.notes));
@@ -260,9 +264,12 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
                     className: finalClassName
                 });
 
-            } else if (!cachedData) {
+            } else {
+                // Backend returned empty — clear the display AND overwrite the cache
+                // so stale data from a previous (unfiltered) fetch doesn't persist.
                 setTimetable({});
                 setTeacherAssignments({});
+                await offlineStorage.save(cacheKey, { timetable: {}, teacherAssignments: {}, className: '' });
             }
 
         } catch (err) {

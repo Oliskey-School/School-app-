@@ -20,7 +20,9 @@ const ClassroomScreen: React.FC<ClassroomScreenProps> = ({ subjectName, navigate
   const [classmates, setClassmates] = useState<Student[]>([]);
   const [announcements, setAnnouncements] = useState<Notice[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'curriculum' | 'classmates'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'curriculum' | 'classmates' | 'notes'>('overview');
+  const [lessonNotes, setLessonNotes] = useState<any[]>([]);
+  const [notesLoading, setNotesLoading] = useState(false);
   
   // Curriculum state
   const [selectedTerm, setSelectedTerm] = useState<number>(1);
@@ -78,6 +80,15 @@ const ClassroomScreen: React.FC<ClassroomScreenProps> = ({ subjectName, navigate
     }
   }, [activeTab, selectedTerm, loadTopics]);
 
+  useEffect(() => {
+    if (activeTab !== 'notes' || !subjectInfo?.id) return;
+    setNotesLoading(true);
+    api.getAllLessonNotes(undefined, undefined, subjectInfo.id, 'approved')
+      .then(data => setLessonNotes(Array.isArray(data) ? data : []))
+      .catch(() => setLessonNotes([]))
+      .finally(() => setNotesLoading(false));
+  }, [activeTab, subjectInfo]);
+
   // Real-time synchronization
   useAutoSync(['notices', 'students', 'curriculum'], loadData);
 
@@ -129,7 +140,8 @@ const ClassroomScreen: React.FC<ClassroomScreenProps> = ({ subjectName, navigate
           {[
             { id: 'overview', label: 'Overview', icon: <GlobeIcon className="w-4 h-4" /> },
             { id: 'curriculum', label: 'Curriculum', icon: <BookOpenIcon className="w-4 h-4" /> },
-            { id: 'classmates', label: 'Classmates', icon: <UsersIcon className="w-4 h-4" /> }
+            { id: 'classmates', label: 'Classmates', icon: <UsersIcon className="w-4 h-4" /> },
+            { id: 'notes', label: 'Notes', icon: <ClipboardListIcon className="w-4 h-4" /> },
           ].map(tab => (
             <button
               key={tab.id}
@@ -335,6 +347,71 @@ const ClassroomScreen: React.FC<ClassroomScreenProps> = ({ subjectName, navigate
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {activeTab === 'notes' && (
+          <div className="space-y-4 animate-fade-in pb-10">
+            <div className="flex items-center gap-3 px-1 mb-2">
+              <div className="p-3 bg-violet-50 rounded-2xl text-violet-600">
+                <ClipboardListIcon className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-black text-xl text-gray-900">Lesson Notes</h3>
+                <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">{subjectName} — Approved by Admin</p>
+              </div>
+            </div>
+
+            {notesLoading ? (
+              <div className="space-y-3">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="h-24 bg-white rounded-3xl border border-gray-100 animate-pulse" />
+                ))}
+              </div>
+            ) : lessonNotes.length === 0 ? (
+              <div className="bg-white rounded-[2rem] p-10 border border-gray-100 shadow-sm text-center">
+                <BookOpenIcon className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                <p className="font-black text-gray-400">No lesson notes yet</p>
+                <p className="text-sm text-gray-400 mt-1">Your teacher hasn't uploaded any approved notes for this subject.</p>
+              </div>
+            ) : (
+              lessonNotes.map(note => (
+                <div key={note.id} className="bg-white rounded-[2rem] p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+                  <div className="absolute top-0 left-0 w-1.5 h-full bg-violet-500 group-hover:w-2 transition-all" />
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 bg-violet-50 rounded-2xl flex-shrink-0 flex items-center justify-center text-violet-600 font-black text-lg border border-violet-100">
+                      W{note.week}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <span className="text-xs font-black text-violet-500 uppercase tracking-widest">{note.term} · Week {note.week}</span>
+                        {note.class?.name && (
+                          <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-semibold">{note.class.name}</span>
+                        )}
+                      </div>
+                      <h4 className="font-black text-gray-900 text-base mb-1 leading-tight">{note.title}</h4>
+                      {note.teacher?.full_name && (
+                        <p className="text-xs text-gray-400 font-medium mb-2">{note.teacher.full_name}</p>
+                      )}
+                      <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">{note.content}</p>
+                      {note.file_url && (
+                        <a
+                          href={note.file_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-sm text-violet-600 hover:text-violet-800 font-semibold mt-3"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                          </svg>
+                          View Attachment
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         )}
       </main>

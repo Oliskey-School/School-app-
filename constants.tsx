@@ -276,6 +276,9 @@ export const SUBJECT_COLORS: { [key: string]: string } = {
   'Science': 'bg-sky-100 text-sky-800 border-sky-200',
 };
 
+// MUST stay identical to DEFAULT_PERIODS in lib/timetableSchedule.ts — the
+// Builder writes rows with those times, and any screen resolving a row's
+// period by start_time against a different set silently drops the lesson.
 export const TIMETABLE_PERIODS: Array<{ name: string; start: string; end: string; isBreak?: boolean }> = [
   { name: 'Period 1', start: '08:00', end: '08:45' },
   { name: 'Period 2', start: '08:45', end: '09:30' },
@@ -283,8 +286,8 @@ export const TIMETABLE_PERIODS: Array<{ name: string; start: string; end: string
   { name: 'Short Break', start: '10:15', end: '10:30', isBreak: true },
   { name: 'Period 4', start: '10:30', end: '11:15' },
   { name: 'Period 5', start: '11:15', end: '12:00' },
-  { name: 'Long Break', start: '12:00', end: '12:45', isBreak: true },
-  { name: 'Period 6', start: '12:45', end: '13:30' },
+  { name: 'Period 6', start: '12:00', end: '12:45' },
+  { name: 'Long Break', start: '12:45', end: '13:30', isBreak: true },
   { name: 'Period 7', start: '13:30', end: '14:15' },
   { name: 'Period 8', start: '14:15', end: '15:00' },
 ];

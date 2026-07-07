@@ -87,14 +87,25 @@ const TeacherCommunicationScreen: React.FC = () => {
         }
 
         try {
-            // Note: Video upload is not yet implemented in backend storage.
-            // We will only save the text notice for now.
-
             const audienceArray = Array.from(selectedClasses);
+
+            // A recorded video is now REALLY uploaded and linked into the notice,
+            // so recipients can actually watch it — no more silently dropping it.
+            let content = message || '';
+            if (mode === 'video' && videoBlobUrl) {
+                const blob = await fetch(videoBlobUrl).then(r => r.blob());
+                const file = new File([blob], `announcement-${Date.now()}.webm`, { type: blob.type || 'video/webm' });
+                const { url } = await api.uploadFileWithCategory(file, 'announcements');
+                if (!url) {
+                    toast.error('The video could not be uploaded. Please try again.');
+                    return;
+                }
+                content = `${message ? message + '\n\n' : ''}📹 Video announcement: ${url}`;
+            }
 
             const payload = {
                 title,
-                content: message || '(Video Announcement)',
+                content: content || '(Announcement)',
                 category: selectedCategory,
                 is_pinned: false,
                 audience: audienceArray, // JSONB
@@ -103,9 +114,9 @@ const TeacherCommunicationScreen: React.FC = () => {
                 timestamp: new Date().toISOString()
             };
 
-            const { error } = await api.createNotice(payload)
-                .then(() => ({ error: null }))
-                .catch(err => ({ error: err }));
+            // Only report success if the notice ACTUALLY saved — the old code
+            // toasted "sent" even when createNotice rejected.
+            await api.createNotice(payload);
 
             toast.success(`Announcement sent to: ${audienceArray.join(', ')}`);
             // Reset form

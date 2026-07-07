@@ -22,6 +22,9 @@ const StudentCBTListScreen: React.FC<StudentCBTListScreenProps> = ({ studentId, 
     const [tests, setTests] = useState<CBTTest[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedType, setSelectedType] = useState<'Test' | 'Exam' | null>(null);
+    // Quiz/CBT ids the student has ALREADY submitted → their score, so a test
+    // can't be retaken and the list honestly shows "Completed · X%".
+    const [takenScores, setTakenScores] = useState<Record<string, number>>({});
 
     // We'll use a local state for student to be safe, or cast from props if we update the interface
     // But since I can't easily change the interface in the parent without seeing if it breaks others,
@@ -81,6 +84,24 @@ const StudentCBTListScreen: React.FC<StudentCBTListScreenProps> = ({ studentId, 
 
                 setTests(formattedTests);
 
+                // Which of these has the student already submitted? Map quiz_id → score %.
+                try {
+                    const myResults = await api.getMyQuizResults();
+                    const scoreMap: Record<string, number> = {};
+                    (myResults || []).forEach((r: any) => {
+                        const qid = String(r.quiz_id || r.quizId || r.quiz?.id || '');
+                        if (!qid) return;
+                        const pct = typeof r.percentage === 'number'
+                            ? Math.round(r.percentage)
+                            : (r.total_marks || r.totalMarks)
+                                ? Math.round(((r.score || 0) / (r.total_marks || r.totalMarks)) * 100)
+                                : Math.round(r.score || 0);
+                        // Keep the best attempt if somehow multiple exist.
+                        scoreMap[qid] = Math.max(scoreMap[qid] ?? 0, pct);
+                    });
+                    setTakenScores(scoreMap);
+                } catch { /* no results yet — nothing taken */ }
+
             } catch (err) {
                 console.error("Error fetching available tests:", err);
             } finally {
@@ -100,17 +121,10 @@ const StudentCBTListScreen: React.FC<StudentCBTListScreenProps> = ({ studentId, 
     }, [tests, selectedType]);
 
     const handleTakeTest = (test: CBTTest) => {
-        // Check if taken (in a real app, query cbt_results table)
-        // For now, we'll assume the `results` array on the test object might not be populated 
-        // because we simply mapped it from the test row. 
-        // We should ideally check `cbt_results` table here.
-
-        // TODO: Implement result check against separate table
-        // For now preventing client-side check if empty
-        const hasTaken = false;
-
-        if (hasTaken) {
-            toast.error("You have already taken this test.");
+        // A CBT/exam is taken ONCE — block a retake using the student's real
+        // submitted results (fetched above).
+        if (Object.prototype.hasOwnProperty.call(takenScores, String(test.id))) {
+            toast.error(`You have already taken this ${test.type.toLowerCase()} (scored ${takenScores[String(test.id)]}%).`);
             return;
         }
         navigateTo('cbtPlayer', test.title, { test, studentId });
@@ -181,8 +195,8 @@ const StudentCBTListScreen: React.FC<StudentCBTListScreenProps> = ({ studentId, 
                     <div className="space-y-3">
                         {availableTests.length > 0 ? (
                             availableTests.map(test => {
-                                // Real result check logic would go here
-                                const hasTaken = false;
+                                const hasTaken = Object.prototype.hasOwnProperty.call(takenScores, String(test.id));
+                                const myScore = takenScores[String(test.id)];
 
                                 return (
                                     <div key={test.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
@@ -211,7 +225,7 @@ const StudentCBTListScreen: React.FC<StudentCBTListScreenProps> = ({ studentId, 
                                         {hasTaken ? (
                                             <div className="mt-4 pt-3 border-t border-gray-100 flex justify-between items-center">
                                                 <span className="text-sm text-gray-500">Your Score:</span>
-                                                <span className="font-bold text-lg text-indigo-600">--</span>
+                                                <span className="font-bold text-lg text-indigo-600">{myScore}%</span>
                                             </div>
                                         ) : (
                                             <button

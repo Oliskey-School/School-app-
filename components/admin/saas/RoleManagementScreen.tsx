@@ -1,3 +1,4 @@
+import { toast } from 'react-hot-toast';
 import React, { useState, useEffect } from 'react';
 import { api } from '../../../lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
@@ -66,7 +67,7 @@ export const RoleManagementScreen: React.FC<RoleManagementScreenProps> = ({ navi
 
     const handleAddPermission = async () => {
         if (!newPermission.resource) {
-            alert('Please select a resource');
+            toast.error('Please select a resource');
             return;
         }
 
@@ -84,13 +85,13 @@ export const RoleManagementScreen: React.FC<RoleManagementScreenProps> = ({ navi
 
             setNewPermission({ resource: '', action: 'read', allowed: true });
             fetchPermissions();
-            alert('Permission added successfully!');
+            toast.success('Permission added successfully!');
         } catch (error: any) {
             console.error('Error adding permission:', error);
             if (error.code === '23505') {
-                alert('This permission already exists for this role');
+                toast.error('This permission already exists for this role');
             } else {
-                alert('Failed to add permission');
+                toast.error('Failed to add permission');
             }
         }
     };
@@ -106,7 +107,7 @@ export const RoleManagementScreen: React.FC<RoleManagementScreenProps> = ({ navi
             fetchPermissions();
         } catch (error) {
             console.error('Error updating permission:', error);
-            alert('Failed to update permission');
+            toast.error('Failed to update permission');
         }
     };
 
@@ -121,10 +122,10 @@ export const RoleManagementScreen: React.FC<RoleManagementScreenProps> = ({ navi
 
             if (error) throw error;
             fetchPermissions();
-            alert('Permission deleted successfully!');
+            toast.success('Permission deleted successfully!');
         } catch (error) {
             console.error('Error deleting permission:', error);
-            alert('Failed to delete permission');
+            toast.error('Failed to delete permission');
         }
     };
 

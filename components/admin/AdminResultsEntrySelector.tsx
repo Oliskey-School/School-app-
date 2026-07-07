@@ -31,12 +31,17 @@ const AdminResultsEntrySelector: React.FC<AdminResultsEntrySelectorProps> = ({ n
             })
             .map(c => ({
                 id: c.id,
+                // Real class name (classes have no subject column — the gradebook
+                // offers the class's assigned subjects when subject is absent)
+                name: (c as any).name,
                 subject: c.subject,
+                // Admin-assigned subjects for this class (from the class form)
+                subjects: (c as any).subjects,
                 grade: c.grade,
                 section: c.section,
                 department: c.department,
                 studentCount: c.student_count || 0
-            }));
+            } as ClassInfo & { name?: string; subjects?: any[] }));
     }, [rawClasses, schoolId, currentBranchId]);
 
     const groupedClasses = useMemo(() => {
@@ -110,7 +115,7 @@ const AdminResultsEntrySelector: React.FC<AdminResultsEntrySelectorProps> = ({ n
                                             <div className="text-left">
                                                 <div className="flex items-center gap-2">
                                                     <p className="font-semibold text-gray-800">{getFormattedClassName(grade, cls.section)}</p>
-                                                    <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">{cls.subject}</span>
+                                                    {cls.subject && <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">{cls.subject}</span>}
                                                 </div>
                                                 <p className="text-sm text-gray-500">
                                                     {cls.studentCount} Students recorded

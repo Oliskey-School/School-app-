@@ -1,3 +1,4 @@
+import { toast } from 'react-hot-toast';
 import React, { useState, useEffect } from 'react';
 import { api } from '../../../lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
@@ -117,7 +118,7 @@ export const PaymentDashboard: React.FC<PaymentDashboardProps> = ({ navigateTo }
                 .single();
 
             if (existingInvoice) {
-                alert('Invoice already exists for this payment');
+                toast.success('Invoice already exists for this payment');
                 return;
             }
 
@@ -142,10 +143,10 @@ export const PaymentDashboard: React.FC<PaymentDashboardProps> = ({ navigateTo }
 
             if (error) throw error;
 
-            alert(`Invoice ${invoiceNumber} generated successfully!`);
+            toast.success(`Invoice ${invoiceNumber} generated successfully!`);
         } catch (error) {
             console.error('Error generating invoice:', error);
-            alert('Failed to generate invoice');
+            toast.error('Failed to generate invoice');
         }
     };
 

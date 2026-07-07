@@ -489,6 +489,17 @@ export class AcademicService {
         const startYear = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
         const session = data.session || `${startYear}/${startYear + 1}`;
 
+        // Resolve the branch — explicit from the caller, else the student's own.
+        // Untagged report cards vanish from branch-scoped views (strict isolation),
+        // so a branch admin would never see what their teachers submitted.
+        const studentRow = await prisma.student.findUnique({
+            where: { id: studentId },
+            select: { branch_id: true }
+        });
+        const branchId = (data.branchId && data.branchId !== 'all')
+            ? data.branchId
+            : (studentRow?.branch_id ?? null);
+
         return await prisma.$transaction(async (tx) => {
             // 0. Clean up existing AcademicPerformance records for this term/session that are NOT in the new list
             // This ensures consistency if subjects are removed from a student's curriculum
@@ -527,6 +538,7 @@ export class AcademicService {
                     await tx.academicPerformance.create({
                         data: {
                             school_id: schoolId,
+                            branch_id: branchId,
                             student_id: studentId,
                             subject: record.subject,
                             term,
@@ -555,10 +567,12 @@ export class AcademicService {
                 attendance: attendance || {} // Ensure attendance is included
             };
 
-            const result = existingRC 
+            const result = existingRC
                 ? await tx.reportCard.update({
                     where: { id: existingRC.id },
                     data: {
+                        // Backfill the branch on legacy untagged rows
+                        branch_id: existingRC.branch_id ?? branchId,
                         status: status || existingRC.status || 'Draft',
                         is_published: status === 'Published',
                         total_score: totalScore,
@@ -574,6 +588,7 @@ export class AcademicService {
                 : await tx.reportCard.create({
                     data: {
                         school_id: schoolId,
+                        branch_id: branchId,
                         student_id: studentId,
                         term,
                         session,
@@ -598,6 +613,144 @@ export class AcademicService {
 
             return result;
         });
+    }
+
+    // ============================================
+    // END-OF-SESSION PROMOTION
+    // ============================================
+    // Moves every Active student up one grade for the new session:
+    //  - grade < 12  → grade + 1; old enrollments Completed; enrolled into the
+    //    next class (same section preferred) when one exists in the branch
+    //  - grade >= 12 → status Graduated; enrollments Completed
+    // Each promoted/graduated student (and their linked parents) gets a
+    // celebration notification the dashboards animate on.
+    static async promoteStudents(schoolId: string, branchId: string | undefined, toSession: string, actorId?: string) {
+        const effectiveBranch = branchId && branchId !== 'all' ? branchId : undefined;
+        const students = await prisma.student.findMany({
+            where: {
+                school_id: schoolId,
+                ...(effectiveBranch ? { branch_id: effectiveBranch } : {}),
+                status: 'Active',
+                deleted_at: null,
+            },
+            select: { id: true, user_id: true, full_name: true, grade: true, section: true, branch_id: true }
+        });
+        if (students.length === 0) return { promoted: 0, graduated: 0, unplaced: 0, total: 0 };
+
+        const classes = await prisma.class.findMany({
+            where: { school_id: schoolId, deleted_at: null },
+            select: { id: true, grade: true, section: true, branch_id: true, name: true }
+        });
+        const targetClass = (grade: number, section: string | null, branch: string | null) => {
+            const pool = classes.filter(c => c.grade === grade && (!branch || c.branch_id === branch || c.branch_id === null));
+            return pool.find(c => section && c.section === section) || pool[0] || null;
+        };
+
+        let promoted = 0, graduated = 0, unplaced = 0;
+        const notifications: any[] = [];
+
+        for (const s of students) {
+            const grade = s.grade ?? 0;
+            if (grade >= 12) {
+                await prisma.$transaction([
+                    prisma.student.update({ where: { id: s.id }, data: { status: 'Graduated', updated_by: actorId } }),
+                    prisma.studentEnrollment.updateMany({
+                        where: { student_id: s.id, status: 'Active' },
+                        data: { status: 'Completed' }
+                    }),
+                ]);
+                graduated++;
+                notifications.push({
+                    school_id: schoolId, branch_id: s.branch_id, user_id: s.user_id,
+                    title: '🎓 Congratulations, Graduate!',
+                    message: `Dear ${s.full_name}, you have successfully completed your studies. We are proud of you — congratulations on graduating!`,
+                    category: 'promotion', audience: ['student'],
+                });
+            } else {
+                const nextGrade = grade + 1;
+                const next = targetClass(nextGrade, s.section ?? null, s.branch_id ?? null);
+                const tx: any[] = [
+                    prisma.student.update({ where: { id: s.id }, data: { grade: nextGrade, updated_by: actorId } }),
+                    prisma.studentEnrollment.updateMany({
+                        where: { student_id: s.id, status: 'Active' },
+                        data: { status: 'Completed' }
+                    }),
+                ];
+                if (next) {
+                    tx.push(prisma.studentEnrollment.upsert({
+                        where: { student_id_class_id: { student_id: s.id, class_id: next.id } },
+                        create: {
+                            student_id: s.id, class_id: next.id, school_id: schoolId,
+                            branch_id: s.branch_id, status: 'Active', is_primary: true,
+                        },
+                        update: { status: 'Active', is_primary: true },
+                    }));
+                } else {
+                    unplaced++;
+                }
+                await prisma.$transaction(tx);
+                promoted++;
+                const className = next ? `${next.name}${next.section ? ` ${next.section}` : ''}` : `the next class`;
+                notifications.push({
+                    school_id: schoolId, branch_id: s.branch_id, user_id: s.user_id,
+                    title: '🎉 You have been promoted!',
+                    message: `Congratulations ${s.full_name}! You have been promoted to ${className} for the ${toSession} session. Keep up the great work!`,
+                    category: 'promotion', audience: ['student'],
+                });
+            }
+        }
+
+        // Tell the parents too — their dashboard celebrates alongside the child's.
+        const links = await prisma.parentChild.findMany({
+            where: { school_id: schoolId, student_id: { in: students.map(s => s.id) }, deleted_at: null },
+            include: { parent: { select: { user_id: true } }, student: { select: { full_name: true, branch_id: true, grade: true, status: true } } }
+        });
+        for (const link of links) {
+            if (!link.parent?.user_id) continue;
+            const st: any = link.student;
+            notifications.push({
+                school_id: schoolId, branch_id: st?.branch_id ?? null, user_id: link.parent.user_id,
+                title: st?.status === 'Graduated' ? '🎓 Your child has graduated!' : '🎉 Your child has been promoted!',
+                message: st?.status === 'Graduated'
+                    ? `Congratulations! ${st?.full_name} has successfully graduated. We celebrate this milestone with your family.`
+                    : `Great news! ${st?.full_name} has been promoted for the ${toSession} session. Congratulations to your family!`,
+                category: 'promotion', audience: ['parent'],
+            });
+        }
+
+        // Let teachers and school admins know the new session has begun — a
+        // plain bell notice (category 'session-start'), NOT the confetti modal.
+        // The celebration is reserved for the promoted students and their
+        // parents; staff just need awareness that rosters have advanced. The
+        // admin who ran it (actorId) already sees the inline result, so skip them.
+        const staff = await prisma.user.findMany({
+            where: {
+                school_id: schoolId,
+                role: { in: ['TEACHER', 'ADMIN', 'PROPRIETOR'] as any },
+                ...(effectiveBranch ? { branch_id: effectiveBranch } : {}),
+                ...(actorId ? { id: { not: actorId } } : {}),
+            },
+            select: { id: true, role: true, branch_id: true },
+        });
+        for (const u of staff) {
+            notifications.push({
+                school_id: schoolId, branch_id: u.branch_id ?? null, user_id: u.id,
+                title: '📅 New session started',
+                message: `The school has advanced to the ${toSession} session. ${promoted} student(s) were promoted and ${graduated} graduated. Class registers have been updated.`,
+                category: 'session-start',
+                audience: [String(u.role).toLowerCase() === 'teacher' ? 'teacher' : 'admin'],
+            });
+        }
+
+        if (notifications.length) {
+            await prisma.notification.createMany({ data: notifications });
+        }
+
+        SocketService.emitToSchool(schoolId, 'student:updated', { action: 'promotion', toSession });
+        SocketService.emitToSchool(schoolId, 'class:updated', { action: 'promotion' });
+        SocketService.emitToSchool(schoolId, 'academic:updated', { action: 'promotion', toSession });
+
+        return { promoted, graduated, unplaced, total: students.length };
     }
 
     static async getCurriculumTopics(schoolId: string, subjectId: string, term: string) {

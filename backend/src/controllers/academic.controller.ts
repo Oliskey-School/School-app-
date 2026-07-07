@@ -181,12 +181,39 @@ export const upsertReportCard = async (req: AuthRequest, res: Response) => {
         const { studentId, schoolId, ...data } = req.body;
         const finalSchoolId = schoolId || req.user.school_id;
 
+        // Teachers submit results for admin review — only admins publish.
+        // Cap a teacher's status at 'Submitted' so results can never go live
+        // to students/parents without the admin's approval.
+        const role = (req.user.role || '').toLowerCase();
+        if (role === 'teacher' && String(data.status || '').toLowerCase() === 'published') {
+            data.status = 'Submitted';
+        }
+
         const result = await AcademicService.upsertReportCard(studentId as string, finalSchoolId, data);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
     }
 };
+export const promoteStudents = async (req: AuthRequest, res: Response) => {
+    try {
+        // Moving the whole school up a class is leadership's call only.
+        const role = (req.user.role || '').toLowerCase();
+        if (!['admin', 'superadmin', 'proprietor'].includes(role)) {
+            return res.status(403).json({ message: 'Only an admin can promote students.' });
+        }
+        const toSession = req.body.toSession;
+        if (!toSession) {
+            return res.status(400).json({ message: 'toSession is required (e.g. "2026/2027")' });
+        }
+        const branchId = req.body.branchId && req.body.branchId !== 'all' ? req.body.branchId : undefined;
+        const result = await AcademicService.promoteStudents(req.user.school_id, branchId, toSession, req.user.id);
+        res.json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 export const getReportCardByCriteria = async (req: AuthRequest, res: Response) => {
     try {
         const schoolId = req.user.school_id;

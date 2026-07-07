@@ -551,7 +551,24 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
                             schoolGeneratedId: s.school_generated_id,
                             schoolId: s.school_id,
                             branchId: s.branch_id,
-                            academicPerformance: (s.academic_performance || []).map((a: any) => ({ subject: a.subject, score: a.total || a.score })),
+                            // One entry per subject the child takes: rows are per-term in
+                            // the DB (same subject repeats), so average them; and when the
+                            // admin picked per-student subjects, only those subjects show.
+                            academicPerformance: (() => {
+                                const assigned: string[] = Array.isArray(s.assigned_subjects) ? s.assigned_subjects.filter(Boolean) : [];
+                                const bySubject = new Map<string, { subject: string; scores: number[] }>();
+                                (s.academic_performance || []).forEach((a: any) => {
+                                    if (!a?.subject) return;
+                                    if (assigned.length && !assigned.some((n: string) => String(n).toLowerCase() === String(a.subject).toLowerCase())) return;
+                                    const key = String(a.subject).toLowerCase();
+                                    if (!bySubject.has(key)) bySubject.set(key, { subject: a.subject, scores: [] });
+                                    bySubject.get(key)!.scores.push(Number(a.total || a.score) || 0);
+                                });
+                                return Array.from(bySubject.values()).map(e => ({
+                                    subject: e.subject,
+                                    score: Math.round(e.scores.reduce((x, y) => x + y, 0) / e.scores.length),
+                                }));
+                            })(),
                             behaviorNotes: (s.behavior_notes || []).map((b: any) => ({ id: b.id, date: b.date, type: b.category, title: b.category, note: b.note || '', by: b.reporter_name || 'Teacher' })),
                             reportCards: (s.report_cards || []).filter((r: any) => r.status === 'Published').map((r: any) => ({ term: r.term, session: r.session, status: r.status }))
                         } as any)));

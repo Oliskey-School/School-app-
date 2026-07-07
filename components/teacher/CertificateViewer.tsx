@@ -43,6 +43,35 @@ const CertificateViewer: React.FC = () => {
         }
     };
 
+    // Print a framed certificate to a print-ready window (browser → Save as PDF).
+    const printCertificate = (cert: Certificate) => {
+        const w = window.open('', '_blank', 'width=1000,height=720');
+        if (!w) { toast.error('Please allow pop-ups to download your certificate.'); return; }
+        w.document.write(`<!doctype html><html><head><title>Certificate — ${cert.course_title}</title>
+            <style>
+                @page{size:landscape}
+                body{font-family:Georgia,'Times New Roman',serif;margin:0;padding:40px;color:#1f2937}
+                .frame{border:8px double #4f46e5;padding:56px 48px;text-align:center;background:linear-gradient(135deg,#eef2ff,#faf5ff)}
+                .sub{font-size:14px;color:#6b7280;letter-spacing:2px;text-transform:uppercase}
+                h1{font-size:34px;margin:18px 0;color:#111827}
+                .name{font-size:26px;font-weight:700;margin:8px 0 4px}
+                .meta{margin-top:36px;padding-top:16px;border-top:1px solid #c7c7d1;font-size:12px;color:#6b7280}
+            </style></head><body>
+            <div class="frame">
+                <div class="sub">Certificate of Completion</div>
+                <p style="margin:24px 0 4px;color:#6b7280">This is proudly awarded to</p>
+                <div class="name">${profile?.name || 'Teacher'}</div>
+                <p style="color:#6b7280">for successfully completing</p>
+                <h1>${cert.course_title}</h1>
+                <div class="meta">
+                    Certificate #${cert.certificate_number} &nbsp;·&nbsp; Issued ${new Date(cert.issued_at).toLocaleDateString()}
+                </div>
+            </div>
+            <script>window.onload=function(){window.print();}</script>
+            </body></html>`);
+        w.document.close();
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center h-full">
@@ -78,7 +107,7 @@ const CertificateViewer: React.FC = () => {
                                 <h3 className="text-sm font-medium text-gray-600 mb-2">Certificate of Completion</h3>
                                 <h4 className="font-bold text-gray-900 text-lg mb-4">{cert.course_title}</h4>
                                 <p className="text-xs text-gray-600">Awarded to</p>
-                                <p className="font-sem ibold text-gray-900">{profile.name}</p>
+                                <p className="font-semibold text-gray-900">{profile.name}</p>
                                 <div className="mt-4 pt-4 border-t border-gray-300">
                                     <p className="text-xs text-gray-500">Certificate #{cert.certificate_number}</p>
                                     <p className="text-xs text-gray-500 mt-1">
@@ -88,7 +117,7 @@ const CertificateViewer: React.FC = () => {
                             </div>
 
                             <button
-                                onClick={() => toast('PDF download feature coming soon!', { icon: 'ℹ️' })}
+                                onClick={() => printCertificate(cert)}
                                 className="w-full mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium flex items-center justify-center space-x-2"
                             >
                                 <DownloadIcon className="w-4 h-4" />
