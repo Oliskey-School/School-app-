@@ -80,7 +80,7 @@ export class BusService {
 
     static async getStudentBus(schoolId: string, studentId: string) {
         // First, try to find a direct schoolBusId on the student record
-        const student = await (prisma.student.findUnique as any)({
+        const student = await prisma.student.findUnique({
             where: { id: studentId, school_id: schoolId },
             select: { school_bus_id: true }
         });

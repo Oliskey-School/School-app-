@@ -255,6 +255,8 @@ model Student {
   // set, this is the authoritative subject list for the student everywhere (My
   // Subjects, results). Empty = inherit the enrolled class's subjects.
   assigned_subjects       String[]                  @default([])
+  school_bus_id           String?
+  school_bus              TransportBus?             @relation(fields: [school_bus_id], references: [id])
   avatar_url              String?
   status                  String                    @default("Active")
   attendance_status       String                    @default("Present")
@@ -931,6 +933,7 @@ model TransportBus {
   created_by               String?
   updated_by               String?
   deleted_at               DateTime?
+  students     Student[]
 }
 
 model TransportRoute {

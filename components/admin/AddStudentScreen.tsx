@@ -187,6 +187,14 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
     // For a NEW student, lock onto the admin's active branch once it resolves (the
     // branch context can load a beat after the form mounts). Won't override edits.
     const branchAutoSetRef = React.useRef(false);
+    // Gates the subject auto-fill effect until the edit-mode fetch below has applied
+    // the student's saved class/department/curriculum — otherwise auto-fill fires on
+    // the initial (empty) state and stomps the real values a beat later.
+    const editLoadCompleteRef = React.useRef(!studentToEdit);
+    // One-time skip so auto-fill doesn't immediately overwrite subjects the admin
+    // already customized and saved (an empty saved list is fine to auto-fill over —
+    // that's the documented "inherit from class" default).
+    const skipNextAutoFillRef = React.useRef(false);
     useEffect(() => {
         if (studentToEdit) return;
         if (currentBranch?.id && !branchAutoSetRef.current) {
@@ -303,6 +311,13 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
     // back to the standard curriculum for that level. The admin/teacher can add/remove after.
     const autoFillKey = `${selectedClassIds[0] || ''}|${department || ''}|${curriculumType || ''}`;
     useEffect(() => {
+        // Wait for the saved student's class/department/curriculum to be applied
+        // before auto-filling anything, so we don't compute defaults off empty state.
+        if (studentToEdit && !editLoadCompleteRef.current) return;
+        if (skipNextAutoFillRef.current) {
+            skipNextAutoFillRef.current = false;
+            return;
+        }
         const primaryClass = availableClasses.find(c => c.id === selectedClassIds[0]);
         if (!primaryClass) return;
 
@@ -500,6 +515,15 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                     setSelectedBusId(studentData.school_bus_id || (studentData as any).schoolBusId || null);
                     setSelectedBranchId(studentData.branch_id || '');
 
+                    // Restore the admin's previously saved subject picks. An empty saved
+                    // list means "never customized" — leave it to the auto-fill effect
+                    // below to suggest defaults from the class, same as before.
+                    const savedSubjects = (studentData as any).assigned_subjects || (studentData as any).subjects || [];
+                    if (Array.isArray(savedSubjects) && savedSubjects.length > 0) {
+                        setSubjects(savedSubjects);
+                        skipNextAutoFillRef.current = true;
+                    }
+
                     // Set Enrollments
                     if (studentData.enrollments) {
                         setSelectedClassIds(studentData.enrollments.map((e: any) => e.class_id));
@@ -522,6 +546,7 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                 toast.error("Failed to load student details");
             } finally {
                 setIsLoading(false);
+                editLoadCompleteRef.current = true;
             }
         };
 
@@ -666,6 +691,7 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                     avatar_url: avatarUrl,
                     gender: gender || null,
                     department: department || null,
+                    curriculum_type: curriculumType || null,
                     branch_id: currentBranchId || profile?.branchId || null,
                     school_id: schoolId,
                     address: studentAddress || null,
