@@ -12,9 +12,13 @@ import { config } from '../config/env';
 
 // Sensible defaults per capability — callers may override with `model`.
 export const NVIDIA_MODELS = {
-    // Verified invokable on this key (integrate.api.nvidia.com):
-    chat: 'meta/llama-3.3-70b-instruct',        // strong general chat ✓
-    fastChat: 'meta/llama-3.1-8b-instruct',     // low-latency chat ✓
+    // Verified invokable on this key (integrate.api.nvidia.com).
+    // Default chat is the FAST 8B model — snappy replies for the assistant;
+    // bigger models are opt-in and everything falls back automatically when
+    // NVIDIA marks a model DEGRADED (it happens — see chat() below).
+    chat: 'meta/llama-3.1-8b-instruct',         // low-latency default ✓
+    chat70b: 'meta/llama-3.3-70b-instruct',     // strong general chat ✓
+    fastChat: 'meta/llama-3.1-8b-instruct',     // alias kept for callers ✓
     reasoning: 'deepseek-ai/deepseek-v4-flash', // DeepSeek reasoning ✓
     qwen: 'qwen/qwen3-next-80b-a3b-instruct',   // Qwen ✓
     nemotron: 'nvidia/llama-3.3-nemotron-super-49b-v1', // Nemotron ✓
@@ -27,6 +31,9 @@ export const NVIDIA_MODELS = {
     stt: 'openai/whisper-large-v3',
     tts: 'nvidia/magpie-tts-multilingual',
 } as const;
+
+// Per-attempt cap so a hung/cold upstream can't stall the UI for 10+ seconds.
+const CHAT_ATTEMPT_TIMEOUT_MS = 45_000;
 
 const requireKey = (): string => {
     const key = config.nvidiaApiKey;
@@ -92,31 +99,72 @@ export class NvidiaAIService {
         if (!Array.isArray(body?.messages) || body.messages.length === 0) {
             throw new Error('messages[] is required for chat.');
         }
-        const payload = {
-            model: resolveChatModel(body.model, body.messages),
-            messages: body.messages,
-            temperature: body.temperature ?? 0.7,
-            max_tokens: body.max_tokens ?? 1024,
-            top_p: body.top_p ?? 1,
-            stream: false,
-            ...(body.response_format ? { response_format: body.response_format } : {}),
-        };
-        const res = await fetch(`${config.nvidiaBaseUrl}/chat/completions`, {
-            method: 'POST',
-            headers: authHeaders(),
-            body: JSON.stringify(payload),
-        });
-        if (!res.ok) {
-            const detail = await res.text().catch(() => '');
-            throw Object.assign(new Error(`NVIDIA chat error ${res.status}`), { status: res.status, detail });
+
+        // NVIDIA models occasionally go DEGRADED ("cannot be invoked"), 404, or
+        // hang while cold. Never let one broken model take the assistant down:
+        // try the requested model, then walk a chain of verified alternates.
+        // The vision request keeps its multimodal-capable chain.
+        const primary = resolveChatModel(body.model, body.messages);
+        const chain = hasImage(body.messages)
+            ? [primary, NVIDIA_MODELS.vision]
+            : [primary, NVIDIA_MODELS.fastChat, NVIDIA_MODELS.nemotron, NVIDIA_MODELS.reasoning];
+        const models = Array.from(new Set(chain));
+
+        let lastError: any = null;
+        for (const model of models) {
+            const payload = {
+                model,
+                messages: body.messages,
+                temperature: body.temperature ?? 0.7,
+                max_tokens: body.max_tokens ?? 1024,
+                top_p: body.top_p ?? 1,
+                stream: false,
+                ...(body.response_format ? { response_format: body.response_format } : {}),
+            };
+            try {
+                const res = await fetch(`${config.nvidiaBaseUrl}/chat/completions`, {
+                    method: 'POST',
+                    headers: authHeaders(),
+                    body: JSON.stringify(payload),
+                    signal: AbortSignal.timeout(CHAT_ATTEMPT_TIMEOUT_MS),
+                });
+                if (!res.ok) {
+                    const detail = await res.text().catch(() => '');
+                    lastError = Object.assign(new Error(`NVIDIA chat error ${res.status}`), { status: res.status, detail });
+                    // Retryable upstream conditions: DEGRADED (400), missing (404),
+                    // rate limited (429), or server-side failures (5xx).
+                    const retryable = res.status === 400 && /degraded/i.test(detail)
+                        || res.status === 404 || res.status === 429 || res.status >= 500;
+                    if (retryable && model !== models[models.length - 1]) {
+                        console.warn(`[NVIDIA AI] ${model} unavailable (${res.status}) — falling back to next model`);
+                        continue;
+                    }
+                    throw lastError;
+                }
+                const data: any = await res.json();
+                if (model !== primary) {
+                    console.log(`[NVIDIA AI] Served by fallback model ${model} (primary ${primary} unavailable)`);
+                }
+                return {
+                    text: data?.choices?.[0]?.message?.content ?? '',
+                    model: data?.model || model,
+                    usage: data?.usage,
+                    raw: data,
+                };
+            } catch (err: any) {
+                // Timeouts / network hiccups → try the next model instead of hanging.
+                if (err?.status && !(err.status === 400 && /degraded/i.test(err.detail || ''))
+                    && err.status !== 404 && err.status !== 429 && err.status < 500) {
+                    throw err; // genuine client error (bad request shape etc.)
+                }
+                lastError = err;
+                if (model !== models[models.length - 1]) {
+                    console.warn(`[NVIDIA AI] ${model} failed (${err?.message}) — falling back to next model`);
+                    continue;
+                }
+            }
         }
-        const data: any = await res.json();
-        return {
-            text: data?.choices?.[0]?.message?.content ?? '',
-            model: data?.model,
-            usage: data?.usage,
-            raw: data,
-        };
+        throw lastError || new Error('All AI models are currently unavailable. Please try again shortly.');
     }
 
     // ── Embeddings ───────────────────────────────────────────────────────────

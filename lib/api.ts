@@ -61,7 +61,23 @@ class ExpressApiClient {
         }
     }
 
+    // The server drops the CSRF token straight into a readable XSRF-TOKEN cookie
+    // on the first response — read it from there (no extra round-trip). The
+    // /auth/csrf-token endpoint remains only as a fallback for environments
+    // where the cookie can't be read (e.g. blocked third-party cookies).
+    private readCsrfCookie(): string | null {
+        try {
+            const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
+            return match ? decodeURIComponent(match[1]) : null;
+        } catch { return null; }
+    }
+
     async getCsrfToken(): Promise<string | null> {
+        const fromCookie = this.readCsrfCookie();
+        if (fromCookie) {
+            this.csrfToken = fromCookie;
+            return fromCookie;
+        }
         if (this.csrfToken) return this.csrfToken;
         try {
             const response = await fetch(`${this.baseUrl}/auth/csrf-token`, { credentials: 'include' });

@@ -40,6 +40,34 @@ export const {
 // Alias for backwards compatibility with existing code
 export const generateToken = generateCsrfToken;
 
+// The READABLE cookie carrying the CSRF token (classic XSRF-TOKEN pattern).
+// Frontend reads it with document.cookie and echoes it in X-CSRF-Token —
+// no "fetch a token from an endpoint" round-trip needed.
+export const CSRF_COOKIE_NAME = 'XSRF-TOKEN';
+
+const xsrfCookieOptions = () => ({
+    httpOnly: false, // deliberately readable by the SPA
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: (process.env.NODE_ENV === 'production' ? 'none' : 'lax') as any,
+    path: '/',
+});
+
+/**
+ * Cookie-based CSRF delivery: on any request that doesn't yet carry the
+ * XSRF-TOKEN cookie, mint a token (which also sets the HttpOnly secret cookie)
+ * and hand it to the browser as a readable cookie. From then on the SPA just
+ * reads the cookie — the /auth/csrf-token endpoint becomes a legacy fallback.
+ */
+export const ensureCsrfCookie = (req: Request, res: Response, next: NextFunction) => {
+    try {
+        if (!req.cookies?.[CSRF_COOKIE_NAME]) {
+            const token = generateCsrfToken(req, res);
+            res.cookie(CSRF_COOKIE_NAME, token, xsrfCookieOptions());
+        }
+    } catch { /* non-fatal — the legacy endpoint still works */ }
+    next();
+};
+
 /**
  * Single-use (non-replayable) CSRF enforcement.
  *
@@ -83,11 +111,14 @@ export const doubleSubmitCookieMiddleware = (req: Request, res: Response, next: 
             burnedTokens.set(hash, Date.now() + BURNED_TTL_MS);
         }
 
-        // Rotate a fresh single-use token back to the caller.
+        // Rotate a fresh single-use token back to the caller — in the response
+        // header (for JS clients tracking it) AND the readable cookie, so the
+        // cookie-based flow never goes stale after a mutation.
         try {
             const fresh = generateCsrfToken(req, res);
             res.setHeader('X-CSRF-Token', fresh);
-        } catch { /* non-fatal: client can refetch via /auth/csrf-token */ }
+            res.cookie(CSRF_COOKIE_NAME, fresh, xsrfCookieOptions());
+        } catch { /* non-fatal: cookie re-issued on the next request */ }
 
         next();
     });

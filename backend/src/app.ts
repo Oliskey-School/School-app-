@@ -10,7 +10,7 @@ import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import { config } from './config/env';
-import { doubleSubmitCookieMiddleware, csrfErrorHandler } from './middleware/csrf.middleware';
+import { doubleSubmitCookieMiddleware, csrfErrorHandler, ensureCsrfCookie } from './middleware/csrf.middleware';
 import { Sentry, sentryEnabled } from './config/instrument';
 import routes from './routes';
 
@@ -72,6 +72,10 @@ app.use((req, _res, next) => {
     if (req.body == null) req.body = {};
     next();
 });
+
+// CSRF token is delivered as a readable cookie (XSRF-TOKEN) on the first
+// response — the SPA reads it directly instead of calling an endpoint.
+app.use(ensureCsrfCookie);
 
 // Lead DevSecOps: Apply Anti-CSRF protection globally, except for refresh endpoint
 // to handle cross-site cookie blocking on mobile browsers.
@@ -190,10 +194,18 @@ app.use((req, res, next) => {
 });
 app.disable('x-powered-by');
 
-// 5. Global Rate Limiting — tunable via env (defaults: 600 req / 15 min / IP)
-const GLOBAL_RATE_LIMIT = parseInt(process.env.RATE_LIMIT_MAX || '600', 10);
+// 5. Global Rate Limiting — tunable via env.
+// Budgeted for a sustained 30 req/s per IP (whole schools often sit behind ONE
+// NAT IP — labs, staff rooms and phones on the school Wi-Fi share it), using a
+// short 1-minute window so a brief burst doesn't poison a long window.
+// Defaults: 1800 req / 60 s / IP  (= 30 r/s).
+const GLOBAL_RATE_LIMIT = parseInt(process.env.RATE_LIMIT_MAX || '1800', 10);
+const RATE_LIMIT_WINDOW_MS = parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000', 10);
+// Keepalive / probe paths never consume budget: they're cheap, constant-rate
+// pings (LB probes, connectivity checks) and must not starve real traffic.
+const KEEPALIVE_PATHS = ['/api/health', '/live', '/ready'];
 const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
+    windowMs: RATE_LIMIT_WINDOW_MS,
     limit: GLOBAL_RATE_LIMIT,
     standardHeaders: 'draft-7',
     legacyHeaders: false,
@@ -201,6 +213,8 @@ const limiter = rateLimit({
     skip: (req) => {
         if (!IS_PROD) return true;
         if (req.method === 'OPTIONS') return true;
+        const path = req.originalUrl || req.path || '';
+        if (KEEPALIVE_PATHS.some(p => path === p || path.startsWith(p + '?'))) return true;
         const ip = req.ip || req.connection.remoteAddress;
         if (ip === '::1' || ip === '127.0.0.1' || ip === '::ffff:127.0.0.1') return true;
         return false;

@@ -1,14 +1,27 @@
 
 import React, { useState, useRef } from 'react';
 import { toast } from 'react-hot-toast';
-import { getAIClient, AI_MODEL_NAME } from '../../lib/ai';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { api } from '../../lib/api';
+import { isAIAllowedClient, AI_LOCKED_MESSAGE } from '../../lib/ai';
 import { SparklesIcon, VideoIcon, CameraIcon, PhotoIcon, XCircleIcon, DownloadIcon } from '../../constants';
+
+// Aspect ratio → FLUX-friendly dimensions (multiples of 64)
+const RATIO_DIMS: Record<string, { width: number; height: number }> = {
+    '1:1': { width: 1024, height: 1024 },
+    '3:4': { width: 832, height: 1152 },
+    '4:3': { width: 1152, height: 832 },
+    '9:16': { width: 768, height: 1344 },
+    '16:9': { width: 1344, height: 768 },
+};
 
 const MediaGenerator: React.FC = () => {
     const [mode, setMode] = useState<'image' | 'video' | 'edit' | 'animate'>('image');
     const [prompt, setPrompt] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [resultUrl, setResultUrl] = useState<string | null>(null);
+    const [resultText, setResultText] = useState<string | null>(null);
     const [aspectRatio, setAspectRatio] = useState('1:1');
     const [uploadImage, setUploadImage] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -28,92 +41,77 @@ const MediaGenerator: React.FC = () => {
 
     const handleGenerate = async () => {
         if (!prompt && mode !== 'animate') return;
+        if (!isAIAllowedClient()) { toast.error(AI_LOCKED_MESSAGE); return; }
+        if ((mode === 'edit' || mode === 'animate') && !uploadImage) {
+            toast.error('Please upload a reference image first.');
+            return;
+        }
         setIsLoading(true);
         setResultUrl(null);
+        setResultText(null);
 
         try {
-            const ai = getAIClient(import.meta.env.VITE_GEMINI_API_KEY || '') as any;
+            const dims = RATIO_DIMS[aspectRatio] || RATIO_DIMS['1:1'];
 
             if (mode === 'image') {
-                // Generate Image
-                const response = await ai.models.generateContent({
-                    model: 'gemini-2.0-flash',
-                    contents: { parts: [{ text: prompt }] },
-                    config: {
-                        imageConfig: { aspectRatio: aspectRatio, imageSize: '2K' }
-                    }
-                });
-
-                const imgPart = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
-                if (imgPart?.inlineData) {
-                    setResultUrl(`data:${imgPart.inlineData.mimeType};base64,${imgPart.inlineData.data}`);
-                }
-
-            } else if (mode === 'video') {
-                // Generate Video (Veo)
-                let operation = await ai.models.generateVideos({
-                    model: 'veo-3.1-fast-generate-preview',
-                    prompt: prompt,
-                    config: {
-                        numberOfVideos: 1,
-                        resolution: '720p',
-                        aspectRatio: aspectRatio as '16:9' | '9:16'
-                    }
-                });
-
-                // Polling
-                while (!operation.done) {
-                    await new Promise(r => setTimeout(r, 5000));
-                    operation = await ai.operations.getVideosOperation({ operation });
-                }
-
-                const uri = operation.response?.generatedVideos?.[0]?.video?.uri;
-                if (uri) setResultUrl(`${uri}&key=${import.meta.env.VITE_GEMINI_API_KEY}`);
+                // REAL text-to-image via the server-side AI proxy (FLUX).
+                const res = await api.aiGenerateImage(prompt, { ...dims, steps: 4 });
+                if (res.image) setResultUrl(res.image);
+                else throw new Error('The image service returned no image. Please try a different prompt.');
 
             } else if (mode === 'edit' && uploadImage) {
-                // Edit Image (Nano Banana)
-                const base64Data = uploadImage.split(',')[1];
-                const response = await ai.models.generateContent({
-                    model: 'gemini-2.0-flash',
-                    contents: {
-                        parts: [
-                            { inlineData: { mimeType: 'image/jpeg', data: base64Data } },
-                            { text: prompt }
-                        ]
-                    }
+                // Edit = vision reads the photo + your instruction, writes a
+                // precise art prompt, then a fresh image is generated from it.
+                const analysis = await api.aiChat({
+                    messages: [{
+                        role: 'user',
+                        content: [
+                            { type: 'text', text: `Look at this image. The user wants this change: "${prompt}". Write ONE detailed text-to-image prompt (max 80 words) that recreates this image WITH the requested change applied. Reply with only the prompt text.` },
+                            { type: 'image_url', image_url: { url: uploadImage } },
+                        ],
+                    }],
+                    max_tokens: 200,
                 });
-                const imgPart = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
-                if (imgPart?.inlineData) {
-                    setResultUrl(`data:${imgPart.inlineData.mimeType};base64,${imgPart.inlineData.data}`);
-                }
+                const editPrompt = (analysis.text || '').trim();
+                if (!editPrompt) throw new Error('Could not understand the image.');
+                const res = await api.aiGenerateImage(editPrompt, { width: 1024, height: 1024, steps: 4 });
+                if (res.image) setResultUrl(res.image);
+                else throw new Error('The image service returned no image.');
 
-            } else if (mode === 'animate' && uploadImage) {
-                // Animate Image (Veo)
-                const base64Data = uploadImage.split(',')[1];
-                let operation = await ai.models.generateVideos({
-                    model: 'veo-3.1-fast-generate-preview',
-                    prompt: prompt || "Animate this image cinematically",
-                    image: {
-                        imageBytes: base64Data,
-                        mimeType: 'image/jpeg'
-                    },
-                    config: {
-                        numberOfVideos: 1,
-                        resolution: '720p',
-                        aspectRatio: '16:9' // Veo image-to-video constraint
-                    }
+            } else if (mode === 'video' || mode === 'animate') {
+                // Honest video tooling: full video rendering isn't available, so
+                // produce a professional STORYBOARD + narration script a teacher
+                // can shoot or present — genuinely useful for lessons.
+                const messages: any[] = mode === 'animate' && uploadImage
+                    ? [{
+                        role: 'user',
+                        content: [
+                            { type: 'text', text: `Create an animation storyboard for this image. Goal: ${prompt || 'bring the scene to life for a classroom lesson'}.` },
+                            { type: 'image_url', image_url: { url: uploadImage } },
+                        ],
+                    }]
+                    : [{ role: 'user', content: `Create an educational video plan for: ${prompt}` }];
+
+                const res = await api.aiChat({
+                    messages: [
+                        {
+                            role: 'system',
+                            content: 'You are an educational video producer for a school. Return a concise markdown storyboard: a **Title**, a scene table (| Time | Visual | Narration |) of 5-8 rows for a ~60-second video, and a one-line **Learning takeaway**. Keep narration classroom-friendly.',
+                        },
+                        ...messages,
+                    ],
+                    max_tokens: 900,
                 });
-                while (!operation.done) {
-                    await new Promise(r => setTimeout(r, 5000));
-                    operation = await ai.operations.getVideosOperation({ operation });
-                }
-                const uri = operation.response?.generatedVideos?.[0]?.video?.uri;
-                if (uri) setResultUrl(`${uri}&key=${import.meta.env.VITE_GEMINI_API_KEY}`);
+                if (!res.text) throw new Error('No storyboard was generated.');
+                setResultText(res.text);
+                toast('📽️ Storyboard ready — full video rendering is coming; use this script to record or present.', { icon: '🎬' });
             }
 
-        } catch (error) {
+        } catch (error: any) {
             console.error("Generation failed:", error);
-            toast.error("Failed to generate media. Please try again.");
+            // The proxy sends honest, specific messages (e.g. media service
+            // unreachable, or plan-locked) — show them rather than a generic line.
+            toast.error(error?.message || "Failed to generate media. Please try again.");
         } finally {
             setIsLoading(false);
         }
@@ -131,7 +129,7 @@ const MediaGenerator: React.FC = () => {
                 ].map(m => (
                     <button
                         key={m.id}
-                        onClick={() => { setMode(m.id as any); setResultUrl(null); }}
+                        onClick={() => { setMode(m.id as any); setResultUrl(null); setResultText(null); }}
                         className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors ${mode === m.id ? 'bg-purple-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'
                             }`}
                     >
@@ -146,14 +144,16 @@ const MediaGenerator: React.FC = () => {
                 {/* Result Display */}
                 {resultUrl ? (
                     <div className="bg-black rounded-xl overflow-hidden shadow-lg relative group">
-                        {(mode === 'video' || mode === 'animate') ? (
-                            <video src={resultUrl} controls autoPlay loop className="w-full h-auto max-h-[60vh]" />
-                        ) : (
-                            <img src={resultUrl} alt="Generated" className="w-full h-auto max-h-[60vh] object-contain" />
-                        )}
+                        <img src={resultUrl} alt="Generated" className="w-full h-auto max-h-[60vh] object-contain" />
                         <a href={resultUrl} download="generated_media" className="absolute top-4 right-4 p-2 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white/40 opacity-0 group-hover:opacity-100 transition-opacity">
                             <DownloadIcon className="w-6 h-6" />
                         </a>
+                    </div>
+                ) : resultText ? (
+                    <div className="bg-white rounded-xl shadow-lg p-5 max-h-[60vh] overflow-y-auto">
+                        <div className="prose prose-sm max-w-none">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{resultText}</ReactMarkdown>
+                        </div>
                     </div>
                 ) : (
                     <div className="h-64 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center text-gray-400">

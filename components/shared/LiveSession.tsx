@@ -1,220 +1,208 @@
 
 import React, { useEffect, useRef, useState } from 'react';
-import { getAIClient, AI_MODEL_NAME } from '../../lib/ai';
+import { api } from '../../lib/api';
+import { isAIAllowedClient, AI_LOCKED_MESSAGE } from '../../lib/ai';
 import { MicrophoneIcon, StopIcon, VideoIcon } from '../../constants';
 
 interface LiveSessionProps {
     onClose: () => void;
 }
 
-// Helper for base64 encoding
-function arrayBufferToBase64(buffer: ArrayBuffer) {
-    let binary = '';
-    const bytes = new Uint8Array(buffer);
-    const len = bytes.byteLength;
-    for (let i = 0; i < len; i++) {
-        binary += String.fromCharCode(bytes[i]);
-    }
-    return btoa(binary);
-}
-
-// Helper for base64 decoding
-function base64ToArrayBuffer(base64: string) {
-    const binaryString = atob(base64);
-    const len = binaryString.length;
-    const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-    }
-    return bytes.buffer;
-}
-
+/**
+ * Live Voice — a real, working voice conversation:
+ *  1. Your speech is transcribed locally in the browser (instant, private).
+ *  2. The transcript + a low-res webcam frame go to the AI (so it can "see").
+ *  3. The reply is spoken aloud with the browser's voice.
+ * The previous implementation opened a Gemini-Live socket that was never
+ * implemented — it sat on "Connecting..." forever.
+ */
 const LiveSession: React.FC<LiveSessionProps> = ({ onClose }) => {
-    const [status, setStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
+    const [status, setStatus] = useState<'connecting' | 'listening' | 'thinking' | 'speaking' | 'unsupported' | 'error'>('connecting');
     const [isMuted, setIsMuted] = useState(false);
     const [volumeLevel, setVolumeLevel] = useState(0);
+    const [caption, setCaption] = useState<string>('');
 
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const audioContextRef = useRef<AudioContext | null>(null);
-    const inputSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
-    const processorRef = useRef<ScriptProcessorNode | null>(null);
     const streamRef = useRef<MediaStream | null>(null);
+    const audioContextRef = useRef<AudioContext | null>(null);
+    const recognitionRef = useRef<any>(null);
+    const mountedRef = useRef(true);
+    const busyRef = useRef(false);        // true while thinking/speaking
+    const mutedRef = useRef(false);
+    const historyRef = useRef<Array<{ role: string; content: any }>>([]);
 
-    // Audio Playback
-    const nextStartTimeRef = useRef<number>(0);
-    const outputGainNodeRef = useRef<GainNode | null>(null);
+    const speak = (text: string) => new Promise<void>((resolve) => {
+        if (!('speechSynthesis' in window)) { resolve(); return; }
+        window.speechSynthesis.cancel();
+        const clean = text.replace(/[*_#`>\[\]]/g, '').replace(/\n+/g, '. ');
+        const utter = new SpeechSynthesisUtterance(clean);
+        utter.rate = 1.02;
+        utter.onend = () => resolve();
+        utter.onerror = () => resolve();
+        window.speechSynthesis.speak(utter);
+    });
+
+    const captureFrame = (): string | null => {
+        try {
+            const video = videoRef.current, canvas = canvasRef.current;
+            if (!video || !canvas || !video.videoWidth) return null;
+            canvas.width = Math.max(64, Math.floor(video.videoWidth * 0.25));
+            canvas.height = Math.max(64, Math.floor(video.videoHeight * 0.25));
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return null;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            return canvas.toDataURL('image/jpeg', 0.5);
+        } catch { return null; }
+    };
+
+    const startRecognition = () => {
+        const rec = recognitionRef.current;
+        if (!rec || mutedRef.current || busyRef.current || !mountedRef.current) return;
+        try { rec.start(); } catch { /* already started */ }
+    };
+
+    const handleUtterance = async (transcript: string) => {
+        if (!transcript.trim() || busyRef.current) return;
+        busyRef.current = true;
+        setStatus('thinking');
+        setCaption(`You: ${transcript}`);
+        try {
+            const frame = captureFrame();
+            const userContent: any = frame
+                ? [{ type: 'text', text: transcript }, { type: 'image_url', image_url: { url: frame } }]
+                : transcript;
+            historyRef.current.push({ role: 'user', content: transcript });
+
+            const res = await api.aiChat({
+                messages: [
+                    { role: 'system', content: 'You are a live voice tutor in a school app. Answer in 1-3 short spoken-style sentences — warm, clear and encouraging. If the camera frame is relevant (e.g. the student shows homework or an object), use it; otherwise ignore it.' },
+                    ...historyRef.current.slice(-8).slice(0, -1),
+                    { role: 'user', content: userContent },
+                ],
+                max_tokens: 160,
+            });
+
+            const reply = (res.text || '').trim() || "I didn't catch that — could you say it again?";
+            historyRef.current.push({ role: 'assistant', content: reply });
+            setCaption(reply);
+            setStatus('speaking');
+            await speak(reply);
+        } catch (e: any) {
+            setCaption(e?.message || 'Sorry, I had trouble answering.');
+        } finally {
+            busyRef.current = false;
+            if (mountedRef.current && !mutedRef.current) {
+                setStatus('listening');
+                startRecognition();
+            }
+        }
+    };
 
     useEffect(() => {
-        let session: any = null;
-        let mounted = true;
+        mountedRef.current = true;
 
-        const startSession = async () => {
-            setStatus('connecting');
+        const start = async () => {
+            if (!isAIAllowedClient()) {
+                setStatus('error');
+                setCaption(AI_LOCKED_MESSAGE);
+                return;
+            }
+            const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+            if (!SR) {
+                setStatus('unsupported');
+                setCaption('Live voice needs Chrome or Edge. Please use Smart Chat instead.');
+                return;
+            }
             try {
-                const ai = getAIClient(import.meta.env.VITE_GEMINI_API_KEY || '');
-
-                // Setup Audio Context
-                audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-                outputGainNodeRef.current = audioContextRef.current.createGain();
-                outputGainNodeRef.current.connect(audioContextRef.current.destination);
-
-                // Get Media Stream (Audio & Video)
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    audio: {
-                        sampleRate: 16000,
-                        channelCount: 1,
-                        echoCancellation: true
-                    },
-                    video: true
-                });
+                // Camera + mic preview (mic is used by speech recognition itself)
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
                 streamRef.current = stream;
-
-                // Setup Video Preview
                 if (videoRef.current) {
                     videoRef.current.srcObject = stream;
-                    videoRef.current.play();
+                    videoRef.current.play().catch(() => { });
                 }
 
-                // Connect to Gemini Live
-                const sessionPromise = (ai as any).live.connect({
-                    model: 'gemini-2.0-flash',
-                    config: {
-                        responseModalities: ['AUDIO'],
-                        systemInstruction: { parts: [{ text: "You are a helpful school assistant. Keep responses concise and friendly." }] },
-                    },
-                    callbacks: {
-                        onopen: () => {
-                            if (!mounted) return;
-                            setStatus('connected');
-                            console.log("Live Session Connected");
-
-                            // Start Audio Input Processing
-                            const ctx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
-                            const source = ctx.createMediaStreamSource(stream);
-                            const processor = ctx.createScriptProcessor(4096, 1, 1);
-
-                            processor.onaudioprocess = (e) => {
-                                if (isMuted) return;
-                                const inputData = e.inputBuffer.getChannelData(0);
-
-                                // Simple visualizer
-                                let sum = 0;
-                                for (let i = 0; i < inputData.length; i++) sum += Math.abs(inputData[i]);
-                                setVolumeLevel(Math.min(100, (sum / inputData.length) * 500));
-
-                                // Convert Float32 to Int16 PCM
-                                const pcmData = new Int16Array(inputData.length);
-                                for (let i = 0; i < inputData.length; i++) {
-                                    const s = Math.max(-1, Math.min(1, inputData[i]));
-                                    pcmData[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-                                }
-
-                                const base64Audio = arrayBufferToBase64(pcmData.buffer);
-
-                                (sessionPromise as Promise<any>).then(currentSession => {
-                                    currentSession.sendRealtimeInput({
-                                        media: {
-                                            mimeType: 'audio/pcm;rate=16000',
-                                            data: base64Audio
-                                        }
-                                    });
-                                });
-                            };
-
-                            source.connect(processor);
-                            processor.connect(ctx.destination);
-
-                            inputSourceRef.current = source;
-                            processorRef.current = processor;
-                        },
-                        onmessage: async (msg: any) => {
-                            if (!mounted) return;
-
-                            // Handle Audio Output
-                            const audioData = msg.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
-                            if (audioData && audioContextRef.current && outputGainNodeRef.current) {
-                                const audioBufferChunk = base64ToArrayBuffer(audioData);
-                                const float32Data = new Float32Array(audioBufferChunk.byteLength / 2);
-                                const dataView = new DataView(audioBufferChunk);
-
-                                for (let i = 0; i < float32Data.length; i++) {
-                                    float32Data[i] = dataView.getInt16(i * 2, true) / 32768.0;
-                                }
-
-                                const audioBuffer = audioContextRef.current.createBuffer(1, float32Data.length, 24000);
-                                audioBuffer.getChannelData(0).set(float32Data);
-
-                                const source = audioContextRef.current.createBufferSource();
-                                source.buffer = audioBuffer;
-                                source.connect(outputGainNodeRef.current);
-
-                                const currentTime = audioContextRef.current.currentTime;
-                                const startTime = Math.max(currentTime, nextStartTimeRef.current);
-                                source.start(startTime);
-                                nextStartTimeRef.current = startTime + audioBuffer.duration;
-                            }
-                        },
-                        onclose: () => {
-                            if (mounted) setStatus('disconnected');
-                        },
-                        onerror: (err) => {
-                            console.error("Live Error:", err);
-                            if (mounted) setStatus('disconnected');
-                        }
-                    }
-                });
-
-                session = sessionPromise;
-
-                // Video Frame Streaming Loop
-                const sendVideoFrame = () => {
-                    if (!mounted || status === 'disconnected') return;
-
-                    if (videoRef.current && canvasRef.current && session) {
-                        const ctx = canvasRef.current.getContext('2d');
-                        if (ctx) {
-                            canvasRef.current.width = videoRef.current.videoWidth * 0.2; // Low res for preview
-                            canvasRef.current.height = videoRef.current.videoHeight * 0.2;
-                            ctx.drawImage(videoRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height);
-
-                            const base64Image = canvasRef.current.toDataURL('image/jpeg', 0.5).split(',')[1];
-
-                            session.then((s: any) => {
-                                s.sendRealtimeInput({
-                                    media: {
-                                        mimeType: 'image/jpeg',
-                                        data: base64Image
-                                    }
-                                });
-                            });
-                        }
-                    }
-                    setTimeout(sendVideoFrame, 1000); // 1 FPS for visual context
+                // Simple voice-level visualizer
+                const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+                audioContextRef.current = ctx;
+                const source = ctx.createMediaStreamSource(stream);
+                const analyser = ctx.createAnalyser();
+                analyser.fftSize = 256;
+                source.connect(analyser);
+                const buf = new Uint8Array(analyser.frequencyBinCount);
+                const tick = () => {
+                    if (!mountedRef.current) return;
+                    analyser.getByteFrequencyData(buf);
+                    const avg = buf.reduce((a, b) => a + b, 0) / buf.length;
+                    setVolumeLevel(Math.min(100, avg));
+                    requestAnimationFrame(tick);
                 };
-                sendVideoFrame();
+                tick();
 
+                // Continuous local speech recognition
+                const rec = new SR();
+                rec.lang = 'en-NG';
+                rec.continuous = false;      // one utterance at a time; we restart
+                rec.interimResults = false;
+                rec.onresult = (e: any) => {
+                    const transcript = Array.from(e.results).map((r: any) => r[0].transcript).join(' ');
+                    handleUtterance(transcript);
+                };
+                rec.onend = () => {
+                    // Restart listening unless we're answering or muted
+                    if (mountedRef.current && !busyRef.current && !mutedRef.current) startRecognition();
+                };
+                rec.onerror = (e: any) => {
+                    if (e?.error === 'not-allowed') {
+                        setStatus('error');
+                        setCaption('Microphone permission was denied.');
+                    }
+                };
+                recognitionRef.current = rec;
+                setStatus('listening');
+                setCaption('Say something — I\'m listening!');
+                startRecognition();
             } catch (error) {
-                console.error("Failed to start live session", error);
-                setStatus('disconnected');
+                console.error('Failed to start live session', error);
+                setStatus('error');
+                setCaption('Could not access your camera/microphone.');
             }
         };
 
-        startSession();
+        start();
 
         return () => {
-            mounted = false;
-            if (streamRef.current) {
-                streamRef.current.getTracks().forEach(track => track.stop());
-            }
-            if (audioContextRef.current) {
-                audioContextRef.current.close();
-            }
-            if (session) {
-                session.then((s: any) => s.close());
-            }
+            mountedRef.current = false;
+            try { recognitionRef.current?.abort?.(); } catch { }
+            try { window.speechSynthesis?.cancel(); } catch { }
+            streamRef.current?.getTracks().forEach(t => t.stop());
+            audioContextRef.current?.close().catch(() => { });
         };
-    }, []); // Empty dependency array to run once on mount
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const toggleMute = () => {
+        const next = !isMuted;
+        setIsMuted(next);
+        mutedRef.current = next;
+        if (next) {
+            try { recognitionRef.current?.abort?.(); } catch { }
+            setStatus('listening');
+            setCaption('Muted — tap the mic to resume.');
+        } else {
+            setCaption('Listening again…');
+            startRecognition();
+        }
+    };
+
+    const statusLabel =
+        status === 'connecting' ? 'Connecting…'
+            : status === 'listening' ? (isMuted ? 'Muted' : 'Listening & Watching')
+                : status === 'thinking' ? 'Thinking…'
+                    : status === 'speaking' ? 'Speaking…'
+                        : status === 'unsupported' ? 'Browser not supported'
+                            : 'Unavailable';
 
     return (
         <div className="absolute inset-0 z-50 bg-gray-900 flex flex-col items-center justify-center p-4 text-white">
@@ -231,29 +219,32 @@ const LiveSession: React.FC<LiveSessionProps> = ({ onClose }) => {
 
                 {/* Status Overlay */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center space-y-8">
-                    <div className={`w-24 h-24 rounded-full flex items-center justify-center transition-all duration-200 ${status === 'connected' ? 'bg-blue-500/20 border-4 border-blue-500' : 'bg-gray-700 animate-pulse'
+                    <div className={`w-24 h-24 rounded-full flex items-center justify-center transition-all duration-200 ${status === 'listening' || status === 'speaking' ? 'bg-blue-500/20 border-4 border-blue-500' : status === 'thinking' ? 'bg-purple-500/20 border-4 border-purple-500' : 'bg-gray-700 animate-pulse'
                         }`}
-                        style={{ transform: `scale(${1 + volumeLevel / 100})` }}
+                        style={{ transform: `scale(${1 + volumeLevel / 200})` }}
                     >
-                        {status === 'connected' ? (
-                            <div className="w-16 h-16 rounded-full bg-blue-500 flex items-center justify-center animate-pulse">
+                        {status === 'listening' || status === 'speaking' || status === 'thinking' ? (
+                            <div className={`w-16 h-16 rounded-full flex items-center justify-center ${status === 'thinking' ? 'bg-purple-500' : 'bg-blue-500 animate-pulse'}`}>
                                 <VideoIcon className="w-8 h-8 text-white" />
                             </div>
                         ) : (
-                            <div className="text-xs font-mono">Connecting...</div>
+                            <div className="text-xs font-mono text-center px-2">{statusLabel}</div>
                         )}
                     </div>
 
-                    <div className="text-center">
-                        <h2 className="text-2xl font-bold">Gemini Live</h2>
-                        <p className="text-gray-300 text-sm">Listening & Watching</p>
+                    <div className="text-center px-4">
+                        <h2 className="text-2xl font-bold">Live Voice</h2>
+                        <p className="text-gray-300 text-sm">{statusLabel}</p>
+                        {caption && (
+                            <p className="mt-3 text-sm text-gray-100 bg-black/50 rounded-xl px-3 py-2 max-w-xs mx-auto line-clamp-4">{caption}</p>
+                        )}
                     </div>
                 </div>
 
                 {/* Controls */}
                 <div className="absolute bottom-8 left-0 right-0 flex justify-center items-center space-x-8">
                     <button
-                        onClick={() => setIsMuted(!isMuted)}
+                        onClick={toggleMute}
                         className={`p-4 rounded-full ${isMuted ? 'bg-red-500' : 'bg-gray-700 hover:bg-gray-600'}`}
                     >
                         <MicrophoneIcon className="w-6 h-6 text-white" />

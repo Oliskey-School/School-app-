@@ -35,14 +35,6 @@ const fileToGenerativePart = async (file: File) => {
     };
 };
 
-const blobToBase64 = (blob: Blob): Promise<string> => {
-    return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
-        reader.readAsDataURL(blob);
-    });
-};
-
 // --- Main Component ---
 const AIChatScreen: React.FC<AIChatScreenProps> = ({ onBack, dashboardType }) => {
     const theme = THEME_CONFIG[dashboardType];
@@ -62,78 +54,57 @@ const AIChatScreen: React.FC<AIChatScreenProps> = ({ onBack, dashboardType }) =>
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const chatContainerRef = useRef<HTMLDivElement>(null);
-    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
 
-    // --- Audio Recording & Transcription ---
-    const startRecording = async () => {
+    // --- Voice input: browser speech recognition (instant, free, offline-safe).
+    // The old flow recorded audio and sent it to a TEXT model, which can't
+    // transcribe — the mic button looked alive but never produced words.
+    const recognitionRef = useRef<any>(null);
+    const startRecording = () => {
+        const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        if (!SR) {
+            toast.error('Voice input needs Chrome or Edge. Please type your question instead.');
+            return;
+        }
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            const recorder = new MediaRecorder(stream);
-            const chunks: Blob[] = [];
-
-            recorder.ondataavailable = (e) => chunks.push(e.data);
-            recorder.onstop = async () => {
-                const audioBlob = new Blob(chunks, { type: 'audio/wav' });
-                const base64Audio = await blobToBase64(audioBlob);
-                handleTranscribe(base64Audio);
+            const rec = new SR();
+            rec.lang = 'en-NG';
+            rec.interimResults = false;
+            rec.continuous = false;
+            rec.onresult = (e: any) => {
+                const transcript = Array.from(e.results).map((r: any) => r[0].transcript).join(' ');
+                if (transcript) setInputText(prev => (prev + ' ' + transcript).trim());
             };
-
-            mediaRecorderRef.current = recorder;
-            recorder.start();
+            rec.onend = () => setIsRecording(false);
+            rec.onerror = (e: any) => {
+                setIsRecording(false);
+                if (e?.error !== 'no-speech' && e?.error !== 'aborted') toast.error('Could not hear you — try again.');
+            };
+            recognitionRef.current = rec;
+            rec.start();
             setIsRecording(true);
         } catch (e) {
-            console.error("Mic error", e);
-            toast.error("Could not access microphone.");
+            console.error('Mic error', e);
+            toast.error('Could not access microphone.');
         }
     };
 
     const stopRecording = () => {
-        mediaRecorderRef.current?.stop();
+        recognitionRef.current?.stop();
         setIsRecording(false);
     };
 
-    const handleTranscribe = async (base64Audio: string) => {
-        setIsLoading(true);
+    // --- Read a reply aloud: browser speech synthesis (works everywhere, no
+    // network). The old flow asked the model for audio it can't produce.
+    const playTTS = (text: string) => {
         try {
-            const ai = getAIClient();
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.0-flash-exp', // Efficient for transcription
-                contents: {
-                    parts: [
-                        { inlineData: { mimeType: 'audio/wav', data: base64Audio } },
-                        { text: "Transcribe this audio accurately." }
-                    ]
-                }
-            });
-            if (response.text) {
-                setInputText(prev => (prev + " " + response.text).trim());
-            }
+            if (!('speechSynthesis' in window)) { toast.error('Read-aloud is not supported in this browser.'); return; }
+            window.speechSynthesis.cancel();
+            const clean = text.replace(/[*_#`>\[\]]/g, '').replace(/\n+/g, '. ');
+            const utter = new SpeechSynthesisUtterance(clean);
+            utter.rate = 1;
+            window.speechSynthesis.speak(utter);
         } catch (error) {
-            console.error("Transcription error", error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    // --- TTS Playback ---
-    const playTTS = async (text: string) => {
-        try {
-            const ai = getAIClient();
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.0-flash-exp',
-                contents: { parts: [{ text }] },
-                config: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } } }
-            });
-
-            const audioData = (response.candidates?.[0]?.content?.parts?.[0] as any)?.inlineData?.data;
-            if (audioData) {
-                const audioBlob = await (await fetch(`data:audio/mp3;base64,${audioData}`)).blob();
-                const audioUrl = URL.createObjectURL(audioBlob);
-                const audio = new Audio(audioUrl);
-                audio.play();
-            }
-        } catch (error) {
-            console.error("TTS Error", error);
+            console.error('TTS Error', error);
         }
     };
 
@@ -152,8 +123,6 @@ const AIChatScreen: React.FC<AIChatScreenProps> = ({ onBack, dashboardType }) =>
 
         try {
             const ai = getAIClient();
-            let modelName = 'gemini-2.0-flash-exp'; // Standardize on single model
-            let config: any = {};
             let parts: any[] = [];
 
             if (text) parts.push({ text });
@@ -162,34 +131,31 @@ const AIChatScreen: React.FC<AIChatScreenProps> = ({ onBack, dashboardType }) =>
                 parts.push(filePart);
             }
 
+            // Every mode gets a purpose-built instruction so the buttons DO
+            // something real (the old code set Gemini-only "tools" that our AI
+            // provider ignores, and Deep Thinker was an empty block).
+            const sysLines = [
+                'You are a friendly AI assistant inside a Nigerian school app, helping students, teachers, parents and admins. Be accurate, age-appropriate and encouraging. Use clear examples relevant to Nigerian schools when helpful.',
+            ];
+            // Deep Thinker → a stronger reasoning model + step-by-step working
+            let modelName: string | undefined;
             if (thinkingMode) {
-                // Gemini 2.0 Flash is capable, but we can just prompt it to think step-by-step if needed
-                // or just leave it as is. Configuration specific to 1.5-pro (thinkingBudget) might not apply or be needed.
-                // We'll just stick to the requested single model.
+                modelName = 'deepseek-ai/deepseek-v4-flash';
+                sysLines.push('Deep-Thinking mode: reason step by step. Briefly show your working (numbered steps) before the final answer — like a good teacher on a whiteboard.');
             }
-
             if (useGrounding === 'search') {
-                config.tools = [{ googleSearch: {} }];
+                sysLines.push('Research mode: answer like a research assistant. You do NOT have live internet access, so be upfront when a fact could be outdated (prices, current officials, recent events), and end with 2-3 reliable places to verify (e.g. official websites, WAEC/NECO resources, textbooks).');
             } else if (useGrounding === 'maps') {
-                config.tools = [{ googleMaps: {} }];
+                sysLines.push('Places mode: answer geography and location questions descriptively (landmarks, distances, regions, travel context — Nigeria-aware). You cannot access live maps, so for directions or current travel times, advise checking a maps app and focus on teaching the geography.');
             }
 
             const response = await ai.models.generateContent({
-                model: modelName,
+                ...(modelName ? { model: modelName } : {}),
                 contents: { parts },
-                config: config
+                systemInstruction: { parts: [{ text: sysLines.join('\n') }] },
             });
 
-            // Handle Grounding Metadata (URLs)
-            let responseText = response.text || "No response generated.";
-            const groundingChunks = (response.candidates?.[0] as any)?.groundingMetadata?.groundingChunks;
-            if (groundingChunks) {
-                const urls = groundingChunks.map((c: any) => c.web?.uri || c.maps?.uri).filter(Boolean);
-                if (urls.length > 0) {
-                    responseText += "\n\n**Sources:**\n" + urls.map((u: string) => `- ${u}`).join('\n');
-                }
-            }
-
+            const responseText = response.text || "No response generated.";
             setMessages(prev => [...prev, { role: 'model', text: responseText }]);
 
         } catch (error: any) {

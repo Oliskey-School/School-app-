@@ -35,6 +35,15 @@ redisConnection.on('error', (err) => {
     console.info('ℹ️  [Redis] Background tasks (AI/Reports) are currently queued locally. To enable full background processing, start Redis with "docker-compose up -d redis".');
 });
 
+redisConnection.on('ready', () => {
+    console.log('✅ [Redis] Connected — background tasks (AI/Reports) run on Redis.');
+});
+
+// Connect eagerly at boot (lazyConnect would otherwise wait for the first job),
+// so the log makes it obvious whether Redis is live. Errors fall back gracefully
+// to local queueing via the error handler above.
+redisConnection.connect().catch(() => { /* handled by the error listener */ });
+
 // 1. The Queue: Used by the API to dispatch heavy tasks
 export const heavyTaskQueue = new Queue('heavy-tasks', {
     connection: redisConnection as any,
