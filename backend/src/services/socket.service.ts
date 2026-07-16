@@ -1,6 +1,7 @@
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import { Server as HTTPServer } from 'http';
 import { registerClassBattle } from './classBattleSocket';
+import { redisConnection } from '../config/redis';
 
 export class SocketService {
   private static io: SocketIOServer | null = null;
@@ -13,6 +14,25 @@ export class SocketService {
       },
       transports: ['websocket', 'polling']
     });
+
+    // Opt-in Redis pub/sub adapter: on a single instance (today's Contabo VPS
+    // deployment) this changes nothing — Socket.io's default in-memory adapter
+    // already handles everything. It matters the moment the app runs on more
+    // than one Node process/instance: without it, `io.to(room).emit(...)` only
+    // reaches sockets connected to THAT process, silently dropping real-time
+    // events for users connected to a different instance. Flip
+    // SOCKET_REDIS_ADAPTER=true (with REDIS_URL set) when horizontally scaling.
+    if (process.env.SOCKET_REDIS_ADAPTER === 'true') {
+      try {
+        const { createAdapter } = require('@socket.io/redis-adapter');
+        const pubClient = redisConnection.duplicate();
+        const subClient = redisConnection.duplicate();
+        this.io.adapter(createAdapter(pubClient, subClient));
+        console.log('✅ [Socket.io] Redis pub/sub adapter enabled — safe for multi-instance scaling.');
+      } catch (err: any) {
+        console.warn('⚠️ [Socket.io] Redis adapter failed to initialize, falling back to in-memory adapter:', err.message);
+      }
+    }
 
     this.io.on('connection', (socket: Socket) => {
       console.log(`🔌 Socket connected: ${socket.id}`);

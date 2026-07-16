@@ -10,6 +10,9 @@ import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useBranch } from '../../context/BranchContext';
 import { Student } from '../../types';
+import SuspensionNoticeBanner from '../shared/SuspensionNoticeBanner';
+import ChildRiskBanner from '../shared/ChildRiskBanner';
+import AIInsightsPanel from '../shared/AIInsightsPanel';
 
 export interface ChildOverview {
     id: string;
@@ -27,6 +30,17 @@ interface UnifiedParentHomeProps {
     schoolId?: string;
     navigateTo: (view: string, title: string, props?: any) => void;
 }
+
+// Attendance status → label, keyed by the lowercase status the backend stores
+// (present/absent/late/excused) plus 'not_marked' for "teacher hasn't marked
+// today's register yet" — distinct from an actual absence.
+const ATTENDANCE_LABEL: Record<string, string> = {
+    present: '✅ Attended today',
+    late: '⏰ Arrived late',
+    absent: '🔴 Marked Absent',
+    excused: '🟡 On Leave',
+    not_marked: '⏳ Not marked yet',
+};
 
 export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, schoolId, navigateTo }) => {
     const { user, currentSchool } = useAuth();
@@ -136,7 +150,7 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
                         </AnimatePresence>
 
                         <p className="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full inline-block mt-1">
-                            {child.grade} {child.school_name ? `Â· ${child.school_name}` : ''}
+                            {child.grade} {child.school_name ? `· ${child.school_name}` : ''}
                         </p>
                     </div>
                     <div className="bg-gray-100 w-10 h-10 rounded-full flex items-center justify-center border-2 border-white shadow-sm overflow-hidden">
@@ -147,6 +161,21 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
                         )}
                     </div>
                 </div>
+            </div>
+
+            {/* Suspension Notices */}
+            <div className="px-4 pt-4">
+                <SuspensionNoticeBanner mode="parent" />
+            </div>
+
+            {/* Early Warning Notices */}
+            <div className="px-4 pt-4">
+                <ChildRiskBanner />
+            </div>
+
+            {/* AI Insights */}
+            <div className="px-4 pt-4">
+                <AIInsightsPanel />
             </div>
 
             {/* School Utilities Quick Grid */}
@@ -196,9 +225,11 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
                         <div>
                             <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Attendance</p>
                             <p className="text-gray-900 font-bold">
-                                {child.attendance.status === 'present' ? 'âœ… Attended today' : 'ðŸ”´ Marked Absent'}
+                                {ATTENDANCE_LABEL[child.attendance.status] || ATTENDANCE_LABEL.not_marked}
                             </p>
-                            <p className="text-xs text-gray-500">Arrived {child.attendance.time || 'N/A'}</p>
+                            {child.attendance.status !== 'not_marked' && (
+                                <p className="text-xs text-gray-500">Arrived {child.attendance.time || 'N/A'}</p>
+                            )}
                         </div>
                     </div>
                     <ChevronRight className="w-5 h-5 text-gray-300" />
@@ -234,7 +265,7 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
                         </div>
                         <div>
                             <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Finances</p>
-                            <p className="text-gray-900 font-bold">â‚¦{child.fee_balance.toLocaleString()} outstanding</p>
+                            <p className="text-gray-900 font-bold">₦{child.fee_balance.toLocaleString()} outstanding</p>
                             {child.fee_balance > 0 && <div className="mt-1 w-2 h-2 bg-red-500 rounded-full animate-pulse" />}
                         </div>
                     </div>

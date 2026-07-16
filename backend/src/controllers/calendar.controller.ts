@@ -26,12 +26,35 @@ export const rsvpToEvent = async (req: AuthRequest, res: Response) => {
     }
 };
 
+const ADMIN_ROLES = ['admin', 'proprietor', 'superadmin', 'super_admin'];
+
 export const createCalendarEvent = async (req: AuthRequest, res: Response) => {
     try {
+        if (!ADMIN_ROLES.includes((req.user.role || '').toLowerCase())) return res.status(403).json({ message: 'Only admins can create calendar events' });
         const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
         const result = await CalendarService.createCalendarEvent(req.user.school_id, branchId, req.body);
         res.status(201).json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
+    }
+};
+
+export const updateCalendarEvent = async (req: AuthRequest, res: Response) => {
+    try {
+        if (!ADMIN_ROLES.includes((req.user.role || '').toLowerCase())) return res.status(403).json({ message: 'Only admins can update calendar events' });
+        const result = await CalendarService.updateCalendarEvent(req.user.school_id, req.params.id as string, req.body);
+        res.json(result);
+    } catch (error: any) {
+        res.status(/not found/i.test(error.message) ? 404 : 500).json({ message: error.message });
+    }
+};
+
+export const deleteCalendarEvent = async (req: AuthRequest, res: Response) => {
+    try {
+        if (!ADMIN_ROLES.includes((req.user.role || '').toLowerCase())) return res.status(403).json({ message: 'Only admins can delete calendar events' });
+        const result = await CalendarService.deleteCalendarEvent(req.user.school_id, req.params.id as string);
+        res.json(result);
+    } catch (error: any) {
+        res.status(/not found/i.test(error.message) ? 404 : 500).json({ message: error.message });
     }
 };

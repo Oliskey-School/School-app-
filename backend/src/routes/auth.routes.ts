@@ -2,21 +2,12 @@ import { Router } from 'express';
 import * as AuthController from '../controllers/auth.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { requireRole } from '../middleware/tenant.middleware';
-import { loginLimiter, validateRequest } from '../middleware/security.middleware';
+import { validateRequest } from '../middleware/security.middleware';
+import { loginLimiter, signupLimiter, passwordResetLimiter, demoLoginLimiter } from '../middleware/rateLimiters';
 import { z } from 'zod';
-import rateLimit from 'express-rate-limit';
 
 // Roles allowed to manage other users (create, reset password, force change)
 const ADMIN_ROLES = ['admin', 'super_admin', 'proprietor'];
-
-// Stricter limiter for password-reset endpoints to slow account enumeration / brute force
-const passwordResetLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    limit: 20,
-    standardHeaders: 'draft-7',
-    legacyHeaders: false,
-    message: { error: 'Too many password reset attempts, please try again later.' },
-});
 
 const router = Router();
 
@@ -26,18 +17,8 @@ const loginSchema = z.object({
     password: z.string().min(6, 'Password must be at least 6 characters')
 });
 
-// Rate limiter for demo endpoints — stricter than global limit
-// ... (rest of the file) ...
-const demoLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    limit: 1000, // Increased from 30 to 1000 to prevent 429 during active testing
-    standardHeaders: 'draft-7',
-    legacyHeaders: false,
-    message: { error: 'Too many demo login attempts, please try again later.' },
-});
-
 // Demo login endpoint — POST for authentication
-router.post('/demo/login', demoLimiter, AuthController.demoLogin);
+router.post('/demo/login', demoLoginLimiter, AuthController.demoLogin);
 
 // Add descriptive error for GET/HEAD on login endpoint to help debug
 router.get('/demo/login', (req, res) => {
@@ -47,9 +28,9 @@ router.get('/demo/login', (req, res) => {
         hint: 'Use POST /api/auth/demo/login instead of GET.'
     });
 });
-router.get('/demo/roles', demoLimiter, AuthController.demoRoles);
+router.get('/demo/roles', demoLoginLimiter, AuthController.demoRoles);
 
-router.post('/signup', AuthController.signup);
+router.post('/signup', signupLimiter, AuthController.signup);
 router.post('/login', loginLimiter, validateRequest(loginSchema), AuthController.login);
 router.post('/verify-2fa-login', AuthController.verify2FALogin);
 router.post('/logout', AuthController.logout);

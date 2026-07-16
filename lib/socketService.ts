@@ -96,6 +96,17 @@ class SocketService {
             window.dispatchEvent(new CustomEvent('virtual-class:deleted', { detail: data }));
         });
 
+        // A teacher saved attendance (any class, any date) — refresh every screen
+        // watching the 'attendance' table: the teacher's own register, the parent
+        // dashboard's daily report, and the admin attendance overview all rely on
+        // this single event to update live instead of only on next page load.
+        this.socket.on('attendance:updated', (data) => {
+            console.log('📋 [SocketService] Attendance update received:', data);
+            window.dispatchEvent(new CustomEvent('realtime-update', {
+                detail: { table: 'attendance', record: data, action: 'updated' }
+            }));
+        });
+
         // Global Teacher Community changed anywhere on the platform — refresh lists.
         this.socket.on('global-forum:updated', (data) => {
             window.dispatchEvent(new CustomEvent('realtime-update', {

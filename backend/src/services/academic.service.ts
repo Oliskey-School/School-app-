@@ -652,8 +652,24 @@ export class AcademicService {
         for (const s of students) {
             const grade = s.grade ?? 0;
             if (grade >= 12) {
+                // Snapshot the class they graduated from — the alumni archive
+                // must keep showing this even after classes are renamed/reused.
+                const currentClass = classes.find(c => c.grade === grade
+                    && (!s.branch_id || c.branch_id === s.branch_id || c.branch_id === null)
+                    && (!s.section || c.section === s.section));
+                const exitClassName = currentClass
+                    ? `${currentClass.name}${currentClass.section ? ` ${currentClass.section}` : ''}`
+                    : `Grade ${grade}`;
                 await prisma.$transaction([
-                    prisma.student.update({ where: { id: s.id }, data: { status: 'Graduated', updated_by: actorId } }),
+                    prisma.student.update({
+                        where: { id: s.id },
+                        data: {
+                            status: 'Graduated', updated_by: actorId,
+                            exit_year: new Date().getFullYear(),
+                            exit_class: exitClassName,
+                            exit_date: new Date(),
+                        }
+                    }),
                     prisma.studentEnrollment.updateMany({
                         where: { student_id: s.id, status: 'Active' },
                         data: { status: 'Completed' }

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getPayslips, getTransactions, generatePayslip, approvePayslip, getTeacherSalary, getSalaryArrears, updateSalaryArrearStatus, getLeaveRequests, submitLeaveRequest, getSalaryProfile, getPaymentHistory, getLeaveTypes } from '../controllers/payroll.controller';
+import { getPayslips, getTransactions, generatePayslip, approvePayslip, getTeacherSalary, getSalaryArrears, updateSalaryArrearStatus, getLeaveRequests, submitLeaveRequest, getSalaryProfile, getPaymentHistory, getLeaveTypes, decideLeaveRequest } from '../controllers/payroll.controller';
 import { authenticate } from '../middleware/auth.middleware';
 
 const router = Router();
@@ -15,6 +15,7 @@ router.get('/salary-profile', getSalaryProfile);
 router.get('/payment-history', getPaymentHistory);
 router.get('/leave-requests', getLeaveRequests);
 router.post('/leave-requests', submitLeaveRequest);
+router.put('/leave-requests/:id', decideLeaveRequest);
 router.get('/leave-types', getLeaveTypes);
 router.get('/arrears', getSalaryArrears);
 router.put('/arrears/:id', updateSalaryArrearStatus);

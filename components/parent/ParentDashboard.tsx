@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback, lazy, Suspense } from 'react';
 import DashboardLayout from '../layout/DashboardLayout';
+import AskAIWidget from '../shared/AskAIWidget';
 import { DEFAULT_AVATAR } from '../../lib/avatar';
 import { DashboardType, Student, StudentAttendance, AttendanceStatus, StudentAssignment } from '../../types';
 import {
@@ -43,6 +44,7 @@ import FeeStatusScreen from './FeeStatusScreen';
 import SelectChildForReportScreen from './SelectChildForReportScreen';
 import ReportCardScreen from './ReportCardScreen';
 import TimetableScreen from '../shared/TimetableScreen';
+import PickupAuthorizationScreen from './PickupAuthorizationScreen';
 import ParentProfileScreen from './ParentProfileScreen';
 import EditParentProfileScreen from './EditParentProfileScreen';
 import FeedbackScreen from './FeedbackScreen';
@@ -638,6 +640,7 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
             />
         ),
         examSchedule: ExamSchedule,
+        pickupAuthorization: PickupAuthorizationScreen,
         noticeboard: (props: any) => <NoticeboardScreen {...props} userType="parent" />,
         notifications: (props: any) => <NotificationsScreen {...props} userType="parent" navigateTo={navigateTo} />,
         calendar: CalendarScreen,
@@ -735,7 +738,7 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
             <div className="flex flex-col items-center justify-center h-screen p-6 text-center bg-gray-50">
                 <div className="bg-white p-8 rounded-2xl shadow-lg max-w-md w-full">
                     <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <span className="text-3xl">ðŸ‘ª</span>
+                        <span className="text-3xl">👪</span>
                     </div>
                     <h2 className="text-2xl font-bold text-gray-800 mb-2">Parent Profile Not Found</h2>
                     <p className="text-gray-600 mb-6">
@@ -788,11 +791,12 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
             <Suspense fallback={<DashboardSuspenseFallback />}>
                 {isSearchOpen && <GlobalSearchScreen onClose={() => setIsSearchOpen(false)} navigateTo={navigateTo} dashboardType={DashboardType.Parent} />}
             </Suspense>
-            <PremiumModal 
-                isOpen={isPremiumModalOpen} 
-                onClose={() => setIsPremiumModalOpen(false)} 
-                featureName="Advanced Student Insights" 
+            <PremiumModal
+                isOpen={isPremiumModalOpen}
+                onClose={() => setIsPremiumModalOpen(false)}
+                featureName="Advanced Student Insights"
             />
+            <AskAIWidget />
         </DashboardLayout>
 
     );

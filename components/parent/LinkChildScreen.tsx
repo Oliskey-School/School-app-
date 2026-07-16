@@ -218,7 +218,7 @@ const LinkChildScreen: React.FC<LinkChildScreenProps> = ({ handleBack, forceUpda
                                                     <h4 className="font-bold text-gray-800">{child.name}</h4>
                                                     <div className="flex items-center space-x-2 text-xs text-gray-500 font-medium">
                                                         <span>Grade {child.grade}{child.section}</span>
-                                                        <span>â€¢</span>
+                                                        <span>•</span>
                                                         <span>ID: {child.schoolGeneratedId || 'N/A'}</span>
                                                     </div>
                                                 </div>

@@ -81,7 +81,7 @@ const LeaveApproval: React.FC<LeaveApprovalProps> = () => {
         try {
             setProcessing(true);
             // Leave balance updates are handled server-side in the leave-requests endpoint
-            await api.approveLeaveRequest(selectedRequest.id, 'Approved');
+            await api.approveLeaveRequest(selectedRequest.id, 'Approved', adminComment.trim() || undefined);
             toast.success('Leave request approved');
             setSelectedRequest(null);
             setAdminComment('');
@@ -104,7 +104,7 @@ const LeaveApproval: React.FC<LeaveApprovalProps> = () => {
 
         try {
             setProcessing(true);
-            await api.approveLeaveRequest(selectedRequest.id, 'Rejected');
+            await api.approveLeaveRequest(selectedRequest.id, 'Rejected', adminComment.trim());
             toast.success('Leave request rejected');
             setSelectedRequest(null);
             setAdminComment('');

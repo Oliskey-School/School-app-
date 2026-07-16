@@ -7,6 +7,8 @@ import { DashboardType, Student, StudentAssignment } from '../../types';
 import { formatSchoolId } from '../../utils/idFormatter';
 import { THEME_CONFIG, ClockIcon, ClipboardListIcon, BellIcon, ChartBarIcon, ChevronRightIcon, SUBJECT_COLORS, BookOpenIcon, MegaphoneIcon, AttendanceSummaryIcon, CalendarIcon, ElearningIcon, StudyBuddyIcon, SparklesIcon, ReceiptIcon, AwardIcon, HelpIcon, GameControllerIcon, VideoIcon } from '../../constants';
 import Header from '../ui/Header';
+import AIInsightsPanel from '../shared/AIInsightsPanel';
+import AskAIWidget from '../shared/AskAIWidget';
 import { StudentBottomNav } from '../ui/DashboardBottomNav';
 // import { mockNotifications } from '../../data'; // REMOVED
 import { } from '../../data'; // Ensure no mocks imported
@@ -27,6 +29,7 @@ import { useSocket } from '../../context/SocketContext';
 // Lazy load all view components
 const GlobalSearchScreen = lazyWithRetry(() => import('../shared/GlobalSearchScreen'));
 import EmailVerificationPrompt from '../auth/EmailVerificationPrompt';
+import SuspensionNoticeBanner from '../shared/SuspensionNoticeBanner';
 const StudyBuddy = lazyWithRetry(() => import('../student/StudyBuddy'));
 const AdventureQuestHost = lazyWithRetry(() => import('../student/adventure/AdventureQuestHost'));
 const ExamSchedule = lazyWithRetry(() => import('../shared/ExamSchedule'));
@@ -344,6 +347,7 @@ const Overview: React.FC<{
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Main content */}
                 <div className="lg:col-span-2 space-y-6">
+                    <SuspensionNoticeBanner mode="student" />
                     {!currentUser?.user_metadata?.email_verified && (
                         <EmailVerificationPrompt />
                     )}
@@ -357,6 +361,7 @@ const Overview: React.FC<{
                         navigateTo={navigateTo}
                         student={student}
                     />
+                    <AIInsightsPanel />
                     <div>
                         <h3 className="text-lg font-bold text-gray-800 mb-2 px-1">AI Tools</h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -908,6 +913,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                         />
                     )}
                 </Suspense>
+                <AskAIWidget />
             </DashboardLayout>
 
         </GamificationProvider>

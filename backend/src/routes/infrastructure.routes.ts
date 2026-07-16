@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import {
     getFacilities, createFacility, updateFacility, deleteFacility,
-    getAssets, createAsset, updateAsset, deleteAsset,
+    getAssets, createAsset, updateAsset, deleteAsset, getAssetDetail, getAssetByQrCode,
     getVisitorLogs, createVisitorLog, updateVisitorLog,
     getDocuments, createDocument, deleteDocument,
     createBackup, getBackups, restoreBackup, deleteBackup,
@@ -22,6 +22,8 @@ router.delete('/facilities/:id', deleteFacility);
 
 router.get('/assets', getAssets);
 router.post('/assets', createAsset);
+router.get('/assets/qr/:qrCode', getAssetByQrCode);
+router.get('/assets/:id', getAssetDetail);
 router.put('/assets/:id', updateAsset);
 router.delete('/assets/:id', deleteAsset);
 

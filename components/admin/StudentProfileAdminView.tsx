@@ -22,6 +22,7 @@ import ReactMarkdown from 'react-markdown';
 import ConfirmationModal from '../ui/ConfirmationModal';
 import { api } from '../../lib/api';
 import { useAutoSync } from '../../hooks/useAutoSync';
+import StudentTeacherTimeline from '../shared/StudentTeacherTimeline';
 
 
 interface StudentProfileAdminViewProps {
@@ -136,6 +137,8 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
         leave: 0,
     });
     const [loading, setLoading] = useState(true);
+    const [activeSuspension, setActiveSuspension] = useState<any>(null);
+    const [confirmingReturn, setConfirmingReturn] = useState(false);
 
     const academicPerformance = student.academicPerformance || [];
     const averageScore = academicPerformance.length > 0
@@ -177,6 +180,9 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
                 });
                 setAttendanceData(counts);
             }
+
+            const suspensions: any[] = await api.get<any[]>(`/suspensions/student/${student.id}`).catch(() => []);
+            setActiveSuspension((suspensions || []).find((s: any) => s.status === 'active') || null);
         } catch (err) {
             console.error('Error loading profile data:', err);
             toast.error('Failed to load student data');
@@ -382,6 +388,57 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
                             )}
                         </div>
 
+                        {/* Discipline & Records */}
+                        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-2">
+                            <h4 className="font-bold text-gray-800 mb-2">Discipline & Records</h4>
+                            {activeSuspension && (
+                                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-2">
+                                    <p className="text-sm font-bold text-amber-900">Currently Suspended</p>
+                                    <p className="text-xs text-amber-700 mt-0.5">
+                                        {new Date(activeSuspension.start_date).toLocaleDateString()} – {new Date(activeSuspension.return_date).toLocaleDateString()}
+                                        {activeSuspension.is_overdue ? ' · return date passed' : ''}
+                                    </p>
+                                    <button
+                                        onClick={async () => {
+                                            if (!window.confirm(`Confirm ${student.name} has returned from suspension?`)) return;
+                                            setConfirmingReturn(true);
+                                            try {
+                                                await api.post(`/suspensions/${activeSuspension.id}/confirm-return`, {});
+                                                toast.success('Return confirmed');
+                                                setActiveSuspension(null);
+                                            } catch (err: any) {
+                                                toast.error(err?.message || 'Failed to confirm return');
+                                            } finally {
+                                                setConfirmingReturn(false);
+                                            }
+                                        }}
+                                        disabled={confirmingReturn}
+                                        className="mt-2 w-full py-2 bg-amber-600 text-white rounded-lg font-bold text-xs hover:bg-amber-700 transition-colors disabled:opacity-60"
+                                    >
+                                        {confirmingReturn ? 'Confirming...' : 'Confirm Return to School'}
+                                    </button>
+                                </div>
+                            )}
+                            <button
+                                onClick={() => navigateTo('suspendStudent', `Suspend ${student.name}`, { student })}
+                                className="w-full flex items-center space-x-3 p-3 text-left hover:bg-amber-50 rounded-xl transition-colors"
+                            >
+                                <div className="p-1.5 bg-amber-50 rounded-lg">
+                                    <ClipboardListIcon className="h-4 w-4 text-amber-600" />
+                                </div>
+                                <span className="font-semibold text-gray-700 text-sm">Suspend Student</span>
+                            </button>
+                            <button
+                                onClick={() => navigateTo('markStudentExit', `Mark ${student.name} as Left`, { student })}
+                                className="w-full flex items-center space-x-3 p-3 text-left hover:bg-red-50 rounded-xl transition-colors"
+                            >
+                                <div className="p-1.5 bg-red-50 rounded-lg">
+                                    <DocumentTextIcon className="h-4 w-4 text-red-600" />
+                                </div>
+                                <span className="font-semibold text-gray-700 text-sm">Mark as Transferred / Withdrawn</span>
+                            </button>
+                        </div>
+
                         {/* Behavioral Notes */}
                         <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
                             <div className="flex items-center justify-between mb-4">
@@ -401,6 +458,11 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
                                     </div>
                                 )) : <p className="text-sm text-gray-400 text-center py-6 font-medium italic">Perfect conduct record.</p>}
                             </div>
+                        </div>
+
+                        {/* Timeline */}
+                        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                            <StudentTeacherTimeline subjectType="student" subjectId={student.id} canEdit />
                         </div>
                     </div>
                 </div>

@@ -145,6 +145,14 @@ export class DemoSeederService {
                 { name: 'Nikola Tesla', email: `nikola-${ipHash}@demo.com`, index: 5 }
             ];
 
+            // Two more teachers so the demo shows all three role scenarios:
+            // the primary teacher (index 1) below is given BOTH roles; these two
+            // are Class-Teacher-only and Subject-Teacher-only respectively.
+            const extraTeachers = [
+                { name: 'Grace Adeyemi', email: `grace-${ipHash}@demo.com`, index: 2 },
+                { name: 'Michael Bassey', email: `michael-${ipHash}@demo.com`, index: 3 },
+            ];
+
             await prisma.$transaction(async (tx) => {
                 // 2a. Clean up old demo users with mismatched IDs (migration).
                 // Covers primary roles AND the extra students, so a branch-code change
@@ -152,6 +160,7 @@ export class DemoSeederService {
                 const seedIdentities = [
                     ...demoUsers.map(u => ({ email: u.email, id: u.id })),
                     ...extraStudents.map(s => ({ email: s.email, id: getPersistenceId('STUDENT', s.index) })),
+                    ...extraTeachers.map(t => ({ email: t.email, id: getPersistenceId('TEACHER', t.index) })),
                 ];
                 for (const u of seedIdentities) {
                     const existing = await tx.user.findFirst({ where: { email: u.email } });
@@ -237,6 +246,42 @@ export class DemoSeederService {
                         update: { status: 'Active', grade: 10, section: 'A' }
                     });
                     extraStudentProfiles.push(profile);
+                }
+
+                // 2d. Create Extra Teachers (Class-Teacher-only and Subject-Teacher-only
+                // personas — see the "Teacher Management" role assignment below).
+                const extraTeacherProfiles: Record<string, any> = {};
+                for (const t of extraTeachers) {
+                    const id = getPersistenceId('TEACHER', t.index);
+                    const user = await tx.user.upsert({
+                        where: { id },
+                        update: { full_name: t.name, branch_id: branchId, email: t.email },
+                        create: {
+                            id,
+                            email: t.email,
+                            password_hash: passwordHash,
+                            full_name: t.name,
+                            role: 'TEACHER',
+                            school_id: schoolId,
+                            branch_id: branchId,
+                            school_generated_id: id,
+                            email_verified: true,
+                            is_active: true
+                        }
+                    });
+                    const profile = await tx.teacher.upsert({
+                        where: { user_id: user.id },
+                        create: {
+                            user_id: user.id,
+                            school_id: schoolId,
+                            branch_id: branchId,
+                            full_name: t.name,
+                            email: t.email,
+                            school_generated_id: id,
+                        },
+                        update: { full_name: t.name, email: t.email }
+                    });
+                    extraTeacherProfiles[t.index] = profile;
                 }
 
                 // 3. Link Parent to Student (Primary)
@@ -435,25 +480,81 @@ export class DemoSeederService {
                         });
                     }
 
-                    // Assign Teacher to SSS 1 (Math) and JSS 3 (Math)
-                    const teacherClasses = [
-                        { classId: sss1ClassId, subjectId: subjects[0].id, subjectName: subjects[0].name },
-                        { classId: jss3ClassId, subjectId: subjects[0].id, subjectName: subjects[0].name }
+                    // Enroll a few students into JSS 3 too, so Grace's (class-only
+                    // teacher, below) roster in "My Class" isn't empty.
+                    for (const sp of allStudentProfiles.slice(0, 3)) {
+                        await tx.studentEnrollment.upsert({
+                            where: { student_id_class_id: { student_id: sp.id, class_id: jss3ClassId } },
+                            update: { status: 'Active' },
+                            create: { student_id: sp.id, class_id: jss3ClassId, school_id: schoolId, branch_id: branchId, status: 'Active', is_primary: false }
+                        });
+                    }
+
+                    // Teacher role assignments — demonstrates all three scenarios from
+                    // the Teacher Management System: John (both roles), Grace (Class
+                    // Teacher only), Michael (Subject Teacher only, across two classes).
+                    const demoSession = '2025/2026';
+                    const demoTerm = 1;
+                    const graceProfile = extraTeacherProfiles[2];
+                    const michaelProfile = extraTeacherProfiles[3];
+
+                    const classTeacherAssignments = [
+                        // John Smith — Class Teacher of SSS 1 (his "both roles" seat).
+                        { id: `ct-${ipHash}-classteacher-john`, teacherId: teacherProfile.id, classId: sss1ClassId, subjectId: null, role: 'class_teacher' },
+                        // Grace Adeyemi — Class Teacher of JSS 3 ONLY (no subject assignments).
+                        { id: `ct-${ipHash}-classteacher-grace`, teacherId: graceProfile.id, classId: jss3ClassId, subjectId: null, role: 'class_teacher' },
+                    ];
+                    const subjectTeacherAssignments = [
+                        // John Smith — also Mathematics Subject Teacher in both classes.
+                        { id: `ct-${ipHash}-0`, teacherId: teacherProfile.id, classId: sss1ClassId, subjectId: subjects[0].id, role: 'subject_teacher' },
+                        { id: `ct-${ipHash}-1`, teacherId: teacherProfile.id, classId: jss3ClassId, subjectId: subjects[0].id, role: 'subject_teacher' },
+                        // Michael Bassey — English Subject Teacher only, in both classes.
+                        { id: `ct-${ipHash}-subjectteacher-michael-sss1`, teacherId: michaelProfile.id, classId: sss1ClassId, subjectId: subjects[1].id, role: 'subject_teacher' },
+                        { id: `ct-${ipHash}-subjectteacher-michael-jss3`, teacherId: michaelProfile.id, classId: jss3ClassId, subjectId: subjects[1].id, role: 'subject_teacher' },
                     ];
 
-                    for (let i = 0; i < teacherClasses.length; i++) {
-                        const tc = teacherClasses[i];
+                    for (const a of [...classTeacherAssignments, ...subjectTeacherAssignments]) {
+                        const commonData = {
+                            role: a.role,
+                            session: demoSession,
+                            term: demoTerm,
+                            status: 'active',
+                            ended_at: null,
+                            ended_by: null,
+                        };
+                        // Prisma's compound-unique `where` (class_id+teacher_id+subject_id)
+                        // rejects an explicit null for subject_id, so class-teacher rows
+                        // (subject_id: null) can't use upsert's where-by-compound-key —
+                        // find-then-create/update instead. Subject-teacher rows (always a
+                        // real subject_id) still use the fast compound-key upsert.
+                        if (a.subjectId === null) {
+                            const existingRow = await tx.classTeacher.findFirst({
+                                where: { class_id: a.classId, teacher_id: a.teacherId, subject_id: null },
+                            });
+                            if (existingRow) {
+                                await tx.classTeacher.update({ where: { id: existingRow.id }, data: commonData });
+                            } else {
+                                await tx.classTeacher.create({
+                                    data: {
+                                        id: a.id, school_id: schoolId, branch_id: branchId,
+                                        teacher_id: a.teacherId, class_id: a.classId, subject_id: null,
+                                        effective_date: new Date('2025-09-15T00:00:00Z'),
+                                        is_primary: true,
+                                        ...commonData,
+                                    }
+                                });
+                            }
+                            continue;
+                        }
                         await tx.classTeacher.upsert({
-                            where: { class_id_teacher_id_subject_id: { class_id: tc.classId, teacher_id: teacherProfile.id, subject_id: tc.subjectId } },
-                            update: {},
-                            create: { 
-                                id: `ct-${ipHash}-${i}`, 
-                                school_id: schoolId, 
-                                branch_id: branchId, 
-                                teacher_id: teacherProfile.id, 
-                                class_id: tc.classId, 
-                                subject_id: tc.subjectId, 
-                                is_primary: i === 0 
+                            where: { class_id_teacher_id_subject_id: { class_id: a.classId, teacher_id: a.teacherId, subject_id: a.subjectId } },
+                            update: commonData,
+                            create: {
+                                id: a.id, school_id: schoolId, branch_id: branchId,
+                                teacher_id: a.teacherId, class_id: a.classId, subject_id: a.subjectId,
+                                effective_date: new Date('2025-09-15T00:00:00Z'),
+                                is_primary: false,
+                                ...commonData,
                             }
                         });
                     }
@@ -480,7 +581,7 @@ export class DemoSeederService {
                                 branch_id: branchId,
                                 title: a.title,
                                 description: a.desc,
-                                subject: teacherClasses[0].subjectName,
+                                subject: subjects[0].name,
                                 due_date: a.dueDate,
                                 class_id: sss1ClassId,
                                 teacher_id: teacherProfile.id,
@@ -506,6 +607,24 @@ export class DemoSeederService {
                         { day: 5, start: '09:00', end: '10:00', subject: 'PHE', room: 'Sports Field' }
                     ];
 
+                    // Classrooms with permanent QR tokens — one per distinct room in the
+                    // timetable, so QR lesson verification works out of the box in the demo.
+                    const roomNames = [...new Set(timetableEntries.map(e => e.room))];
+                    const classroomIdByRoom = new Map<string, string>();
+                    for (const roomName of roomNames) {
+                        const classroom = await (tx as any).classroom.upsert({
+                            where: { branch_id_name: { branch_id: branchId, name: roomName } },
+                            update: {},
+                            create: {
+                                school_id: schoolId,
+                                branch_id: branchId,
+                                name: roomName,
+                                qr_token: `demo-room-${ipHash}-${roomName.replace(/\s+/g, '-')}`,
+                            }
+                        });
+                        classroomIdByRoom.set(roomName, classroom.id);
+                    }
+
                     for (const entry of timetableEntries) {
                         await tx.timetable.create({
                             data: {
@@ -517,8 +636,503 @@ export class DemoSeederService {
                                 start_time: entry.start,
                                 end_time: entry.end,
                                 room: entry.room,
+                                classroom_id: classroomIdByRoom.get(entry.room) ?? null,
+                                // Published so the demo teacher sees the schedule and can scan into it
+                                status: 'Published',
                                 teacher_id: teacherProfile.id // Simplifying by using the same teacher for all for demo
                             }
+                        });
+                    }
+
+                    // 7c. Personnel file: a commendation, a promotion, and one fully
+                    // resolved query letter so the demo teacher's file tells a story.
+                    // Deterministic ids + upsert so re-running the seeder (every server
+                    // boot) never duplicates "permanent" records.
+                    const personnelSeed = [
+                        {
+                            id: `pr-${ipHash}-commendation`,
+                            type: 'commendation', title: 'Outstanding WAEC results',
+                            details: '92% of students passed Mathematics with credit or above.',
+                            effective_date: '2026-05-20',
+                        },
+                        {
+                            id: `pr-${ipHash}-promotion`,
+                            type: 'promotion', title: 'Promoted to Senior Teacher',
+                            details: 'Promoted in recognition of consistent performance.',
+                            effective_date: '2026-01-10',
+                        },
+                    ];
+                    for (const pr of personnelSeed) {
+                        await (tx as any).teacherRecord.upsert({
+                            where: { id: pr.id },
+                            update: {},
+                            create: {
+                                id: pr.id, school_id: schoolId, branch_id: branchId,
+                                teacher_id: teacherProfile.id,
+                                type: pr.type, title: pr.title, details: pr.details,
+                                effective_date: pr.effective_date,
+                            }
+                        });
+                    }
+                    await (tx as any).queryLetter.upsert({
+                        where: { id: `ql-${ipHash}-resolved` },
+                        update: {},
+                        create: {
+                            id: `ql-${ipHash}-resolved`,
+                            school_id: schoolId, branch_id: branchId, teacher_id: teacherProfile.id,
+                            subject: 'Late submission of lesson notes',
+                            reason: 'Lesson notes for the week of 2 June were submitted three days after the deadline. Please explain in writing.',
+                            issue_date: '2026-06-08', response_deadline: '2026-06-12',
+                            status: 'resolved', issued_by_name: 'School Admin',
+                            response_text: 'I apologise for the delay. I was attending the approved WAEC marking exercise and have since submitted all outstanding notes.',
+                            responded_at: new Date('2026-06-10T09:30:00Z'),
+                            outcome_note: 'Explanation accepted — absence was pre-approved.',
+                            closed_at: new Date('2026-06-11T14:00:00Z'),
+                        }
+                    });
+
+                    // 7d. Alumni archive: one graduated past student with a returned
+                    // suspension on record, so Past Students shows a real history.
+                    const alumniId = `alumni-${ipHash}`;
+                    const alumniUser = await tx.user.upsert({
+                        where: { id: alumniId },
+                        update: {},
+                        create: {
+                            id: alumniId,
+                            email: `alumni-${ipHash}@demo.oliskey.app`,
+                            password_hash: passwordHash,
+                            full_name: 'Amaka Okafor',
+                            role: 'STUDENT',
+                            school_id: schoolId,
+                            branch_id: branchId,
+                            is_active: true,
+                        }
+                    });
+                    const alumniStudent = await tx.student.upsert({
+                        where: { user_id: alumniUser.id },
+                        update: {
+                            status: 'Graduated', exit_year: 2025, exit_class: 'SSS 3',
+                            exit_date: new Date('2025-07-15T00:00:00Z'),
+                        },
+                        create: {
+                            user_id: alumniUser.id,
+                            school_id: schoolId,
+                            branch_id: branchId,
+                            full_name: 'Amaka Okafor',
+                            email: alumniUser.email,
+                            admission_number: `ALM-${ipHash}`,
+                            grade: 12,
+                            section: 'A',
+                            status: 'Graduated',
+                            exit_year: 2025,
+                            exit_class: 'SSS 3',
+                            exit_date: new Date('2025-07-15T00:00:00Z'),
+                        }
+                    });
+                    await (tx as any).studentSuspension.upsert({
+                        where: { id: `alumni-suspension-${ipHash}` },
+                        update: {},
+                        create: {
+                            id: `alumni-suspension-${ipHash}`,
+                            school_id: schoolId, branch_id: branchId, student_id: alumniStudent.id,
+                            reason: 'Involved in a physical altercation with a classmate during break time.',
+                            start_date: '2025-02-10', return_date: '2025-02-17',
+                            return_conditions: 'Meet with the school counselor before resuming classes.',
+                            status: 'returned', issued_by_name: 'School Admin',
+                            returned_at: new Date('2025-02-17T09:00:00Z'),
+                            return_note: 'Counseling session completed. Returned in good standing.',
+                        }
+                    });
+
+                    // 7e. School SOP: two incident types (one standard multi-stage
+                    // workflow, one critical-alert) and a sample case already midway
+                    // through its stages, so the demo shows a live workflow in progress.
+                    const bullyingTypeId = `sop-type-${ipHash}-bullying`;
+                    await (tx as any).sOPIncidentType.upsert({
+                        where: { id: bullyingTypeId },
+                        update: {},
+                        create: {
+                            id: bullyingTypeId, school_id: schoolId, branch_id: branchId,
+                            name: 'Bullying', description: 'A student reports or is reported to be bullying another student.',
+                            severity: 'standard', is_active: true,
+                        }
+                    });
+                    const bullyingStages = [
+                        { name: 'Vice Principal Notified', notify_roles: ['ADMIN'] },
+                        { name: 'Parent Notified', notify_roles: ['PARENT'] },
+                        { name: 'Investigation', notify_roles: ['ADMIN'], requires_evidence: true },
+                        { name: 'Decision Recorded', notify_roles: ['ADMIN'], requires_decision: true },
+                        { name: 'Letter Generated', notify_roles: [] as string[] },
+                        { name: 'Case Archived', notify_roles: [] as string[], is_terminal: true },
+                    ];
+                    await (tx as any).sOPWorkflowStage.deleteMany({ where: { incident_type_id: bullyingTypeId } });
+                    await (tx as any).sOPWorkflowStage.createMany({
+                        data: bullyingStages.map((s, i) => ({
+                            incident_type_id: bullyingTypeId, order: i + 1, name: s.name,
+                            notify_roles: s.notify_roles, requires_evidence: !!(s as any).requires_evidence,
+                            requires_decision: !!(s as any).requires_decision, is_terminal: !!(s as any).is_terminal,
+                        }))
+                    });
+                    const bullyingStageRows = await (tx as any).sOPWorkflowStage.findMany({ where: { incident_type_id: bullyingTypeId }, orderBy: { order: 'asc' } });
+
+                    const fireTypeId = `sop-type-${ipHash}-fire`;
+                    await (tx as any).sOPIncidentType.upsert({
+                        where: { id: fireTypeId },
+                        update: {},
+                        create: {
+                            id: fireTypeId, school_id: schoolId, branch_id: branchId,
+                            name: 'Fire Emergency', description: 'Fire or smoke detected on school premises.',
+                            severity: 'critical', is_critical_alert: true, alert_audience: 'all', is_active: true,
+                        }
+                    });
+                    await (tx as any).sOPWorkflowStage.deleteMany({ where: { incident_type_id: fireTypeId } });
+                    await (tx as any).sOPWorkflowStage.createMany({
+                        data: [
+                            { incident_type_id: fireTypeId, order: 1, name: 'Emergency Services Notified', notify_roles: ['ADMIN'] },
+                            { incident_type_id: fireTypeId, order: 2, name: 'All Clear Confirmed', notify_roles: ['ADMIN'], requires_decision: true },
+                            { incident_type_id: fireTypeId, order: 3, name: 'Incident Report Filed', notify_roles: [], is_terminal: true },
+                        ]
+                    });
+
+                    // Sample case already past its first two (auto-completing, no-requirement)
+                    // stages and waiting on "Investigation" — mirrors exactly where a real
+                    // report would land after the automatic cascade.
+                    const sampleCaseId = `sop-case-${ipHash}-1`;
+                    await (tx as any).sOPCase.upsert({
+                        where: { id: sampleCaseId },
+                        update: {},
+                        create: {
+                            id: sampleCaseId, school_id: schoolId, branch_id: branchId,
+                            incident_type_id: bullyingTypeId,
+                            title: 'Repeated teasing reported in SSS 1',
+                            description: 'A student reported being repeatedly teased and excluded by classmates during break time over the past week.',
+                            involved_student_ids: studentProfile ? [studentProfile.id] : [],
+                            reported_by: teacherUser.id, reported_by_role: 'TEACHER',
+                            status: 'in_progress', current_stage_order: 3,
+                        }
+                    });
+                    await (tx as any).sOPCaseStageLog.deleteMany({ where: { case_id: sampleCaseId } });
+                    await (tx as any).sOPCaseStageLog.createMany({
+                        data: bullyingStageRows.map((s: any) => ({
+                            case_id: sampleCaseId, stage_order: s.order, stage_name: s.name,
+                            status: s.order < 3 ? 'completed' : 'pending',
+                            completed_at: s.order < 3 ? new Date() : null,
+                            completed_by: s.order < 3 ? 'system' : null,
+                        }))
+                    });
+
+                    // 7f. Staff Substitute Management: give Michael Bassey a real
+                    // period TODAY and mark him absent, so the Substitute Coverage
+                    // screen always has a live, working example to demo regardless
+                    // of which day the server happens to boot on.
+                    const now = new Date();
+                    const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+                    const todayDow = now.getDay() === 0 ? 7 : now.getDay();
+                    if (todayDow <= 5) { // Mon–Fri only — no school periods to cover on a weekend
+                        const substituteDemoTimetableId = `tt-sub-demo-${ipHash}`;
+                        await tx.timetable.upsert({
+                            where: { id: substituteDemoTimetableId },
+                            update: { day_of_week: todayDow, status: 'Published' },
+                            create: {
+                                id: substituteDemoTimetableId, school_id: schoolId, branch_id: branchId,
+                                class_id: sss1ClassId, subject: 'English Language',
+                                teacher_id: michaelProfile.id, day_of_week: todayDow,
+                                start_time: '13:00', end_time: '13:45', room: 'Room 101',
+                                status: 'Published',
+                            }
+                        });
+                        await (tx as any).teacherAttendance.upsert({
+                            where: { teacher_id_date_branch_id: { teacher_id: michaelProfile.id, date: todayIso, branch_id: branchId } },
+                            update: { status: 'Absent' },
+                            create: {
+                                teacher_id: michaelProfile.id, school_id: schoolId, branch_id: branchId,
+                                date: todayIso, status: 'Absent', approval_status: 'approved',
+                            }
+                        });
+                    }
+
+                    // 7g. Student Early Warning System: a live example flag for the
+                    // main demo student so the At-Risk Students screen isn't empty.
+                    if (studentProfile) {
+                        await (tx as any).studentRiskFlag.upsert({
+                            where: { student_id: studentProfile.id },
+                            update: {
+                                score: 62, level: 'Medium', status: 'Active', resolved_at: null, resolved_by: null, computed_at: new Date(),
+                                reasons: [
+                                    { category: 'Attendance', detail: 'Missed 6 classes in the last 30 days', points: 18 },
+                                    { category: 'Homework', detail: 'Missed 3 of 8 assignments', points: 12 },
+                                    { category: 'Fees', detail: '1 unpaid fee past due', points: 8 },
+                                    { category: 'Academic', detail: 'Low scores in Mathematics', points: 15 },
+                                ] as any,
+                            },
+                            create: {
+                                school_id: schoolId, branch_id: branchId, student_id: studentProfile.id,
+                                score: 62, level: 'Medium', status: 'Active',
+                                reasons: [
+                                    { category: 'Attendance', detail: 'Missed 6 classes in the last 30 days', points: 18 },
+                                    { category: 'Homework', detail: 'Missed 3 of 8 assignments', points: 12 },
+                                    { category: 'Fees', detail: '1 unpaid fee past due', points: 8 },
+                                    { category: 'Academic', detail: 'Low scores in Mathematics', points: 15 },
+                                ] as any,
+                            },
+                        });
+
+                        // 7h. School Timeline: a custom milestone entry (admission,
+                        // suspension, and graduation are already auto-derived from
+                        // existing student data, so this demonstrates a manually
+                        // added entry alongside them).
+                        const timelineEventId = `life-event-${ipHash}-1`;
+                        await (tx as any).lifeEvent.upsert({
+                            where: { id: timelineEventId },
+                            update: {},
+                            create: {
+                                id: timelineEventId, school_id: schoolId, branch_id: branchId,
+                                subject_type: 'student', subject_id: studentProfile.id,
+                                event_type: 'Custom', title: 'Won Inter-House Spelling Competition',
+                                description: 'Represented the school and placed first in the state-wide spelling competition.',
+                                event_date: new Date(now.getFullYear(), 2, 15), source: 'manual', created_by: teacherUser.id,
+                            },
+                        });
+                    }
+
+                    // 7i. Classroom Observation Module: one recorded observation for
+                    // Michael Bassey so the admin and teacher screens both show data.
+                    {
+                        const observationTemplate = await (tx as any).observationTemplate.upsert({
+                            where: { id: `obs-template-${ipHash}` },
+                            update: {},
+                            create: {
+                                id: `obs-template-${ipHash}`, school_id: schoolId, name: 'Classroom Observation', version: 1, is_active: true,
+                                criteria: [
+                                    { key: 'lesson_prep', label: 'Lesson Preparation', max_score: 10 },
+                                    { key: 'teaching_method', label: 'Teaching Method', max_score: 10 },
+                                    { key: 'student_participation', label: 'Student Participation', max_score: 10 },
+                                    { key: 'classroom_management', label: 'Classroom Management', max_score: 10 },
+                                    { key: 'time_management', label: 'Time Management', max_score: 10 },
+                                ] as any,
+                            },
+                        });
+                        const observationId = `observation-${ipHash}-1`;
+                        await (tx as any).classroomObservation.upsert({
+                            where: { id: observationId },
+                            update: {},
+                            create: {
+                                id: observationId, school_id: schoolId, branch_id: branchId,
+                                template_id: observationTemplate.id, teacher_id: michaelProfile.id, class_id: sss1ClassId,
+                                observer_id: teacherUser.id, date: new Date(now.getFullYear(), now.getMonth(), Math.max(1, now.getDate() - 5)),
+                                status: 'Submitted', overall_score: 84, overall_grade: 'B',
+                                notes: 'Well-prepared lesson with strong student engagement. Could tighten pacing in the last 10 minutes.',
+                            },
+                        });
+                        await (tx as any).observationResponse.deleteMany({ where: { observation_id: observationId } });
+                        await (tx as any).observationResponse.createMany({
+                            data: [
+                                { observation_id: observationId, criterion_key: 'lesson_prep', score: 9, comment: 'Clear objectives, materials ready.' },
+                                { observation_id: observationId, criterion_key: 'teaching_method', score: 8, comment: 'Good use of questioning.' },
+                                { observation_id: observationId, criterion_key: 'student_participation', score: 9, comment: 'Most students engaged.' },
+                                { observation_id: observationId, criterion_key: 'classroom_management', score: 8, comment: 'Calm, orderly classroom.' },
+                                { observation_id: observationId, criterion_key: 'time_management', score: 7, comment: 'Ran a few minutes over.' },
+                            ],
+                        });
+                    }
+
+                    // 7j. School Maintenance System — a couple of live tickets at
+                    // different stages of the Pending → In Progress → Completed flow.
+                    await (tx as any).maintenanceTicket.upsert({
+                        where: { id: `maint-${ipHash}-1` },
+                        update: {},
+                        create: {
+                            id: `maint-${ipHash}-1`, school_id: schoolId, branch_id: branchId,
+                            location: 'JSS1A', category: 'HVAC/Fan', issue_title: 'Ceiling fan not working',
+                            priority: 'Medium', status: 'Pending', reported_by: teacherUser.id,
+                            ticket_number: `TKT-DEMO-${ipHash.slice(0, 4)}1`,
+                        },
+                    });
+                    await (tx as any).maintenanceTicket.upsert({
+                        where: { id: `maint-${ipHash}-2` },
+                        update: {},
+                        create: {
+                            id: `maint-${ipHash}-2`, school_id: schoolId, branch_id: branchId,
+                            location: 'Staff Room', category: 'Plumbing', issue_title: 'Leaking tap',
+                            priority: 'Low', status: 'In Progress', reported_by: teacherUser.id,
+                            ticket_number: `TKT-DEMO-${ipHash.slice(0, 4)}2`,
+                        },
+                    });
+
+                    // 7k. Asset Tracking — a couple of tagged assets with QR codes,
+                    // warranty, and an assigned user, so scanning/detail views have data.
+                    const demoAsset = await (tx as any).asset.upsert({
+                        where: { id: `asset-${ipHash}-1` },
+                        update: {},
+                        create: {
+                            id: `asset-${ipHash}-1`, school_id: schoolId, branch_id: branchId,
+                            name: 'Epson Projector', code: 'PRJ-001', category: 'Electronics', location: 'SSS1',
+                            status: 'good', condition: 'Good', current_value: 250000, quantity: 1,
+                            purchase_date: new Date(now.getFullYear() - 1, 0, 15),
+                            warranty_expiry: new Date(now.getFullYear() + 1, 0, 15),
+                            assigned_user_id: teacherUser.id,
+                            qr_code: `AST-DEMO-${ipHash.slice(0, 8)}`,
+                        },
+                    });
+                    await (tx as any).maintenanceTicket.upsert({
+                        where: { id: `maint-${ipHash}-3` },
+                        update: {},
+                        create: {
+                            id: `maint-${ipHash}-3`, school_id: schoolId, branch_id: branchId,
+                            asset_id: demoAsset.id, issue_title: 'Projector bulb dim', category: 'Electrical',
+                            priority: 'Low', status: 'Completed', reported_by: teacherUser.id,
+                            ticket_number: `TKT-DEMO-${ipHash.slice(0, 4)}3`,
+                        },
+                    });
+
+                    // 7l. Student Departure — an authorized pickup person for the demo
+                    // student, plus a completed routine pickup and a pending gate pass.
+                    if (studentProfile) {
+                        const pickupPerson = await (tx as any).authorizedPickupPerson.upsert({
+                            where: { id: `pickup-${ipHash}-1` },
+                            update: {},
+                            create: {
+                                id: `pickup-${ipHash}-1`, school_id: schoolId, branch_id: branchId,
+                                student_id: studentProfile.id, name: 'Grace Okafor', relationship: 'Aunt',
+                                phone: '0803 000 0000', is_active: true, added_by: teacherUser.id,
+                            },
+                        });
+                        await (tx as any).studentDeparture.upsert({
+                            where: { id: `departure-${ipHash}-1` },
+                            update: {},
+                            create: {
+                                id: `departure-${ipHash}-1`, school_id: schoolId, branch_id: branchId,
+                                student_id: studentProfile.id, type: 'EndOfDay',
+                                pickup_person_id: pickupPerson.id, pickup_person_name: pickupPerson.name,
+                                is_authorized: true, status: 'Completed',
+                                requested_by: teacherUser.id, confirmed_by: teacherUser.id, departure_time: new Date(),
+                            },
+                        });
+                        await (tx as any).studentDeparture.upsert({
+                            where: { id: `departure-${ipHash}-2` },
+                            update: {},
+                            create: {
+                                id: `departure-${ipHash}-2`, school_id: schoolId, branch_id: branchId,
+                                student_id: studentProfile.id, type: 'EarlyDismissal',
+                                pickup_person_name: 'Grace Okafor', is_authorized: false,
+                                reason: 'Doctor appointment', status: 'Pending', requested_by: teacherUser.id,
+                            },
+                        });
+                    }
+
+                    // 7m. Teacher Workload — a duty and a club advisor role for Michael
+                    // Bassey, so the Workload tab shows more than just teaching periods.
+                    await (tx as any).teacherDuty.upsert({
+                        where: { id: `duty-${ipHash}-1` },
+                        update: {},
+                        create: { id: `duty-${ipHash}-1`, school_id: schoolId, branch_id: branchId, teacher_id: michaelProfile.id, name: 'Exam Supervision', weight: 2 },
+                    });
+                    await (tx as any).extracurricularActivity.upsert({
+                        where: { id: `club-${ipHash}-1` },
+                        update: { advisor_teacher_id: michaelProfile.id },
+                        create: {
+                            id: `club-${ipHash}-1`, school_id: schoolId, branch_id: branchId,
+                            name: 'Debate Club', category: 'Academic', advisor_teacher_id: michaelProfile.id,
+                        },
+                    });
+
+                    // 7n. Teacher Leave Workflow — a leave type, a balance, and a
+                    // pending request so the approval screen isn't empty.
+                    const demoLeaveType = await (tx as any).leaveType.upsert({
+                        where: { id: `leavetype-${ipHash}-annual` },
+                        update: {},
+                        create: { id: `leavetype-${ipHash}-annual`, school_id: schoolId, name: 'Annual Leave', days_allowed: 21 },
+                    });
+                    await (tx as any).leaveBalance.upsert({
+                        where: { id: `leavebalance-${ipHash}-1` },
+                        update: {},
+                        create: {
+                            id: `leavebalance-${ipHash}-1`, school_id: schoolId, branch_id: branchId,
+                            teacher_id: michaelProfile.id, leave_type_id: demoLeaveType.id,
+                            total_days: 21, used_days: 0, remaining_days: 21, academic_year: `${now.getFullYear()}/${now.getFullYear() + 1}`,
+                        },
+                    });
+                    await (tx as any).leaveRequest.upsert({
+                        where: { id: `leaverequest-${ipHash}-1` },
+                        update: {},
+                        create: {
+                            id: `leaverequest-${ipHash}-1`, school_id: schoolId, branch_id: branchId,
+                            teacher_id: michaelProfile.id, leave_type_id: demoLeaveType.id,
+                            start_date: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7),
+                            end_date: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 9),
+                            days_requested: 3, reason: 'Family event out of town', status: 'Pending',
+                        },
+                    });
+
+                    // 7o. Department Management — a Science department with a Head
+                    // of Department, a teacher on the roster, a budget line, and a
+                    // logged meeting.
+                    const demoDepartment = await (tx as any).department.upsert({
+                        where: { id: `dept-${ipHash}-science` },
+                        update: {},
+                        create: { id: `dept-${ipHash}-science`, school_id: schoolId, branch_id: branchId, name: 'Science', head_teacher_id: michaelProfile.id },
+                    });
+                    await tx.teacher.updateMany({ where: { id: michaelProfile.id }, data: { department_id: demoDepartment.id } });
+                    await tx.budget.upsert({
+                        where: { id: `dept-budget-${ipHash}-1` },
+                        update: {},
+                        create: {
+                            id: `dept-budget-${ipHash}-1`, school_id: schoolId, branch_id: branchId, department_id: demoDepartment.id,
+                            fiscal_year: `${now.getFullYear()}/${now.getFullYear() + 1}`, category: 'Science', allocated_amount: 500000, spent_amount: 120000,
+                        },
+                    });
+                    await (tx as any).departmentMeeting.upsert({
+                        where: { id: `dept-meeting-${ipHash}-1` },
+                        update: {},
+                        create: {
+                            id: `dept-meeting-${ipHash}-1`, school_id: schoolId, branch_id: branchId, department_id: demoDepartment.id,
+                            title: 'Term Planning Meeting', date: new Date(now.getFullYear(), now.getMonth(), Math.max(1, now.getDate() - 10)),
+                            minutes: 'Reviewed lab equipment needs and agreed on the practical exam schedule.',
+                        },
+                    });
+
+                    // 7p. School Clubs — a Debate Club with the demo student as a
+                    // member, an advisor, an achievement, and today's attendance.
+                    const demoClub = await tx.extracurricularActivity.upsert({
+                        where: { id: `club-${ipHash}-1` },
+                        update: {},
+                        create: { id: `club-${ipHash}-1`, school_id: schoolId, branch_id: branchId, name: 'Debate Club', category: 'Academic', advisor_teacher_id: michaelProfile.id },
+                    });
+                    if (studentProfile) {
+                        await tx.studentActivity.upsert({
+                            where: { student_id_activity_id: { student_id: studentProfile.id, activity_id: demoClub.id } },
+                            update: {},
+                            create: { student_id: studentProfile.id, activity_id: demoClub.id, school_id: schoolId, branch_id: branchId },
+                        });
+                        await (tx as any).clubAttendance.upsert({
+                            where: { activity_id_student_id_date: { activity_id: demoClub.id, student_id: studentProfile.id, date: new Date(`${todayIso}T00:00:00Z`) } },
+                            update: {},
+                            create: { school_id: schoolId, branch_id: branchId, activity_id: demoClub.id, student_id: studentProfile.id, date: new Date(`${todayIso}T00:00:00Z`), status: 'Present', marked_by: teacherUser.id },
+                        });
+                        await tx.achievement.upsert({
+                            where: { id: `club-achievement-${ipHash}-1` },
+                            update: {},
+                            create: {
+                                id: `club-achievement-${ipHash}-1`, school_id: schoolId, branch_id: branchId,
+                                student_id: studentProfile.id, activity_id: demoClub.id, title: 'Won Regional Debate Final',
+                                description: 'Represented the school and won first place at the regional inter-school debate competition.',
+                                type: 'competition', date: new Date(now.getFullYear(), now.getMonth(), Math.max(1, now.getDate() - 3)),
+                            },
+                        });
+                    }
+
+                    // 7q. School Calendar Automation — a Sports Day event so the
+                    // audience-notification flow has something real to demo.
+                    const sportsDayId = `event-${ipHash}-sportsday`;
+                    const existingSportsDay = await tx.event.findUnique({ where: { id: sportsDayId } });
+                    if (!existingSportsDay) {
+                        await tx.event.create({
+                            data: {
+                                id: sportsDayId, school_id: schoolId, branch_id: branchId,
+                                title: 'Sports Day', type: 'Sports Day', location: 'School Field',
+                                date: new Date(now.getFullYear(), now.getMonth(), Math.min(28, now.getDate() + 14)),
+                                description: 'Annual inter-house sports competition.',
+                            },
                         });
                     }
 

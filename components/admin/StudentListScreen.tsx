@@ -227,7 +227,10 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
     queryFn: async () => {
       if (!schoolId) return [];
       const rawData = await api.getStudents(schoolId, currentBranchId || undefined, { includeUntagged: true });
-      return (rawData || []).map((s: any) => ({
+      // Graduated/Transferred students live exclusively in the Past Students
+      // archive now — they must never appear (or count) in the active roster.
+      const currentOnly = (rawData || []).filter((s: any) => s.status !== 'Graduated' && s.status !== 'Transferred');
+      return currentOnly.map((s: any) => ({
         id: s.id,
         schoolId: s.school_id || s.schoolId,
         schoolGeneratedId: s.school_generated_id || s.schoolGeneratedId,

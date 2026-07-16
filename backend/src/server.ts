@@ -18,6 +18,15 @@ const start = async () => {
             return app(req, res);
         });
 
+        // HTTP Keep-Alive tuning. keepAliveTimeout MUST exceed the reverse proxy's
+        // upstream idle timeout (nginx's default `keepalive_timeout` is 75s — see
+        // deploy/nginx.conf) or Node can close a pooled connection just as nginx
+        // reuses it, producing intermittent 502s under load. headersTimeout must in
+        // turn exceed keepAliveTimeout (Node requirement) to avoid spurious
+        // "Parse Error" resets on slow clients. Both are env-tunable per deployment.
+        httpServer.keepAliveTimeout = parseInt(process.env.KEEP_ALIVE_TIMEOUT_MS || '', 10) || 65_000;
+        httpServer.headersTimeout = parseInt(process.env.HEADERS_TIMEOUT_MS || '', 10) || (httpServer.keepAliveTimeout + 1_000);
+
         const { SocketService } = require('./services/socket.service');
         SocketService.init(httpServer);
 
@@ -135,6 +144,26 @@ const start = async () => {
                     startSubscriptionCron();
                 } catch (cronErr: any) {
                     console.warn('⚠️ [SubscriptionCron] start skipped:', cronErr.message);
+                }
+
+                // Student Early Warning System — nightly risk scan, production-only by default.
+                try {
+                    const { startRiskScanCron } = require('./services/riskScanCron.service');
+                    startRiskScanCron();
+                } catch (riskCronErr: any) {
+                    console.warn('⚠️ [RiskScanCron] start skipped:', riskCronErr.message);
+                }
+
+                // QR lesson attendance: close records whose teacher never
+                // scanned out, once the scheduled lesson end has passed.
+                try {
+                    const { LessonAttendanceService } = require('./services/lessonAttendance.service');
+                    setInterval(() => {
+                        LessonAttendanceService.autoCloseStale().catch((err: any) =>
+                            console.warn('⚠️ [LessonAttendance] auto-close failed:', err.message));
+                    }, 5 * 60 * 1000);
+                } catch (lessonErr: any) {
+                    console.warn('⚠️ [LessonAttendance] auto-close not started:', lessonErr.message);
                 }
                 dbConnected = true;
             } catch (error: any) {

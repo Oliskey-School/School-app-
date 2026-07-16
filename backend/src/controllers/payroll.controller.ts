@@ -141,3 +141,21 @@ export const getLeaveTypes = async (req: AuthRequest, res: Response) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+const ADMIN_ROLES = ['admin', 'proprietor', 'superadmin', 'super_admin'];
+
+export const decideLeaveRequest = async (req: AuthRequest, res: Response) => {
+    try {
+        if (!ADMIN_ROLES.includes((req.user.role || '').toLowerCase())) {
+            return res.status(403).json({ message: 'Only admins can approve or reject leave requests' });
+        }
+        const decision = req.body.status === 'Approved' ? 'Approved' : req.body.status === 'Rejected' ? 'Rejected' : null;
+        if (!decision) return res.status(400).json({ message: 'status must be Approved or Rejected' });
+        const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
+        const result = await PayrollService.decideLeaveRequest(req.user.school_id, branchId, req.params.id as string, decision, req.body.admin_comments, req.user.id);
+        res.json(result);
+    } catch (error: any) {
+        const status = /not found/i.test(error.message) ? 404 : /already been decided/i.test(error.message) ? 400 : 500;
+        res.status(status).json({ message: error.message });
+    }
+};

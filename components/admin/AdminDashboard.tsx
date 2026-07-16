@@ -1,5 +1,6 @@
 import React, { useState, useEffect, lazy, Suspense, useRef } from 'react';
 import DashboardLayout from '../layout/DashboardLayout';
+import AskAIWidget from '../shared/AskAIWidget';
 import ErrorBoundary from '../ui/ErrorBoundary';
 import { MainAdminOnly } from '../shared/MainAdminOnly';
 import { useProfile } from '../../context/ProfileContext';
@@ -31,6 +32,21 @@ const TimetableCreationPage = lazyWithRetry(() => import('./TimetableCreationPag
 const TimetableDeskBuilder = lazyWithRetry(() => import('./TimetableDeskBuilder'));
 const TimetableEditor = lazyWithRetry(() => import('./TimetableEditor'));
 const TeacherAttendanceScreen = lazyWithRetry(() => import('./TeacherAttendanceScreen'));
+const ClassroomManagementScreen = lazyWithRetry(() => import('./ClassroomManagementScreen'));
+const TeacherPersonnelFileScreen = lazyWithRetry(() => import('./TeacherPersonnelFileScreen'));
+const SOPSettingsScreen = lazyWithRetry(() => import('./SOPSettingsScreen'));
+const SOPCaseManagementScreen = lazyWithRetry(() => import('./SOPCaseManagementScreen'));
+const SOPCaseDetailScreen = lazyWithRetry(() => import('./SOPCaseDetailScreen'));
+const ReportIncidentScreen = lazyWithRetry(() => import('../shared/ReportIncidentScreen'));
+const SubstituteCoverageScreen = lazyWithRetry(() => import('./SubstituteCoverageScreen'));
+const AtRiskStudentsScreen = lazyWithRetry(() => import('./AtRiskStudentsScreen'));
+const ClassroomObservationScreen = lazyWithRetry(() => import('./ClassroomObservationScreen'));
+const TeacherAssignmentsScreen = lazyWithRetry(() => import('./TeacherAssignmentsScreen'));
+const SuspendStudentScreen = lazyWithRetry(() => import('./SuspendStudentScreen'));
+const MarkStudentExitScreen = lazyWithRetry(() => import('./MarkStudentExitScreen'));
+const PastStudentsScreen = lazyWithRetry(() => import('./PastStudentsScreen'));
+const AlumniHistoryScreen = lazyWithRetry(() => import('./AlumniHistoryScreen'));
+const ClassVerificationScreen = lazyWithRetry(() => import('./ClassVerificationScreen'));
 const TeacherAttendanceApproval = lazyWithRetry(() => import('./TeacherAttendanceApproval'));
 const FeeManagement = lazyWithRetry(() => import('./FeeManagement'));
 const FeeDetailsScreen = lazyWithRetry(() => import('./FeeDetailsScreen'));
@@ -101,6 +117,13 @@ const AuditTrailViewer = lazyWithRetry(() => import('./AuditTrailViewer'));
 const IntegrationHub = lazyWithRetry(() => import('./IntegrationHub'));
 const VendorManagement = lazyWithRetry(() => import('./VendorManagement'));
 const AssetInventory = lazyWithRetry(() => import('./AssetInventory'));
+const AssetDetailScreen = lazyWithRetry(() => import('./AssetDetailScreen'));
+const ScanAssetScreen = lazyWithRetry(() => import('./ScanAssetScreen'));
+const StudentGateScreen = lazyWithRetry(() => import('../shared/StudentGateScreen'));
+const GatePassApprovals = lazyWithRetry(() => import('./GatePassApprovals'));
+const DepartmentManagementScreen = lazyWithRetry(() => import('./DepartmentManagementScreen'));
+const ClubManagementScreen = lazyWithRetry(() => import('./ClubManagementScreen'));
+const DigitalTwinScreen = lazyWithRetry(() => import('./DigitalTwinScreen'));
 const FacilityRegisterScreen = lazyWithRetry(() => import('./FacilityRegisterScreen'));
 const EquipmentInventoryScreen = lazyWithRetry(() => import('./EquipmentInventoryScreen'));
 const SafetyHealthLogs = lazyWithRetry(() => import('./SafetyHealthLogs'));
@@ -322,6 +345,21 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         aiTimetableCreator: TimetableCreationPage,
         teacherAttendance: TeacherAttendanceScreen,
         teacherAttendanceApproval: TeacherAttendanceApproval,
+        classroomManagement: ClassroomManagementScreen,
+        classVerification: ClassVerificationScreen,
+        teacherPersonnelFile: TeacherPersonnelFileScreen,
+        sopSettings: SOPSettingsScreen,
+        sopCaseManagement: SOPCaseManagementScreen,
+        sopCaseDetail: SOPCaseDetailScreen,
+        reportIncident: ReportIncidentScreen,
+        substituteCoverage: SubstituteCoverageScreen,
+        atRiskStudents: AtRiskStudentsScreen,
+        classroomObservation: ClassroomObservationScreen,
+        teacherAssignments: TeacherAssignmentsScreen,
+        suspendStudent: SuspendStudentScreen,
+        markStudentExit: MarkStudentExitScreen,
+        pastStudents: PastStudentsScreen,
+        alumniHistory: AlumniHistoryScreen,
         feeManagement: FeeManagement,
         feeDetails: FeeDetailsScreen,
         examManagement: ExamManagement,
@@ -395,6 +433,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         analyticsAdminTools: AnalyticsAdminTools,
         vendorManagement: VendorManagement,
         assetInventory: AssetInventory,
+        assetDetail: AssetDetailScreen,
+        scanAsset: ScanAssetScreen,
+        studentGate: StudentGateScreen,
+        gatePassApprovals: GatePassApprovals,
+        departmentManagement: DepartmentManagementScreen,
+        clubManagement: ClubManagementScreen,
+        digitalTwin: DigitalTwinScreen,
         facilityRegister: FacilityRegisterScreen,
         equipmentInventory: EquipmentInventoryScreen,
         safetyHealthLogs: SafetyHealthLogs,
@@ -695,8 +740,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
                     </button>
                 ))}
             </div>
-            <button 
-                id="toggle-audit-panel" 
+            <button
+                id="toggle-audit-panel"
                 style={{ position: 'fixed', bottom: '10px', right: '10px', opacity: 0, zIndex: -1 }}
                 onClick={() => {
                     const panel = document.getElementById('audit-trigger-panel');
@@ -705,6 +750,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
             >
                 Audit
             </button>
+            <AskAIWidget />
         </DashboardLayout>
     );
 };

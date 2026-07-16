@@ -1,58 +1,59 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../../lib/api';
-import { useProfile } from '../../context/ProfileContext';
 import { toast } from 'react-hot-toast';
 import { UsersIcon, CheckCircleIcon, XCircleIcon } from '../../constants';
 
 interface SubstituteRequest {
-    id: number;
+    id: string;
     date: string;
-    period_number: number;
-    subject: string;
+    start_time: string | null;
+    end_time: string | null;
     class_name: string;
-    reason: string;
-    status: string;
     original_teacher_name: string;
+    status: string;
 }
 
+function fmtDate(value: string): string {
+    const d = new Date(value);
+    return isNaN(d.getTime()) ? value : d.toLocaleDateString();
+}
+
+const STATUS_STYLES: Record<string, string> = {
+    Assigned: 'bg-yellow-100 text-yellow-800',
+    Accepted: 'bg-green-100 text-green-800',
+    Declined: 'bg-red-100 text-red-800',
+    Completed: 'bg-gray-100 text-gray-600',
+};
+
 const SubstituteAssignment: React.FC = () => {
-    const { profile } = useProfile();
     const [requests, setRequests] = useState<SubstituteRequest[]>([]);
     const [loading, setLoading] = useState(true);
+    const [respondingId, setRespondingId] = useState<string | null>(null);
 
-    useEffect(() => {
-        fetchRequests();
-    }, []);
-
-    const fetchRequests = async () => {
+    const fetchRequests = useCallback(async () => {
         try {
             setLoading(true);
-            const data = await api.getSubstituteRequests(profile?.id || '');
-            setRequests(data || []);
+            const data = await api.getMySubstituteAssignments();
+            setRequests(Array.isArray(data) ? data : []);
         } catch (error: any) {
-            console.error('Error:', error);
+            console.error('Error fetching substitute assignments:', error);
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
-    const handleAccept = async (id: number) => {
+    useEffect(() => { fetchRequests(); }, [fetchRequests]);
+
+    const respond = async (id: string, response: 'Accepted' | 'Declined') => {
+        setRespondingId(id);
         try {
-            await api.updateAppointmentStatus(String(id), 'Accepted');
-            toast.success('Assignment accepted');
+            await api.respondToSubstituteAssignment(id, response);
+            toast.success(response === 'Accepted' ? 'Assignment accepted' : 'Assignment declined');
             fetchRequests();
         } catch (error: any) {
-            toast.error('Failed to accept');
-        }
-    };
-
-    const handleDecline = async (id: number) => {
-        try {
-            await api.updateAppointmentStatus(String(id), 'Declined');
-            toast.success('Assignment declined');
-            fetchRequests();
-        } catch (error: any) {
-            toast.error('Failed to decline');
+            toast.error(error?.message || `Failed to ${response.toLowerCase()}`);
+        } finally {
+            setRespondingId(null);
         }
     };
 
@@ -79,32 +80,30 @@ const SubstituteAssignment: React.FC = () => {
                             <div className="flex items-start justify-between">
                                 <div className="flex-1">
                                     <div className="flex items-center space-x-2 mb-2">
-                                        <span className={`px-2 py-1 rounded text-xs font-medium ${req.status === 'Accepted' ? 'bg-green-100 text-green-800' :
-                                                req.status === 'Declined' ? 'bg-red-100 text-red-800' :
-                                                    'bg-yellow-100 text-yellow-800'
-                                            }`}>
+                                        <span className={`px-2 py-1 rounded text-xs font-medium ${STATUS_STYLES[req.status] || 'bg-gray-100 text-gray-600'}`}>
                                             {req.status}
                                         </span>
                                     </div>
-                                    <h3 className="font-bold text-gray-900">{req.subject} - {req.class_name}</h3>
+                                    <h3 className="font-bold text-gray-900">{req.class_name}</h3>
                                     <p className="text-sm text-gray-600 mt-1">Cover for: {req.original_teacher_name}</p>
                                     <p className="text-sm text-gray-600">
-                                        📅 {new Date(req.date).toLocaleDateString()} | Period {req.period_number}
+                                        📅 {fmtDate(req.date)}{req.start_time ? ` | ${req.start_time}–${req.end_time}` : ''}
                                     </p>
-                                    <p className="text-sm text-gray-500 mt-1">Reason: {req.reason}</p>
                                 </div>
-                                {req.status === 'Pending' && (
+                                {req.status === 'Assigned' && (
                                     <div className="flex space-x-2">
                                         <button
-                                            onClick={() => handleAccept(req.id)}
-                                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium flex items-center space-x-1"
+                                            onClick={() => respond(req.id, 'Accepted')}
+                                            disabled={respondingId === req.id}
+                                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium flex items-center space-x-1 disabled:opacity-60"
                                         >
                                             <CheckCircleIcon className="w-4 h-4" />
                                             <span>Accept</span>
                                         </button>
                                         <button
-                                            onClick={() => handleDecline(req.id)}
-                                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium flex items-center space-x-1"
+                                            onClick={() => respond(req.id, 'Declined')}
+                                            disabled={respondingId === req.id}
+                                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium flex items-center space-x-1 disabled:opacity-60"
                                         >
                                             <XCircleIcon className="w-4 h-4" />
                                             <span>Decline</span>
@@ -121,4 +120,3 @@ const SubstituteAssignment: React.FC = () => {
 };
 
 export default SubstituteAssignment;
-

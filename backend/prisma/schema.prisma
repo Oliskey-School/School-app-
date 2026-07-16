@@ -115,6 +115,14 @@ model School {
   students                   Student[]
   subjects                   Subject[]
   SubstituteAssignment       SubstituteAssignment[]
+  risk_flags                 StudentRiskFlag[]
+  life_events                LifeEvent[]
+  classroom_observations     ClassroomObservation[]
+  authorized_pickup_persons  AuthorizedPickupPerson[]
+  student_departures         StudentDeparture[]
+  teacher_duties             TeacherDuty[]
+  departments                Department[]
+  department_meetings        DepartmentMeeting[]
   teachers                   Teacher[]
   teacher_availabilities     TeacherAvailability[]
   evaluations                TeacherEvaluation[]
@@ -141,6 +149,13 @@ model School {
   sponsorship_requests       SponsorshipRequest[]
   sponsorships               Sponsorship[]
   chat_permissions           ParentTeacherChatPermission[] @relation("SchoolChatPermissions")
+  classrooms                 Classroom[]
+  lesson_attendance          LessonAttendance[]
+  teacher_records            TeacherRecord[]
+  query_letters              QueryLetter[]
+  student_suspensions        StudentSuspension[]
+  sop_incident_types         SOPIncidentType[]
+  sop_cases                  SOPCase[]
 }
 
 model Branch {
@@ -177,6 +192,13 @@ model Branch {
   transport_routes       TransportRoute[]
   users                  User[]
   virtual_class_sessions VirtualClassSession[]
+  classrooms             Classroom[]
+  lesson_attendance      LessonAttendance[]
+  teacher_records        TeacherRecord[]
+  query_letters          QueryLetter[]
+  student_suspensions    StudentSuspension[]
+  sop_incident_types     SOPIncidentType[]
+  sop_cases              SOPCase[]
 
   @@unique([school_id, code])
 }
@@ -302,9 +324,53 @@ model Student {
   scholarship_recipients   ScholarshipRecipient[]
   sponsorship_requests     SponsorshipRequest[]
   sponsorships             Sponsorship[]
+  // Alumni archive snapshot — captured automatically when status becomes
+  // Graduated/Transferred/Withdrawn so the Past Students list survives class
+  // re-assignments and stays correct even years later. exit_year is editable
+  // by an admin (for backfilled/manually-entered old students).
+  exit_year                Int?
+  exit_class               String?
+  exit_date                DateTime?
+  suspensions              StudentSuspension[]
+  risk_flag                StudentRiskFlag?
+  authorized_pickup_persons AuthorizedPickupPerson[]
+  departures                StudentDeparture[]
+  club_attendance           ClubAttendance[]
 
   @@unique([school_id, admission_number])
   @@unique([school_id, school_generated_id])
+}
+
+// A formal, permanent suspension letter. Survives the student's eventual
+// graduation/exit because it hangs off the Student row, never deleted.
+model StudentSuspension {
+  id                 String    @id @default(uuid())
+  school_id          String
+  branch_id          String?
+  student_id         String
+  reason             String
+  start_date         String    // YYYY-MM-DD
+  return_date        String    // YYYY-MM-DD
+  return_conditions  String?
+  attachment_urls    String[]  @default([])
+  // active | returned
+  status             String    @default("active")
+  issued_by          String?
+  issued_by_name     String?
+  returned_at        DateTime?
+  returned_by        String?
+  return_note        String?
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @updatedAt
+  created_by         String?
+  updated_by         String?
+  deleted_at         DateTime?
+  school             School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  branch             Branch?   @relation(fields: [branch_id], references: [id])
+  student            Student   @relation(fields: [student_id], references: [id], onDelete: Cascade)
+
+  @@index([student_id, status])
+  @@index([school_id, student_id])
 }
 
 model Teacher {
@@ -364,6 +430,14 @@ model Teacher {
   updated_by               String?
   deleted_at               DateTime?
   chat_permissions         ParentTeacherChatPermission[] @relation("TeacherChatPermissions")
+  lesson_attendance        LessonAttendance[]
+  personnel_records        TeacherRecord[]
+  query_letters            QueryLetter[]
+  duties                   TeacherDuty[]
+  advised_clubs            ExtracurricularActivity[]
+  department_id            String?
+  department               Department?      @relation("DepartmentTeachers", fields: [department_id], references: [id], onDelete: SetNull)
+  headed_departments       Department[]     @relation("DepartmentHead")
 }
 
 model TeacherAttendance {
@@ -576,7 +650,25 @@ model ClassTeacher {
   updated_by               String?
   deleted_at               DateTime?
 
+  // Teacher Management System (class teacher / subject teacher roles) —
+  // role: 'class_teacher' | 'subject_teacher'. A subject-teacher row always
+  // carries subject_id; a class-teacher row never does (subject_id null),
+  // which is why they can never collide on the compound unique below even
+  // for the same teacher+class pair.
+  role              String    @default("subject_teacher")
+  session           String?   // e.g. '2025/2026' — stamped at assignment time
+  term              Int?      // 1 | 2 | 3 — stamped at assignment time
+  effective_date    DateTime?
+  periods_per_week  Int?
+  // status: 'active' | 'ended'. Rows are never deleted — an ended row is the
+  // teaching-history record (who taught what, when, and until when).
+  status            String    @default("active")
+  ended_at          DateTime?
+  ended_by          String?
+
   @@unique([class_id, teacher_id, subject_id])
+  @@index([teacher_id, status])
+  @@index([class_id, role, status])
 }
 
 model Attendance {
@@ -1199,6 +1291,7 @@ model Timetable {
   start_time  String
   end_time    String
   room        String?
+  classroom_id String?
   notes       String?
   status      String   @default("Draft")
   created_at  DateTime @default(now())
@@ -1207,9 +1300,139 @@ model Timetable {
   class       Class?   @relation(fields: [class_id], references: [id], onDelete: Cascade)
   school      School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
   teacher     Teacher? @relation(fields: [teacher_id], references: [id])
+  classroom   Classroom? @relation(fields: [classroom_id], references: [id])
+  lesson_attendance LessonAttendance[]
+  substitute_assignments SubstituteAssignment[]
   created_by               String?
   updated_by               String?
   deleted_at               DateTime?
+}
+
+// Physical classroom (per branch) with a permanent QR token used for teacher
+// lesson check-in/out. The qr_token is a server-generated random string —
+// never guessable, never exposed as anything but the QR payload.
+model Classroom {
+  id          String   @id @default(uuid())
+  school_id   String
+  branch_id   String
+  name        String
+  description String?
+  capacity    Int?
+  qr_token    String   @unique
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  created_by  String?
+  updated_by  String?
+  deleted_at  DateTime?
+  school      School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  branch      Branch   @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  timetables  Timetable[]
+  lesson_attendance LessonAttendance[]
+
+  @@unique([branch_id, name])
+}
+
+// One record per teacher-lesson-day, created on the first QR scan (or by the
+// nightly sweep for lessons never scanned). Subject/class are snapshotted so
+// reports stay accurate even if the timetable is edited later.
+model LessonAttendance {
+  id               String    @id @default(uuid())
+  school_id        String
+  branch_id        String?
+  timetable_id     String
+  teacher_id       String
+  classroom_id     String
+  date             String    // YYYY-MM-DD
+  subject          String
+  class_name       String?
+  scheduled_start  String    // HH:MM (from timetable)
+  scheduled_end    String    // HH:MM
+  scan_in_at       DateTime?
+  scan_out_at      DateTime?
+  duration_minutes Int?
+  // completed | in_progress | no_scan_out | missed. Lateness/early departure
+  // are separate flags so one lesson can be both late AND early-departure.
+  status           String    @default("in_progress")
+  is_late          Boolean   @default(false)
+  is_early_departure Boolean @default(false)
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
+  created_by       String?
+  updated_by       String?
+  deleted_at       DateTime?
+  school           School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  branch           Branch?   @relation(fields: [branch_id], references: [id])
+  timetable        Timetable @relation(fields: [timetable_id], references: [id], onDelete: Cascade)
+  teacher          Teacher   @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+  classroom        Classroom @relation(fields: [classroom_id], references: [id], onDelete: Cascade)
+
+  @@unique([timetable_id, date])
+  @@index([school_id, date])
+  @@index([teacher_id, date])
+}
+
+// Permanent personnel-file entry for a teacher: promotions, warnings,
+// commendations, disciplinary notes. Entries are never hard-deleted — the
+// file is a permanent employment record.
+model TeacherRecord {
+  id              String    @id @default(uuid())
+  school_id       String
+  branch_id       String?
+  teacher_id      String
+  // promotion | warning | commendation | disciplinary | note
+  type            String
+  title           String
+  details         String?
+  effective_date  String?   // YYYY-MM-DD
+  attachment_urls String[]  @default([])
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+  created_by      String?
+  updated_by      String?
+  deleted_at      DateTime?
+  school          School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  branch          Branch?   @relation(fields: [branch_id], references: [id])
+  teacher         Teacher   @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+
+  @@index([teacher_id, type])
+  @@index([school_id, teacher_id])
+}
+
+// A formal query letter issued by an admin to a teacher, with the teacher's
+// written response and the admin's closing outcome. Letter + response live on
+// one row: the exchange is a single formal document in the personnel file.
+model QueryLetter {
+  id                       String    @id @default(uuid())
+  school_id                String
+  branch_id                String?
+  teacher_id               String
+  subject                  String
+  reason                   String
+  issue_date               String    // YYYY-MM-DD
+  response_deadline        String    // YYYY-MM-DD
+  attachment_urls          String[]  @default([])
+  // pending | responded | resolved | warning_issued | escalated
+  status                   String    @default("pending")
+  issued_by                String?
+  issued_by_name           String?
+  response_text            String?
+  response_attachment_urls String[]  @default([])
+  responded_at             DateTime?
+  is_late_response         Boolean   @default(false)
+  outcome_note             String?
+  closed_by                String?
+  closed_at                DateTime?
+  created_at               DateTime  @default(now())
+  updated_at               DateTime  @updatedAt
+  created_by               String?
+  updated_by               String?
+  deleted_at               DateTime?
+  school                   School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  branch                   Branch?   @relation(fields: [branch_id], references: [id])
+  teacher                  Teacher   @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+
+  @@index([teacher_id, status])
+  @@index([school_id, teacher_id])
 }
 
 model VirtualClassSession {
@@ -1602,18 +1825,22 @@ model CurriculumTopic {
 }
 
 model ExtracurricularActivity {
-  id           String                 @id @default(uuid())
-  school_id    String
-  branch_id    String?
-  name         String
-  description  String?
-  category     String
-  icon         String?
-  created_at   DateTime               @default(now())
-  updated_at   DateTime               @updatedAt
-  school       School                 @relation(fields: [school_id], references: [id], onDelete: Cascade)
-  events       ExtracurricularEvent[]
-  participants StudentActivity[]
+  id                String                 @id @default(uuid())
+  school_id         String
+  branch_id         String?
+  name              String
+  description       String?
+  category          String
+  icon              String?
+  advisor_teacher_id String?
+  created_at        DateTime               @default(now())
+  updated_at        DateTime               @updatedAt
+  school            School                 @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  advisor           Teacher?               @relation(fields: [advisor_teacher_id], references: [id])
+  events            ExtracurricularEvent[]
+  participants      StudentActivity[]
+  club_attendance   ClubAttendance[]
+  achievements      Achievement[]
   created_by               String?
   updated_by               String?
   deleted_at               DateTime?
@@ -1661,8 +1888,10 @@ model Achievement {
   type        String?
   icon        String?
   color       String?
+  activity_id String?
   created_at  DateTime @default(now())
   student     Student  @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  activity    ExtracurricularActivity? @relation(fields: [activity_id], references: [id], onDelete: SetNull)
   school_id                String
   branch_id                String?
   created_by               String?
@@ -1678,13 +1907,78 @@ model Budget {
   category         String
   allocated_amount Float
   spent_amount     Float    @default(0)
+  department_id    String?
   created_at       DateTime @default(now())
   updated_at       DateTime @updatedAt
   branch           Branch?  @relation(fields: [branch_id], references: [id])
   school           School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  department       Department? @relation(fields: [department_id], references: [id], onDelete: SetNull)
   created_by               String?
   updated_by               String?
   deleted_at               DateTime?
+}
+
+// DEPARTMENT MANAGEMENT — Science, Mathematics, ICT, etc. A department has a
+// Head of Department, a roster of teachers (Teacher.department_id), budget
+// lines (Budget.department_id), and its own meeting log.
+model Department {
+  id              String               @id @default(uuid())
+  school_id       String
+  branch_id       String?
+  name            String
+  head_teacher_id String?
+  created_at      DateTime             @default(now())
+  updated_at      DateTime             @updatedAt
+  school          School               @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  head_teacher    Teacher?             @relation("DepartmentHead", fields: [head_teacher_id], references: [id], onDelete: SetNull)
+  teachers        Teacher[]            @relation("DepartmentTeachers")
+  budgets         Budget[]
+  meetings        DepartmentMeeting[]
+  created_by               String?
+  updated_by               String?
+  deleted_at               DateTime?
+
+  @@unique([school_id, branch_id, name])
+}
+
+model DepartmentMeeting {
+  id            String     @id @default(uuid())
+  school_id     String
+  branch_id     String?
+  department_id String
+  title         String
+  date          DateTime
+  time          String?
+  agenda        Json?
+  minutes       String?
+  created_at    DateTime   @default(now())
+  updated_at    DateTime   @updatedAt
+  department    Department @relation(fields: [department_id], references: [id], onDelete: Cascade)
+  school        School     @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  created_by               String?
+  updated_by               String?
+  deleted_at               DateTime?
+
+  @@index([department_id, date])
+}
+
+// SCHOOL CLUBS — attendance at a specific club event, separate from the
+// regular class-based Attendance model.
+model ClubAttendance {
+  id          String                  @id @default(uuid())
+  school_id   String
+  branch_id   String?
+  activity_id String
+  student_id  String
+  date        DateTime
+  status      String                  @default("Present")
+  marked_by   String?
+  created_at  DateTime                @default(now())
+  activity    ExtracurricularActivity @relation(fields: [activity_id], references: [id], onDelete: Cascade)
+  student     Student                 @relation(fields: [student_id], references: [id], onDelete: Cascade)
+
+  @@unique([activity_id, student_id, date])
+  @@index([activity_id, date])
 }
 
 model TeacherSalary {
@@ -2347,21 +2641,137 @@ model MentoringMatch {
   deleted_at               DateTime?
 }
 
+// A substitute teacher covering one specific period for an absent teacher.
+// Only created once a substitute is actually picked — which periods still
+// NEED coverage is computed live from Timetable + TeacherAttendance, never
+// pre-persisted as placeholder rows.
 model SubstituteAssignment {
-  id                    String   @id @default(uuid())
+  id                    String    @id @default(uuid())
   school_id             String
   original_teacher_id   String
   substitute_teacher_id String
   class_id              String
   subject_id            String?
+  timetable_id          String?
   date                  DateTime
-  status                String   @default("Pending")
-  created_at            DateTime @default(now())
-  school                School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  start_time            String?
+  end_time              String?
+  // 'Assigned' (just picked, awaiting the substitute's response) | 'Accepted'
+  // | 'Declined' (frees the period back up for reassignment) | 'Completed'
+  status                String    @default("Assigned")
+  notified_at           DateTime?
+  responded_at          DateTime?
+  created_at            DateTime  @default(now())
+  updated_at            DateTime  @updatedAt
+  school                School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  timetable             Timetable? @relation(fields: [timetable_id], references: [id])
   branch_id                String?
   created_by               String?
   updated_by               String?
   deleted_at               DateTime?
+
+  @@index([timetable_id, date])
+  @@index([school_id, date])
+  @@index([substitute_teacher_id, status])
+}
+
+// STUDENT EARLY WARNING SYSTEM — rules-based nightly scan flags at-risk
+// students from attendance, homework, fees, behaviour, exam scores, and
+// lateness. One active flag per student at a time; re-scoring overwrites it
+// rather than piling up duplicate rows.
+model StudentRiskFlag {
+  id           String    @id @default(uuid())
+  school_id    String
+  branch_id    String?
+  student_id   String
+  score        Int
+  level        String    // Low | Medium | High
+  reasons      Json      // [{ category, detail }]
+  status       String    @default("Active") // Active | Resolved
+  resolved_at  DateTime?
+  resolved_by  String?
+  computed_at  DateTime  @default(now())
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+  school       School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  student      Student   @relation(fields: [student_id], references: [id], onDelete: Cascade)
+
+  @@unique([student_id])
+  @@index([school_id, status])
+}
+
+// SCHOOL TIMELINE — a chronological life-event feed per student or teacher.
+// subject_type/subject_id is a lightweight polymorphic reference (no
+// enforced Prisma relation), same pattern as SubstituteAssignment's
+// class_id/subject_id, since it points at two different models.
+model LifeEvent {
+  id          String   @id @default(uuid())
+  school_id   String
+  branch_id   String?
+  subject_type String  // student | teacher
+  subject_id  String
+  event_type  String   // Admission | Achievement | Suspension | Graduation | Transfer | Withdrawal | Hired | Custom
+  title       String
+  description String?
+  event_date  DateTime
+  icon        String?
+  color       String?
+  source      String   @default("manual") // auto | manual
+  created_by  String?
+  created_at  DateTime @default(now())
+  school      School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+
+  @@index([school_id, subject_type, subject_id])
+}
+
+// CLASSROOM OBSERVATION MODULE — a versioned scoring rubric (lesson prep,
+// teaching method, participation, classroom management, time management)
+// an admin fills in while observing a teacher's class, structurally similar
+// to the school-inspection engine but scoped to one teacher/class/date.
+model ObservationTemplate {
+  id           String                 @id @default(uuid())
+  school_id    String?                // null = global default template
+  name         String
+  criteria     Json                   // [{ key, label, max_score }]
+  version      Int                    @default(1)
+  is_active    Boolean                @default(true)
+  created_at   DateTime               @default(now())
+  observations ClassroomObservation[]
+}
+
+model ClassroomObservation {
+  id            String                 @id @default(uuid())
+  school_id     String
+  branch_id     String?
+  template_id   String
+  teacher_id    String
+  class_id      String?
+  observer_id   String
+  date          DateTime
+  status        String                 @default("Submitted") // Draft | Submitted
+  overall_score Float?
+  overall_grade String?
+  notes         String?
+  created_at    DateTime               @default(now())
+  updated_at    DateTime               @updatedAt
+  deleted_at    DateTime?
+  school        School                 @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  template      ObservationTemplate    @relation(fields: [template_id], references: [id])
+  responses     ObservationResponse[]
+
+  @@index([teacher_id, date])
+  @@index([school_id, date])
+}
+
+model ObservationResponse {
+  id             String                @id @default(uuid())
+  observation_id String
+  criterion_key  String
+  score          Float
+  comment        String?
+  observation    ClassroomObservation  @relation(fields: [observation_id], references: [id], onDelete: Cascade)
+
+  @@index([observation_id])
 }
 
 model PDCertificate {
@@ -2528,6 +2938,9 @@ model Asset {
   purchase_date       DateTime?
   next_service_date   DateTime?
   facility_id         String?
+  assigned_user_id    String?
+  warranty_expiry     DateTime?
+  qr_code             String?
   created_at          DateTime            @default(now())
   updated_at          DateTime            @updatedAt
   facility            Facility?           @relation(fields: [facility_id], references: [id])
@@ -2537,21 +2950,28 @@ model Asset {
   created_by               String?
   updated_by               String?
   deleted_at               DateTime?
+
+  @@unique([qr_code])
 }
 
+// asset_id is optional: a teacher reporting "the fan in JSS2A is broken" has
+// no pre-registered asset to pick, so location/category cover that case.
 model MaintenanceTicket {
   id                String   @id @default(uuid())
   school_id         String
   branch_id         String?
-  asset_id          String
+  asset_id          String?
+  location          String?
+  category          String?
+  reported_by       String?
   ticket_number     String?
   issue_title       String
   issue_description String?
   priority          String   @default("Medium")
-  status            String   @default("Open")
+  status            String   @default("Pending")
   created_at        DateTime @default(now())
   updated_at        DateTime @updatedAt
-  asset             Asset    @relation(fields: [asset_id], references: [id], onDelete: Cascade)
+  asset             Asset?   @relation(fields: [asset_id], references: [id], onDelete: Cascade)
   school            School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
   created_by               String?
   updated_by               String?
@@ -2578,20 +2998,93 @@ model SchoolDocument {
 }
 
 model VisitorLog {
-  id            String    @id @default(uuid())
-  school_id     String
-  visitor_name  String
-  purpose       String?
-  contact_phone String?
-  check_in      DateTime  @default(now())
-  check_out     DateTime?
-  created_at    DateTime  @default(now())
-  updated_at    DateTime  @updatedAt
-  school        School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  id                  String    @id @default(uuid())
+  school_id           String
+  visitor_name        String
+  purpose             String?
+  contact_phone       String?
+  visitor_email       String?
+  host_name           String?
+  id_type             String?
+  id_number           String?
+  vehicle_info        String?
+  photo_url           String?
+  qr_code             String?
+  verification_status String    @default("Pending")
+  check_in            DateTime  @default(now())
+  check_out           DateTime?
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @updatedAt
+  school              School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
   branch_id                String?
   created_by               String?
   updated_by               String?
   deleted_at               DateTime?
+}
+
+// STUDENT DEPARTURE (Gate Pass + Pickup Authorization, combined). Parents
+// maintain a standing list of people allowed to collect their child; every
+// departure — routine end-of-day pickup or a mid-day early dismissal — is
+// checked against that same list and confirmed by staff.
+model AuthorizedPickupPerson {
+  id           String    @id @default(uuid())
+  school_id    String
+  branch_id    String?
+  student_id   String
+  name         String
+  relationship String
+  phone        String?
+  photo_url    String?
+  is_active    Boolean   @default(true)
+  added_by     String?
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+  school       School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  student      Student   @relation(fields: [student_id], references: [id], onDelete: Cascade)
+
+  @@index([student_id, is_active])
+}
+
+model StudentDeparture {
+  id                 String    @id @default(uuid())
+  school_id          String
+  branch_id          String?
+  student_id         String
+  type               String    // EndOfDay | EarlyDismissal
+  pickup_person_id   String?
+  pickup_person_name String?   // set when the person isn't a pre-registered AuthorizedPickupPerson — flags for staff review
+  is_authorized      Boolean   @default(false)
+  reason             String?
+  status             String    @default("Pending") // Pending | Approved | Completed | Denied
+  requested_by       String?
+  approved_by        String?
+  confirmed_by       String?
+  departure_time     DateTime?
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @updatedAt
+  school             School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  student            Student   @relation(fields: [student_id], references: [id], onDelete: Cascade)
+
+  @@index([school_id, status])
+  @@index([student_id])
+}
+
+// TEACHER WORKLOAD — non-teaching duties an admin assigns (exam supervision,
+// detention duty, morning assembly, etc). Club/extracurricular advising is
+// tracked directly on ExtracurricularActivity.advisor_teacher_id instead of a
+// separate model, since clubs already exist as ExtracurricularActivity rows.
+model TeacherDuty {
+  id         String   @id @default(uuid())
+  school_id  String
+  branch_id  String?
+  teacher_id String
+  name       String
+  weight     Int      @default(1)
+  created_at DateTime @default(now())
+  school     School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  teacher    Teacher  @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+
+  @@index([teacher_id])
 }
 
 model EmergencyAlert {
@@ -3625,4 +4118,168 @@ model TeacherWorkload {
   @@index([teacher_id])
   @@index([school_id])
   @@index([week_start_date])
+}
+
+// ============================================================================
+// School SOP (Standard Operating Procedures) — configurable incident-response
+// workflows. An admin defines an "incident type" (Bullying, Fire, Bus
+// Accident...) with its own ordered sequence of stages; each report against
+// that type walks the same sequence, notifying the right people, gathering
+// evidence, and finishing in a permanent, auditable case record with an
+// auto-drafted letter. Nothing is ever deleted — a case is closed, not
+// removed, exactly like the query-letter/suspension permanent-record pattern
+// used elsewhere in this app.
+// ============================================================================
+
+model SOPIncidentType {
+  id                  String              @id @default(uuid())
+  school_id           String
+  branch_id           String?
+  name                String
+  description         String?
+  // 'standard' (staged investigation) | 'critical' (also fans out an
+  // immediate real-time alert the moment a case is reported).
+  severity            String              @default("standard")
+  is_critical_alert   Boolean             @default(false)
+  // Audience for the critical-alert fan-out (ignored for standard types).
+  alert_audience      String?             // 'all' | 'staff' | 'parents' | 'teachers'
+  is_active           Boolean             @default(true)
+  created_at          DateTime            @default(now())
+  updated_at          DateTime            @updatedAt
+  created_by          String?
+  updated_by          String?
+  deleted_at          DateTime?
+  school              School              @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  branch              Branch?             @relation(fields: [branch_id], references: [id])
+  stages              SOPWorkflowStage[]
+  cases               SOPCase[]
+
+  @@index([school_id, is_active])
+}
+
+// One ordered stage in an incident type's workflow (e.g. "Vice Principal
+// Notified", "Parent Notified", "Investigation", "Decision Recorded").
+model SOPWorkflowStage {
+  id                  String            @id @default(uuid())
+  incident_type_id    String
+  order               Int
+  name                String
+  // Roles notified when a case reaches this stage (e.g. ['ADMIN']).
+  notify_roles        String[]          @default([])
+  // Specific users notified in addition to notify_roles (optional).
+  notify_user_ids     String[]          @default([])
+  requires_evidence   Boolean           @default(false)
+  requires_decision   Boolean           @default(false)
+  // The final stage of the workflow — completing it archives the case.
+  is_terminal         Boolean           @default(false)
+  created_at          DateTime          @default(now())
+  updated_at          DateTime          @updatedAt
+  incident_type       SOPIncidentType   @relation(fields: [incident_type_id], references: [id], onDelete: Cascade)
+
+  @@unique([incident_type_id, order])
+  @@index([incident_type_id])
+}
+
+// A reported incident, walking through its type's stage sequence.
+model SOPCase {
+  id                  String              @id @default(uuid())
+  school_id           String
+  branch_id           String?
+  incident_type_id    String
+  title               String
+  description         String
+  // Free-form snapshots of names (never enforced FKs — students/teachers
+  // named in a case may later leave/graduate, but the case record must stay
+  // exactly as reported).
+  involved_student_ids String[]          @default([])
+  involved_teacher_ids String[]          @default([])
+  reported_by         String
+  reported_by_role     String
+  // 'open' | 'in_progress' | 'resolved' | 'archived'
+  status               String            @default("open")
+  current_stage_order  Int               @default(1)
+  critical_alert_sent  Boolean           @default(false)
+  created_at           DateTime          @default(now())
+  updated_at           DateTime          @updatedAt
+  closed_at            DateTime?
+  created_by           String?
+  updated_by           String?
+  deleted_at           DateTime?
+  school               School            @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  branch               Branch?           @relation(fields: [branch_id], references: [id])
+  incident_type        SOPIncidentType   @relation(fields: [incident_type_id], references: [id])
+  stage_logs           SOPCaseStageLog[]
+  evidence             SOPEvidence[]
+  decisions            SOPDecision[]
+  letters              SOPLetter[]
+
+  @@index([school_id, status])
+  @@index([incident_type_id])
+}
+
+// Permanent, append-only history of every stage a case passed through.
+model SOPCaseStageLog {
+  id              String    @id @default(uuid())
+  case_id         String
+  stage_order     Int
+  stage_name      String    // snapshot — survives later edits to the workflow template
+  // 'pending' | 'completed' | 'skipped'
+  status          String    @default("pending")
+  notes           String?
+  notified_user_ids String[] @default([])
+  completed_by    String?
+  completed_at    DateTime?
+  created_at      DateTime  @default(now())
+  case            SOPCase   @relation(fields: [case_id], references: [id], onDelete: Cascade)
+
+  @@index([case_id])
+}
+
+model SOPEvidence {
+  id           String   @id @default(uuid())
+  case_id      String
+  url          String
+  file_type    String?
+  description  String?
+  uploaded_by  String
+  created_at   DateTime @default(now())
+  case         SOPCase  @relation(fields: [case_id], references: [id], onDelete: Cascade)
+
+  @@index([case_id])
+}
+
+model SOPDecision {
+  id                  String    @id @default(uuid())
+  case_id             String
+  decision_text       String
+  // 'no_action' | 'warning' | 'suspension' | 'expulsion' | 'other'
+  outcome             String    @default("no_action")
+  decided_by          String
+  decided_at          DateTime  @default(now())
+  // Set when the decision was one-click-linked to a permanent record
+  // elsewhere in the app (TeacherRecord warning / StudentSuspension).
+  linked_record_type  String?
+  linked_record_id    String?
+  case                SOPCase   @relation(fields: [case_id], references: [id], onDelete: Cascade)
+
+  @@index([case_id])
+}
+
+model SOPLetter {
+  id             String    @id @default(uuid())
+  case_id        String
+  draft_text     String
+  final_text     String?
+  // 'draft' | 'sent'
+  status         String    @default("draft")
+  recipient_type String?   // 'parent' | 'student' | 'teacher' | 'other'
+  recipient_id   String?
+  generated_by   String
+  sent_by        String?
+  sent_at        DateTime?
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
+  case           SOPCase   @relation(fields: [case_id], references: [id], onDelete: Cascade)
+
+  @@index([case_id])
 }

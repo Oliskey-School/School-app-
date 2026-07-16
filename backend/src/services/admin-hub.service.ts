@@ -384,24 +384,32 @@ export class SafetyService {
         });
     }
 
+    // The incident form collects a separate date and time; HealthIncident only
+    // has a single incident_date column, so fold the time into it here rather
+    // than passing an incident_time field Prisma doesn't recognize.
+    private static combineIncidentDate(incident_date?: string, incident_time?: string): Date | undefined {
+        if (!incident_date) return undefined;
+        return incident_time ? new Date(`${incident_date}T${incident_time}:00`) : new Date(incident_date);
+    }
+
     static async createHealthIncident(schoolId: string, data: any) {
-        // @ts-ignore
+        const { student_id, incident_type, description, action_taken, location, severity, reported_by, witnesses, parent_notified, status, incident_date, incident_time } = data;
         return prisma.healthIncident.create({
             data: {
-                ...data,
+                student_id, incident_type, description, action_taken, location, severity, reported_by, witnesses, parent_notified, status,
                 school_id: schoolId,
-                incident_date: data.incident_date ? new Date(data.incident_date) : new Date()
+                incident_date: this.combineIncidentDate(incident_date, incident_time) || new Date(),
             }
         });
     }
 
     static async updateHealthIncident(id: string, data: any) {
-        // @ts-ignore
+        const { student_id, incident_type, description, action_taken, location, severity, reported_by, witnesses, parent_notified, status, incident_date, incident_time } = data;
         return prisma.healthIncident.update({
             where: { id },
             data: {
-                ...data,
-                incident_date: data.incident_date ? new Date(data.incident_date) : undefined
+                student_id, incident_type, description, action_taken, location, severity, reported_by, witnesses, parent_notified, status,
+                incident_date: this.combineIncidentDate(incident_date, incident_time),
             }
         });
     }

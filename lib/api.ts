@@ -1021,6 +1021,32 @@ class ExpressApiClient {
         return this.delete(`/extracurriculars/leave/${activityId}`);
     }
 
+    async setClubAdvisor(activityId: string, teacherId: string | null): Promise<any> {
+        return this.put(`/extracurriculars/${activityId}/advisor`, { teacher_id: teacherId });
+    }
+    async createClub(data: { name: string; category: string; description?: string; advisor_teacher_id?: string }): Promise<any> {
+        return this.post('/extracurriculars', data);
+    }
+    async markClubAttendance(activityId: string, date: string, records: { student_id: string; status: string }[]): Promise<any> {
+        return this.post(`/extracurriculars/${activityId}/attendance`, { date, records });
+    }
+    async getClubAttendance(activityId: string, date: string): Promise<any[]> {
+        return this.get(`/extracurriculars/${activityId}/attendance?date=${date}`);
+    }
+    async addClubAchievement(activityId: string, data: { student_id: string; title: string; description?: string; date?: string }): Promise<any> {
+        return this.post(`/extracurriculars/${activityId}/achievements`, data);
+    }
+    async getClubAchievements(activityId: string): Promise<any[]> {
+        return this.get(`/extracurriculars/${activityId}/achievements`);
+    }
+
+    async addTeacherDuty(data: { teacher_id: string; name: string; weight?: number }): Promise<any> {
+        return this.post('/teacher-assignments/duties', data);
+    }
+    async removeTeacherDuty(id: string): Promise<void> {
+        return this.delete(`/teacher-assignments/duties/${id}`);
+    }
+
     async getLeaderboard(type: string = 'global'): Promise<any[]> {
         try {
             return await this.get(`/gamification/scores/leaderboard/${type}`);
@@ -1103,14 +1129,19 @@ class ExpressApiClient {
 
     // getTimetable moved to core section above
 
-    async getMaintenanceTickets(branchId?: string): Promise<any[]> {
+    async getMaintenanceTickets(branchId?: string, mine?: boolean): Promise<any[]> {
         const queryParams = new URLSearchParams();
         if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
+        if (mine) queryParams.append('mine', 'true');
         return this.get(`/maintenance?${queryParams.toString()}`);
     }
 
     async createMaintenanceTicket(data: any): Promise<any> {
         return this.post('/maintenance', data);
+    }
+
+    async updateMaintenanceTicketStatus(id: string, status: string): Promise<any> {
+        return this.patch(`/maintenance/${id}/status`, { status });
     }
 
 
@@ -2300,6 +2331,14 @@ class ExpressApiClient {
         await this.delete(`/vendors/${id}`);
     }
 
+    async getAssetDetail(id: string): Promise<any> {
+        const res = await this.get<any>(`/infrastructure/assets/${id}`);
+        return res?.data ?? res;
+    }
+    async getAssetByQrCode(qrCode: string): Promise<any> {
+        const res = await this.get<any>(`/infrastructure/assets/qr/${encodeURIComponent(qrCode)}`);
+        return res?.data ?? res;
+    }
     async getAssets(): Promise<any[]> {
         try {
             const result = await this.get<any>('/infrastructure/assets');
@@ -2704,6 +2743,10 @@ class ExpressApiClient {
         return this.put(`/calendar/${id}`, data);
     }
 
+    async deleteEvent(id: string): Promise<any> {
+        return this.delete(`/calendar/${id}`);
+    }
+
     async rsvpToEvent(eventId: string, status: string): Promise<any> {
         return this.post('/calendar/rsvp', { eventId, status });
     }
@@ -2728,6 +2771,141 @@ class ExpressApiClient {
     async getSubstituteRequests(teacherId?: string): Promise<any[]> {
         const query = teacherId ? `?teacherId=${teacherId}` : '';
         return this.get(`/teachers/me/substitutes${query}`);
+    }
+
+    // Staff Substitute Management
+    async getSubstituteCoverage(date: string): Promise<any[]> {
+        return this.get(`/substitutes/coverage?date=${date}`);
+    }
+    async assignSubstitute(data: { timetable_id: string; date: string; substitute_teacher_id: string }): Promise<any> {
+        return this.post('/substitutes/assign', data);
+    }
+    async getSubstituteHistory(date?: string): Promise<any[]> {
+        return this.get(`/substitutes/history${date ? `?date=${date}` : ''}`);
+    }
+    async getMySubstituteAssignments(): Promise<any[]> {
+        return this.get('/substitutes/mine');
+    }
+    async respondToSubstituteAssignment(id: string, response: 'Accepted' | 'Declined'): Promise<any> {
+        return this.post(`/substitutes/${id}/respond`, { response });
+    }
+
+    // Student Early Warning System
+    async getFlaggedStudents(params?: { level?: string; classId?: string; branchId?: string }): Promise<any[]> {
+        const q = new URLSearchParams(params as any).toString();
+        return this.get(`/risk/students${q ? `?${q}` : ''}`);
+    }
+    async getMyFlaggedStudents(): Promise<any[]> {
+        return this.get('/risk/students/mine');
+    }
+    async getMyChildrenRisk(): Promise<any[]> {
+        return this.get('/risk/children');
+    }
+    async runRiskScan(): Promise<any> {
+        return this.post('/risk/scan', {});
+    }
+    async resolveRiskFlag(id: string): Promise<any> {
+        return this.patch(`/risk/${id}/resolve`, {});
+    }
+
+    // School Timeline
+    async getStudentTimeline(studentId: string): Promise<any[]> {
+        return this.get(`/timeline/student/${studentId}`);
+    }
+    async getTeacherTimeline(teacherId: string): Promise<any[]> {
+        return this.get(`/timeline/teacher/${teacherId}`);
+    }
+    async addTimelineEvent(data: { subject_type: 'student' | 'teacher'; subject_id: string; title: string; description?: string; event_date: string; event_type?: string }): Promise<any> {
+        return this.post('/timeline', data);
+    }
+    async deleteTimelineEvent(id: string): Promise<void> {
+        return this.delete(`/timeline/${id}`);
+    }
+
+    // Classroom Observation Module
+    async getObservationTemplate(): Promise<any> {
+        return this.get('/observations/template');
+    }
+    async createObservation(data: { teacher_id: string; class_id?: string; date: string; scores: { criterion_key: string; score: number; comment?: string }[]; notes?: string }): Promise<any> {
+        return this.post('/observations', data);
+    }
+    async getMyObservations(): Promise<any[]> {
+        return this.get('/observations/mine');
+    }
+    async getObservationsForTeacher(teacherId: string): Promise<any[]> {
+        return this.get(`/observations/teacher/${teacherId}`);
+    }
+
+    // Student Departure (Gate Pass + Pickup Authorization)
+    async getAuthorizedPickupPersons(studentId: string): Promise<any[]> {
+        return this.get(`/departures/students/${studentId}/pickup-persons`);
+    }
+    async addAuthorizedPickupPerson(studentId: string, data: { name: string; relationship: string; phone?: string; photo_url?: string }): Promise<any> {
+        return this.post(`/departures/students/${studentId}/pickup-persons`, data);
+    }
+    async removeAuthorizedPickupPerson(id: string): Promise<any> {
+        return this.delete(`/departures/pickup-persons/${id}`);
+    }
+    async requestDeparture(data: { student_id: string; type: 'EndOfDay' | 'EarlyDismissal'; pickup_person_id?: string; pickup_person_name?: string; reason?: string }): Promise<any> {
+        return this.post('/departures', data);
+    }
+    async approveDeparture(id: string): Promise<any> {
+        return this.post(`/departures/${id}/approve`, {});
+    }
+    async denyDeparture(id: string): Promise<any> {
+        return this.post(`/departures/${id}/deny`, {});
+    }
+    async confirmDeparture(id: string): Promise<any> {
+        return this.post(`/departures/${id}/confirm`, {});
+    }
+    async getDepartures(params?: { status?: string; studentId?: string }): Promise<any[]> {
+        const q = new URLSearchParams(params as any).toString();
+        return this.get(`/departures${q ? `?${q}` : ''}`);
+    }
+
+    // Department Management
+    async getDepartments(): Promise<any[]> {
+        return this.get('/departments');
+    }
+    async createDepartment(data: { name: string; head_teacher_id?: string }): Promise<any> {
+        return this.post('/departments', data);
+    }
+    async updateDepartment(id: string, data: { name?: string; head_teacher_id?: string | null }): Promise<any> {
+        return this.put(`/departments/${id}`, data);
+    }
+    async assignTeacherToDepartment(departmentId: string, teacherId: string): Promise<any> {
+        return this.post(`/departments/${departmentId}/teachers`, { teacher_id: teacherId });
+    }
+    async removeTeacherFromDepartment(teacherId: string): Promise<any> {
+        return this.delete(`/departments/teachers/${teacherId}`);
+    }
+    async addDepartmentBudget(departmentId: string, data: { fiscal_year: string; category?: string; allocated_amount: number; spent_amount?: number }): Promise<any> {
+        return this.post(`/departments/${departmentId}/budget`, data);
+    }
+    async createDepartmentMeeting(departmentId: string, data: { title: string; date: string; time?: string; agenda?: any; minutes?: string }): Promise<any> {
+        return this.post(`/departments/${departmentId}/meetings`, data);
+    }
+    async updateDepartmentMeetingMinutes(meetingId: string, minutes: string): Promise<any> {
+        return this.put(`/departments/meetings/${meetingId}`, { minutes });
+    }
+    async getDepartmentReport(id: string): Promise<any> {
+        return this.get(`/departments/${id}/report`);
+    }
+
+    // School Digital Twin
+    async getDigitalTwinSnapshot(): Promise<any> {
+        return this.get('/digital-twin/snapshot');
+    }
+
+    // AI Insights + Ask AI
+    async getMyInsights(): Promise<any> {
+        return this.get('/insights/mine');
+    }
+    async askAI(question: string): Promise<{ answer: string; query_id: string | null; data: any }> {
+        return this.post('/insights/ask', { question });
+    }
+    async getAskAISuggestions(): Promise<{ questions: string[] }> {
+        return this.get('/insights/ask/suggestions');
     }
 
     // ============================================
@@ -2926,8 +3104,8 @@ class ExpressApiClient {
         return this.createLeaveRequest(data);
     }
 
-    async approveLeaveRequest(id: string, status: string): Promise<any> {
-        return this.put(`/teachers/leave-requests/${id}`, { status });
+    async approveLeaveRequest(id: string, status: string, adminComments?: string): Promise<any> {
+        return this.put(`/payroll/leave-requests/${id}`, { status, admin_comments: adminComments });
     }
 
     // ============================================

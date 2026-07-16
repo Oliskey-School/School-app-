@@ -121,6 +121,8 @@ export class TimetableService {
                 start_time: data.start_time,
                 end_time: data.end_time,
                 room: data.room ?? null,
+                classroom_id: data.classroom_id
+                    ?? await TimetableService.resolveClassroomId(schoolId, data.room, branchId),
                 notes: data.notes ?? null,
                 // Publish state — only the Editor's "Publish Live" sends 'Published';
                 // everything else (Builder save, draft) stays 'Draft'.
@@ -130,6 +132,26 @@ export class TimetableService {
 
         SocketService.emitToSchool(schoolId, 'timetable:updated', { action: 'create', entryId: entry.id });
         return entry;
+    }
+
+    /**
+     * QR lesson attendance links lessons to Classroom records, but the
+     * timetable UI only captures a free-text room name. Bridge the two by
+     * matching the typed room name to a registered classroom (same school,
+     * same branch when known) so no timetable UI change is needed.
+     */
+    static async resolveClassroomId(schoolId: string, room?: string | null, branchId?: string | null): Promise<string | null> {
+        if (!room?.trim()) return null;
+        const classroom = await (prisma as any).classroom.findFirst({
+            where: {
+                school_id: schoolId,
+                deleted_at: null,
+                name: { equals: room.trim(), mode: 'insensitive' },
+                ...(branchId ? { branch_id: branchId } : {}),
+            },
+            select: { id: true }
+        });
+        return classroom?.id ?? null;
     }
 
     static async updateTimetable(schoolId: string, id: string, data: any) {
@@ -152,6 +174,11 @@ export class TimetableService {
                 ...(data.start_time !== undefined && { start_time: data.start_time }),
                 ...(data.end_time !== undefined && { end_time: data.end_time }),
                 ...(data.room !== undefined && { room: data.room }),
+                ...(data.classroom_id !== undefined
+                    ? { classroom_id: data.classroom_id || null }
+                    : data.room !== undefined
+                        ? { classroom_id: await TimetableService.resolveClassroomId(schoolId, data.room, data.branch_id) }
+                        : {}),
                 ...(data.notes !== undefined && { notes: data.notes }),
                 ...(data.status !== undefined && { status: data.status }),
                 updated_at: new Date(),

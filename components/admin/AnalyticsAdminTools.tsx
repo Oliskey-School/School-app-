@@ -77,6 +77,13 @@ const AnalyticsAdminTools: React.FC<AnalyticsAdminToolsProps> = ({ navigateTo, s
                     color: 'text-cyan-600 bg-cyan-100'
                 },
                 {
+                    view: 'scanAsset',
+                    title: 'Scan Asset',
+                    description: 'Scan a QR tag to view details',
+                    icon: '📷',
+                    color: 'text-cyan-700 bg-cyan-100'
+                },
+                {
                     view: 'privacyDashboard',
                     title: 'Privacy (NDPR)',
                     description: 'Data protection & consent',

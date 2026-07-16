@@ -10,7 +10,11 @@ import {
     Calendar,
     Bell,
     Settings,
-    Shield
+    Shield,
+    QrCode,
+    ScanLine,
+    GraduationCap as GraduationCapIcon,
+    UsersRound as UsersCogIcon
 } from 'lucide-react';
 
 interface AdminActionsScreenProps {
@@ -40,6 +44,10 @@ const AdminActionsScreen: React.FC<AdminActionsScreenProps> = ({ navigateTo }) =
             items: [
                 { label: "Reports", icon: <FileText className="w-5 h-5 text-blue-600" />, onClick: () => navigateTo('reports', 'Reports'), bg: "bg-blue-50" },
                 { label: "Timetable", icon: <Calendar className="w-5 h-5 text-blue-600" />, onClick: () => navigateTo('timetable', 'Timetable'), bg: "bg-blue-50" },
+                { label: "Classrooms & QR", icon: <QrCode className="w-5 h-5 text-blue-600" />, onClick: () => navigateTo('classroomManagement', 'Classrooms & QR Codes'), bg: "bg-blue-50" },
+                { label: "Class Verification", icon: <ScanLine className="w-5 h-5 text-blue-600" />, onClick: () => navigateTo('classVerification', 'Class Verification'), bg: "bg-blue-50" },
+                { label: "Past Students", icon: <GraduationCapIcon className="w-5 h-5 text-blue-600" />, onClick: () => navigateTo('pastStudents', 'Past Students'), bg: "bg-blue-50" },
+                { label: "Teacher Assignments", icon: <UsersCogIcon className="w-5 h-5 text-blue-600" />, onClick: () => navigateTo('teacherAssignments', 'Teacher Assignments'), bg: "bg-blue-50" },
             ]
         },
         {

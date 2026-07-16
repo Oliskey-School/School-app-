@@ -1,11 +1,12 @@
 ﻿import React, { useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { Teacher } from '../../types';
-import { MailIcon, PhoneIcon, ChartBarIcon, CalendarIcon, EditIcon, gradeColors, SUBJECT_COLORS, TrashIcon } from '../../constants';
+import { MailIcon, PhoneIcon, ChartBarIcon, CalendarIcon, EditIcon, BriefcaseIcon, gradeColors, SUBJECT_COLORS, TrashIcon } from '../../constants';
 import DonutChart from '../ui/DonutChart';
 import { api } from '../../lib/api';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import ConfirmationModal from '../ui/ConfirmationModal';
+import StudentTeacherTimeline from '../shared/StudentTeacherTimeline';
 
 interface TeacherDetailAdminViewProps {
     teacher: Teacher;
@@ -213,6 +214,15 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
                                 <CalendarIcon className="w-6 h-6 text-indigo-500 flex-shrink-0" />
                                 <span className="font-semibold text-gray-700 text-sm sm:text-base">Full Attendance Record</span>
                             </button>
+                            <button onClick={() => navigateTo('teacherPersonnelFile', `${teacher.full_name || teacher.name}'s Personnel File`, { teacher })} className="w-full flex items-center space-x-3 p-3 text-left hover:bg-gray-50 rounded-lg transition-colors">
+                                <BriefcaseIcon className="w-6 h-6 text-indigo-500 flex-shrink-0" />
+                                <span className="font-semibold text-gray-700 text-sm sm:text-base">Personnel File</span>
+                            </button>
+                        </div>
+
+                        {/* Timeline */}
+                        <div className="bg-white p-4 rounded-xl shadow-sm mt-4">
+                            <StudentTeacherTimeline subjectType="teacher" subjectId={teacher.id} canEdit />
                         </div>
                     </div>
                 </div>

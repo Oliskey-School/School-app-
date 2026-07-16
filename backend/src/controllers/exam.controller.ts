@@ -1,8 +1,11 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { ExamService } from '../services/exam.service';
+import { TeacherAssignmentService } from '../services/teacherAssignment.service';
 import prisma from '../config/database';
 import { getEffectiveBranchId } from '../utils/branchScope';
+
+const ADMIN_ROLES = ['admin', 'proprietor', 'superadmin', 'super_admin'];
 
 export const upsertExamResults = async (req: AuthRequest, res: Response) => {
     try {
@@ -12,6 +15,32 @@ export const upsertExamResults = async (req: AuthRequest, res: Response) => {
         if (!Array.isArray(results) || results.length === 0) {
             return res.status(400).json({ message: 'results must be a non-empty array' });
         }
+
+        // Score entry is restricted to the exam's own teacher OR the assigned
+        // Subject Teacher of that class+subject — a Class Teacher (or any other
+        // teacher) must not be able to edit marks for a subject they don't teach.
+        if (!ADMIN_ROLES.includes((req.user.role || '').toLowerCase())) {
+            const teacher = await prisma.teacher.findUnique({ where: { user_id: req.user.id }, select: { id: true } });
+            if (!teacher) return res.status(403).json({ message: 'No teacher profile found for this account' });
+
+            const examIds = [...new Set(results.map((r: any) => r.exam_id).filter(Boolean))] as string[];
+            const exams = await prisma.exam.findMany({ where: { id: { in: examIds }, school_id: schoolId } });
+            if (exams.length !== examIds.length) return res.status(404).json({ message: 'Exam not found' });
+
+            for (const exam of exams) {
+                if (exam.teacher_id === teacher.id) continue; // owns the exam directly
+                const subject = exam.class_id
+                    ? await prisma.subject.findFirst({ where: { school_id: schoolId, name: { equals: exam.subject, mode: 'insensitive' } }, select: { id: true } })
+                    : null;
+                const isAssigned = subject && exam.class_id
+                    ? await TeacherAssignmentService.isSubjectTeacherOf(teacher.id, exam.class_id, subject.id)
+                    : false;
+                if (!isAssigned) {
+                    return res.status(403).json({ message: `You are not the assigned Subject Teacher for "${exam.subject}" in this class` });
+                }
+            }
+        }
+
         const saved = await ExamService.upsertExamResults(schoolId, branchId, results);
         res.status(201).json({ saved: saved.length, results: saved });
     } catch (error: any) {

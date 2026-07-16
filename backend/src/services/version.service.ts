@@ -1,15 +1,23 @@
 import prisma from '../config/database';
+import { CacheService } from './cache.service';
+
+const VERSIONS_CACHE_KEY = 'app-versions:latest';
+const VERSIONS_CACHE_TTL_S = 300; // 5 min — versions change rarely; every authenticated request hits this
 
 export class VersionService {
     /**
-     * Get the last 10 published versions
+     * Get the last 10 published versions. Cached: this is read on every app
+     * load by every user of every school, and versions change only when an
+     * admin explicitly registers one (which invalidates the cache below).
      */
     static async getLatestVersions() {
-        return await prisma.appVersion.findMany({
-            where: { is_active: true },
-            orderBy: { created_at: 'desc' },
-            take: 10
-        });
+        return CacheService.getOrSet(VERSIONS_CACHE_KEY, VERSIONS_CACHE_TTL_S, () =>
+            prisma.appVersion.findMany({
+                where: { is_active: true },
+                orderBy: { created_at: 'desc' },
+                take: 10
+            })
+        );
     }
 
     /**
@@ -35,10 +43,12 @@ export class VersionService {
      * Internal: Register a new version (for automated scripts)
      */
     static async registerVersion(version: string, description?: string) {
-        return await prisma.appVersion.upsert({
+        const result = await prisma.appVersion.upsert({
             where: { version },
             update: { description, is_active: true },
             create: { version, description, is_active: true }
         });
+        await CacheService.invalidate(VERSIONS_CACHE_KEY);
+        return result;
     }
 }

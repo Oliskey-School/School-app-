@@ -64,6 +64,26 @@ export const createAsset = async (req: AuthRequest, res: Response) => {
     }
 };
 
+export const getAssetDetail = async (req: AuthRequest, res: Response) => {
+    try {
+        const schoolId = req.user.school_id;
+        const result = await InfrastructureService.getAssetDetail(schoolId, req.params.id as string);
+        res.json({ data: result, error: null });
+    } catch (error: any) {
+        res.status(/not found/i.test(error.message) ? 404 : 500).json({ data: null, error: error.message, message: error.message });
+    }
+};
+
+export const getAssetByQrCode = async (req: AuthRequest, res: Response) => {
+    try {
+        const schoolId = req.user.school_id;
+        const result = await InfrastructureService.getAssetByQrCode(schoolId, req.params.qrCode as string);
+        res.json({ data: result, error: null });
+    } catch (error: any) {
+        res.status(/not found/i.test(error.message) ? 404 : 500).json({ data: null, error: error.message, message: error.message });
+    }
+};
+
 export const updateAsset = async (req: AuthRequest, res: Response) => {
     try {
         const schoolId = req.user.school_id;

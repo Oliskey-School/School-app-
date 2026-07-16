@@ -6,6 +6,12 @@ import { PrismaClient, Role } from '../../generated/prisma-client';
 import { SocketService } from './socket.service';
 import { config } from '../config/env';
 import { canEditTeacherIdentity, canAssignTeacherToBranch, canAssignTeacherClassesInBranch, forbidden, RequesterLike } from '../utils/permissions';
+import { SubstituteService } from './substitute.service';
+
+function todayStr(): string {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
 export class TeacherService {
     static async createTeacher(schoolId: string, branchId: string | undefined, data: any) {
@@ -860,6 +866,14 @@ export class TeacherService {
                 }
             });
             results.push(result);
+
+            // Absence marked for TODAY specifically triggers substitute-coverage
+            // notifications — a backdated/future "Absent" record doesn't need an
+            // immediate admin ping.
+            if (record.status === 'Absent' && record.date === todayStr()) {
+                await SubstituteService.notifyAdminsOfAbsence(schoolId, record.branch_id || branchId, record.teacher_id, record.date)
+                    .catch(err => console.warn('⚠️ [Substitute] absence notification failed:', err.message));
+            }
         }
         SocketService.emitToSchool(schoolId, 'teacher:updated', { action: 'attendance_bulk_save' });
         return results;

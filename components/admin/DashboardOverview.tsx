@@ -43,7 +43,8 @@ import {
 import { AuditLog, RoleName } from '../../types';
 import DonutChart from '../ui/DonutChart';
 import { EmergencyBroadcastModal } from './EmergencyBroadcastModal';
-import { AlertTriangle, Activity, Flame, ShieldCheck, Shield, FileText, Rocket, Beaker, Calendar, TrendingUp, Building2, Bus, BarChart3, Database, Monitor, Star, Receipt, Clock, FileCheck, Download, BellRing, LayoutGrid, GraduationCap } from 'lucide-react';
+import { AlertTriangle, Activity, Flame, ShieldCheck, Shield, FileText, Rocket, Beaker, Calendar, TrendingUp, Building2, Bus, BarChart3, Database, Monitor, Star, Receipt, Clock, FileCheck, Download, BellRing, LayoutGrid, GraduationCap, QrCode, ScanLine, Archive, UsersRound, ClipboardCheck, Repeat, ShieldAlert, ClipboardEdit, LogOut, DoorOpen, Gauge, School } from 'lucide-react';
+import AIInsightsPanel from '../shared/AIInsightsPanel';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useProfile } from '../../context/ProfileContext';
@@ -396,32 +397,75 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                         </div>
                     </div>
 
+                    <AIInsightsPanel />
+
                     <div>
-                        <h2 className="text-xl font-bold text-gray-700 mb-3 px-1">Quick Actions</h2>
-                        {/* Mobile/Tablet view */}
-                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 sm:gap-4">
-                            <QuickActionCard label="Add User" icon={<PlusIcon />} onClick={() => navigateTo('selectUserTypeToAdd', 'Add New User', {})} color="bg-indigo-500" />
-                            <QuickActionCard label="Approvals" icon={<CheckCircleIcon />} onClick={() => navigateTo('studentApprovals', 'Student Approvals')} color="bg-indigo-600" />
-                            <QuickActionCard label="Onboarding" icon={<SchoolLogoIcon />} onClick={() => navigateTo('manageSchoolInfo', 'School Onboarding')} color="bg-pink-600" />
-                            <QuickActionCard label="Enroll Student" icon={<UserIcon />} onClick={() => navigateTo('enrollmentPage', 'New Student Enrollment')} color="bg-emerald-600" />
-                            <QuickActionCard label="Register Exams" icon={<DocumentTextIcon />} onClick={() => navigateTo('exams', 'External Exams')} color="bg-indigo-600" />
-                            <QuickActionCard label="Publish Reports" icon={<ReportIcon />} onClick={() => navigateTo('reportCardPublishing', 'Publish Reports', {})} color="bg-purple-500" />
-                            <QuickActionCard label="Timetable" icon={<ClipboardListIcon />} onClick={() => navigateTo('timetable', 'AI Timetable')} color="bg-indigo-500" />
-                            <QuickActionCard label="Announce" icon={<MegaphoneIcon />} onClick={() => navigateTo('communicationHub', 'Communication Hub')} color="bg-teal-500" />
-                            <QuickActionCard label="Bus Roster" icon={<BusVehicleIcon />} onClick={() => navigateTo('busDutyRoster', 'Bus Duty Roster')} color="bg-orange-500" />
-                            <QuickActionCard label="Health Log" icon={<HeartIcon />} onClick={() => navigateTo('healthLog', 'Health Log')} color="bg-red-500" />
-                            <QuickActionCard label="Attendance" icon={<ClockIcon />} onClick={() => navigateTo('teacherAttendance', 'Teacher Attendance')} color="bg-amber-500" />
-                            <QuickActionCard label="User Accounts" icon={<UsersIcon />} onClick={() => navigateTo('userAccounts', 'User Accounts')} color="bg-indigo-600" />
-                            <QuickActionCard label="Manage Branches" icon={<Building2 className="w-6 h-6" />} onClick={() => navigateTo('schoolManagement', 'Manage Branches')} color="bg-blue-600" />
-                            {!currentBranchId && (
-                                <QuickActionCard label="Branch Transfers" icon={<UsersIcon />} onClick={() => navigateTo('branchTransfer', 'Branch Transfers')} color="bg-fuchsia-600" />
-                            )}
-                            <QuickActionCard label="Compliance" icon={<Shield />} onClick={() => navigateTo('complianceOnboarding', 'School Compliance')} color="bg-violet-600" />
-                            <QuickActionCard label="Track Attendance" icon={<Calendar />} onClick={() => navigateTo('attendanceTracker', 'Curriculum Attendance')} color="bg-green-600" />
-                            <QuickActionCard label="Enter Results" icon={<TrendingUp />} onClick={() => navigateTo('resultsEntry', 'Results Entry')} color="bg-cyan-600" />
-                            <QuickActionCard label="Promotion" icon={<GraduationCap />} onClick={() => navigateTo('sessionPromotion', 'End-of-Session Promotion')} color="bg-indigo-700" />
-                            <QuickActionCard label="Launch Hub" icon={<Rocket className="animate-bounce" />} onClick={() => navigateTo('onboardingPage', 'Pilot Onboarding')} color="bg-gray-900" />
-                            <QuickActionCard label="Emergency" icon={<AlertTriangle />} onClick={() => setIsBroadcastOpen(true)} color="bg-red-600 animate-pulse" />
+                        <h2 className="text-xl font-bold text-gray-700 mb-4 px-1">Quick Actions</h2>
+
+                        <div className="space-y-6">
+                            {/* People & Enrollment */}
+                            <div>
+                                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-1">People & Enrollment</h3>
+                                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 sm:gap-4">
+                                    <QuickActionCard label="School Status" icon={<School className="w-6 h-6" />} onClick={() => navigateTo('digitalTwin', 'School Status')} color="bg-slate-800" />
+                                    <QuickActionCard label="Add User" icon={<PlusIcon />} onClick={() => navigateTo('selectUserTypeToAdd', 'Add New User', {})} color="bg-indigo-500" />
+                                    <QuickActionCard label="Approvals" icon={<CheckCircleIcon />} onClick={() => navigateTo('studentApprovals', 'Student Approvals')} color="bg-indigo-600" />
+                                    <QuickActionCard label="Onboarding" icon={<SchoolLogoIcon />} onClick={() => navigateTo('manageSchoolInfo', 'School Onboarding')} color="bg-pink-600" />
+                                    <QuickActionCard label="Enroll Student" icon={<UserIcon />} onClick={() => navigateTo('enrollmentPage', 'New Student Enrollment')} color="bg-emerald-600" />
+                                    <QuickActionCard label="Past Students" icon={<Archive className="w-6 h-6" />} onClick={() => navigateTo('pastStudents', 'Past Students')} color="bg-slate-600" />
+                                    <QuickActionCard label="User Accounts" icon={<UsersIcon />} onClick={() => navigateTo('userAccounts', 'User Accounts')} color="bg-indigo-600" />
+                                    <QuickActionCard label="Manage Branches" icon={<Building2 className="w-6 h-6" />} onClick={() => navigateTo('schoolManagement', 'Manage Branches')} color="bg-blue-600" />
+                                    {!currentBranchId && (
+                                        <QuickActionCard label="Branch Transfers" icon={<UsersIcon />} onClick={() => navigateTo('branchTransfer', 'Branch Transfers')} color="bg-fuchsia-600" />
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Academic */}
+                            <div>
+                                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-1">Academic</h3>
+                                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 sm:gap-4">
+                                    <QuickActionCard label="Timetable" icon={<ClipboardListIcon />} onClick={() => navigateTo('timetable', 'AI Timetable')} color="bg-indigo-500" />
+                                    <QuickActionCard label="Teacher Assignments" icon={<UsersRound className="w-6 h-6" />} onClick={() => navigateTo('teacherAssignments', 'Teacher Assignments')} color="bg-purple-600" />
+                                    <QuickActionCard label="Classrooms & QR" icon={<QrCode className="w-6 h-6" />} onClick={() => navigateTo('classroomManagement', 'Classrooms & QR Codes')} color="bg-sky-600" />
+                                    <QuickActionCard label="Class Verification" icon={<ScanLine className="w-6 h-6" />} onClick={() => navigateTo('classVerification', 'Class Verification')} color="bg-blue-700" />
+                                    <QuickActionCard label="Register Exams" icon={<DocumentTextIcon />} onClick={() => navigateTo('exams', 'External Exams')} color="bg-indigo-600" />
+                                    <QuickActionCard label="Enter Results" icon={<TrendingUp />} onClick={() => navigateTo('resultsEntry', 'Results Entry')} color="bg-cyan-600" />
+                                    <QuickActionCard label="Publish Reports" icon={<ReportIcon />} onClick={() => navigateTo('reportCardPublishing', 'Publish Reports', {})} color="bg-purple-500" />
+                                    <QuickActionCard label="Promotion" icon={<GraduationCap />} onClick={() => navigateTo('sessionPromotion', 'End-of-Session Promotion')} color="bg-indigo-700" />
+                                    <QuickActionCard label="Track Attendance" icon={<Calendar />} onClick={() => navigateTo('attendanceTracker', 'Curriculum Attendance')} color="bg-green-600" />
+                                    <QuickActionCard label="Classroom Observation" icon={<ClipboardEdit className="w-6 h-6" />} onClick={() => navigateTo('classroomObservation', 'Classroom Observation')} color="bg-fuchsia-700" />
+                                    <QuickActionCard label="Departments" icon={<Building2 className="w-6 h-6" />} onClick={() => navigateTo('departmentManagement', 'Departments')} color="bg-cyan-900" />
+                                    <QuickActionCard label="School Clubs" icon={<Star className="w-6 h-6" />} onClick={() => navigateTo('clubManagement', 'School Clubs')} color="bg-amber-800" />
+                                </div>
+                            </div>
+
+                            {/* Attendance & Safety */}
+                            <div>
+                                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-1">Attendance & Safety</h3>
+                                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 sm:gap-4">
+                                    <QuickActionCard label="Attendance" icon={<ClockIcon />} onClick={() => navigateTo('teacherAttendance', 'Teacher Attendance')} color="bg-amber-500" />
+                                    <QuickActionCard label="Health Log" icon={<HeartIcon />} onClick={() => navigateTo('healthLog', 'Health Log')} color="bg-red-500" />
+                                    <QuickActionCard label="Bus Roster" icon={<BusVehicleIcon />} onClick={() => navigateTo('busDutyRoster', 'Bus Duty Roster')} color="bg-orange-500" />
+                                    <QuickActionCard label="Compliance" icon={<Shield />} onClick={() => navigateTo('complianceOnboarding', 'School Compliance')} color="bg-violet-600" />
+                                    <QuickActionCard label="SOP Cases" icon={<ClipboardCheck className="w-6 h-6" />} onClick={() => navigateTo('sopCaseManagement', 'Case Management')} color="bg-rose-600" />
+                                    <QuickActionCard label="Substitute Coverage" icon={<Repeat className="w-6 h-6" />} onClick={() => navigateTo('substituteCoverage', 'Substitute Coverage')} color="bg-teal-600" />
+                                    <QuickActionCard label="Leave Approvals" icon={<ClipboardCheck className="w-6 h-6" />} onClick={() => navigateTo('leaveApproval', 'Leave Approvals')} color="bg-lime-700" />
+                                    <QuickActionCard label="At-Risk Students" icon={<ShieldAlert className="w-6 h-6" />} onClick={() => navigateTo('atRiskStudents', 'At-Risk Students')} color="bg-red-700" />
+                                    <QuickActionCard label="Student Gate" icon={<LogOut className="w-6 h-6" />} onClick={() => navigateTo('studentGate', 'Student Departure')} color="bg-cyan-700" />
+                                    <QuickActionCard label="Gate Pass Approvals" icon={<DoorOpen className="w-6 h-6" />} onClick={() => navigateTo('gatePassApprovals', 'Gate Pass Approvals')} color="bg-cyan-800" />
+                                    <QuickActionCard label="Emergency" icon={<AlertTriangle />} onClick={() => setIsBroadcastOpen(true)} color="bg-red-600 animate-pulse" />
+                                </div>
+                            </div>
+
+                            {/* Communication & System */}
+                            <div>
+                                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-1">Communication & System</h3>
+                                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 sm:gap-4">
+                                    <QuickActionCard label="Announce" icon={<MegaphoneIcon />} onClick={() => navigateTo('communicationHub', 'Communication Hub')} color="bg-teal-500" />
+                                    <QuickActionCard label="Launch Hub" icon={<Rocket className="animate-bounce" />} onClick={() => navigateTo('onboardingPage', 'Pilot Onboarding')} color="bg-gray-900" />
+                                </div>
+                            </div>
                         </div>
 
 

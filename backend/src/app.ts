@@ -8,9 +8,9 @@ import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
-import rateLimit from 'express-rate-limit';
 import { config } from './config/env';
 import { doubleSubmitCookieMiddleware, csrfErrorHandler, ensureCsrfCookie } from './middleware/csrf.middleware';
+import { globalApiLimiter } from './middleware/rateLimiters';
 import { Sentry, sentryEnabled } from './config/instrument';
 import routes from './routes';
 
@@ -194,34 +194,14 @@ app.use((req, res, next) => {
 });
 app.disable('x-powered-by');
 
-// 5. Global Rate Limiting — tunable via env.
-// Budgeted for a sustained 30 req/s per IP (whole schools often sit behind ONE
-// NAT IP — labs, staff rooms and phones on the school Wi-Fi share it), using a
-// short 1-minute window so a brief burst doesn't poison a long window.
-// Defaults: 1800 req / 60 s / IP  (= 30 r/s).
-const GLOBAL_RATE_LIMIT = parseInt(process.env.RATE_LIMIT_MAX || '1800', 10);
-const RATE_LIMIT_WINDOW_MS = parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000', 10);
-// Keepalive / probe paths never consume budget: they're cheap, constant-rate
-// pings (LB probes, connectivity checks) and must not starve real traffic.
-const KEEPALIVE_PATHS = ['/api/health', '/live', '/ready'];
-const limiter = rateLimit({
-    windowMs: RATE_LIMIT_WINDOW_MS,
-    limit: GLOBAL_RATE_LIMIT,
-    standardHeaders: 'draft-7',
-    legacyHeaders: false,
-    message: { error: 'Too many requests, please try again later.' },
-    skip: (req) => {
-        if (!IS_PROD) return true;
-        if (req.method === 'OPTIONS') return true;
-        const path = req.originalUrl || req.path || '';
-        if (KEEPALIVE_PATHS.some(p => path === p || path.startsWith(p + '?'))) return true;
-        const ip = req.ip || req.connection.remoteAddress;
-        if (ip === '::1' || ip === '127.0.0.1' || ip === '::ffff:127.0.0.1') return true;
-        return false;
-    },
-});
-
-app.use('/api', limiter);
+// 5. Global Rate Limiting — Redis-backed, tiered (see middleware/rateLimiters.ts).
+// Budgeted for a sustained ~30 req/s per shared IP (whole schools often sit
+// behind ONE NAT IP — labs, staff rooms and phones on the school Wi-Fi share
+// it) and ~60 req/s per authenticated user, both tunable via env
+// (RATE_LIMIT_MAX / RATE_LIMIT_USER_MAX / RATE_LIMIT_WINDOW_MS). Counts live
+// in Redis so they survive restarts and stay consistent across instances;
+// falls back to fail-open if Redis is unreachable (see rateLimiters.ts).
+app.use('/api', globalApiLimiter);
 
 // 6. Basic root check
 app.get('/', (req, res) => {

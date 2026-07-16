@@ -1,6 +1,6 @@
 {
   "name": "school-app-oliskey",
-  "version": "0.5.44",
+  "version": "0.6.0",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -25,7 +25,7 @@
     "start:all": "concurrently \"npm run dev\" \"npm run server\"",
     "prestart:all": "npm run kill-ports",
     "clean": "npx rimraf node_modules/.vite .vite",
-    "setup": "npm install && echo '\n\u00e2\u0153\u2026 Dependencies installed!\n\nNext steps:\n1. Run: npm run db:migrate\n2. Run: npm run db:seed\n3. Run: npm run start:all\n4. Visit: http://localhost:5173\n'"
+    "setup": "npm install && echo '\nâœ… Dependencies installed!\n\nNext steps:\n1. Run: npm run db:migrate\n2. Run: npm run db:seed\n3. Run: npm run start:all\n4. Visit: http://localhost:5173\n'"
   },
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"
@@ -50,6 +50,7 @@
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@sentry/node": "^10.56.0",
     "@sentry/react": "^10.56.0",
+    "@socket.io/redis-adapter": "^8.3.0",
     "@tanstack/react-query": "5.90.16",
     "@tanstack/react-query-persist-client": "5.90.18",
     "@types/canvas-confetti": "1.9.0",
@@ -96,6 +97,7 @@
     "pg": "^8.20.0",
     "qrcode": "1.5.4",
     "qrcode.react": "4.2.0",
+    "rate-limit-redis": "^5.0.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "react-hot-toast": "2.6.0",

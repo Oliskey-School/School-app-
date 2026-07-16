@@ -1,48 +1,18 @@
 import { Queue, Worker, Job } from 'bullmq';
-import IORedis from 'ioredis';
+import { redisConnection } from '../config/redis';
 import { config } from '../config/env';
 
 /**
  * Lead DevSecOps: Resource Exhaustion Protection
- * 
- * We offload heavy tasks (AI, analytics, report generation) to a background 
- * worker queue. This prevents long-running synchronous requests from 
+ *
+ * We offload heavy tasks (AI, analytics, report generation) to a background
+ * worker queue. This prevents long-running synchronous requests from
  * blocking the Event Loop and exhausting server memory/CPU.
+ *
+ * Uses the shared Redis connection from config/redis.ts (its error/ready
+ * logging is handled there — BullMQ transparently duplicates the connection
+ * internally for blocking worker ops, so sharing one client here is safe).
  */
-
-// Lead DevSecOps: Global throttling for Redis error logs to prevent spam
-const REDIS_LOG_THROTTLE = 60000; // 1 minute
-const getGlobalRedisTimestamp = () => (global as any).__LAST_REDIS_ERROR_LOG || 0;
-const setGlobalRedisTimestamp = (ts: number) => (global as any).__LAST_REDIS_ERROR_LOG = ts;
-
-const redisConnection = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379', {
-    maxRetriesPerRequest: null,
-    enableReadyCheck: false,
-    lazyConnect: true,
-    retryStrategy(times) {
-        // More conservative retry strategy: start with 1s, max 30s
-        const delay = Math.min(Math.max(times * 1000, 1000), 30000);
-        return delay;
-    }
-});
-
-redisConnection.on('error', (err) => {
-    const now = Date.now();
-    if (now - getGlobalRedisTimestamp() < REDIS_LOG_THROTTLE) {
-        return;
-    }
-    setGlobalRedisTimestamp(now);
-    console.info('ℹ️  [Redis] Background tasks (AI/Reports) are currently queued locally. To enable full background processing, start Redis with "docker-compose up -d redis".');
-});
-
-redisConnection.on('ready', () => {
-    console.log('✅ [Redis] Connected — background tasks (AI/Reports) run on Redis.');
-});
-
-// Connect eagerly at boot (lazyConnect would otherwise wait for the first job),
-// so the log makes it obvious whether Redis is live. Errors fall back gracefully
-// to local queueing via the error handler above.
-redisConnection.connect().catch(() => { /* handled by the error listener */ });
 
 // 1. The Queue: Used by the API to dispatch heavy tasks
 export const heavyTaskQueue = new Queue('heavy-tasks', {

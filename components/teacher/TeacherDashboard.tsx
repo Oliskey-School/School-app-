@@ -1,5 +1,6 @@
 import React, { useState, useEffect, lazy, Suspense, useRef } from 'react';
 import DashboardLayout from '../layout/DashboardLayout';
+import AskAIWidget from '../shared/AskAIWidget';
 import { DashboardType } from '../../types';
 import { THEME_CONFIG } from '../../constants';
 import { formatSchoolId } from '../../utils/idFormatter';
@@ -52,6 +53,17 @@ import NotificationsScreen from '../shared/NotificationsScreen';
 import TeacherSelectClassForAttendance from './TeacherUnifiedAttendanceScreen';
 import TeacherMarkAttendanceScreen from './TeacherAttendanceScreen';
 import TeacherSelfAttendance from './TeacherSelfAttendance';
+import ScanClassroomScreen from './ScanClassroomScreen';
+import MyPersonnelFileScreen from './MyPersonnelFileScreen';
+import MyClassHubScreen from './MyClassHubScreen';
+import MySOPCasesScreen from './MySOPCasesScreen';
+import SubstituteAssignment from './SubstituteAssignment';
+import MyAtRiskStudents from './MyAtRiskStudents';
+import MyObservations from './MyObservations';
+import ReportMaintenanceIssue from './ReportMaintenanceIssue';
+import StudentGateScreen from '../shared/StudentGateScreen';
+import SOPCaseDetailScreen from './SOPCaseDetailScreen';
+import ReportIncidentScreen from '../shared/ReportIncidentScreen';
 import LessonPlannerScreen from './LessonPlannerScreen';
 import LessonPlanDetailScreen, { AIActivitySuggester } from './LessonPlanDetailScreen';
 import DetailedLessonNoteScreen from './DetailedLessonNoteScreen';
@@ -269,6 +281,17 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     selectClassForAttendance: TeacherSelectClassForAttendance,
     markAttendance: TeacherMarkAttendanceScreen,
     teacherSelfAttendance: TeacherSelfAttendance,
+    scanClassroom: ScanClassroomScreen,
+    myPersonnelFile: MyPersonnelFileScreen,
+    myClassHub: MyClassHubScreen,
+    mySopCases: MySOPCasesScreen,
+    substituteAssignments: SubstituteAssignment,
+    myAtRiskStudents: MyAtRiskStudents,
+    myObservations: MyObservations,
+    reportMaintenanceIssue: ReportMaintenanceIssue,
+    studentGate: StudentGateScreen,
+    sopCaseDetail: SOPCaseDetailScreen,
+    reportIncident: ReportIncidentScreen,
     attendanceHistory: TeacherAttendanceHistoryScreen,
     library: LibraryScreen,
     gallery: PhotoGalleryScreen,
@@ -437,6 +460,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
           <GlobalSearchScreen dashboardType={DashboardType.Teacher} navigateTo={navigateTo} onClose={() => setIsSearchOpen(false)} />
         )}
       </Suspense>
+      <AskAIWidget />
     </DashboardLayout>
   );
 };

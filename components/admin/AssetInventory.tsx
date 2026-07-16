@@ -2,6 +2,7 @@
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { PackageIcon, QrCodeIcon, MapPinIcon, AlertCircleIcon, TrashIcon, XIcon, PlusIcon } from 'lucide-react';
+import { QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '../../context/AuthContext';
 import { useAutoSync } from '../../hooks/useAutoSync';
 
@@ -10,6 +11,7 @@ const AssetInventory = () => {
     const [assets, setAssets] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [isAdding, setIsAdding] = useState(false);
+    const [qrAsset, setQrAsset] = useState<any | null>(null);
     const [formData, setFormData] = useState({
         name: '',
         code: '',
@@ -18,7 +20,8 @@ const AssetInventory = () => {
         status: 'good',
         condition: 'New',
         current_value: 0,
-        quantity: 1
+        quantity: 1,
+        warranty_expiry: ''
     });
 
     useEffect(() => {
@@ -65,7 +68,8 @@ const AssetInventory = () => {
                 status: 'good',
                 condition: 'New',
                 current_value: 0,
-                quantity: 1
+                quantity: 1,
+                warranty_expiry: ''
             });
             fetchAssets();
         } catch (error) {
@@ -116,7 +120,7 @@ const AssetInventory = () => {
                         {assets.map((asset) => (
                             <div key={asset.id} className="bg-white border border-gray-100 rounded-3xl p-5 hover:shadow-xl hover:shadow-gray-100 transition-all group relative">
                                 <div className="absolute top-4 right-4 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button className="p-2 hover:bg-indigo-50 text-gray-400 hover:text-indigo-600 rounded-xl transition-colors">
+                                    <button onClick={() => setQrAsset(asset)} className="p-2 hover:bg-indigo-50 text-gray-400 hover:text-indigo-600 rounded-xl transition-colors">
                                         <QrCodeIcon size={18} />
                                     </button>
                                     <button 
@@ -246,10 +250,19 @@ const AssetInventory = () => {
                                 </div>
                                 <div>
                                     <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-1.5">Value (₦)</label>
-                                    <input 
+                                    <input
                                         type="number"
                                         value={formData.current_value}
                                         onChange={e => setFormData({...formData, current_value: Number(e.target.value)})}
+                                        className="w-full px-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-medium"
+                                    />
+                                </div>
+                                <div className="col-span-2">
+                                    <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-1.5">Warranty Expiry (optional)</label>
+                                    <input
+                                        type="date"
+                                        value={formData.warranty_expiry}
+                                        onChange={e => setFormData({...formData, warranty_expiry: e.target.value})}
                                         className="w-full px-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-medium"
                                     />
                                 </div>
@@ -260,6 +273,25 @@ const AssetInventory = () => {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Asset QR Code Modal */}
+            {qrAsset && (
+                <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200 p-6 text-center space-y-4">
+                        <div className="flex justify-between items-center">
+                            <h3 className="font-bold text-gray-900 font-outfit text-lg">{qrAsset.name}</h3>
+                            <button onClick={() => setQrAsset(null)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                                <XIcon size={18} />
+                            </button>
+                        </div>
+                        <div className="flex justify-center">
+                            <QRCodeCanvas value={qrAsset.qr_code || qrAsset.id} size={200} level="H" />
+                        </div>
+                        <p className="text-xs text-gray-400 font-mono">{qrAsset.qr_code}</p>
+                        <p className="text-sm text-gray-500">Scanning this code opens the asset's purchase date, warranty, location, and maintenance history.</p>
                     </div>
                 </div>
             )}

@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
+import AIInsightsPanel from '../shared/AIInsightsPanel';
 import {
   BookOpenIcon,
   ChevronRightIcon,
@@ -89,6 +90,17 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
   const [loading, setLoading] = useState(true);
   const [version, setVersion] = useState(0);
   const forceUpdate = () => setVersion(v => v + 1);
+
+  // Class Teacher / Subject Teacher role assignments — drives the adaptive
+  // badges and the "My Class" quick action below.
+  const [myRoles, setMyRoles] = useState<{ roles: string[]; class_teacher_of: any[]; subject_assignments: any[] }>({
+    roles: [], class_teacher_of: [], subject_assignments: [],
+  });
+  useEffect(() => {
+    api.get<any>('/teacher-assignments/mine/roles').then(setMyRoles).catch(() => { /* non-fatal — badges just stay empty */ });
+  }, []);
+  const isClassTeacher = myRoles.roles.includes('class_teacher');
+  const isSubjectTeacher = myRoles.roles.includes('subject_teacher');
 
   // Live clock — refreshes every minute so the schedule reacts to time changes
   const [now, setNow] = useState(() => new Date());
@@ -232,8 +244,21 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
   }, [now, todaySchedule]);
 
   const quickActions = [
+    // Class Teacher only — the class-wide management hub.
+    ...(isClassTeacher ? [{
+      label: "My Class", icon: <UserGroupIcon className="h-7 w-7" />,
+      action: () => navigateTo('myClassHub', 'My Class', { teacherId, schoolId, currentBranchId, classId: myRoles.class_teacher_of[0]?.id })
+    }] : []),
     { label: "Add Student", icon: <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>, action: () => navigateTo('addStudent', 'Add Student', { schoolId }) },
     { label: "My Attendance", icon: <CheckCircleIcon className="h-7 w-7" />, action: () => navigateTo('teacherSelfAttendance', 'My Attendance', { teacherId }) },
+    { label: "Scan Classroom", icon: <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2M7 12h10" /></svg>, action: () => navigateTo('scanClassroom', 'Scan Classroom', { teacherId }) },
+    { label: "My File", icon: <BriefcaseIcon className="h-7 w-7" />, action: () => navigateTo('myPersonnelFile', 'My Personnel File', { teacherId }) },
+    { label: "Report Incident", icon: <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>, action: () => navigateTo('mySopCases', 'My Reported Cases') },
+    { label: "Substitute Requests", icon: <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4M16 17H4m0 0l4 4m-4-4l4-4" /></svg>, action: () => navigateTo('substituteAssignments', 'Substitute Assignments') },
+    { label: "At-Risk Students", icon: <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>, action: () => navigateTo('myAtRiskStudents', 'At-Risk Students') },
+    { label: "Observation Feedback", icon: <ClipboardListIcon className="h-7 w-7" />, action: () => navigateTo('myObservations', 'Classroom Observation Feedback') },
+    { label: "Report an Issue", icon: <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" /></svg>, action: () => navigateTo('reportMaintenanceIssue', 'Report an Issue') },
+    { label: "Student Gate", icon: <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>, action: () => navigateTo('studentGate', 'Student Departure') },
     { label: "Attendance", icon: <TeacherAttendanceIcon className="h-7 w-7" />, action: () => navigateTo('selectClassForAttendance', 'Select Class', { teacherId, schoolId }) },
     { label: "Assessments", icon: <ClipboardListIcon className="h-7 w-7" />, action: () => navigateTo('assessmentsHub', 'Assessments & Quizzes', { teacherId, branchId: currentBranchId }) },
     { label: "Lesson Notes", icon: <BookOpenIcon className="h-7 w-7" />, action: () => navigateTo('lessonNotesUpload', 'Upload Lesson Notes', { teacherId }) },
@@ -253,12 +278,28 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
       <div className={`p-5 rounded-2xl text-white shadow-lg ${theme.mainBg}`}>
         <h3 className="text-2xl font-bold">Welcome, {teacherProfile?.name || 'Teacher'}!</h3>
         <p className="text-sm opacity-90 mt-1">Ready to inspire today?</p>
+        {(isClassTeacher || isSubjectTeacher) && (
+          <div className="flex flex-wrap gap-2 mt-3">
+            {isClassTeacher && myRoles.class_teacher_of.map((c: any) => (
+              <span key={c.id} className="flex items-center gap-1.5 bg-white/20 backdrop-blur-sm text-white text-xs font-bold px-3 py-1.5 rounded-full">
+                <UserGroupIcon className="w-3.5 h-3.5" /> Class Teacher — {c.name}
+              </span>
+            ))}
+            {isSubjectTeacher && Array.from(new Set(myRoles.subject_assignments.map((s: any) => s.subject?.name).filter(Boolean))).map((name: any) => (
+              <span key={name} className="flex items-center gap-1.5 bg-white/20 backdrop-blur-sm text-white text-xs font-bold px-3 py-1.5 rounded-full">
+                <BookOpenIcon className="w-3.5 h-3.5" /> {name} Teacher
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <StatCard label="Total Students" value={statsLoading ? '...' : stats.totalStudents} icon={<BriefcaseIcon />} />
         <StatCard label="Total Assigned Classes" value={statsLoading ? '...' : stats.totalClasses} icon={<ViewGridIcon />} />
       </div>
+
+      <AIInsightsPanel />
 
       <div>
         <div className="flex overflow-x-auto pb-2 gap-3 no-scrollbar">

@@ -76,15 +76,39 @@ export class InfrastructureService {
     }
 
     static async createAsset(schoolId: string, data: any) {
+        const qrCode = data.qr_code || `AST-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         const asset = await (prisma as any).asset.create({
             data: {
                 ...data,
-                school_id: schoolId
+                school_id: schoolId,
+                qr_code: qrCode,
             }
         });
 
         SocketService.emitToSchool(schoolId, 'infrastructure:updated', { action: 'create_asset', assetId: asset.id });
         return asset;
+    }
+
+    static async getAssetDetail(schoolId: string, id: string) {
+        const asset = await (prisma as any).asset.findFirst({
+            where: { id, school_id: schoolId, deleted_at: null },
+            include: {
+                facility: true,
+                maintenance_tickets: { orderBy: { created_at: 'desc' } },
+            },
+        });
+        if (!asset) throw new Error('Asset not found');
+        if (asset.assigned_user_id) {
+            const user = await prisma.user.findUnique({ where: { id: asset.assigned_user_id }, select: { id: true, full_name: true } });
+            return { ...asset, assigned_user: user };
+        }
+        return asset;
+    }
+
+    static async getAssetByQrCode(schoolId: string, qrCode: string) {
+        const asset = await (prisma as any).asset.findFirst({ where: { qr_code: qrCode, school_id: schoolId, deleted_at: null }, select: { id: true } });
+        if (!asset) throw new Error('Asset not found');
+        return this.getAssetDetail(schoolId, asset.id);
     }
 
     static async updateAsset(schoolId: string, id: string, data: any) {

@@ -2,6 +2,15 @@ import { doubleCsrf } from 'csrf-csrf';
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 import { config } from '../config/env';
+import { redisConnection, isRedisReady } from '../config/redis';
+
+// SameSite is Lax by default in production: nginx serves the SPA and API
+// same-origin (see deploy/nginx.conf), so Lax is both stronger than None and
+// sufficient — top-level navigations and same-site fetch/XHR still carry the
+// cookie, only genuine cross-site requests are blocked. Override with
+// CSRF_SAMESITE=none only if the API is ever deployed on a different origin
+// than the SPA (e.g. a cross-origin mobile webview).
+const PROD_SAME_SITE = (process.env.CSRF_SAMESITE as 'lax' | 'strict' | 'none' | undefined) || 'lax';
 
 /**
  * Lead DevSecOps: Anti-CSRF Token Architecture
@@ -28,7 +37,7 @@ export const {
     cookieOptions: {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        sameSite: process.env.NODE_ENV === 'production' ? PROD_SAME_SITE : 'lax',
         path: '/',
         signed: false, // Disable signing to simplify cross-domain cookie verification
     } as any,
@@ -48,7 +57,7 @@ export const CSRF_COOKIE_NAME = 'XSRF-TOKEN';
 const xsrfCookieOptions = () => ({
     httpOnly: false, // deliberately readable by the SPA
     secure: process.env.NODE_ENV === 'production',
-    sameSite: (process.env.NODE_ENV === 'production' ? 'none' : 'lax') as any,
+    sameSite: (process.env.NODE_ENV === 'production' ? PROD_SAME_SITE : 'lax') as any,
     path: '/',
 });
 
@@ -77,23 +86,43 @@ export const ensureCsrfCookie = (req: Request, res: Response, next: NextFunction
  * and a FRESH token is rotated back to the client via the `X-CSRF-Token` response
  * header (CORS exposes it) so the legitimate flow continues seamlessly.
  *
- * Note: the burned-token set is in-memory per process. Under clustering it should
- * be backed by a shared store (e.g. Redis) for cross-worker replay protection; the
- * primary mutation path is Bearer-authenticated and skips CSRF entirely (see app.ts),
- * so this guard's surface is the rare cookie-only mutation.
+ * The burned-token set is Redis-backed (SET NX with a TTL — atomic check-and-burn,
+ * so two concurrent requests racing on the same token can't both pass) with an
+ * in-memory Map fallback when Redis is unreachable, so cross-worker replay
+ * protection works under clustering without a hard Redis dependency. The primary
+ * mutation path is Bearer-authenticated and skips CSRF entirely (see app.ts), so
+ * this guard's surface is the rare cookie-only mutation.
  */
-const burnedTokens = new Map<string, number>(); // sha256(token) -> expiry (ms)
 const BURNED_TTL_MS = 10 * 60 * 1000; // matches a short token lifetime
+const memBurnedTokens = new Map<string, number>(); // sha256(token) -> expiry (ms), fallback only
 
-const pruneBurned = () => {
+const pruneMemBurned = () => {
     const now = Date.now();
-    for (const [hash, exp] of burnedTokens) {
-        if (exp <= now) burnedTokens.delete(hash);
+    for (const [hash, exp] of memBurnedTokens) {
+        if (exp <= now) memBurnedTokens.delete(hash);
     }
 };
 
+/** Atomically checks-and-burns a token hash. Returns true if this is a REPLAY
+ * (the token was already burned) and the request must be rejected. */
+async function burnTokenOrDetectReplay(hash: string): Promise<boolean> {
+    if (isRedisReady()) {
+        try {
+            const result = await redisConnection.set(`csrf:burned:${hash}`, '1', 'PX', BURNED_TTL_MS, 'NX');
+            return result === null; // null = key already existed = replay
+        } catch {
+            // Redis errored mid-call — fall through to the in-memory guard below
+            // rather than failing open on a security control.
+        }
+    }
+    pruneMemBurned();
+    if (memBurnedTokens.has(hash)) return true;
+    memBurnedTokens.set(hash, Date.now() + BURNED_TTL_MS);
+    return false;
+}
+
 export const doubleSubmitCookieMiddleware = (req: Request, res: Response, next: NextFunction) => {
-    doubleCsrfProtection(req, res, (err?: any) => {
+    doubleCsrfProtection(req, res, async (err?: any) => {
         if (err) return next(err);
 
         const method = (req.method || 'GET').toUpperCase();
@@ -103,12 +132,11 @@ export const doubleSubmitCookieMiddleware = (req: Request, res: Response, next: 
         const token = req.headers['x-csrf-token'] as string | undefined;
         if (token) {
             const hash = crypto.createHash('sha256').update(token).digest('hex');
-            pruneBurned();
-            if (burnedTokens.has(hash)) {
+            const isReplay = await burnTokenOrDetectReplay(hash);
+            if (isReplay) {
                 console.warn(`🚨 [CSRF-REPLAY] Re-use of a spent CSRF token blocked from IP: ${req.ip} | ${req.path}`);
                 return next(invalidCsrfTokenError);
             }
-            burnedTokens.set(hash, Date.now() + BURNED_TTL_MS);
         }
 
         // Rotate a fresh single-use token back to the caller — in the response

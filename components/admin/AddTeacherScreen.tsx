@@ -12,6 +12,7 @@ import {
     XCircleIcon, 
     CheckCircleIcon, 
     ChevronDownIcon,
+    ChevronRightIcon,
     SUBJECTS_LIST,
     DEFAULT_STANDARD_CLASSES,
     getFormattedClassName
@@ -34,6 +35,7 @@ interface AddTeacherScreenProps {
     teacherToEdit?: Teacher;
     forceUpdate: () => void;
     handleBack: () => void;
+    navigateTo?: (view: string, title: string, props?: any) => void;
 }
 
 const MultiSelect: React.FC<{
@@ -135,7 +137,7 @@ const MultiSelect: React.FC<{
 };
 
 
-const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forceUpdate, handleBack }) => {
+const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forceUpdate, handleBack, navigateTo }) => {
     const { profile } = useProfile();
     const { currentSchool, currentBranchId, role } = useAuth();
     const { currentBranch, isMainAdmin: branchIsMain } = useBranch();
@@ -658,6 +660,29 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                                 options={validClasses}
                             />
                         </div>
+
+                        {teacherToEdit && navigateTo && (
+                            <button
+                                type="button"
+                                onClick={() => navigateTo('teacherAssignments', `${teacherToEdit.name || (teacherToEdit as any).full_name}'s Assignments`, {
+                                    teacherId: teacherToEdit.id,
+                                    teacherName: teacherToEdit.name || (teacherToEdit as any).full_name,
+                                    handleBack,
+                                })}
+                                className="w-full flex items-center justify-between gap-3 p-4 bg-indigo-50 border border-indigo-100 rounded-xl hover:bg-indigo-100 transition-colors text-left"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-indigo-600 rounded-lg">
+                                        <UsersIcon className="w-4 h-4 text-white" />
+                                    </div>
+                                    <div>
+                                        <p className="font-semibold text-indigo-900 text-sm">Manage Class Teacher & Subject Teacher Roles</p>
+                                        <p className="text-xs text-indigo-600">Formally assign this teacher, track workload, and view teaching history</p>
+                                    </div>
+                                </div>
+                                <ChevronRightIcon className="w-5 h-5 text-indigo-400 flex-shrink-0" />
+                            </button>
+                        )}
 
                         {/* Curriculum Section */}
                         <div className="pt-2 border-t border-gray-100">

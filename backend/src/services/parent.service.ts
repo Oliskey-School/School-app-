@@ -782,14 +782,17 @@ export class ParentService {
             }
             console.log(`   ✅ Found student: ${student.full_name}`);
 
-            // 2. Get latest Attendance
-            console.log('   [2/5] Querying latest attendance...');
+            // 2. Get TODAY's attendance specifically — not just the most recent
+            // record ever. Attendance rows are stored per exact date, so falling
+            // back to "most recent" would show a stale day's status mislabeled as
+            // "today" whenever the teacher hasn't marked the register yet today.
+            console.log('   [2/5] Querying today\'s attendance...');
+            const todayStr = new Date().toISOString().slice(0, 10); // YYYY-MM-DD, matches how attendance rows are saved
             const attendance = await prisma.attendance.findFirst({
-                where: { student_id: studentId },
-                orderBy: { date: 'desc' },
+                where: { student_id: studentId, date: new Date(todayStr) },
                 select: { status: true, date: true }
             });
-            console.log(`   ✅ Attendance status: ${attendance?.status || 'No record'}`);
+            console.log(`   ✅ Today's attendance status: ${attendance?.status || 'Not marked yet'}`);
 
             // 3. Get Assignments due
             console.log('   [3/5] Querying assignments due...');
@@ -862,8 +865,8 @@ export class ParentService {
                 grade: `${student.grade}${student.section || ''}`,
                 school_name: student.school.name,
                 attendance: {
-                    status: attendance?.status || 'No record',
-                    date: attendance?.date
+                    status: attendance?.status || 'not_marked',
+                    date: attendance?.date || todayStr
                 },
                 assignments_due: assignmentsDueCount,
                 fee_balance: feeBalance,

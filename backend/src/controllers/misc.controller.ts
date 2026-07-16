@@ -2,6 +2,7 @@ import { Response } from 'express';
 import prisma from '../config/database';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { getEffectiveBranchId } from '../utils/branchScope';
+import { PayrollService } from '../services/payroll.service';
 
 const branchFilter = (req: AuthRequest) => {
     const branchId = getEffectiveBranchId(req.user, (req.query.branchId || req.query.branch_id) as string);
@@ -334,6 +335,29 @@ export const getPaymentTransactions = async (req: AuthRequest, res: Response) =>
         res.json(transactions);
     } catch (error: any) {
         res.status(500).json({ error: 'Failed to fetch payment transactions', message: error.message });
+    }
+};
+
+export const createPaymentTransaction = async (req: AuthRequest, res: Response) => {
+    try {
+        const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
+        const result = await PayrollService.recordPayment(req.user!.school_id!, branchId, req.body, req.user!.id!);
+        res.status(201).json(result);
+    } catch (error: any) {
+        const status = /not found/i.test(error.message) ? 404 : /required/i.test(error.message) ? 400 : 500;
+        res.status(status).json({ error: 'Failed to record payment', message: error.message });
+    }
+};
+
+export const updatePayslipStatus = async (req: AuthRequest, res: Response) => {
+    try {
+        const id = req.params.id as string;
+        const payslip = await prisma.payslip.findFirst({ where: { id, school_id: req.user!.school_id! } });
+        if (!payslip) return res.status(404).json({ message: 'Payslip not found' });
+        const result = await prisma.payslip.update({ where: { id: id as string }, data: { status: req.body.status } });
+        res.json(result);
+    } catch (error: any) {
+        res.status(500).json({ error: 'Failed to update payslip', message: error.message });
     }
 };
 

@@ -8,7 +8,7 @@ import {
     getSchoolDocuments, getExternalIntegrations, getThirdPartyApps, getAppInstallations,
     updateExternalIntegration, syncExternalIntegration, installApp, uninstallApp,
     getTeacherSalaries, createTeacherSalary, updateTeacherSalary, getBudgets, createBudget, getPtaMeetings, createPtaMeeting, getAccessibilitySettings,
-    getPayslips, getPaymentTransactions, getLeaveRequestsTop, getEmptyList, getArrears
+    getPayslips, getPaymentTransactions, createPaymentTransaction, updatePayslipStatus, getLeaveRequestsTop, getEmptyList, getArrears
 } from '../controllers/misc.controller';
 import { getVerificationRequests, reviewVerificationRequest } from '../controllers/idVerification.controller';
 import { getComplianceChecks, runComplianceChecks } from '../controllers/compliance.controller';
@@ -35,6 +35,20 @@ import lessonPlanRoutes from './lessonPlan.routes';
 import forumRoutes from './forum.routes';
 import transactionRoutes from './transaction.routes';
 import timetableRoutes from './timetable.routes';
+import classroomRoutes from './classroom.routes';
+import personnelRoutes from './personnel.routes';
+import alumniRoutes from './alumni.routes';
+import suspensionRoutes from './suspension.routes';
+import teacherAssignmentRoutes from './teacherAssignment.routes';
+import sopRoutes from './sop.routes';
+import substituteRoutes from './substitute.routes';
+import riskRoutes from './risk.routes';
+import timelineRoutes from './timeline.routes';
+import observationRoutes from './observation.routes';
+import departureRoutes from './departure.routes';
+import departmentRoutes from './department.routes';
+import digitalTwinRoutes from './digitalTwin.routes';
+import insightRoutes from './insight.routes';
 import quizRoutes from './quiz.routes';
 import virtualClassRoutes from './virtual-class.routes';
 import academicRoutes from './academic.routes';
@@ -134,6 +148,20 @@ router.use('/forum', forumRoutes);
 router.use('/global-forum', globalForumRoutes);
 router.use('/transactions', transactionRoutes);
 router.use('/timetables', timetableRoutes);
+router.use('/classrooms', classroomRoutes);
+router.use('/personnel', personnelRoutes);
+router.use('/alumni', alumniRoutes);
+router.use('/suspensions', suspensionRoutes);
+router.use('/teacher-assignments', teacherAssignmentRoutes);
+router.use('/sop', sopRoutes);
+router.use('/substitutes', substituteRoutes);
+router.use('/risk', riskRoutes);
+router.use('/timeline', timelineRoutes);
+router.use('/observations', observationRoutes);
+router.use('/departures', departureRoutes);
+router.use('/departments', departmentRoutes);
+router.use('/digital-twin', digitalTwinRoutes);
+router.use('/insights', insightRoutes);
 router.use('/virtual-classes', virtualClassRoutes);
 router.use('/academic', academicRoutes);
 router.use('/external-exams', externalExamRoutes);
@@ -203,7 +231,9 @@ router.get('/community/pta-meetings', authenticate, requireTenant, getPtaMeeting
 router.post('/community/pta-meetings', authenticate, requireTenant, createPtaMeeting);
 router.get('/accessibility-settings', authenticate, getAccessibilitySettings);
 router.get('/payslips', authenticate, requireTenant, getPayslips);
+router.put('/payslips/:id', authenticate, requireTenant, updatePayslipStatus);
 router.get('/payment-transactions', authenticate, requireTenant, getPaymentTransactions);
+router.post('/payment-transactions', authenticate, requireTenant, createPaymentTransaction);
 router.get('/leave-requests', authenticate, requireTenant, getLeaveRequestsTop);
 router.use('/leave-balances', leaveBalanceRoutes);
 router.use('/scholarships', scholarshipRoutes);

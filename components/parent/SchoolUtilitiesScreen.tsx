@@ -119,6 +119,14 @@ const SchoolUtilitiesScreen: React.FC<SchoolUtilitiesScreenProps> = ({ navigateT
             color: 'bg-amber-500',
             view: 'permissionSlips'
         },
+        {
+            id: 'pickup',
+            label: 'Pickup Authorization',
+            description: 'Manage who is allowed to collect your child',
+            icon: <UserGroupIcon className="h-8 w-8 text-white" />,
+            color: 'bg-cyan-700',
+            view: 'pickupAuthorization'
+        },
     ];
 
     return (
