@@ -2,13 +2,17 @@ import React from 'react';
 import { toast } from 'react-hot-toast';
 import { GeneratedAssessment } from '../../types';
 import { SchoolLogoIcon, DocumentTextIcon, ShareIcon } from '../../constants';
+import { useAuth } from '../../context/AuthContext';
 
 interface AssignmentViewScreenProps {
     assessment: GeneratedAssessment;
+    subject?: string;
+    className?: string;
     handleBack: () => void;
 }
 
-const AssignmentViewScreen: React.FC<AssignmentViewScreenProps> = ({ assessment }) => {
+const AssignmentViewScreen: React.FC<AssignmentViewScreenProps> = ({ assessment, subject, className }) => {
+    const { currentSchool } = useAuth();
     if (!assessment) return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Open an assignment to view it.</div>;
 
     const handlePrint = () => {
@@ -29,10 +33,6 @@ const AssignmentViewScreen: React.FC<AssignmentViewScreenProps> = ({ assessment 
         }
     };
 
-    // Example: subject and class info would be available from the parent component in a real app
-    const subject = "Generated Assessment";
-    const className = "Class";
-
     return (
         <div className="flex flex-col h-full bg-gray-100">
             <div className="p-3 border-b border-gray-200 flex justify-between items-center flex-shrink-0 bg-white print:hidden">
@@ -51,8 +51,8 @@ const AssignmentViewScreen: React.FC<AssignmentViewScreenProps> = ({ assessment 
                 <div className="max-w-3xl mx-auto bg-white p-8 rounded-lg shadow-lg printable-area font-sans">
                     <header className="flex justify-between items-center border-b-2 border-gray-300 pb-4 mb-6">
                         <div>
-                            <h1 className="text-2xl font-bold text-gray-800">Smart School Academy</h1>
-                            <p className="font-semibold text-gray-600">{subject} - {className}</p>
+                            <h1 className="text-2xl font-bold text-gray-800">{currentSchool?.name || 'School'}</h1>
+                            <p className="font-semibold text-gray-600">{subject || 'Assessment'} - {className || ''}</p>
                         </div>
                         <div className="text-right">
                             <h2 className="text-xl font-bold text-gray-800">{assessment.type}</h2>

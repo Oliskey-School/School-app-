@@ -1,5 +1,32 @@
 import { PrismaClient } from '../../generated/prisma-client';
 
+// Recursively deletes password_hash / two_factor_secret from a Prisma result,
+// mutating in place. Handles arrays, nested objects (e.g. an `include`d user
+// relation), and leaves everything else untouched. Bounded depth so a
+// pathological result shape can't recurse forever.
+const SENSITIVE_FIELDS = ['password_hash', 'two_factor_secret'];
+function stripSensitiveFields(value: any, depth = 0): void {
+  if (!value || typeof value !== 'object' || depth > 6) return;
+  if (Array.isArray(value)) {
+    for (const item of value) stripSensitiveFields(item, depth + 1);
+    return;
+  }
+  for (const field of SENSITIVE_FIELDS) {
+    if (field in value) delete value[field];
+  }
+  for (const key of Object.keys(value)) {
+    const child = value[key];
+    if (child && typeof child === 'object' && !(child instanceof Date)) {
+      stripSensitiveFields(child, depth + 1);
+    }
+  }
+}
+
+declare global {
+  var prisma: undefined | ReturnType<typeof prismaClientSingleton>;
+  var __rawPrisma: PrismaClient | undefined;
+}
+
 const prismaClientSingleton = () => {
   const databaseUrl = process.env.DATABASE_URL;
   
@@ -12,8 +39,6 @@ const prismaClientSingleton = () => {
 
   const baseUrl = databaseUrl || 'postgresql://postgres:password123@127.0.0.1:5432/school_app';
 
-  // Raise pool limits so concurrent onboarding / tenant queries don't starve each other.
-  // Only append if the caller hasn't already set these params (avoids double-setting).
   let finalUrl = baseUrl;
   try {
     const u = new URL(baseUrl);
@@ -21,38 +46,48 @@ const prismaClientSingleton = () => {
     if (!u.searchParams.has('pool_timeout')) u.searchParams.set('pool_timeout', '30');
     finalUrl = u.toString();
   } catch {
-    // Non-standard URL (e.g. env misconfiguration) — use as-is and let Prisma error clearly
   }
 
-  return new PrismaClient({
+  const client = new PrismaClient({
     datasources: {
       db: {
         url: finalUrl
       }
     },
-    // Lead DevSecOps: Optimized logging - only log significant events
     log: process.env.NODE_ENV === 'production' ? ['error'] : ['info', 'warn', 'error'],
-  }).$extends({
+  });
+
+  globalThis.__rawPrisma = client;
+
+  return client.$extends({
     query: {
         async $allOperations({ args, query }) {
-            // Lead DevSecOps: Global Query Timeout (30s)
-            // Prevents "Denial of Wallet" and Resource Exhaustion
             const TIMEOUT_MS = 30000;
             const timeoutPromise = new Promise((_, reject) =>
                 setTimeout(() => reject(new Error('PrismaQueryTimeout: Operation exceeded 30s limit.')), TIMEOUT_MS)
             );
 
-            return Promise.race([query(args), timeoutPromise]);
+            const result = await Promise.race([query(args), timeoutPromise]);
+            stripSensitiveFields(result);
+            return result;
         },
     }
   });
 };
 
-declare global {
-  var prisma: undefined | ReturnType<typeof prismaClientSingleton>;
-}
-
 const prisma = globalThis.prisma ?? prismaClientSingleton();
+
+/**
+ * Returns the raw (non-extended) Prisma client for operations that need
+ * access to sensitive fields like `password_hash` that the default client
+ * strips from all query results (e.g. AuthService.login, updatePassword).
+ */
+export function getRawPrisma(): PrismaClient {
+  if (!globalThis.__rawPrisma) {
+    prismaClientSingleton();
+  }
+  return globalThis.__rawPrisma!;
+}
 
 /**
  * Returns a Prisma client scoped to a specific school (and optionally a branch).

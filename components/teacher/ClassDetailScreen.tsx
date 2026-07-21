@@ -13,12 +13,12 @@ interface ClassDetailScreenProps {
 }
 
 const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ classInfo, navigateTo }) => {
-  if (!classInfo) return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Select a class to view its details.</div>;
   const { profile } = useProfile();
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
 
     const fetchStudents = async () => {
+        if (!classInfo) return;
         setLoading(true);
         try {
             // Use the dedicated class-students endpoint so the backend uses the
@@ -55,6 +55,7 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ classInfo, naviga
   // Auto-refresh when students table changes in real-time
   useRealtimeRefresh(['students'], fetchStudents);
 
+  if (!classInfo) return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Select a class to view its details.</div>;
 
   const formattedClassName = classInfo.name || getFormattedClassName(classInfo.grade, classInfo.section);
 

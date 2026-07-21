@@ -89,7 +89,6 @@ import PayslipViewer from './PayslipViewer';
 import TeacherSalaryProfile from './TeacherSalaryProfile';
 import MyPaymentHistory from './MyPaymentHistory';
 import { QuickAttendance } from './QuickAttendance';
-import { GradebookGrid } from './GradebookGrid';
 import AssessmentsHub from './AssessmentsHub';
 
 // Missing Audit Components
@@ -274,7 +273,6 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
   const viewComponents: any = {
     overview: TeacherOverview,
     quickAttendance: QuickAttendance,
-    bulkGradebook: GradebookGrid,
     classDetail: ClassDetailScreen,
     studentProfile: StudentProfileScreen,
     examManagement: TeacherExamManagement,

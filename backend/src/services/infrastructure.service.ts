@@ -4,6 +4,21 @@ import { spawn } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 
+const ASSET_DATE_FIELDS = ['purchase_date', 'next_service_date', 'warranty_expiry'];
+
+/** Coerces Asset date fields for Prisma: '' (an untouched optional date input)
+ * becomes null instead of throwing on an invalid DateTime, and a populated
+ * value is parsed into a real Date. */
+function coerceAssetDates(data: any): any {
+    const result = { ...data };
+    for (const field of ASSET_DATE_FIELDS) {
+        if (field in result) {
+            result[field] = result[field] ? new Date(result[field]) : null;
+        }
+    }
+    return result;
+}
+
 /**
  * Run a command WITHOUT a shell (spawn, no shell:true) so arguments — including
  * the DB URL and file paths — can never be interpreted as shell metacharacters.
@@ -79,7 +94,7 @@ export class InfrastructureService {
         const qrCode = data.qr_code || `AST-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         const asset = await (prisma as any).asset.create({
             data: {
-                ...data,
+                ...coerceAssetDates(data),
                 school_id: schoolId,
                 qr_code: qrCode,
             }
@@ -115,7 +130,7 @@ export class InfrastructureService {
         return (prisma as any).asset.update({
             where: { id, school_id: schoolId },
             data: {
-                ...data,
+                ...coerceAssetDates(data),
                 updated_at: new Date()
             }
         });

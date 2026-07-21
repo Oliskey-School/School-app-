@@ -262,7 +262,7 @@ const TeacherAttendanceHistoryScreen: React.FC<TeacherAttendanceHistoryScreenPro
                                             <p className="text-xl font-black text-gray-800 tracking-tight">Checked In at {record.check_in}</p>
                                         </div>
                                         <div className="flex items-center gap-3 pl-5">
-                                            <Badge status={record.status} />
+                                            <Badge status={record.approval_status || record.status} />
                                             <div className="w-1 h-1 rounded-full bg-gray-300"></div>
                                             <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Year: {new Date(record.date).getFullYear()}</span>
                                         </div>
@@ -288,10 +288,23 @@ const TeacherAttendanceHistoryScreen: React.FC<TeacherAttendanceHistoryScreenPro
     );
 };
 
+const BADGE_STYLES: Record<string, string> = {
+    approved: 'bg-green-50 text-green-600 border-green-100',
+    present: 'bg-green-50 text-green-600 border-green-100',
+    pending: 'bg-amber-50 text-amber-600 border-amber-100',
+    rejected: 'bg-red-50 text-red-600 border-red-100',
+    absent: 'bg-red-50 text-red-600 border-red-100',
+    leave: 'bg-blue-50 text-blue-600 border-blue-100',
+    'on leave': 'bg-blue-50 text-blue-600 border-blue-100',
+    excused: 'bg-blue-50 text-blue-600 border-blue-100',
+};
+
 const Badge = ({ status }: { status: string }) => {
+    const display = status || 'Present';
+    const style = BADGE_STYLES[display.toLowerCase()] || 'bg-gray-50 text-gray-600 border-gray-100';
     return (
-        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest bg-blue-50 text-blue-600 border border-blue-100">
-            {status || 'Present'}
+        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest border ${style}`}>
+            {display}
         </span>
     );
 };

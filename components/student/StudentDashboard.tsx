@@ -596,6 +596,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
     useEffect(() => {
         const currentView = viewStack[viewStack.length - 1];
         setIsHomePage(currentView?.view === 'overview' && !isSearchOpen);
+        window.__CURRENT_STUDENT_VIEW__ = currentView?.view;
 
         // Persist view stack and active nav
         sessionStorage.setItem('student_viewStack', JSON.stringify(viewStack));

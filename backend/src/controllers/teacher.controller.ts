@@ -4,8 +4,14 @@ import { TeacherService } from '../services/teacher.service';
 import prisma from '../config/database'; // Added prisma if needed, but the controller mainly uses TeacherService
 import { getEffectiveBranchId } from '../utils/branchScope';
 
+const ADMIN_ROLES = ['admin', 'proprietor', 'superadmin', 'super_admin'];
+function isAdmin(req: AuthRequest): boolean {
+    return ADMIN_ROLES.includes((req.user.role || '').toLowerCase());
+}
+
 export const createTeacher = async (req: AuthRequest, res: Response) => {
     try {
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can create teachers' });
         // Pass the RAW X-Branch-Id header explicitly (top priority) so a new teacher
         // is ALWAYS created in the branch the admin is actively viewing — never the
         // home/Main branch — regardless of any branch value the form posts.
@@ -65,6 +71,13 @@ export const getTeacherById = async (req: AuthRequest, res: Response) => {
     try {
         const branchId = getEffectiveBranchId(req.user, req.query.branchId as string);
         const result = await TeacherService.getTeacherById(req.user.school_id, branchId, req.params.id as string);
+        if (!result) return res.status(404).json({ message: 'Teacher not found' });
+        // Only an admin, or the teacher viewing their own record, may see this —
+        // it includes the full linked user record (initial_password among it),
+        // so any other teacher requesting another teacher's id must be blocked.
+        if (!isAdmin(req) && result.user_id !== req.user.id) {
+            return res.status(403).json({ message: 'You do not have access to this teacher record' });
+        }
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -73,6 +86,7 @@ export const getTeacherById = async (req: AuthRequest, res: Response) => {
 
 export const updateTeacher = async (req: AuthRequest, res: Response) => {
     try {
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can update teacher records' });
         const branchId = getEffectiveBranchId(req.user, req.body?.branch_id);
         const result = await TeacherService.updateTeacher(req.user.school_id, branchId, req.params.id as string, req.body, req.user);
         res.json(result);
@@ -84,6 +98,7 @@ export const updateTeacher = async (req: AuthRequest, res: Response) => {
 // Branch admin assigns a (lent) teacher to classes/subjects in THEIR branch only.
 export const assignTeacherBranchClasses = async (req: AuthRequest, res: Response) => {
     try {
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can assign teacher branch classes' });
         const branchId = getEffectiveBranchId(req.user, req.body?.branch_id);
         const result = await TeacherService.assignBranchClasses(req.user.school_id, branchId, req.params.id as string, req.body?.classes || [], req.user);
         res.json(result);
@@ -94,6 +109,7 @@ export const assignTeacherBranchClasses = async (req: AuthRequest, res: Response
 
 export const deleteTeacher = async (req: AuthRequest, res: Response) => {
     try {
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can delete teachers' });
         const branchId = getEffectiveBranchId(req.user, (req.query.branchId as string) || req.body?.branch_id);
         await TeacherService.deleteTeacher(req.user.school_id, branchId, req.params.id as string);
         res.status(204).send();
@@ -142,6 +158,7 @@ export const getTeacherAttendance = async (req: AuthRequest, res: Response) => {
 
 export const saveTeacherAttendance = async (req: AuthRequest, res: Response) => {
     try {
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can record teacher attendance' });
         const branchId = getEffectiveBranchId(req.user, req.body?.branch_id);
         const { records } = req.body;
         const result = await TeacherService.saveTeacherAttendance(req.user.school_id, branchId, records);
@@ -153,6 +170,7 @@ export const saveTeacherAttendance = async (req: AuthRequest, res: Response) => 
 
 export const approveTeacherAttendance = async (req: AuthRequest, res: Response) => {
     try {
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can approve teacher attendance' });
         const { status } = req.body;
         const result = await TeacherService.approveTeacherAttendance(req.user.school_id, req.params.id as string, status);
         res.json(result);
@@ -283,6 +301,7 @@ export const getTeacherEvaluation = async (req: AuthRequest, res: Response) => {
 
 export const submitTeacherEvaluation = async (req: AuthRequest, res: Response) => {
     try {
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can submit teacher evaluations' });
         const result = await TeacherService.submitTeacherEvaluation(req.user.school_id, req.params.id as string, req.body);
         res.status(201).json(result);
     } catch (error: any) {

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
-import { CheckCircleIcon, CalendarIcon } from '../../constants';
+import { CheckCircleIcon, CalendarIcon, AlertTriangleIcon } from '../../constants';
 import { useProfile } from '../../context/ProfileContext';
 import { useAuth } from '../../context/AuthContext';
 import { useAutoSync } from '../../hooks/useAutoSync';
@@ -30,6 +30,7 @@ const TeacherSelfAttendance: React.FC<TeacherSelfAttendanceProps> = ({ navigateT
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [currentTime, setCurrentTime] = useState(new Date());
+    const [errorOccurred, setErrorOccurred] = useState(false);
 
     useEffect(() => {
         const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -39,6 +40,7 @@ const TeacherSelfAttendance: React.FC<TeacherSelfAttendanceProps> = ({ navigateT
     const loadAttendanceData = async () => {
         setLoading(true);
         try {
+            setErrorOccurred(false);
             // Get attendance history (which includes today)
             // Use current school/branch context for accurate history
             const history = await api.getTeacherAttendanceHistory(30);
@@ -49,11 +51,9 @@ const TeacherSelfAttendance: React.FC<TeacherSelfAttendanceProps> = ({ navigateT
             const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
             const today = history.find(h => h.date === todayStr);
             setTodayStatus(today || null);
-            
-            console.log(`✅ [SelfAttendance] Loaded ${history.length} records. Today status:`, today?.approval_status || 'none');
         } catch (error) {
             console.error('Error loading attendance data:', error);
-            // toast.error("Failed to load attendance records");
+            setErrorOccurred(true);
         } finally {
             setLoading(false);
         }
@@ -99,6 +99,22 @@ const TeacherSelfAttendance: React.FC<TeacherSelfAttendanceProps> = ({ navigateT
             <div className="flex flex-col items-center justify-center p-10">
                 <div className="w-10 h-10 border-4 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
                 <p className="mt-4 text-gray-500 font-medium">Loading attendance records...</p>
+            </div>
+        );
+    }
+
+    if (errorOccurred) {
+        return (
+            <div className="flex flex-col items-center justify-center p-10 text-center">
+                <AlertTriangleIcon className="w-12 h-12 text-amber-300 mb-4" />
+                <p className="font-bold text-gray-800">Couldn't load your attendance</p>
+                <p className="text-gray-500 mt-1 mb-4">There was a problem reaching the server. Please try again.</p>
+                <button
+                    onClick={loadAttendanceData}
+                    className="px-5 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 font-medium text-sm"
+                >
+                    Retry
+                </button>
             </div>
         );
     }

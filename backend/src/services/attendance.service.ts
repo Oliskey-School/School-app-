@@ -10,10 +10,13 @@ export class AttendanceService {
             where: {
                 class_id: classId,
                 date: dateObj,
-                student: {
-                    school_id: schoolId,
-                    branch_id: branchId && branchId !== 'all' ? branchId : undefined
-                }
+                // Scope by the Attendance row's OWN school_id/branch_id — matching
+                // how saveAttendance stamps them at write time — not by joining
+                // through the student's current branch, which can legitimately
+                // diverge (e.g. after a branch transfer) and would silently hide
+                // real attendance rows from both the teacher and the admin.
+                school_id: schoolId,
+                branch_id: branchId && branchId !== 'all' ? branchId : undefined
             },
             include: {
                 student: {
@@ -78,10 +81,8 @@ export class AttendanceService {
         return await prisma.attendance.findMany({
             where: {
                 student_id: studentId,
-                student: {
-                    school_id: schoolId,
-                    branch_id: branchId && branchId !== 'all' ? branchId : undefined
-                }
+                school_id: schoolId,
+                branch_id: branchId && branchId !== 'all' ? branchId : undefined
             },
             orderBy: { date: 'desc' }
         });
@@ -95,10 +96,8 @@ export class AttendanceService {
               gte: startDate ? new Date(startDate) : undefined,
               lte: endDate ? new Date(endDate) : undefined
             },
-            student: {
-              school_id: schoolId,
-              branch_id: branchId && branchId !== 'all' ? branchId : undefined
-            }
+            school_id: schoolId,
+            branch_id: branchId && branchId !== 'all' ? branchId : undefined
           },
           select: {
             student_id: true,

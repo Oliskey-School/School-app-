@@ -117,6 +117,8 @@ const TransportManagementScreen = () => {
             const data = { ...formData, school_id: currentSchool.id };
             if (activeTab === 'routes') {
                 if (!formData.route_name) { toast.error('Route name is required'); setLoading(false); return; }
+                if (!formData.bus_number) { toast.error('Bus number is required'); setLoading(false); return; }
+                if (!formData.driver_name) { toast.error('Driver name is required'); setLoading(false); return; }
                 await api.createTransportRoute(data);
             } else if (activeTab === 'stops') {
                 if (!formData.stop_name || !formData.route_id) { toast.error('Stop name and route are required'); setLoading(false); return; }
@@ -346,7 +348,7 @@ const TransportManagementScreen = () => {
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Bus Number</label>
+                                            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Bus Number <span className="text-red-500">*</span></label>
                                             <input type="text" placeholder="BUS-001" className="w-full px-5 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-mono" value={formData.bus_number || ''} onChange={e => setFormData({ ...formData, bus_number: e.target.value })} />
                                         </div>
                                         <div>
@@ -356,7 +358,7 @@ const TransportManagementScreen = () => {
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Driver Name</label>
+                                            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Driver Name <span className="text-red-500">*</span></label>
                                             <input type="text" className="w-full px-5 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-semibold" value={formData.driver_name || ''} onChange={e => setFormData({ ...formData, driver_name: e.target.value })} />
                                         </div>
                                         <div>

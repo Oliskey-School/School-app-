@@ -7,6 +7,11 @@ import { SubjectService } from '../services/subject.service';
 import { getEffectiveBranchId } from '../utils/branchScope';
 import prisma from '../config/database';
 
+const ADMIN_ROLES = ['admin', 'proprietor', 'superadmin', 'super_admin'];
+function isAdmin(req: AuthRequest): boolean {
+    return ADMIN_ROLES.includes((req.user.role || '').toLowerCase());
+}
+
 export const getNextAdmissionNumber = async (req: AuthRequest, res: Response) => {
     try {
         const schoolId = req.user.school_id;
@@ -22,6 +27,7 @@ export const getNextAdmissionNumber = async (req: AuthRequest, res: Response) =>
 
 export const enrollStudent = async (req: AuthRequest, res: Response) => {
     try {
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can enroll students' });
         const schoolId = req.user.school_id;
         if (!schoolId) {
             return res.status(400).json({ message: 'School ID is required' });
@@ -44,6 +50,7 @@ export const enrollStudent = async (req: AuthRequest, res: Response) => {
 
 export const approveStudent = async (req: AuthRequest, res: Response) => {
     try {
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can approve students' });
         const schoolId = req.user.school_id;
         const branchId = getEffectiveBranchId(req.user, req.body?.branch_id);
         const result = await StudentService.approveStudent(schoolId, branchId, req.params.id as string);
@@ -99,6 +106,7 @@ export const getStudentByStudentId = async (req: AuthRequest, res: Response) => 
 
 export const updateStudent = async (req: AuthRequest, res: Response) => {
     try {
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can update student records' });
         const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
         const result = await StudentService.updateStudent(req.user.school_id, branchId, req.params.id as string, req.body);
         res.json(result);
@@ -109,6 +117,7 @@ export const updateStudent = async (req: AuthRequest, res: Response) => {
 
 export const bulkUpdateStatus = async (req: AuthRequest, res: Response) => {
     try {
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can bulk-update student status' });
         const { ids, status, branch_id } = req.body;
         if (!Array.isArray(ids) || !status) {
             return res.status(400).json({ message: 'IDs array and status are required' });
@@ -123,6 +132,7 @@ export const bulkUpdateStatus = async (req: AuthRequest, res: Response) => {
 
 export const deleteStudent = async (req: AuthRequest, res: Response) => {
     try {
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can delete students' });
         const branchId = getEffectiveBranchId(req.user, req.body?.branch_id || (req.query.branchId as string));
         await StudentService.deleteStudent(req.user.school_id, branchId, req.params.id as string);
         res.status(204).send();
@@ -506,6 +516,7 @@ export const getStudentsBySubject = async (req: AuthRequest, res: Response) => {
 
 export const withdrawStudent = async (req: AuthRequest, res: Response) => {
     try {
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can withdraw students' });
         const { reason, effectiveDate } = req.body;
         if (!reason || !effectiveDate) {
             return res.status(400).json({ message: 'reason and effectiveDate are required' });
@@ -524,6 +535,7 @@ export const withdrawStudent = async (req: AuthRequest, res: Response) => {
 
 export const promoteStudent = async (req: AuthRequest, res: Response) => {
     try {
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can promote students' });
         const { newGrade, newSection, branchId, session, term } = req.body;
         if (newGrade === undefined || !newSection) {
             return res.status(400).json({ message: 'newGrade and newSection are required' });

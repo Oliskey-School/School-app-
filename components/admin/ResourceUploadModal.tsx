@@ -67,7 +67,7 @@ const ResourceUploadModal: React.FC<ResourceUploadModalProps> = ({ isOpen, onClo
                 grade: parseInt(grade) || 0,
                 url: publicUrl,
                 language,
-                teacher_id: teacherId,
+                ...(teacherId ? { teacher_id: teacherId } : {}),
                 is_public: true
             });
 

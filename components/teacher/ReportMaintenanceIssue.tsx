@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
-import { Wrench, CheckCircle2 } from 'lucide-react';
+import { Wrench, CheckCircle2, AlertTriangle } from 'lucide-react';
 
 const CATEGORIES = ['Furniture', 'Electrical', 'Plumbing', 'Water Leakage', 'HVAC/Fan', 'Other'];
 
@@ -15,14 +15,18 @@ const ReportMaintenanceIssue = () => {
     const [tickets, setTickets] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
+    const [errorOccurred, setErrorOccurred] = useState(false);
     const [form, setForm] = useState({ issue_title: '', location: '', category: 'Other', priority: 'Medium', issue_description: '' });
 
     const fetchMine = async () => {
         try {
+            setLoading(true);
+            setErrorOccurred(false);
             const data = await api.getMaintenanceTickets(undefined, true);
             setTickets(Array.isArray(data) ? data : []);
         } catch (err) {
             console.error('Error loading my maintenance reports:', err);
+            setErrorOccurred(true);
         } finally {
             setLoading(false);
         }
@@ -77,6 +81,18 @@ const ReportMaintenanceIssue = () => {
                 <h2 className="font-bold text-gray-900 mb-3">My Reports</h2>
                 {loading ? (
                     <p className="text-sm text-gray-400">Loading...</p>
+                ) : errorOccurred ? (
+                    <div className="bg-white rounded-2xl shadow-sm border border-amber-100 p-8 text-center">
+                        <AlertTriangle className="w-10 h-10 text-amber-300 mx-auto mb-3" />
+                        <p className="text-gray-700 font-semibold">Couldn't load your reports</p>
+                        <p className="text-gray-400 text-sm mt-1 mb-3">There was a problem reaching the server.</p>
+                        <button
+                            onClick={fetchMine}
+                            className="px-4 py-1.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 font-medium text-sm"
+                        >
+                            Retry
+                        </button>
+                    </div>
                 ) : tickets.length === 0 ? (
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center">
                         <Wrench className="w-10 h-10 text-gray-300 mx-auto mb-3" />

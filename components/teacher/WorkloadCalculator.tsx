@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
 import { useProfile } from '../../context/ProfileContext';
-import { ChartBarIcon, ClockIcon, UsersIcon } from '../../constants';
+import { ChartBarIcon, ClockIcon, UsersIcon, AlertTriangleIcon } from '../../constants';
 
 interface WorkloadData {
     total_periods: number;
@@ -15,6 +15,7 @@ const WorkloadCalculator: React.FC = () => {
     const { profile } = useProfile();
     const [workload, setWorkload] = useState<WorkloadData | null>(null);
     const [loading, setLoading] = useState(true);
+    const [errorOccurred, setErrorOccurred] = useState(false);
 
     useEffect(() => {
         fetchWorkload();
@@ -23,6 +24,7 @@ const WorkloadCalculator: React.FC = () => {
     const fetchWorkload = async () => {
         try {
             setLoading(true);
+            setErrorOccurred(false);
             const myProfile = await api.getMe();
             const teacherId = myProfile?.teacher_id || myProfile?.id;
             if (!teacherId) return;
@@ -30,6 +32,7 @@ const WorkloadCalculator: React.FC = () => {
             if (data) setWorkload(data);
         } catch (error: any) {
             console.error('Error:', error);
+            setErrorOccurred(true);
         } finally {
             setLoading(false);
         }
@@ -54,7 +57,19 @@ const WorkloadCalculator: React.FC = () => {
                 <p className="text-sm text-gray-600 mt-1">Current teaching workload metrics</p>
             </div>
 
-            {workload ? (
+            {errorOccurred ? (
+                <div className="text-center py-12 text-gray-500">
+                    <AlertTriangleIcon className="w-16 h-16 text-amber-300 mx-auto mb-4" />
+                    <p className="text-amber-700 font-semibold">Couldn't load workload data</p>
+                    <p className="text-sm mt-1 mb-4">There was a problem reaching the server. Please try again.</p>
+                    <button
+                        onClick={fetchWorkload}
+                        className="px-5 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 font-medium text-sm"
+                    >
+                        Retry
+                    </button>
+                </div>
+            ) : workload ? (
                 <>
                     <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl p-6 text-white">
                         <div className="flex items-start justify-between">

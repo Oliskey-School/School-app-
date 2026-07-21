@@ -113,7 +113,7 @@ const CollaborationForumScreen: React.FC<CollaborationForumScreenProps> = ({ nav
             {topics.map(topic => (
               <button
                 key={topic.id}
-                onClick={() => navigateTo('forumTopic', topic.title, { topicId: topic.id })}
+                onClick={() => navigateTo('forumTopic', topic.title, { topicId: topic.id, topic })}
                 className="w-full bg-white rounded-xl shadow-sm p-4 text-left hover:bg-gray-50 hover:ring-2 hover:ring-purple-200 transition-all group"
               >
                 <h4 className="font-bold text-gray-800 group-hover:text-purple-700 transition-colors">{topic.title}</h4>

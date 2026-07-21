@@ -44,7 +44,7 @@ const ProfessionalDevelopmentScreen: React.FC = () => {
         fetchResources();
     }, []);
 
-    const ai = useMemo(() => getAIClient(import.meta.env.VITE_GEMINI_API_KEY || ''), []);
+    const ai = useMemo(() => getAIClient(), []);
 
     const handleGenerateSuggestions = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -55,7 +55,7 @@ const ProfessionalDevelopmentScreen: React.FC = () => {
         try {
             const prompt = `As an expert educational coach, provide a list of 3-5 actionable strategies for a teacher facing this challenge: "${challenge}". The strategies should be practical for a modern classroom. Format the response as a markdown list.`;
             const response = await ai.models.generateContent({
-                model: 'gemini-2.0-flash',
+                model: AI_MODEL_NAME,
                 contents: prompt,
             });
             setSuggestions(response.text);

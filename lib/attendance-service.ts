@@ -44,9 +44,30 @@ export async function prefetchClassRoster(classId: string, schoolId: string) {
     }
 }
 
-export async function getCachedRoster(classId: string) {
+/**
+ * Returns the class roster, offline-first: serves the local cache immediately
+ * if present, otherwise falls back to a live fetch (and primes the cache for
+ * next time) — nothing called `prefetchClassRoster` on its own, so without
+ * this fallback the cache was never populated and this always returned [].
+ */
+export async function getCachedRoster(classId: string, schoolId?: string) {
     const cached = await offlineDB.roster_cache.get(`roster_${classId}`);
-    return cached?.data || [];
+    if (cached?.data?.length) return cached.data;
+
+    try {
+        const data = await api.getStudents({ classId, schoolId });
+        if (data?.length) {
+            await offlineDB.roster_cache.put({
+                key: `roster_${classId}`,
+                data,
+                updated_at: new Date().toISOString()
+            });
+        }
+        return data || [];
+    } catch (err) {
+        console.error('Error fetching roster:', err);
+        return cached?.data || [];
+    }
 }
 
 

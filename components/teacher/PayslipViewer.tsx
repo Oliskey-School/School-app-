@@ -29,9 +29,10 @@ interface Payslip {
 
 interface PayslipViewerProps {
     teacherId: string;
+    initialPayslipId?: string | number;
 }
 
-const PayslipViewer: React.FC<PayslipViewerProps> = ({ teacherId }) => {
+const PayslipViewer: React.FC<PayslipViewerProps> = ({ teacherId, initialPayslipId }) => {
     const [payslips, setPayslips] = useState<Payslip[]>([]);
     const [selectedPayslip, setSelectedPayslip] = useState<Payslip | null>(null);
     const [loading, setLoading] = useState(true);
@@ -42,6 +43,13 @@ const PayslipViewer: React.FC<PayslipViewerProps> = ({ teacherId }) => {
             fetchPayslips();
         }
     }, [teacherId]);
+
+    useEffect(() => {
+        if (initialPayslipId != null && payslips.length > 0) {
+            const match = payslips.find(p => String(p.id) === String(initialPayslipId));
+            if (match) setSelectedPayslip(match);
+        }
+    }, [initialPayslipId, payslips]);
 
     const fetchPayslips = async () => {
         try {

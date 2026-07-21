@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { ForumTopic, ForumPost } from '../../types';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 
@@ -16,10 +15,10 @@ interface ForumTopicScreenProps {
   topicId: string | number;
   currentUserId: string;
   teacherProfile?: any;
+  topic?: any;
 }
 
-const ForumTopicScreen: React.FC<ForumTopicScreenProps> = ({ topicId, currentUserId, teacherProfile }) => {
-  const [topic, setTopic] = useState<ForumTopic | null>(null);
+const ForumTopicScreen: React.FC<ForumTopicScreenProps> = ({ topicId, currentUserId, teacherProfile, topic }) => {
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [newReply, setNewReply] = useState('');
@@ -74,6 +73,16 @@ const ForumTopicScreen: React.FC<ForumTopicScreenProps> = ({ topicId, currentUse
   return (
     <div className="flex flex-col h-full bg-gray-100">
       <main className="flex-grow p-4 space-y-4 overflow-y-auto">
+        {topic && (
+          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+            <h2 className="font-bold text-xl text-gray-900">{topic.title}</h2>
+            <div className="flex justify-between items-center text-xs text-gray-500 mt-1">
+              <span>By {topic.authorName || topic.author_name}</span>
+              {(topic.createdAt || topic.created_at) && <span>{formatTimestamp(topic.createdAt || topic.created_at)}</span>}
+            </div>
+            {topic.content && <p className="text-gray-700 mt-3 whitespace-pre-wrap">{topic.content}</p>}
+          </div>
+        )}
         {posts.map(post => (
           <div key={post.id} className="flex items-start space-x-3">
             <img src={post.author_avatar_url || `https://ui-avatars.com/api/?name=${post.author_name}&background=random`} alt={post.author_name} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />

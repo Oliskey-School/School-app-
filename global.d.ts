@@ -12,6 +12,7 @@ declare global {
         __AUDIT_MODE__: boolean;
         STUDENT_NAVIGATE: (view: string, title: string, props: any) => void;
         STUDENT_COMPONENTS: string[];
+        __CURRENT_STUDENT_VIEW__?: string;
         TEACHER_NAVIGATE: (view: string, title: string, props: any) => void;
         TEACHER_COMPONENTS: string[];
         ADMIN_NAVIGATE: (view: string, title: string, props: any) => void;
@@ -19,6 +20,7 @@ declare global {
         ADMIN_AUDIT_ENABLED?: boolean;
         PARENT_NAVIGATE: (view: string, title: string, props: any) => void;
         PARENT_COMPONENTS: string[];
+        __CURRENT_PARENT_VIEW__?: string;
     }
 
     interface ImportMeta {

@@ -26,8 +26,7 @@ const InfoField: React.FC<{ label: string; value: string | number }> = ({ label,
 );
 
 const TeacherReportCardPreviewScreen: React.FC<TeacherReportCardPreviewScreenProps> = ({ student, handleBack, onPublish }) => {
-    if (!student) return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Select a student to preview their report card.</div>;
-    const { user: authUser } = useAuth();
+    const { user: authUser, currentSchool } = useAuth();
     const [currentUserTeacher, setCurrentUserTeacher] = useState<Teacher | null>(null);
     const { classes: teacherClasses, subjects: teacherSubjects, loading: loadingPermissions } = useTeacherClasses();
 
@@ -79,6 +78,8 @@ const TeacherReportCardPreviewScreen: React.FC<TeacherReportCardPreviewScreenPro
         return isAssigned || hasAssignment;
     }, [currentUserTeacher, student, teacherClasses]);
 
+    if (!student) return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Select a student to preview their report card.</div>;
+
     const report = student.reportCards?.[student.reportCards.length - 1];
     const isPublished = report?.status === 'Published';
 
@@ -121,7 +122,7 @@ const TeacherReportCardPreviewScreen: React.FC<TeacherReportCardPreviewScreenPro
             <div className="flex-grow overflow-y-auto p-4 font-serif">
                  <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm max-w-md mx-auto printable-area">
                     <header className="text-center border-b-2 border-gray-300 pb-4 mb-4">
-                        <div className="flex justify-center items-center gap-2"><SchoolLogoIcon className="text-purple-500 h-10 w-10"/><h1 className="text-2xl font-bold text-gray-800">Smart School Academy</h1></div>
+                        <div className="flex justify-center items-center gap-2"><SchoolLogoIcon className="text-purple-500 h-10 w-10"/><h1 className="text-2xl font-bold text-gray-800">{currentSchool?.name || 'School'}</h1></div>
                         <p className="text-gray-600 font-semibold mt-1">END OF TERM REPORT CARD</p>
                     </header>
                     

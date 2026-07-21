@@ -7,7 +7,7 @@ import ConfirmationModal from '../ui/ConfirmationModal';
 import ResourceUploadModal from './ResourceUploadModal';
 
 const ManageLearningResourcesScreen: React.FC = () => {
-    const { user, currentSchool, currentBranchId } = useAuth();
+    const { currentSchool, currentBranchId } = useAuth();
     const [resources, setResources] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -203,7 +203,7 @@ const ManageLearningResourcesScreen: React.FC = () => {
                 isOpen={isUploadModalOpen}
                 onClose={() => setIsUploadModalOpen(false)}
                 onUploadComplete={fetchResources}
-                teacherId={user?.id || ''}
+                teacherId=""
             />
 
             <ConfirmationModal

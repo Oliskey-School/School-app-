@@ -22,7 +22,11 @@ interface EnrolledCourse {
     enrolled_at: string;
 }
 
-const MyPDCourses: React.FC = () => {
+interface MyPDCoursesProps {
+    navigateTo?: (view: string, title: string, props?: any) => void;
+}
+
+const MyPDCourses: React.FC<MyPDCoursesProps> = ({ navigateTo }) => {
     const { profile } = useProfile();
     const [courses, setCourses] = useState<EnrolledCourse[]>([]);
     const [filter, setFilter] = useState<'all' | 'in-progress' | 'completed'>('all');
@@ -167,6 +171,12 @@ const MyPDCourses: React.FC = () => {
 
                             {course.status !== 'Completed' && (
                                 <button
+                                    onClick={() => {
+                                        if (navigateTo) {
+                                            toast('Course module viewer isn\'t available yet — showing the course catalog instead.', { icon: 'ℹ️' });
+                                            navigateTo('courseCatalog', 'Course Catalog', {});
+                                        }
+                                    }}
                                     className="w-full mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
                                 >
                                     Continue Learning

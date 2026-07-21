@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
-import prisma from '../config/database';
+import prisma, { getRawPrisma } from '../config/database';
 import { config } from '../config/env';
 import { IdGeneratorService } from './idGenerator.service';
 import { AuditService } from './audit.service';
@@ -238,7 +238,7 @@ export class AuthService {
         // must not assume the first match is the right person: we pick the candidate
         // whose PASSWORD actually matches. This is also correct for live schools that
         // happen to share a school/branch code.
-        const candidates = await (prisma.user.findMany as any)({
+        const candidates = await (getRawPrisma().user.findMany as any)({
             where: {
                 OR: [
                     { email: { equals: normalizedIdentifier, mode: 'insensitive' } },
@@ -664,7 +664,7 @@ export class AuthService {
     }
 
     static async updatePassword(userId: string, currentPassword: string, newPassword: string) {
-        const user = await prisma.user.findUnique({
+        const user = await getRawPrisma().user.findUnique({
             where: { id: userId }
         });
 

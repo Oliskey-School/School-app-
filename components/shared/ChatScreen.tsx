@@ -5,7 +5,6 @@ import {
     SendIcon,
     PaperclipIcon,
     HappyIcon,
-    DotsVerticalIcon,
     ChevronLeftIcon,
     CheckCircleIcon
 } from '../../constants';
@@ -546,12 +545,6 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
                                             ) : null}
                                         </div>
                                     </div>
-                                    <button
-                                        className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:bg-gray-100 rounded-full transition-colors"
-                                        aria-label="More options"
-                                    >
-                                        <DotsVerticalIcon className="w-5 h-5" />
-                                    </button>
                                 </div>
                             )}
 

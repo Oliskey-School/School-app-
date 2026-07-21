@@ -104,7 +104,7 @@ const MyClassHubScreen: React.FC<MyClassHubScreenProps> = ({ classId, navigateTo
                                         </div>
                                     </div>
                                     <button
-                                        onClick={(e) => { e.stopPropagation(); navigateTo('studentProfile', s.full_name, { studentId: s.id, student: s }); }}
+                                        onClick={(e) => { e.stopPropagation(); navigateTo('studentProfile', s.full_name, { studentId: s.id, student: { ...s, name: s.full_name, avatarUrl: s.avatar_url, schoolGeneratedId: s.school_generated_id } }); }}
                                         className="text-xs font-bold text-indigo-600 hover:underline">View Profile</button>
                                 </button>
                                 {expandedStudent === s.id && (

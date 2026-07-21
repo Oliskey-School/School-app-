@@ -355,6 +355,18 @@ class ExpressApiClient {
         return this.get('/auth/me');
     }
 
+    async setup2FA(): Promise<{ secret: string; qrCodeUrl: string }> {
+        return this.get('/auth/2fa/setup');
+    }
+
+    async enable2FA(code: string): Promise<{ success: boolean }> {
+        return this.post('/auth/2fa/enable', { code });
+    }
+
+    async disable2FA(code: string): Promise<{ success: boolean }> {
+        return this.post('/auth/2fa/disable', { code });
+    }
+
     /** Persist the user's chosen UI language to their account (follows them across devices). */
     async updatePreferredLanguage(language: string): Promise<any> {
         return this.put('/auth/language', { language });
@@ -988,7 +1000,7 @@ class ExpressApiClient {
     }
 
     async getExtracurriculars(schoolId?: string): Promise<any[]> {
-        return this.get(`/activities${schoolId ? `?school_id=${schoolId}` : ''}`);
+        return this.get(`/extracurriculars${schoolId ? `?school_id=${schoolId}` : ''}`);
     }
 
     async getMySubmissions(): Promise<any[]> {
@@ -1162,12 +1174,12 @@ class ExpressApiClient {
         return this.get(`/payroll/payment-history?${queryParams.toString()}`);
     }
 
-    async getMentoringData(teacherId: string): Promise<any> {
-        return this.get(`/teachers/${teacherId}/mentoring`);
+    async getMentoringData(teacherId?: string): Promise<any> {
+        return this.get('/teachers/me/mentoring');
     }
 
-    async requestMentor(teacherId: string, data: any): Promise<any> {
-        return this.post(`/teachers/${teacherId}/mentoring/request`, data);
+    async requestMentor(teacherId: string | undefined, data: any): Promise<any> {
+        return this.post('/teachers/me/mentoring', data);
     }
 
     async getTeacherPerformance(schoolId: string, teacherId: string): Promise<any> {
@@ -1879,7 +1891,7 @@ class ExpressApiClient {
     // GENERATED RESOURCES & AI
     // ============================================
     async getGeneratedResources(schoolId: string): Promise<any[]> {
-        return this.get(`/academic/generated-resources?schoolId=${schoolId}`);
+        return this.get(`/ai/generated-resources?schoolId=${schoolId}`);
     }
 
     async getResources(schoolId?: string): Promise<any[]> {
@@ -1887,7 +1899,7 @@ class ExpressApiClient {
     }
 
     async saveGeneratedResource(schoolId: string, data: any): Promise<any> {
-        return this.post(`/academic/generated-resources?schoolId=${schoolId}`, data);
+        return this.post(`/ai/generated-resources?schoolId=${schoolId}`, data);
     }
 
     async getCBTExams(teacherId?: string): Promise<any[]> {
@@ -3544,7 +3556,7 @@ class ExpressApiClient {
     }
 
     async deleteVolunteeringOpportunity(id: string): Promise<any> {
-        return this.delete(`/community/volunteering/opportunities/${id}`);
+        return this.delete(`/community/volunteering/${id}`);
     }
 
 

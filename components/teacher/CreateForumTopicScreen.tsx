@@ -34,6 +34,7 @@ const CreateForumTopicScreen: React.FC<CreateForumTopicScreenProps> = ({ handleB
             await api.createForumTopic({
                 title,
                 content,
+                category,
                 author_name: currentUser.name,
                 author_id: currentUser.id,
                 school_id: currentUser.schoolId,

@@ -24,6 +24,8 @@ const EditTeacherProfileScreen: React.FC<EditTeacherProfileScreenProps> = ({ onP
     const [email, setEmail] = useState(profile?.email || '');
     const [phone, setPhone] = useState(profile?.phone || '');
     const [avatar, setAvatar] = useState(profile?.avatar_url || 'https://i.pravatar.cc/150?u=teacher');
+    const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+    const [uploadingAvatar, setUploadingAvatar] = useState(false);
     const [subjects, setSubjects] = useState<string[]>([]);
 
     // Account Security State
@@ -67,9 +69,18 @@ const EditTeacherProfileScreen: React.FC<EditTeacherProfileScreenProps> = ({ onP
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            // Upload to get a persistent URL (replaces the local preview once ready).
-            api.uploadAvatar(file).then(({ url }) => { if (url) setAvatar(url); }).catch(() => { });
-            // Compress Image
+            // The base64 canvas render below is a fast LOCAL PREVIEW only — it
+            // must never be what actually gets saved. Previously both this and
+            // the real upload wrote to the same `avatar` state, and whichever
+            // resolved last won; a slow network could leave the saved profile
+            // with a giant base64 string instead of a real hosted URL.
+            setUploadingAvatar(true);
+            api.uploadAvatar(file)
+                .then(({ url }) => { if (url) { setAvatar(url); setAvatarPreview(null); } })
+                .catch(() => { toast.error('Failed to upload photo. Please try again.'); })
+                .finally(() => setUploadingAvatar(false));
+
+            // Compress Image for an instant preview while the real upload runs
             const reader = new FileReader();
             reader.onload = (event) => {
                 const img = new Image();
@@ -97,9 +108,9 @@ const EditTeacherProfileScreen: React.FC<EditTeacherProfileScreenProps> = ({ onP
                     const ctx = canvas.getContext('2d');
                     ctx?.drawImage(img, 0, 0, width, height);
 
-                    // Convert to base64 JPEG with compression
+                    // Convert to base64 JPEG with compression — preview only
                     const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-                    setAvatar(dataUrl);
+                    setAvatarPreview(dataUrl);
                 };
                 img.src = event.target?.result as string;
             };
@@ -185,7 +196,7 @@ const EditTeacherProfileScreen: React.FC<EditTeacherProfileScreenProps> = ({ onP
                     {/* Photo Upload */}
                     <div className="flex justify-center">
                         <div className="relative">
-                            <img src={avatar} alt="Teacher" className="w-28 h-28 rounded-full object-cover shadow-md flex-shrink-0 aspect-square" />
+                            <img src={avatarPreview || avatar} alt="Teacher" className={`w-28 h-28 rounded-full object-cover shadow-md flex-shrink-0 aspect-square ${uploadingAvatar ? 'opacity-60' : ''}`} />
                             <label htmlFor="photo-upload" className="absolute bottom-0 right-0 bg-purple-600 p-2 rounded-full border-2 border-white cursor-pointer hover:bg-purple-700">
                                 <CameraIcon className="text-white h-4 w-4" />
                                 <input id="photo-upload" name="photo-upload" type="file" className="sr-only" accept="image/*" onChange={handleImageChange} />

@@ -6,6 +6,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // MOCK EXTERNAL DEPENDENCIES
 // ============================================================
 
+// Mutable config so per-test overrides work (vi.mock factory captures ref)
+const _auth = { role: 'teacher' };
 
 vi.mock('../../src/middleware/auth.middleware', () => ({
     authenticate: (req: any, res: any, next: any) => {
@@ -13,7 +15,7 @@ vi.mock('../../src/middleware/auth.middleware', () => ({
             id: 'test-user-id',
             school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1',
             branch_id: 'test-branch-id',
-            role: 'teacher',
+            role: _auth.role,
             email: 'teacher@school.com'
         };
         next();
@@ -647,7 +649,27 @@ vi.mock('../../src/config/database', () => {
                 id: 'cr1',
                 name: 'Math Dept',
                 type: 'group',
-                created_at: '2026-04-01'
+                created_at: '2026-04-01',
+                last_message_at: '2026-04-01',
+                participants: [{
+                    user_id: 'test-user-id',
+                    last_read_at: null,
+                    user: {
+                        id: 'test-user-id',
+                        full_name: 'John Teacher',
+                        avatar_url: null,
+                        role: 'teacher',
+                        student_profile: null
+                    }
+                }],
+                messages: [{
+                    id: 'cm1',
+                    room_id: 'cr1',
+                    sender_id: 't1',
+                    content: 'Hello',
+                    created_at: '2026-04-01',
+                    sender: { id: 't1', full_name: 'John Teacher' }
+                }]
             }])
         },
         chatMessage: {
@@ -663,7 +685,8 @@ vi.mock('../../src/config/database', () => {
                 room_id: 'cr1',
                 sender_id: 't1',
                 content: 'New message'
-            })
+            }),
+            count: vi.fn().mockResolvedValue(0)
         },
 
         // Payroll
@@ -997,6 +1020,7 @@ describe('Teacher Backend E2E Tests', () => {
         });
 
         it('POST /api/teachers - Should create a new teacher', async () => {
+            _auth.role = 'admin';
             const res = await request(app)
                 .post('/api/teachers')
                 .send({
@@ -1005,20 +1029,25 @@ describe('Teacher Backend E2E Tests', () => {
                     subject: 'Science',
                     branch_id: 'test-branch-id'
                 });
+            _auth.role = 'teacher';
             expect(res.status).toBe(201);
             expect(res.body).toHaveProperty('id');
         });
 
         it('PUT /api/teachers/:id - Should update teacher', async () => {
+            _auth.role = 'admin';
             const res = await request(app)
                 .put('/api/teachers/t1')
                 .send({ full_name: 'Updated Name' });
+            _auth.role = 'teacher';
             expect(res.status).toBe(200);
             expect(res.body).toHaveProperty('id');
         });
 
         it('DELETE /api/teachers/:id - Should delete teacher', async () => {
+            _auth.role = 'admin';
             const res = await request(app).delete('/api/teachers/t1');
+            _auth.role = 'teacher';
             expect([200, 204, 500]).toContain(res.status);
         });
     });
@@ -1049,6 +1078,7 @@ describe('Teacher Backend E2E Tests', () => {
         });
 
         it('POST /api/teachers/attendance - Should save teacher attendance', async () => {
+            _auth.role = 'admin';
             const res = await request(app)
                 .post('/api/teachers/attendance')
                 .send({
@@ -1059,13 +1089,16 @@ describe('Teacher Backend E2E Tests', () => {
                         date: '2026-04-01'
                     }]
                 });
+            _auth.role = 'teacher';
             expect([200, 201, 500]).toContain(res.status);
         });
 
         it('PUT /api/teachers/attendance/:id/approve - Should approve attendance', async () => {
+            _auth.role = 'admin';
             const res = await request(app)
                 .put('/api/teachers/attendance/att1/approve')
                 .send({ status: 'approved' });
+            _auth.role = 'teacher';
             expect([200, 500]).toContain(res.status);
         });
     });
@@ -1379,9 +1412,11 @@ describe('Teacher Backend E2E Tests', () => {
         });
 
         it('PUT /api/report-cards/:id/status - Should update report card status', async () => {
+            _auth.role = 'admin';
             const res = await request(app)
                 .put('/api/report-cards/rc1/status')
                 .send({ status: 'published' });
+            _auth.role = 'teacher';
             expect([200, 500]).toContain(res.status);
         });
     });

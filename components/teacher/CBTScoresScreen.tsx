@@ -1,53 +1,58 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
 import { CBTTest, CBTResult } from '../../types';
-import { CheckCircleIcon, XCircleIcon } from '../../constants';
+import { CheckCircleIcon, XCircleIcon, AlertTriangleIcon } from '../../constants';
 
 interface CBTScoresScreenProps {
     test: CBTTest;
 }
 
 const CBTScoresScreen: React.FC<CBTScoresScreenProps> = ({ test }) => {
-    if (!test) return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Select a test to view scores.</div>;
     const [results, setResults] = useState<CBTResult[]>([]);
     const [loading, setLoading] = useState(true);
+    const [errorOccurred, setErrorOccurred] = useState(false);
+
+    const fetchScores = async () => {
+        if (!test) return;
+        setLoading(true);
+        setErrorOccurred(false);
+        try {
+            // Use unified API client for scores
+            const data = await api.getQuizSubmissions(test.id);
+
+            if (data) {
+                const formattedResults: CBTResult[] = data.map((sub: any) => {
+                    const score = parseFloat(sub.score);
+                    const total = test.totalMarks || 100;
+                    const percentage = score;
+
+                    return {
+                        id: sub.id,
+                        examId: test.id,
+                        studentId: sub.student?.school_generated_id || sub.student_id,
+                        studentName: sub.student?.name || sub.full_name || 'Unknown',
+                        score: score,
+                        totalQuestions: total,
+                        percentage: percentage,
+                        submittedAt: sub.submitted_at,
+                        status: percentage >= (test.passPercentage || 50) ? 'Passed' : 'Failed'
+                    };
+                });
+                setResults(formattedResults);
+            }
+        } catch (err) {
+            console.error("Error fetching scores:", err);
+            setErrorOccurred(true);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const fetchScores = async () => {
-            setLoading(true);
-            try {
-                // Use unified API client for scores
-                const data = await api.getQuizSubmissions(test.id);
-
-                if (data) {
-                    const formattedResults: CBTResult[] = data.map((sub: any) => {
-                        const score = parseFloat(sub.score);
-                        const total = test.totalMarks || 100;
-                        const percentage = score;
-
-                        return {
-                            id: sub.id,
-                            examId: test.id,
-                            studentId: sub.student?.school_generated_id || sub.student_id,
-                            studentName: sub.student?.name || sub.full_name || 'Unknown',
-                            score: score,
-                            totalQuestions: total,
-                            percentage: percentage,
-                            submittedAt: sub.submitted_at,
-                            status: percentage >= (test.passPercentage || 50) ? 'Passed' : 'Failed'
-                        };
-                    });
-                    setResults(formattedResults);
-                }
-            } catch (err) {
-                console.error("Error fetching scores:", err);
-            } finally {
-                setLoading(false);
-            }
-        };
-
         fetchScores();
-    }, [test.id]);
+    }, [test?.id]);
+
+    if (!test) return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Select a test to view scores.</div>;
 
     return (
         <div className="flex flex-col h-full bg-gray-50">
@@ -63,6 +68,18 @@ const CBTScoresScreen: React.FC<CBTScoresScreenProps> = ({ test }) => {
             <main className="flex-grow p-4 overflow-y-auto">
                 {loading ? (
                     <div className="text-center py-10 text-gray-500">Loading scores...</div>
+                ) : errorOccurred ? (
+                    <div className="text-center py-10">
+                        <AlertTriangleIcon className="w-12 h-12 text-amber-300 mx-auto mb-3" />
+                        <p className="text-gray-700 font-semibold">Couldn't load scores</p>
+                        <p className="text-gray-500 text-sm mt-1 mb-4">There was a problem reaching the server. Please try again.</p>
+                        <button
+                            onClick={fetchScores}
+                            className="px-5 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 font-medium text-sm"
+                        >
+                            Retry
+                        </button>
+                    </div>
                 ) : results.length === 0 ? (
                     <div className="text-center py-10 text-gray-500">
                         <p>No students have submitted this test yet.</p>

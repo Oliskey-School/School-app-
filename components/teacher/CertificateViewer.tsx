@@ -5,7 +5,8 @@ import { useProfile } from '../../context/ProfileContext';
 import {
     CertificateIcon,
     DownloadIcon,
-    CheckCircleIcon
+    CheckCircleIcon,
+    AlertTriangleIcon
 } from '../../constants';
 
 interface Certificate {
@@ -20,6 +21,7 @@ const CertificateViewer: React.FC = () => {
     const { profile } = useProfile();
     const [certificates, setCertificates] = useState<Certificate[]>([]);
     const [loading, setLoading] = useState(true);
+    const [errorOccurred, setErrorOccurred] = useState(false);
 
     useEffect(() => {
         fetchCertificates();
@@ -28,6 +30,7 @@ const CertificateViewer: React.FC = () => {
     const fetchCertificates = async () => {
         try {
             setLoading(true);
+            setErrorOccurred(false);
             // Fetch via backend API using the Teacher profile ID, not the User ID.
             const myProfile = await api.getMyTeacherProfile();
             if (!myProfile?.id) {
@@ -38,6 +41,7 @@ const CertificateViewer: React.FC = () => {
             setCertificates(data || []);
         } catch (error: any) {
             console.error('Error fetching certificates:', error);
+            setErrorOccurred(true);
         } finally {
             setLoading(false);
         }
@@ -90,7 +94,19 @@ const CertificateViewer: React.FC = () => {
 
             {/* Certificates Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {certificates.length === 0 ? (
+                {errorOccurred ? (
+                    <div className="col-span-full text-center py-12 text-gray-500">
+                        <AlertTriangleIcon className="w-16 h-16 text-amber-300 mx-auto mb-4" />
+                        <p className="text-amber-700 font-semibold">Couldn't load your certificates</p>
+                        <p className="text-sm mt-1 mb-4">There was a problem reaching the server. Please try again.</p>
+                        <button
+                            onClick={fetchCertificates}
+                            className="px-5 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 font-medium text-sm"
+                        >
+                            Retry
+                        </button>
+                    </div>
+                ) : certificates.length === 0 ? (
                     <div className="col-span-full text-center py-12 text-gray-500">
                         <CertificateIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                         <p>No certificates yet</p>

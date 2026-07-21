@@ -3,7 +3,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
-import { mockDigitalResources } from '../../data';
 import { DigitalResource, VideoLesson } from '../../types';
 import { RESOURCE_TYPE_CONFIG, PlayIcon, DownloadIcon } from '../../constants';
 
@@ -81,25 +80,23 @@ const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigateTo }) => {
     const [selectedLanguage, setSelectedLanguage] = useState<string>('All');
     const [resources, setResources] = useState<DigitalResource[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(false);
+
+    const fetchResources = async () => {
+        try {
+            setLoading(true);
+            setLoadError(false);
+            const data = await api.getResources();
+            setResources(data || []);
+        } catch (err) {
+            console.error('Error loading resources', err);
+            setLoadError(true);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const fetchResources = async () => {
-            try {
-                const data = await api.getResources();
-
-                if (data && data.length > 0) {
-                    setResources(data);
-                } else {
-                    // Fallback to mocks if DB empty or not set up
-                    setResources(mockDigitalResources);
-                }
-            } catch (err) {
-                console.error('Error loading resources', err);
-                setResources(mockDigitalResources);
-            } finally {
-                setLoading(false);
-            }
-        };
         fetchResources();
     }, []);
 
@@ -181,6 +178,16 @@ const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigateTo }) => {
             <main className="flex-grow p-4 overflow-y-auto">
                 {loading ? (
                     <div className="flex justify-center py-10"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div></div>
+                ) : loadError ? (
+                    <div className="text-center py-10 text-gray-400">
+                        <p>Couldn't load the library right now.</p>
+                        <button
+                            onClick={fetchResources}
+                            className="mt-3 px-4 py-1.5 text-sm font-semibold text-orange-600 border border-orange-200 rounded-full hover:bg-orange-50"
+                        >
+                            Try Again
+                        </button>
+                    </div>
                 ) : (
                     <div className="space-y-6">
                         {sortedGroups.length > 0 ? sortedGroups.map((subject) => (

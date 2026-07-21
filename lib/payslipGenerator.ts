@@ -16,6 +16,9 @@ export interface PayslipData {
     period_end: string;
     base_salary: number;
     gross_salary: number;
+    total_allowances: number;
+    total_bonuses: number;
+    total_deductions: number;
     tax: number;
     pension: number;
     net_salary: number;
@@ -39,27 +42,23 @@ export async function generatePayslip(
     deductions: PayslipItem[] = []
 ): Promise<PayslipData | null> {
     try {
-        // Get teacher and salary info
-        let query = api
-            .from('teacher_salaries')
-            .select('*, teachers!inner(full_name, school_id, branch_id)')
-            .eq('teacher_id', teacherId)
-            .eq('is_active', true)
-            .eq('teachers.school_id', schoolId);
+        // Get teacher and salary info via the dedicated typed endpoints — the
+        // generic api.from('teacher_salaries') REST shim doesn't support
+        // per-teacher filtering server-side (getTeacherSalaries ignores
+        // teacher_id/single), so it always returned the whole array instead
+        // of one record.
+        const [salaryData, teacher] = await Promise.all([
+            api.getTeacherSalary(teacherId),
+            api.getTeacherById(teacherId).catch(() => null),
+        ]);
 
-        if (branchId) {
-            query = query.eq('teachers.branch_id', branchId);
-        }
-
-        const { data: salaryData, error: salaryError } = await query.single();
-
-        if (salaryError || !salaryData) {
+        if (!salaryData || salaryData.base_salary === undefined || salaryData.base_salary === null) {
             console.error('Teacher salary not found');
             return null;
         }
 
-        const baseSalary = salaryData.base_salary;
-        const teacherName = (salaryData.teachers as any)?.full_name || 'Unknown';
+        const baseSalary = Number(salaryData.base_salary);
+        const teacherName = teacher?.full_name || 'Unknown';
 
         // Calculate salary components
         const components: SalaryComponent[] = [
@@ -93,6 +92,9 @@ export async function generatePayslip(
             period_end: periodEnd,
             base_salary: baseSalary,
             gross_salary: grossSalary,
+            total_allowances: totalAllowances,
+            total_bonuses: totalBonuses,
+            total_deductions: totalDeductions,
             tax,
             pension,
             net_salary: netSalary,
@@ -114,50 +116,35 @@ export async function generatePayslip(
  */
 export async function savePayslip(payslipData: PayslipData): Promise<string | null> {
     try {
-        // Insert payslip
-        const { data: payslip, error: payslipError } = await api
-            .from('payslips')
-            .insert({
-                teacher_id: payslipData.teacher_id,
-                period_start: payslipData.period_start,
-                period_end: payslipData.period_end,
-                base_salary: payslipData.base_salary,
-                gross_salary: payslipData.gross_salary,
-                tax: payslipData.tax,
-                pension: payslipData.pension,
-                net_salary: payslipData.net_salary,
-                status: payslipData.status,
-                school_id: payslipData.school_id,
-                branch_id: payslipData.branch_id
-            })
-            .select('id')
-            .single();
+        // Saved through the real payroll endpoint (creates the payslip and its
+        // items in one transaction) — the generic api.from('payslips')/
+        // ('payslip_items') REST shim has no backing routes for those tables.
+        const payslip = await api.generatePayslip({
+            teacherId: payslipData.teacher_id,
+            branch_id: payslipData.branch_id,
+            periodStart: payslipData.period_start,
+            periodEnd: payslipData.period_end,
+            grossSalary: payslipData.gross_salary,
+            totalAllowances: payslipData.total_allowances,
+            totalBonuses: payslipData.total_bonuses,
+            totalDeductions: payslipData.total_deductions,
+            taxAmount: payslipData.tax,
+            pensionAmount: payslipData.pension,
+            netSalary: payslipData.net_salary,
+            items: payslipData.items.map(item => ({
+                item_type: item.type === 'earning' ? 'Earning' : 'Deduction',
+                item_name: item.description,
+                amount: item.amount,
+                is_taxable: item.type === 'earning'
+            }))
+        });
 
-        if (payslipError || !payslip) {
-            console.error('Error saving payslip:', payslipError);
+        if (!payslip?.id) {
+            console.error('Error saving payslip: no id returned');
             return null;
         }
 
-        const payslipId = payslip.id;
-
-        // Insert payslip items
-        const itemsToInsert = payslipData.items.map(item => ({
-            payslip_id: payslipId,
-            description: item.description,
-            amount: item.amount,
-            item_type: item.type === 'earning' ? 'Earning' : 'Deduction'
-        }));
-
-        const { error: itemsError } = await api
-            .from('payslip_items')
-            .insert(itemsToInsert);
-
-        if (itemsError) {
-            console.error('Error saving payslip items:', itemsError);
-            return null;
-        }
-
-        return payslipId;
+        return payslip.id;
     } catch (error) {
         console.error('Error in savePayslip:', error);
         return null;

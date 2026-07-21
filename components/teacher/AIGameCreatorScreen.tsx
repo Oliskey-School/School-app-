@@ -43,7 +43,7 @@ const AIGameCreatorScreen: React.FC<AIGameCreatorScreenProps> = ({ navigateTo, h
         }
         setIsGenerating(true);
         try {
-            const ai = getAIClient(import.meta.env.VITE_GEMINI_API_KEY || '');
+            const ai = getAIClient();
             const prompt = `You are an expert educational game designer. Create a multiple-choice quiz game based on these criteria:\n- Subject: ${subject}\n- Topic: ${topic}\n- Class Level: ${level}\nGenerate a JSON object for a quiz with 10 questions.`;
 
             const response = await ai.models.generateContent({

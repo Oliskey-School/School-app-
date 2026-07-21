@@ -31,6 +31,12 @@ const TeacherSelectClassForAttendance: React.FC<TeacherSelectClassForAttendanceP
         navigateTo('markAttendance', `Attendance: ${formattedClassName}`, { classInfo });
     };
 
+    const handleSelectByTrack = (e: React.MouseEvent, classInfo: any) => {
+        e.stopPropagation();
+        const formattedClassName = getFormattedClassName(classInfo.grade, classInfo.section);
+        navigateTo('attendanceTrackSelector', `Attendance by Track: ${formattedClassName}`, { teacherId, classId: classInfo.id });
+    };
+
     if (loading) {
         return <div className="p-8 text-center text-gray-500">Loading your assigned classes...</div>;
     }
@@ -47,21 +53,31 @@ const TeacherSelectClassForAttendance: React.FC<TeacherSelectClassForAttendanceP
                     const formattedClassName = getFormattedClassName(classInfo.grade, classInfo.section);
 
                     return (
-                        <button
+                        <div
                             key={classInfo.id}
-                            onClick={() => handleSelectClass(classInfo)}
-                            className="relative w-full rounded-xl shadow-sm p-4 flex items-center justify-between text-left transition-all bg-white hover:bg-purple-50 hover:ring-2 hover:ring-purple-200 cursor-pointer"
+                            className="relative w-full rounded-xl shadow-sm bg-white hover:ring-2 hover:ring-purple-200 transition-all overflow-hidden"
                         >
-                            <div className="flex-1">
-                                <div className="flex items-center space-x-2">
-                                    <p className="font-bold text-gray-800">
-                                        {formattedClassName}
-                                    </p>
+                            <button
+                                onClick={() => handleSelectClass(classInfo)}
+                                className="w-full p-4 flex items-center justify-between text-left hover:bg-purple-50 cursor-pointer"
+                            >
+                                <div className="flex-1">
+                                    <div className="flex items-center space-x-2">
+                                        <p className="font-bold text-gray-800">
+                                            {formattedClassName}
+                                        </p>
+                                    </div>
+                                    <p className="text-sm text-gray-600">{classInfo.subject}</p>
                                 </div>
-                                <p className="text-sm text-gray-600">{classInfo.subject}</p>
-                            </div>
-                            <ChevronRightIcon className="text-gray-400" />
-                        </button>
+                                <ChevronRightIcon className="text-gray-400" />
+                            </button>
+                            <button
+                                onClick={(e) => handleSelectByTrack(e, classInfo)}
+                                className="w-full px-4 py-2 text-xs font-bold text-purple-600 bg-purple-50 hover:bg-purple-100 border-t border-purple-100 transition-colors"
+                            >
+                                Mark by Curriculum Track (Nigerian/British)
+                            </button>
+                        </div>
                     )
                 })}
             </div>

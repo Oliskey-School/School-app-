@@ -5,7 +5,8 @@ import { toast } from 'react-hot-toast';
 import {
     UsersIcon,
     CheckCircleIcon,
-    UserGroupIcon
+    UserGroupIcon,
+    AlertTriangleIcon
 } from '../../constants';
 
 interface Teacher {
@@ -31,6 +32,7 @@ const MentoringMatching: React.FC = () => {
     const [selectedTeacher, setSelectedTeacher] = useState<number>(0);
     const [subjectArea, setSubjectArea] = useState('');
     const [loading, setLoading] = useState(true);
+    const [errorOccurred, setErrorOccurred] = useState(false);
 
     useEffect(() => {
         fetchData();
@@ -39,6 +41,7 @@ const MentoringMatching: React.FC = () => {
     const fetchData = async () => {
         try {
             setLoading(true);
+            setErrorOccurred(false);
             // Fetch all teachers and my mentoring matches from backend
             const result = await api.getMentoringData(profile?.id || '');
             if (result) {
@@ -47,6 +50,7 @@ const MentoringMatching: React.FC = () => {
             }
         } catch (error: any) {
             console.error('Error fetching data:', error);
+            setErrorOccurred(true);
         } finally {
             setLoading(false);
         }
@@ -74,6 +78,24 @@ const MentoringMatching: React.FC = () => {
         return (
             <div className="flex items-center justify-center h-full">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+            </div>
+        );
+    }
+
+    if (errorOccurred) {
+        return (
+            <div className="p-6">
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-8 text-center">
+                    <AlertTriangleIcon className="w-12 h-12 text-amber-300 mx-auto mb-3" />
+                    <p className="text-amber-800 font-semibold">Couldn't load mentoring data</p>
+                    <p className="text-amber-700 text-sm mt-1 mb-4">There was a problem reaching the server. Please try again.</p>
+                    <button
+                        onClick={fetchData}
+                        className="px-5 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 font-medium text-sm"
+                    >
+                        Retry
+                    </button>
+                </div>
             </div>
         );
     }

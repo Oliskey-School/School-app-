@@ -4,6 +4,11 @@ import { ParentService } from '../services/parent.service';
 import prisma from '../config/database';
 import { getEffectiveBranchId } from '../utils/branchScope';
 
+const ADMIN_ROLES = ['admin', 'proprietor', 'superadmin', 'super_admin'];
+function isAdmin(req: AuthRequest): boolean {
+    return ADMIN_ROLES.includes((req.user.role || '').toLowerCase());
+}
+
 export const getParents = async (req: AuthRequest, res: Response) => {
     try {
         const branchId = getEffectiveBranchId(req.user, (req.query.branch_id || req.query.branchId) as string);
@@ -29,6 +34,7 @@ export const getParentsByClassId = async (req: AuthRequest, res: Response) => {
 export const createParent = async (req: AuthRequest, res: Response) => {
     console.log('📡 [ParentController] createParent called with body:', JSON.stringify(req.body));
     try {
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can create parent accounts' });
         const branchId = getEffectiveBranchId(req.user, req.body?.branch_id);
         const result = await ParentService.createParent(req.user.school_id, branchId, req.body, req.user.id);
         res.status(201).json(result);
@@ -50,6 +56,7 @@ export const getParentById = async (req: AuthRequest, res: Response) => {
 
 export const updateParent = async (req: AuthRequest, res: Response) => {
     try {
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can update parent records' });
         const branchId = getEffectiveBranchId(req.user, req.body?.branch_id);
         const result = await ParentService.updateParent(req.user.school_id, branchId, req.params.id as string, req.body);
         res.json(result);
@@ -60,6 +67,7 @@ export const updateParent = async (req: AuthRequest, res: Response) => {
 
 export const deleteParent = async (req: AuthRequest, res: Response) => {
     try {
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can delete parent records' });
         const branchId = getEffectiveBranchId(req.user, req.body?.branch_id || (req.query.branchId as string));
         await ParentService.deleteParent(req.user.school_id, branchId, req.params.id as string);
         res.status(204).send();
@@ -114,9 +122,10 @@ export const getChildrenForParent = async (req: AuthRequest, res: Response) => {
 
 export const linkChild = async (req: AuthRequest, res: Response) => {
     try {
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can link a child to a parent' });
         const { parentId, studentId } = req.body;
         console.log('📡 [ParentController] linkChild called with:', { parentId, studentId, body: req.body });
-        
+
         if (!parentId || !studentId) {
             return res.status(400).json({ message: 'parentId and studentId are required' });
         }
@@ -135,6 +144,7 @@ export const linkChild = async (req: AuthRequest, res: Response) => {
 
 export const unlinkChild = async (req: AuthRequest, res: Response) => {
     try {
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can unlink a child from a parent' });
         const { parentId, studentId } = req.body;
         const branchId = req.user.branch_id || req.body?.branch_id;
         await ParentService.unlinkChild(req.user.school_id, branchId, parentId, studentId);

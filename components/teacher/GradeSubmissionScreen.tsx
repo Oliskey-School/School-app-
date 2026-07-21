@@ -31,9 +31,8 @@ interface GradeSubmissionScreenProps {
 }
 
 const GradeSubmissionScreen: React.FC<GradeSubmissionScreenProps> = ({ submission, assignment, onGrade }) => {
-  if (!submission) return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Select a submission to grade.</div>;
-  const [grade, setGrade] = useState<string>(submission.grade?.toString() || '');
-  const [feedback, setFeedback] = useState<string>(submission.feedback || '');
+  const [grade, setGrade] = useState<string>(submission?.grade?.toString() || '');
+  const [feedback, setFeedback] = useState<string>(submission?.feedback || '');
   const [isGenerating, setIsGenerating] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
   const [isRecording, setIsRecording] = useState(false);
@@ -81,7 +80,7 @@ const GradeSubmissionScreen: React.FC<GradeSubmissionScreenProps> = ({ submissio
     setIsGenerating(true);
     setAiSuggestions([]);
     try {
-      const ai = getAIClient(import.meta.env.VITE_GEMINI_API_KEY || '');
+      const ai = getAIClient();
       const prompt = `Act as an expert teacher. Evaluate this student submission and provide:
       1. A recommended grade (0-100) based on quality.
       2. 3 distinct, constructive feedback comments.
@@ -142,6 +141,8 @@ const GradeSubmissionScreen: React.FC<GradeSubmissionScreenProps> = ({ submissio
     onGrade(submission.id, numericGrade, feedback);
   };
 
+  if (!submission) return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Select a submission to grade.</div>;
+
   return (
     <div className="flex flex-col h-full bg-gray-50">
       <form onSubmit={handleSubmit} className="flex-grow flex flex-col">
@@ -150,9 +151,9 @@ const GradeSubmissionScreen: React.FC<GradeSubmissionScreenProps> = ({ submissio
             <div className="lg:col-span-3 space-y-4">
               {/* Student and Submission Info */}
               <div className="bg-white p-4 rounded-xl shadow-sm flex items-center space-x-4">
-                <img src={submission.student.avatarUrl} alt={submission.student.name} className="w-16 h-16 rounded-full object-cover" />
+                <img src={submission.student?.avatarUrl} alt={submission.student?.name || 'Student'} className="w-16 h-16 rounded-full object-cover bg-gray-100" />
                 <div>
-                  <p className="font-bold text-xl text-gray-800">{submission.student.name}</p>
+                  <p className="font-bold text-xl text-gray-800">{submission.student?.name || 'Unknown student'}</p>
                   <p className="text-sm text-gray-500">
                     Submitted: {new Date(submission.submittedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
                   </p>

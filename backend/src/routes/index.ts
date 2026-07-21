@@ -7,7 +7,7 @@ import { requireTenant } from '../middleware/tenant.middleware';
 import {
     getSchoolDocuments, getExternalIntegrations, getThirdPartyApps, getAppInstallations,
     updateExternalIntegration, syncExternalIntegration, installApp, uninstallApp,
-    getTeacherSalaries, createTeacherSalary, updateTeacherSalary, getBudgets, createBudget, getPtaMeetings, createPtaMeeting, getAccessibilitySettings,
+    getTeacherSalaries, createTeacherSalary, updateTeacherSalary, getBudgets, createBudget, getPtaMeetings, createPtaMeeting, deletePtaMeeting, getAccessibilitySettings,
     getPayslips, getPaymentTransactions, createPaymentTransaction, updatePayslipStatus, getLeaveRequestsTop, getEmptyList, getArrears
 } from '../controllers/misc.controller';
 import { getVerificationRequests, reviewVerificationRequest } from '../controllers/idVerification.controller';
@@ -229,6 +229,7 @@ router.get('/payroll/budgets', authenticate, requireTenant, getBudgets);
 router.post('/payroll/budgets', authenticate, requireTenant, createBudget);
 router.get('/community/pta-meetings', authenticate, requireTenant, getPtaMeetings);
 router.post('/community/pta-meetings', authenticate, requireTenant, createPtaMeeting);
+router.delete('/community/pta-meetings/:id', authenticate, requireTenant, deletePtaMeeting);
 router.get('/accessibility-settings', authenticate, getAccessibilitySettings);
 router.get('/payslips', authenticate, requireTenant, getPayslips);
 router.put('/payslips/:id', authenticate, requireTenant, updatePayslipStatus);

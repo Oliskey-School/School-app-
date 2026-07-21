@@ -945,10 +945,14 @@ export class TeacherService {
                     section: student.section,
                     class_name: classTeacher.class.name,
                     class_id: classTeacher.class_id,
+                    // Never send the actual password to a teacher — initial_password
+                    // mirrors the student's current real login password (it's rewritten
+                    // on every change/reset, not a one-time value), so exposing it here
+                    // let any teacher read and copy a live password for any student they
+                    // teach. `has_password` alone tells the UI whether one was ever set.
                     credentials: student.status === 'Active' ? {
                         login_id: student.school_generated_id || student.email,
-                        has_password: !!student.user?.initial_password,
-                        password: student.user?.initial_password || null
+                        has_password: !!student.user?.initial_password
                     } : null,
                     created_at: student.created_at
                 });

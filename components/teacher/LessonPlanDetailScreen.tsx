@@ -2,8 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { GeneratedResources, TermResources, GeneratedLessonPlan, GeneratedAssessment, AssessmentQuestion, DetailedNote, GeneratedHistoryEntry } from '../../types';
-import { DocumentTextIcon, ShareIcon, BookOpenIcon, ClipboardListIcon, ChevronRightIcon, SparklesIcon, FolderIcon, CheckCircleIcon, RotateCcwIcon, ClockIcon } from '../../constants';
+import { GeneratedResources, TermResources, GeneratedLessonPlan, GeneratedAssessment, AssessmentQuestion, DetailedNote } from '../../types';
+import { DocumentTextIcon, ShareIcon, BookOpenIcon, ClipboardListIcon, ChevronRightIcon, SparklesIcon, CheckCircleIcon, RotateCcwIcon, ClockIcon } from '../../constants';
 import { api } from '../../lib/api';
 
 const Toast: React.FC<{ message: string; onClear: () => void; }> = ({ message, onClear }) => {
@@ -99,7 +99,7 @@ const LessonPlansTab: React.FC<{ plans: TermResources['lessonPlans'], notes?: De
     );
 };
 
-const AssessmentDisplay: React.FC<{ assessment: GeneratedAssessment, navigateTo: (view: string, title: string, props?: any) => void; }> = ({ assessment, navigateTo }) => (
+const AssessmentDisplay: React.FC<{ assessment: GeneratedAssessment, subject: string, className: string, navigateTo: (view: string, title: string, props?: any) => void; }> = ({ assessment, subject, className, navigateTo }) => (
     <div className="bg-white p-4 rounded-lg border border-gray-200">
         <h4 className="font-bold text-xl mb-2 text-gray-800">{assessment.type} ({assessment.totalMarks} Marks)</h4>
         {assessment.questions.slice(0, 2).map(q => ( // Show a preview of first 2 questions
@@ -109,7 +109,7 @@ const AssessmentDisplay: React.FC<{ assessment: GeneratedAssessment, navigateTo:
         ))}
         <div className="mt-4 border-t pt-3">
             <button
-                onClick={() => navigateTo('assignmentView', `Assignment: ${assessment.type}`, { assessment })}
+                onClick={() => navigateTo('assignmentView', `Assignment: ${assessment.type}`, { assessment, subject, className })}
                 className="w-full text-center py-2 px-4 bg-purple-100 text-purple-700 font-semibold rounded-lg hover:bg-purple-200 transition-colors"
             >
                 View as Assignment
@@ -118,7 +118,7 @@ const AssessmentDisplay: React.FC<{ assessment: GeneratedAssessment, navigateTo:
     </div>
 );
 
-const AssessmentsTab: React.FC<{ assessments: TermResources['assessments'], navigateTo: (view: string, title: string, props?: any) => void; }> = ({ assessments, navigateTo }) => {
+const AssessmentsTab: React.FC<{ assessments: TermResources['assessments'], subject: string, className: string, navigateTo: (view: string, title: string, props?: any) => void; }> = ({ assessments, subject, className, navigateTo }) => {
     // Check if assessments exist and have content
     if (!assessments || assessments.length === 0) {
         return (
@@ -134,7 +134,7 @@ const AssessmentsTab: React.FC<{ assessments: TermResources['assessments'], navi
         <div className="space-y-4">
             {assessments
                 .sort((a, b) => a.week - b.week)
-                .map((ass, index) => <AssessmentDisplay key={index} assessment={ass} navigateTo={navigateTo} />)}
+                .map((ass, index) => <AssessmentDisplay key={index} assessment={ass} subject={subject} className={className} navigateTo={navigateTo} />)}
         </div>
     );
 };
@@ -163,43 +163,20 @@ const TermContent: React.FC<{
             </div>
             {activeTab === 'scheme' && <SchemeOfWorkTab scheme={termResource.schemeOfWork} />}
             {activeTab === 'plans' && <LessonPlansTab plans={termResource.lessonPlans} notes={resources.detailedNotes} context={context} navigateTo={navigateTo} onSuggestActivity={navigateTo.bind(null, 'suggestActivity')} />}
-            {activeTab === 'assessments' && <AssessmentsTab assessments={termResource.assessments} navigateTo={navigateTo} />}
+            {activeTab === 'assessments' && <AssessmentsTab assessments={termResource.assessments} subject={resources.subject} className={resources.className} navigateTo={navigateTo} />}
         </div>
     );
 };
 
 const LessonPlanDetailScreen: React.FC<{ resources: GeneratedResources; navigateTo: (view: string, title: string, props?: any) => void; }> = ({ resources, navigateTo }) => {
-    if (!resources) return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Open a lesson plan to view its details.</div>;
-    const [currentResources, setCurrentResources] = useState<GeneratedResources>(resources);
-    const [activeTerm, setActiveTerm] = useState<string>(resources.terms[0]?.term || '');
+    const [currentResources, setCurrentResources] = useState<GeneratedResources | null>(resources || null);
+    const [activeTerm, setActiveTerm] = useState<string>(resources?.terms[0]?.term || '');
     const [toastMessage, setToastMessage] = useState('');
+    const [isPublishing, setIsPublishing] = useState(false);
+
+    if (!resources || !currentResources) return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Open a lesson plan to view its details.</div>;
 
     const activeTermData = currentResources.terms.find(t => t.term === activeTerm);
-
-    const handleSavePlan = () => {
-        const GENERATED_HISTORY_KEY = 'generatedLessonPlanHistory_v1';
-        try {
-            const savedHistoryRaw = localStorage.getItem(GENERATED_HISTORY_KEY);
-            const savedHistory: GeneratedHistoryEntry[] = savedHistoryRaw ? JSON.parse(savedHistoryRaw) : [];
-
-            const newEntry: GeneratedHistoryEntry = {
-                subject: currentResources.subject,
-                className: currentResources.className,
-                lastUpdated: new Date().toISOString(),
-                resources: currentResources,
-            };
-
-            // Prepend the new entry to the history
-            const newHistory = [newEntry, ...savedHistory];
-            localStorage.setItem(GENERATED_HISTORY_KEY, JSON.stringify(newHistory));
-            setToastMessage('Plan saved successfully!');
-        } catch (error) {
-            console.error("Failed to save plan to localStorage", error);
-            setToastMessage('Error: Could not save plan.');
-        }
-    };
-
-    const [isPublishing, setIsPublishing] = useState(false);
 
     const handlePublish = async () => {
         setIsPublishing(true);
@@ -244,13 +221,6 @@ const LessonPlanDetailScreen: React.FC<{ resources: GeneratedResources; navigate
                 </div>
                 <div className="flex space-x-2">
                     <button
-                        onClick={handleSavePlan}
-                        className="flex items-center space-x-1.5 px-3 py-1.5 text-sm font-semibold text-green-700 bg-green-100 rounded-md hover:bg-green-200"
-                    >
-                        <FolderIcon className="w-4 h-4" />
-                        <span>Save Local</span>
-                    </button>
-                    <button
                         onClick={handlePublish}
                         disabled={isPublishing}
                         className="flex items-center space-x-1.5 px-3 py-1.5 text-sm font-semibold text-blue-700 bg-blue-100 rounded-md hover:bg-blue-200 disabled:opacity-50"
@@ -288,7 +258,7 @@ export const AIActivitySuggester: React.FC<{ topic: string, subject: string, han
     useEffect(() => {
         const generate = async () => {
             try {
-                const ai = getAIClient((import.meta.env as any).VITE_GEMINI_API_KEY || '');
+                const ai = getAIClient();
                 const prompt = `Generate 3 creative learning activities for the topic "${topic}" in the subject "${subject}" for a Nigerian classroom. 
                 Include:
                 1. A Group Activity

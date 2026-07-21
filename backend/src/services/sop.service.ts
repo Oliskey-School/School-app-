@@ -75,7 +75,7 @@ export class SOPService {
                     incident_type_id: incidentTypeId,
                     order: i + 1,
                     name: s.name?.trim() || `Stage ${i + 1}`,
-                    notify_roles: Array.isArray(s.notify_roles) ? s.notify_roles : [],
+                    notify_roles: Array.isArray(s.notify_roles) ? s.notify_roles.map((r: string) => String(r).toUpperCase()) : [],
                     notify_user_ids: Array.isArray(s.notify_user_ids) ? s.notify_user_ids : [],
                     requires_evidence: !!s.requires_evidence,
                     requires_decision: !!s.requires_decision,
@@ -100,15 +100,20 @@ export class SOPService {
             // Match this branch OR school-level (branch_id: null) users — a
             // main admin must always be notified regardless of which branch
             // the case was reported from; only branch-locked staff are scoped.
+            // Role comparison is done case-insensitively in JS rather than via
+            // a Prisma `role: { in }` filter — notify_roles has historically
+            // been stored with mixed casing ('admin' vs the Role enum's
+            // 'ADMIN'), and an exact-match enum filter would silently match
+            // nobody for those older/mis-cased records.
+            const targetRoles = new Set(stage.notify_roles.map((r: string) => String(r).toUpperCase()));
             const users = await prisma.user.findMany({
                 where: {
                     school_id: schoolId,
-                    role: { in: stage.notify_roles as any },
                     ...(branchId && branchId !== 'all' ? { OR: [{ branch_id: branchId }, { branch_id: null }] } : {}),
                 },
-                select: { id: true },
+                select: { id: true, role: true },
             });
-            users.forEach(u => targets.add(u.id));
+            users.filter(u => targetRoles.has(String(u.role).toUpperCase())).forEach(u => targets.add(u.id));
         }
         for (const userId of targets) {
             await NotificationService.createNotification(schoolId, branchId, {

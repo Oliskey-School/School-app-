@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
-import { ClipboardCheck, Star } from 'lucide-react';
+import { ClipboardCheck, Star, AlertTriangle } from 'lucide-react';
 
 interface Criterion { key: string; label: string; max_score: number; }
 interface Response { criterion_key: string; score: number; comment: string | null; }
@@ -18,19 +18,23 @@ const MyObservations = () => {
     const [observations, setObservations] = useState<Observation[]>([]);
     const [loading, setLoading] = useState(true);
     const [expanded, setExpanded] = useState<string | null>(null);
+    const [errorOccurred, setErrorOccurred] = useState(false);
 
-    useEffect(() => {
-        (async () => {
-            try {
-                const result = await api.getMyObservations();
-                setObservations(Array.isArray(result) ? result : []);
-            } catch (err) {
-                console.error('Error loading observations:', err);
-            } finally {
-                setLoading(false);
-            }
-        })();
-    }, []);
+    const fetchObservations = async () => {
+        try {
+            setLoading(true);
+            setErrorOccurred(false);
+            const result = await api.getMyObservations();
+            setObservations(Array.isArray(result) ? result : []);
+        } catch (err) {
+            console.error('Error loading observations:', err);
+            setErrorOccurred(true);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => { fetchObservations(); }, []);
 
     return (
         <div className="p-6 max-w-3xl mx-auto space-y-6">
@@ -41,6 +45,18 @@ const MyObservations = () => {
 
             {loading ? (
                 <div className="text-center py-12 text-gray-500">Loading...</div>
+            ) : errorOccurred ? (
+                <div className="bg-white rounded-2xl shadow-sm border border-amber-100 p-12 text-center">
+                    <AlertTriangle className="w-12 h-12 text-amber-300 mx-auto mb-4" />
+                    <h3 className="font-bold text-lg text-gray-900">Couldn't load observations</h3>
+                    <p className="text-gray-500 mt-1 mb-4">There was a problem reaching the server. Please try again.</p>
+                    <button
+                        onClick={fetchObservations}
+                        className="px-5 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 font-medium text-sm"
+                    >
+                        Retry
+                    </button>
+                </div>
             ) : observations.length === 0 ? (
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
                     <ClipboardCheck className="w-12 h-12 text-gray-300 mx-auto mb-4" />

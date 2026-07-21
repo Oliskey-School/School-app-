@@ -8,7 +8,8 @@ import {
     CalendarIcon,
     DocumentTextIcon,
     PlusIcon,
-    ClockIcon
+    ClockIcon,
+    AlertTriangleIcon
 } from '../../constants';
 
 interface LeaveRequestProps {
@@ -39,6 +40,7 @@ const LeaveRequest: React.FC<LeaveRequestProps> = ({ teacherId, schoolId, curren
     const [showForm, setShowForm] = useState(false);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
+    const [errorOccurred, setErrorOccurred] = useState(false);
 
     const [formData, setFormData] = useState<RequestFormData>({
         leave_type: '',
@@ -55,6 +57,8 @@ const LeaveRequest: React.FC<LeaveRequestProps> = ({ teacherId, schoolId, curren
 
     const initialize = async () => {
         if (!teacherId || !schoolId) return;
+        setLoading(true);
+        setErrorOccurred(false);
         try {
             await fetchMyRequests(teacherId);
             const types = await fetchLeaveTypes(schoolId);
@@ -68,37 +72,29 @@ const LeaveRequest: React.FC<LeaveRequestProps> = ({ teacherId, schoolId, curren
             }
         } catch (error: any) {
             console.error('Error initializing:', error);
+            setErrorOccurred(true);
         } finally {
             setLoading(false);
         }
     };
 
     const fetchLeaveTypes = async (sId: string) => {
-        try {
-            const types = await api.getLeaveTypes(sId);
-            if (types && types.length > 0) {
-                const mapped = types.map(t => ({
-                    id: t.id,
-                    name: t.name,
-                    description: t.description
-                }));
-                setLeaveTypes(mapped);
-                return mapped;
-            }
-            return [];
-        } catch (error) {
-            console.error('Error fetching leave types:', error);
-            return [];
+        const types = await api.getLeaveTypes(sId);
+        if (types && types.length > 0) {
+            const mapped = types.map(t => ({
+                id: t.id,
+                name: t.name,
+                description: t.description
+            }));
+            setLeaveTypes(mapped);
+            return mapped;
         }
+        return [];
     };
 
     const fetchMyRequests = async (tId: string) => {
-        try {
-            const data = await api.getLeaveRequests(tId, schoolId);
-            setMyRequests(data || []);
-        } catch (error) {
-            console.error('Error fetching requests:', error);
-        }
+        const data = await api.getLeaveRequests(tId, schoolId);
+        setMyRequests(data || []);
     };
 
     const calculateDays = (start: string, end: string): number => {
@@ -158,7 +154,11 @@ const LeaveRequest: React.FC<LeaveRequestProps> = ({ teacherId, schoolId, curren
             });
 
             if (teacherId) {
-                await fetchMyRequests(teacherId);
+                try {
+                    await fetchMyRequests(teacherId);
+                } catch (refreshError) {
+                    console.error('Error refreshing requests after submit:', refreshError);
+                }
             }
         } catch (error: any) {
             console.error('Error submitting request:', error);
@@ -194,6 +194,24 @@ const LeaveRequest: React.FC<LeaveRequestProps> = ({ teacherId, schoolId, curren
             <div className="p-6">
                 <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-center">
                     <p className="text-yellow-800">Teacher profile not found. Please contact HR.</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (errorOccurred) {
+        return (
+            <div className="p-6">
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-8 text-center">
+                    <AlertTriangleIcon className="w-12 h-12 text-amber-300 mx-auto mb-3" />
+                    <p className="text-amber-800 font-semibold">Couldn't load your leave requests</p>
+                    <p className="text-amber-700 text-sm mt-1 mb-4">There was a problem reaching the server. Please try again.</p>
+                    <button
+                        onClick={initialize}
+                        className="px-5 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 font-medium text-sm"
+                    >
+                        Retry
+                    </button>
                 </div>
             </div>
         );

@@ -13,9 +13,20 @@ interface StudentProfileScreenProps {
     subjectContext?: string;
 }
 
-const StudentProfileScreen: React.FC<StudentProfileScreenProps> = ({ student, navigateTo, handleBack, teacherId, subjectContext }) => {
-    if (!student) return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Select a student to view their profile.</div>;
+const StudentProfileScreen: React.FC<StudentProfileScreenProps> = ({ student: rawStudent, navigateTo, handleBack, teacherId, subjectContext }) => {
     const { user } = useAuth();
+    // Defensive normalization: some callers (historically MyClassHubScreen)
+    // passed the raw snake_case API row instead of the camelCase shape this
+    // screen expects, silently misidentifying whose profile is shown.
+    const student = React.useMemo(() => {
+        if (!rawStudent) return rawStudent;
+        return {
+            ...rawStudent,
+            name: (rawStudent as any).name || (rawStudent as any).full_name,
+            avatarUrl: (rawStudent as any).avatarUrl || (rawStudent as any).avatar_url,
+            schoolGeneratedId: (rawStudent as any).schoolGeneratedId || (rawStudent as any).school_generated_id,
+        };
+    }, [rawStudent]);
     const [behaviorNotes, setBehaviorNotes] = useState<BehaviorNote[]>([]);
     const [academicRecords, setAcademicRecords] = useState<any[]>([]);
     const [newNote, setNewNote] = useState('');
@@ -25,8 +36,11 @@ const StudentProfileScreen: React.FC<StudentProfileScreenProps> = ({ student, na
     const [loadingNotes, setLoadingNotes] = useState(true);
 
     useEffect(() => {
+        if (!student?.id) return;
         loadData();
-    }, [student.id]);
+    }, [student?.id]);
+
+    if (!student) return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Select a student to view their profile.</div>;
 
     const loadData = async () => {
         setLoadingNotes(true);

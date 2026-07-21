@@ -160,9 +160,13 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
                 const me = await api.getMe();
                 activeSchoolId = me?.school_id;
 
+                // Never fall back to a hardcoded tenant — a real school's CBT
+                // upload must never silently attach to a different school's
+                // data. Fail closed with a clear error instead.
                 if (!activeSchoolId) {
-                    console.warn("School ID missing. Using Demo School ID.");
-                    activeSchoolId = "d0ff3e95-9b4c-4c12-989c-e5640d3cacd1";
+                    toast.error('Could not determine your school. Please refresh and try again.');
+                    setIsUploading(false);
+                    return;
                 }
             }
 

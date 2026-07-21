@@ -107,6 +107,12 @@ export const advanceStage = async (req: AuthRequest, res: Response) => {
 
 export const addEvidence = async (req: AuthRequest, res: Response) => {
     try {
+        if (!isAdmin(req)) {
+            const caseRow = await SOPService.getCaseDetail(req.user.school_id, req.params.id as string);
+            const teacherId = await resolveTeacherId(req);
+            const allowed = teacherId && SOPService.canTeacherViewCase(caseRow, teacherId, req.user.id);
+            if (!allowed) return res.status(403).json({ message: 'You do not have access to this case' });
+        }
         const result = await SOPService.addEvidence(req.user.school_id, req.params.id as string, req.body, req.user.id);
         res.status(201).json(result);
     } catch (error: any) { res.status(errStatus(error.message)).json({ message: error.message }); }

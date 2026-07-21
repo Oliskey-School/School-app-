@@ -164,6 +164,16 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ userType, nav
         case 'Grades': navigateTo('results', 'My Results', { studentId: profile.id }); break;
         default: break;
       }
+    } else if (userType === 'teacher') {
+      switch (notification.category) {
+        case 'Message': navigateTo('messages', 'Messages', {}); break;
+        case 'Assignment':
+        case 'Homework': navigateTo('assignmentsList', 'Assignments', {}); break;
+        case 'Attendance': navigateTo('attendanceHistory', 'Attendance History', {}); break;
+        case 'Event': navigateTo('calendar', 'Calendar', {}); break;
+        case 'System': navigateTo('teacherSecurity', 'Security', {}); break;
+        default: break;
+      }
     }
   };
 

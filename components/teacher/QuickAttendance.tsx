@@ -7,17 +7,17 @@ import { useAutoSync } from '../../hooks/useAutoSync';
 import { useCallback } from 'react';
 
 export const QuickAttendance: React.FC<{ classId: string }> = ({ classId }) => {
-    const { currentSchool } = useAuth();
+    const { currentSchool, currentBranchId } = useAuth();
     const [students, setStudents] = useState<any[]>([]);
     const [attendance, setAttendance] = useState<Record<string, AttendanceStatus>>({});
     const [showSuccess, setShowSuccess] = useState(false);
 
     const load = useCallback(async () => {
-        const roster = await getCachedRoster(classId);
+        const roster = await getCachedRoster(classId, currentSchool?.id);
         setStudents(roster);
         // Default ALL to present
         setAttendance(Object.fromEntries(roster.map((s: any) => [s.id, 'present'])));
-    }, [classId]);
+    }, [classId, currentSchool?.id]);
 
     useEffect(() => {
         load();
@@ -40,8 +40,10 @@ export const QuickAttendance: React.FC<{ classId: string }> = ({ classId }) => {
         
         const records = students.map(s => ({
             student_id: s.id,
+            class_id: classId,
             status: attendance[s.id],
             school_id: currentSchool.id,
+            branch_id: currentBranchId || null,
             date: new Date().toISOString().split('T')[0]
         }));
 
@@ -97,7 +99,7 @@ export const QuickAttendance: React.FC<{ classId: string }> = ({ classId }) => {
                                 <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden">
                                     {student.avatar_url && <img src={student.avatar_url} alt="" />}
                                 </div>
-                                <span className="font-bold text-gray-800">{student.name}</span>
+                                <span className="font-bold text-gray-800">{student.full_name || student.name}</span>
                             </div>
 
                             <div className="flex items-center gap-2">

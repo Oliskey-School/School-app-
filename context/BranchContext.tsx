@@ -143,6 +143,10 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // has already written selected_branch_id, so the request carries the right
     // X-Branch-Id). This is what makes the header ID switch with the branch.
     useEffect(() => {
+        // user/currentSchool going null here means a real sign-out (AuthContext.signOut
+        // clears them explicitly) — clear the badge so it can't leak into whatever
+        // account logs in next. A profile edit/reload never nulls these; it just
+        // recreates the object, so this branch is not hit on those flows.
         if (!user || !currentSchool) { setActiveBranchGeneratedId(null); return; }
         let cancelled = false;
         api.getActiveBranchId()
@@ -152,7 +156,9 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 // failure must not blank the badge the user is already looking at.
                 const newId = res?.school_generated_id;
                 if (newId) setActiveBranchGeneratedId(newId);
-                else setActiveBranchGeneratedId(null);
+                // else: keep whatever ID is already showing — an empty response here
+                // is a timing gap (re-resolving after edit/reload/branch-switch), not
+                // proof the ID is gone. It'll correct itself on the next real refresh.
                 if (typeof res?.is_main_admin === 'boolean') setIsMainAdmin(res.is_main_admin);
             })
             .catch(() => { /* keep existing badge on transient network error */ });

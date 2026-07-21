@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
-import { SearchIcon, UserIcon, CheckCircleIcon, ClockIcon, EyeIcon, EyeOffIcon } from '../../constants';
+import { SearchIcon, UserIcon, CheckCircleIcon, ClockIcon } from '../../constants';
 
 const KeyIcon = ({ className }: { className?: string }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 ${className || ''}`.trim()} viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
@@ -37,7 +37,6 @@ interface StudentWithCredentials {
     credentials: {
         login_id: string | null;
         has_password: boolean;
-        password: string | null;
     } | null;
     created_at: string;
 }
@@ -50,7 +49,6 @@ const StudentCredentialsScreen: React.FC<StudentCredentialsScreenProps> = ({ onB
     const [students, setStudents] = useState<StudentWithCredentials[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [showPassword, setShowPassword] = useState<Record<string, boolean>>({});
     const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'pending'>('active');
 
     useEffect(() => {
@@ -67,13 +65,6 @@ const StudentCredentialsScreen: React.FC<StudentCredentialsScreenProps> = ({ onB
         } finally {
             setLoading(false);
         }
-    };
-
-    const toggleShowPassword = (studentId: string) => {
-        setShowPassword(prev => ({
-            ...prev,
-            [studentId]: !prev[studentId]
-        }));
     };
 
     const copyToClipboard = async (text: string, label: string) => {
@@ -244,29 +235,11 @@ const StudentCredentialsScreen: React.FC<StudentCredentialsScreenProps> = ({ onB
                                                 <KeyIcon className="w-4 h-4 text-gray-400" />
                                                 <span className="text-xs font-medium text-gray-500 uppercase">Password</span>
                                             </div>
-                                            <div className="flex items-center gap-1">
-                                                <button
-                                                    onClick={() => toggleShowPassword(student.id)}
-                                                    className="p-1 hover:bg-gray-200 rounded transition-colors"
-                                                >
-                                                    {showPassword[student.id] ? (
-                                                        <EyeOffIcon className="w-3 h-3 text-gray-400" />
-                                                    ) : (
-                                                        <EyeIcon className="w-3 h-3 text-gray-400" />
-                                                    )}
-                                                </button>
-                                                <button
-                                                    onClick={() => copyToClipboard(student.credentials?.password || '', 'Password')}
-                                                    className="p-1 hover:bg-gray-200 rounded transition-colors"
-                                                >
-                                                    <CopyIcon className="w-3 h-3 text-gray-400" />
-                                                </button>
-                                            </div>
                                         </div>
-                                        <p className="font-mono text-sm text-gray-800 pl-6">
-                                            {showPassword[student.id] 
-                                                ? student.credentials?.password 
-                                                : '••••••••'}
+                                        <p className="text-sm text-gray-500 pl-6">
+                                            {student.credentials?.has_password
+                                                ? 'Set — for security, ask an admin to reset it if the student needs it again'
+                                                : 'Not yet set'}
                                         </p>
                                     </div>
                                 )}

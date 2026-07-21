@@ -52,6 +52,7 @@ const BehaviorLogScreen = () => {
     const [logs, setLogs] = useState<BehaviorLog[]>([]);
     const [loading, setLoading] = useState(true);
     const [students, setStudents] = useState<any[]>([]);
+    const [teachers, setTeachers] = useState<any[]>([]);
     const [isAdding, setIsAdding] = useState(false);
     const [formData, setFormData] = useState<any>({});
     const [filterType, setFilterType] = useState<'all' | 'positive' | 'negative' | 'neutral'>('all');
@@ -70,12 +71,14 @@ const BehaviorLogScreen = () => {
         if (!currentSchool) return;
         try {
             setLoading(true);
-            const [logsData, studentsData] = await Promise.all([
+            const [logsData, studentsData, teachersData] = await Promise.all([
                 api.getBehaviorNotesBySchool(currentSchool.id),
-                api.getStudents(currentSchool.id)
+                api.getStudents(currentSchool.id),
+                api.getTeachers()
             ]);
             setLogs(logsData);
             setStudents(studentsData);
+            setTeachers(teachersData || []);
         } catch (err) {
             console.error('Error fetching behavior data:', err);
             toast.error('Failed to load logs');
@@ -97,6 +100,7 @@ const BehaviorLogScreen = () => {
 
     const handleSave = async () => {
         if (!formData.student_id || !formData.note) { toast.error('Student and note are required'); return; }
+        if (!formData.teacher_id) { toast.error('Please select who this note is recorded by'); return; }
         try {
             setLoading(true);
             await api.createBehaviorNote({
@@ -218,6 +222,13 @@ const BehaviorLogScreen = () => {
                                 <select className="w-full px-5 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold" value={formData.student_id || ''} onChange={e => setFormData({ ...formData, student_id: e.target.value })}>
                                     <option value="">Select Student</option>
                                     {students.map(s => <option key={s.id} value={s.id}>{s.full_name} ({s.grade})</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Recorded By (Teacher) <span className="text-red-500">*</span></label>
+                                <select className="w-full px-5 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold" value={formData.teacher_id || ''} onChange={e => setFormData({ ...formData, teacher_id: e.target.value })}>
+                                    <option value="">Select Teacher</option>
+                                    {teachers.map(t => <option key={t.id} value={t.id}>{t.full_name}</option>)}
                                 </select>
                             </div>
                             <div className="grid grid-cols-2 gap-4">

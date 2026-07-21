@@ -14,7 +14,8 @@ import {
     SparklesIcon,
     AIIcon,
     XIcon,
-    PlusIcon
+    PlusIcon,
+    AwardIcon
 } from '../../constants';
 import DonutChart from '../ui/DonutChart';
 import { getAIClient, AI_MODEL_NAME } from '../../lib/ai';
@@ -419,6 +420,15 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
                                     </button>
                                 </div>
                             )}
+                            <button
+                                onClick={() => navigateTo('awardPoints', `Award Points to ${student.name}`, { students: [student] })}
+                                className="w-full flex items-center space-x-3 p-3 text-left hover:bg-indigo-50 rounded-xl transition-colors"
+                            >
+                                <div className="p-1.5 bg-indigo-50 rounded-lg">
+                                    <AwardIcon className="h-4 w-4 text-indigo-600" />
+                                </div>
+                                <span className="font-semibold text-gray-700 text-sm">Award Points</span>
+                            </button>
                             <button
                                 onClick={() => navigateTo('suspendStudent', `Suspend ${student.name}`, { student })}
                                 className="w-full flex items-center space-x-3 p-3 text-left hover:bg-amber-50 rounded-xl transition-colors"

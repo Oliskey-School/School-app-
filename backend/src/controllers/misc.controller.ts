@@ -293,6 +293,19 @@ export const createPtaMeeting = async (req: AuthRequest, res: Response) => {
     }
 };
 
+export const deletePtaMeeting = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+        const result = await prisma.pTAMeeting.deleteMany({
+            where: { id: id as string, school_id: req.user!.school_id! }
+        });
+        if (result.count === 0) return res.status(404).json({ error: 'PTA meeting not found' });
+        res.json({ success: true });
+    } catch (error: any) {
+        res.status(500).json({ error: 'Failed to delete PTA meeting', message: error.message });
+    }
+};
+
 // No backing table: accessibility preferences are client-side only.
 // Return a safe default object so the settings screen renders without error.
 export const getAccessibilitySettings = async (_req: AuthRequest, res: Response) => {
@@ -303,11 +316,13 @@ export const getPayslips = async (req: AuthRequest, res: Response) => {
     try {
         const branch_id = branchFilter(req);
         const status = req.query.status as string;
+        const teacher_id = req.query.teacher_id as string;
         const payslips = await prisma.payslip.findMany({
             where: {
                 school_id: req.user!.school_id!,
                 ...(branch_id ? { branch_id } : {}),
-                ...(status ? { status } : {})
+                ...(status ? { status } : {}),
+                ...(teacher_id ? { teacher_id } : {})
             },
             include: { teacher: { select: { id: true, full_name: true } } },
             orderBy: { created_at: 'desc' }

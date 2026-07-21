@@ -43,6 +43,21 @@ const SuspendStudentScreen: React.FC<SuspendStudentScreenProps> = ({ student, ha
         }
     };
 
+    if (!student) {
+        return (
+            <div className="p-4 lg:p-6 max-w-2xl mx-auto space-y-4 pb-24">
+                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
+                    <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-amber-700">No student was selected. Please go back and try again.</p>
+                </div>
+                <button onClick={handleBack}
+                    className="w-full py-3 border border-gray-200 rounded-2xl text-gray-600 font-bold hover:bg-gray-50 transition-colors">
+                    Back
+                </button>
+            </div>
+        );
+    }
+
     const handleSubmit = async () => {
         if (!form.reason.trim()) { toast.error('Please state the reason for suspension'); return; }
         if (!form.return_date) { toast.error('Please set a return date'); return; }

@@ -5,6 +5,11 @@ import { getEffectiveBranchId } from '../utils/branchScope';
 
 const db = prisma as any;
 
+const ADMIN_ROLES = ['admin', 'proprietor', 'superadmin', 'super_admin'];
+function isAdmin(req: AuthRequest): boolean {
+    return ADMIN_ROLES.includes((req.user.role || '').toLowerCase());
+}
+
 export const getLeaveBalances = async (req: AuthRequest, res: Response) => {
     try {
         const schoolId = req.user.school_id;
@@ -37,6 +42,7 @@ export const getLeaveBalances = async (req: AuthRequest, res: Response) => {
 
 export const createLeaveBalance = async (req: AuthRequest, res: Response) => {
     try {
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can create leave balances' });
         const schoolId = req.user.school_id;
         const branchId = getEffectiveBranchId(req.user, req.headers['x-branch-id'] as string);
         const { teacher_id, leave_type_id, total_days, used_days, academic_year } = req.body;
@@ -67,8 +73,12 @@ export const createLeaveBalance = async (req: AuthRequest, res: Response) => {
 
 export const updateLeaveBalance = async (req: AuthRequest, res: Response) => {
     try {
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can update leave balances' });
         const { id } = req.params;
         const { total_days, used_days, remaining_days } = req.body;
+
+        const existing = await db.leaveBalance.findFirst({ where: { id, school_id: req.user.school_id, deleted_at: null } });
+        if (!existing) return res.status(404).json({ message: 'Leave balance not found' });
 
         const updated = await db.leaveBalance.update({
             where: { id },
@@ -87,7 +97,10 @@ export const updateLeaveBalance = async (req: AuthRequest, res: Response) => {
 
 export const deleteLeaveBalance = async (req: AuthRequest, res: Response) => {
     try {
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can delete leave balances' });
         const { id } = req.params;
+        const existing = await db.leaveBalance.findFirst({ where: { id, school_id: req.user.school_id, deleted_at: null } });
+        if (!existing) return res.status(404).json({ message: 'Leave balance not found' });
         await db.leaveBalance.update({ where: { id }, data: { deleted_at: new Date() } });
         res.json({ success: true });
     } catch (error: any) {

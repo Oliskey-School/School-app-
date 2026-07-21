@@ -15,10 +15,8 @@ interface CalendarScreenProps {
 }
 
 const CalendarScreen: React.FC<CalendarScreenProps & { schoolId?: string }> = ({ birthdayHighlights = [], schoolId }) => {
-    // Start with a fixed date for consistently showing data in this demo
-    // In a real app, use new Date()
-    const [currentDate, setCurrentDate] = useState(new Date('2024-08-01T12:00:00Z'));
-    const [selectedDate, setSelectedDate] = useState(new Date('2024-08-10T12:00:00Z'));
+    const [currentDate, setCurrentDate] = useState(new Date());
+    const [selectedDate, setSelectedDate] = useState(new Date());
     const [direction, setDirection] = useState<'left' | 'right' | 'none'>('none');
     const [events, setEvents] = useState<CalendarEvent[]>([]);
     const [loading, setLoading] = useState(true);
@@ -238,10 +236,6 @@ const CalendarScreen: React.FC<CalendarScreenProps & { schoolId?: string }> = ({
                                 const config = EVENT_TYPE_CONFIG[event.type];
                                 const Icon = config.icon;
 
-                                // Mock time for demo since it's not in the base type yet
-                                const times = ['09:00 AM', '11:00 AM', '02:00 PM'];
-                                const time = times[idx % times.length];
-
                                 return (
                                     <div key={event.id} className="relative pl-6">
                                         {/* Timeline line */}
@@ -250,10 +244,9 @@ const CalendarScreen: React.FC<CalendarScreenProps & { schoolId?: string }> = ({
                                         )}
 
                                         <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex items-start group transition-all hover:shadow-md">
-                                            {/* Time Column */}
+                                            {/* Time Column — the app doesn't track event start times, so show a neutral "All Day" marker rather than a fabricated time */}
                                             <div className="mr-5 min-w-[4rem] text-right hidden sm:block">
-                                                <span className="block font-bold text-gray-800">{time.split(' ')[0]}</span>
-                                                <span className="text-xs text-gray-400">{time.split(' ')[1]}</span>
+                                                <span className="block text-xs font-bold text-gray-400 uppercase tracking-wide">All Day</span>
                                             </div>
 
                                             {/* Icon */}
@@ -271,7 +264,7 @@ const CalendarScreen: React.FC<CalendarScreenProps & { schoolId?: string }> = ({
                                                         </span>
                                                     </div>
                                                     <div className="sm:hidden text-xs font-bold text-gray-400 bg-gray-50 px-2 py-1 rounded">
-                                                        {time}
+                                                        All Day
                                                     </div>
                                                 </div>
                                                 <p className="text-sm text-gray-600 leading-relaxed">{event.description || 'No additional details provided.'}</p>

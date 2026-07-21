@@ -76,12 +76,14 @@ const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose, teacherI
     const [profileId, setProfileId] = useState<string | null>(null);
 
     useEffect(() => {
+        // Never fall back to a hardcoded tenant — leaving schoolId null when
+        // resolution fails trips the existing "Missing School ID" guard below
+        // instead of silently attaching a quiz to the wrong school.
         if (currentSchool?.id) {
             setSchoolId(currentSchool.id);
         } else if (user) {
             const metaId = user.app_metadata?.school_id || user.user_metadata?.school_id;
             if (metaId) setSchoolId(metaId);
-            else setSchoolId("fa9bc997-21cb-4d8a-988a-a1e698e04e87");
         }
 
         // Ensure we have a profile ID (UUID)

@@ -5,6 +5,17 @@ import { requireTenant } from '../middleware/tenant.middleware';
 
 const router = Router();
 
+// Validation errors (bad input the caller can fix) are safe to show verbatim.
+// Anything else — a raw Prisma/DB exception — is logged server-side and
+// replaced with a generic message so internal details never reach the client.
+function sendWriteError(res: any, error: any, fallback: string) {
+    if (error?.isValidation) {
+        return res.status(400).json({ message: error.message });
+    }
+    console.error('[transport]', error);
+    res.status(error?.statusCode || 500).json({ message: fallback });
+}
+
 router.use(authenticate, requireTenant);
 
 // Root summary: returns all transport data in one response for overview screens
@@ -35,7 +46,7 @@ router.post('/routes', async (req: any, res) => {
         const route = await TransportService.createRoute(req.user.school_id, req.body.branch_id, req.body);
         res.status(201).json(route);
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        sendWriteError(res, error, 'Failed to create route');
     }
 });
 
@@ -62,7 +73,7 @@ router.post('/stops', async (req: any, res) => {
         const stop = await TransportService.createStop(req.body);
         res.status(201).json(stop);
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        sendWriteError(res, error, 'Failed to create stop');
     }
 });
 
@@ -89,7 +100,7 @@ router.post('/assignments', async (req: any, res) => {
         const assignment = await TransportService.createAssignment(req.body);
         res.status(201).json(assignment);
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        sendWriteError(res, error, 'Failed to create assignment');
     }
 });
 

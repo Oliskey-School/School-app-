@@ -71,12 +71,12 @@ const NotSubmittedCard: React.FC<{ student: Student; onRemind: (student: Student
 );
 
 const AssignmentSubmissionsScreen: React.FC<AssignmentSubmissionsScreenProps> = ({ assignment, navigateTo, handleBack, forceUpdate, schoolId }) => {
-    if (!assignment) return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Select an assignment to view submissions.</div>;
     const [submissions, setSubmissions] = useState<Submission[]>([]);
     const [allClassStudents, setAllClassStudents] = useState<Student[]>([]);
     const [loading, setLoading] = useState(true);
 
     const fetchData = useCallback(async () => {
+        if (!assignment) return;
         setLoading(true);
         try {
             // 1. Fetch Students in the class using new enrollment logic
@@ -137,7 +137,7 @@ const AssignmentSubmissionsScreen: React.FC<AssignmentSubmissionsScreenProps> = 
         } finally {
             setLoading(false);
         }
-    }, [assignment.id, assignment.classId, assignment.className, schoolId]);
+    }, [assignment?.id, assignment?.classId, assignment?.className, schoolId]);
 
     useEffect(() => {
         fetchData();
@@ -239,6 +239,7 @@ const AssignmentSubmissionsScreen: React.FC<AssignmentSubmissionsScreenProps> = 
     };
 
     const handleDeleteAssignment = async () => {
+        if (!assignment) return;
         if (!window.confirm("Are you sure you want to delete this assignment? All submissions will be lost.")) return;
 
         try {
@@ -252,6 +253,8 @@ const AssignmentSubmissionsScreen: React.FC<AssignmentSubmissionsScreenProps> = 
             setLoading(false);
         }
     };
+
+    if (!assignment) return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Select an assignment to view submissions.</div>;
 
     return (
         <div className="flex flex-col h-full bg-gray-50">

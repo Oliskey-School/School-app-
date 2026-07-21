@@ -598,7 +598,7 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
         if (schoolId) initData();
     }, [schoolId, initData]);
 
-    useEffect(() => { const currentView = viewStack[viewStack.length - 1]; setIsHomePage(currentView?.view === 'dashboard' && !isSearchOpen); }, [viewStack, isSearchOpen, setIsHomePage]);
+    useEffect(() => { const currentView = viewStack[viewStack.length - 1]; setIsHomePage(currentView?.view === 'dashboard' && !isSearchOpen); window.__CURRENT_PARENT_VIEW__ = currentView?.view; }, [viewStack, isSearchOpen, setIsHomePage]);
 
     const navigateTo = (view: string, title: string, props: any = {}) => {
         React.startTransition(() => {

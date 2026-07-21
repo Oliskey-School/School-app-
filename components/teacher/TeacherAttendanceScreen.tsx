@@ -47,7 +47,6 @@ interface TeacherMarkAttendanceScreenProps {
 }
 
 const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = ({ classInfo, currentBranchId }) => {
-    if (!classInfo) return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Select a class to mark attendance.</div>;
     const theme = THEME_CONFIG[DashboardType.Teacher];
     const { profile } = useProfile();
     const [students, setStudents] = useState<Student[]>([]);
@@ -56,6 +55,7 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
     const [selectedDate, setSelectedDate] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`);
 
     const fetchData = useCallback(async () => {
+        if (!classInfo) return;
         setIsLoading(true);
         try {
             // 1. Fetch Students in Class using API
@@ -145,11 +145,11 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
 
     // Save draft to localStorage whenever students array changes
     useEffect(() => {
-        if (students.length > 0 && !isLoading) {
+        if (classInfo && students.length > 0 && !isLoading) {
             const storageKey = `attendance_draft_${classInfo.id}_${selectedDate}`;
             localStorage.setItem(storageKey, JSON.stringify(students));
         }
-    }, [students, classInfo.id, selectedDate, isLoading]);
+    }, [students, classInfo?.id, selectedDate, isLoading]);
 
     useAutoSync(['attendance', 'students'], fetchData);
 
@@ -169,6 +169,7 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
     }, []);
 
     const submitAttendance = async () => {
+        if (!classInfo) return;
         const effectiveSchoolId = classInfo.schoolId || (classInfo as any).school_id || profile?.schoolId;
         const effectiveBranchId = currentBranchId || profile?.branchId || (classInfo as any).branchId || (classInfo as any).branch_id;
 
@@ -214,6 +215,8 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
 
         return { total, present, absent, onLeave, late, presentPercentage };
     }, [students]);
+
+    if (!classInfo) return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Select a class to mark attendance.</div>;
 
     const formattedClassName = getFormattedClassName(classInfo.grade, classInfo.section, true, classInfo.subject);
 

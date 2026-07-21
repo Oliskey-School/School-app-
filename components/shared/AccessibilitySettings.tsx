@@ -1,33 +1,35 @@
 import React, { useState, useEffect } from 'react';
 import { useProfile } from '../../context/ProfileContext';
-import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
+
+const DEFAULT_SETTINGS = {
+    font_size: 100,
+    high_contrast: false,
+    text_to_speech_enabled: false,
+    speech_rate: 1.0,
+    language: 'en',
+    reduce_motion: false
+};
+
+const storageKey = (userId?: string) => `accessibility_settings:${userId || 'anonymous'}`;
 
 const AccessibilitySettings: React.FC = () => {
     const { profile } = useProfile();
-    const [settings, setSettings] = useState({
-        font_size: 100,
-        high_contrast: false,
-        text_to_speech_enabled: false,
-        speech_rate: 1.0,
-        language: 'en',
-        reduce_motion: false
-    });
+    const [settings, setSettings] = useState(DEFAULT_SETTINGS);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
         fetchSettings();
-    }, []);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [profile?.id]);
 
-    const fetchSettings = async () => {
+    const fetchSettings = () => {
+        // Accessibility preferences are a per-device, client-only setting —
+        // there is no backing table on the server for them.
         try {
-            const { data } = await api
-                .from('accessibility_settings')
-                .select('*')
-                .eq('user_id', profile.id)
-                .single();
-
-            if (data) {
+            const raw = localStorage.getItem(storageKey(profile?.id));
+            if (raw) {
+                const data = { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
                 setSettings(data);
                 applySettings(data);
             }
@@ -51,12 +53,7 @@ const AccessibilitySettings: React.FC = () => {
     const handleSave = async () => {
         try {
             setLoading(true);
-            const { error } = await api
-                .from('accessibility_settings')
-                .upsert({ ...settings, user_id: profile.id, updated_at: new Date().toISOString() });
-
-            if (error) throw error;
-
+            localStorage.setItem(storageKey(profile?.id), JSON.stringify(settings));
             applySettings(settings);
             toast.success('Settings saved successfully!');
         } catch (error: any) {

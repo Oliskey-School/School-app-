@@ -423,7 +423,7 @@ const LessonPlannerScreen: React.FC<{
             }`;
 
             // Use local Gemini client instead of Edge Function to avoid CORS/Deployment issues
-            const ai = getAIClient(import.meta.env.VITE_GEMINI_API_KEY || '');
+            const ai = getAIClient();
 
             // Construct the messages structure for chat
             const history = [

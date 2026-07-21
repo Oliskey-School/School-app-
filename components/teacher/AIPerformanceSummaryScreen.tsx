@@ -29,7 +29,7 @@ const AIPerformanceSummaryScreen: React.FC<AIPerformanceSummaryScreenProps> = ({
             }
             setIsLoading(true);
             try {
-                const ai = getAIClient(import.meta.env.VITE_GEMINI_API_KEY || '');
+                const ai = getAIClient();
                 const studentDataForPrompt = students.map(s => {
                     const latestGrades = s.academicPerformance?.slice(-3).map(p => `${p.subject}: ${p.score}%`).join(', ') || 'N/A';
                     const behavior = s.behaviorNotes?.map(n => `${n.type}: ${n.title}`).join(', ') || 'No notes';
@@ -46,7 +46,7 @@ const AIPerformanceSummaryScreen: React.FC<AIPerformanceSummaryScreenProps> = ({
                 `;
 
                 const response = await ai.models.generateContent({
-                    model: 'gemini-2.0-flash',
+                    model: AI_MODEL_NAME,
                     contents: prompt,
                     config: {
                         responseMimeType: "application/json",

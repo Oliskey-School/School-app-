@@ -6,7 +6,8 @@ import {
     SchoolLogoIcon,
     ClockIcon,
     PlayIcon,
-    StarIcon
+    StarIcon,
+    CheckCircleIcon
 } from '../../constants';
 
 interface Course {
@@ -185,13 +186,23 @@ const CourseCatalog: React.FC<CourseCatalogProps> = ({ navigateTo }) => {
                                     <span className="text-xs">By {course.instructor}</span>
                                 </div>
 
-                                <button
-                                    onClick={() => handleEnroll(course.id)}
-                                    className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium flex items-center justify-center space-x-2"
-                                >
-                                    <PlayIcon className="w-4 h-4" />
-                                    <span>Enroll Now</span>
-                                </button>
+                                {course.is_enrolled ? (
+                                    <button
+                                        disabled
+                                        className="w-full px-4 py-2 bg-green-50 text-green-700 border border-green-200 rounded-lg font-medium flex items-center justify-center space-x-2 cursor-default"
+                                    >
+                                        <CheckCircleIcon className="w-4 h-4" />
+                                        <span>Already Enrolled</span>
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={() => handleEnroll(course.id)}
+                                        className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium flex items-center justify-center space-x-2"
+                                    >
+                                        <PlayIcon className="w-4 h-4" />
+                                        <span>Enroll Now</span>
+                                    </button>
+                                )}
                             </div>
                         </div>
                     ))

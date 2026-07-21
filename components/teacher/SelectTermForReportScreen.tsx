@@ -88,8 +88,8 @@ const SelectTermForReportScreen: React.FC<SelectTermForReportScreenProps> = ({ s
 
   const defaultSession = React.useMemo(() => {
     const current = sessionData.find(s => s.isCurrent);
-    return current ? current.session : (sessionData[0]?.session || "2024/2025");
-  }, [sessionData]);
+    return current ? current.session : (sessionData[0]?.session || `${activeEntryYear}/${activeEntryYear + 1}`);
+  }, [sessionData, activeEntryYear]);
 
   const [selectedSession, setSelectedSession] = React.useState(defaultSession);
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
-import { UsersIcon, CheckCircleIcon, XCircleIcon } from '../../constants';
+import { UsersIcon, CheckCircleIcon, XCircleIcon, AlertTriangleIcon } from '../../constants';
 
 interface SubstituteRequest {
     id: string;
@@ -29,14 +29,17 @@ const SubstituteAssignment: React.FC = () => {
     const [requests, setRequests] = useState<SubstituteRequest[]>([]);
     const [loading, setLoading] = useState(true);
     const [respondingId, setRespondingId] = useState<string | null>(null);
+    const [errorOccurred, setErrorOccurred] = useState(false);
 
     const fetchRequests = useCallback(async () => {
         try {
             setLoading(true);
+            setErrorOccurred(false);
             const data = await api.getMySubstituteAssignments();
             setRequests(Array.isArray(data) ? data : []);
         } catch (error: any) {
             console.error('Error fetching substitute assignments:', error);
+            setErrorOccurred(true);
         } finally {
             setLoading(false);
         }
@@ -68,6 +71,18 @@ const SubstituteAssignment: React.FC = () => {
                 {loading ? (
                     <div className="flex justify-center py-12">
                         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+                    </div>
+                ) : errorOccurred ? (
+                    <div className="text-center py-12 text-amber-700">
+                        <AlertTriangleIcon className="w-16 h-16 text-amber-300 mx-auto mb-4" />
+                        <p className="font-semibold">Couldn't load substitute assignments</p>
+                        <p className="text-sm text-amber-600 mt-1 mb-4">There was a problem reaching the server. Please try again.</p>
+                        <button
+                            onClick={fetchRequests}
+                            className="px-5 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 font-medium text-sm"
+                        >
+                            Retry
+                        </button>
                     </div>
                 ) : requests.length === 0 ? (
                     <div className="text-center py-12 text-gray-500">

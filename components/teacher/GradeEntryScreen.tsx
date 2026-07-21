@@ -31,28 +31,47 @@ interface GradeEntryScreenProps {
 }
 
 const GradeEntryScreen: React.FC<GradeEntryScreenProps> = ({ exam }) => {
-    if (!exam) return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Select an exam to enter grades.</div>;
     const { currentSchool } = useAuth();
     const [scores, setScores] = useState<{ [studentId: string | number]: string }>({});
     const [students, setStudents] = useState<Student[]>([]);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
     const [loading, setLoading] = useState(true);
+    const [currentTerm, setCurrentTerm] = useState<{ name: string; academic_year: string }>({ name: 'First Term', academic_year: '' });
     const debounceTimeoutRef = useRef<number | null>(null);
 
     // Parse Class Name
     const gradeSection = React.useMemo(() => {
-        if (!exam.className) return { grade: 0, section: 'A' };
+        if (!exam?.className) return { grade: 0, section: 'A' };
         const gradeMatch = exam.className.match(/\d+/);
         const sectionMatch = exam.className.match(/[A-Z]/);
-        
+
         return {
             grade: gradeMatch ? parseInt(gradeMatch[0], 10) : 0,
             section: sectionMatch ? sectionMatch[0] : 'A'
         };
-    }, [exam.className]);
+    }, [exam?.className]);
+
+    // The school's actual current term/session — grades used to be saved
+    // under hardcoded 'First Term'/'2024/2025' literals regardless of what
+    // term the school was actually in, permanently mislabeling records.
+    useEffect(() => {
+        if (!currentSchool?.id) return;
+        api.getAcademicTerms(currentSchool.id).then((data: any[]) => {
+            const current = Array.isArray(data) ? data.find(t => t.is_current) || data[0] : null;
+            if (current) {
+                setCurrentTerm({ name: current.name, academic_year: current.academic_year });
+            } else {
+                const nowYear = new Date().getFullYear();
+                setCurrentTerm({ name: 'First Term', academic_year: `${nowYear}/${nowYear + 1}` });
+            }
+        }).catch(() => {
+            const nowYear = new Date().getFullYear();
+            setCurrentTerm({ name: 'First Term', academic_year: `${nowYear}/${nowYear + 1}` });
+        });
+    }, [currentSchool?.id]);
 
     const fetchData = useCallback(async () => {
-        if (!gradeSection || !currentSchool?.id) return;
+        if (!exam || !gradeSection || !currentSchool?.id) return;
         setLoading(true);
         try {
             // 1. Fetch Students using backend API
@@ -64,6 +83,7 @@ const GradeEntryScreen: React.FC<GradeEntryScreenProps> = ({ exam }) => {
 
             const loadedStudents = studentsData.map((s: any) => ({
                 ...s,
+                name: s.full_name || s.name,
                 avatarUrl: s.avatar_url,
                 schoolGeneratedId: s.school_generated_id
             }));
@@ -75,7 +95,7 @@ const GradeEntryScreen: React.FC<GradeEntryScreenProps> = ({ exam }) => {
                 const gradesData = await api.getGrades(
                     studentIds,
                     exam.subject,
-                    'First Term',
+                    currentTerm.name,
                     currentSchool.id,
                     currentSchool.branch_id,
                     { useBackend: true }
@@ -95,7 +115,7 @@ const GradeEntryScreen: React.FC<GradeEntryScreenProps> = ({ exam }) => {
         } finally {
             setLoading(false);
         }
-    }, [gradeSection, currentSchool?.id, currentSchool?.branch_id, exam.subject]);
+    }, [exam, gradeSection, currentSchool?.id, currentSchool?.branch_id, currentTerm.name]);
 
     useEffect(() => {
         fetchData();
@@ -106,15 +126,15 @@ const GradeEntryScreen: React.FC<GradeEntryScreenProps> = ({ exam }) => {
 
 
     const saveGrade = async (studentId: string | number, value: string) => {
-        if (!currentSchool?.id) return;
+        if (!currentSchool?.id || !exam) return;
         const numericScore = parseInt(value, 10);
 
         await api.saveGrade({
             studentId,
             subject: exam.subject,
             score: numericScore,
-            term: 'First Term',
-            session: '2024/2025'
+            term: currentTerm.name,
+            session: currentTerm.academic_year
         }, currentSchool.id, currentSchool.branch_id, { useBackend: true });
 
         // console.log(`Saved score for student ${studentId}: ${value}`);
@@ -143,6 +163,8 @@ const GradeEntryScreen: React.FC<GradeEntryScreenProps> = ({ exam }) => {
     const handleSubmit = () => {
         toast.success('All grades submitted successfully!');
     };
+
+    if (!exam) return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Select an exam to enter grades.</div>;
 
     return (
         <div className="flex flex-col h-full bg-gray-100">

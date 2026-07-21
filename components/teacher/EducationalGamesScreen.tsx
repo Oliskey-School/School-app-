@@ -4,19 +4,29 @@ import { ChevronRightIcon, GameControllerIcon, PlusIcon } from '../../constants'
 import { api } from '../../lib/api';
 import CenteredLoader from '../ui/CenteredLoader';
 
-const GameCard: React.FC<{ game: any }> = ({ game }) => (
-    <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-        <h4 className="font-bold text-purple-800">{game.title || game.gameName}</h4>
-        <p className="text-xs font-semibold text-gray-500 mt-1">{game.subject || (game.metadata?.subject)}</p>
-        <p className="text-sm text-gray-700 mt-2"><strong>How to Play:</strong> {game.description || game.howToPlay}</p>
-        {game.learningGoal && <p className="text-sm text-gray-700 mt-2"><strong>Learning Goal:</strong> {game.learningGoal}</p>}
-        <div className="mt-3 text-right">
-            <span className="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">{game.game_type || game.mode || 'Quiz'}</span>
+const GameCard: React.FC<{ game: any; onPlay: (game: any) => void }> = ({ game, onPlay }) => {
+    // Only DB-backed games (from api.getGames()) carry real question data
+    // playable via GamePlayerScreen — the static library entries are
+    // reference/instructional content only, so their cards stay informational.
+    const isPlayable = Array.isArray(game.questions) && game.questions.length > 0;
+    return (
+        <div
+            onClick={isPlayable ? () => onPlay(game) : undefined}
+            className={`bg-white p-4 rounded-lg shadow-sm border border-gray-200 ${isPlayable ? 'cursor-pointer hover:border-purple-300 hover:shadow-md transition-all' : ''}`}
+        >
+            <h4 className="font-bold text-purple-800">{game.title || game.gameName}</h4>
+            <p className="text-xs font-semibold text-gray-500 mt-1">{game.subject || (game.metadata?.subject)}</p>
+            <p className="text-sm text-gray-700 mt-2"><strong>How to Play:</strong> {game.description || game.howToPlay}</p>
+            {game.learningGoal && <p className="text-sm text-gray-700 mt-2"><strong>Learning Goal:</strong> {game.learningGoal}</p>}
+            <div className="mt-3 flex items-center justify-between">
+                {isPlayable && <span className="text-xs font-bold text-purple-600">Tap to play →</span>}
+                <span className="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800 ml-auto">{game.game_type || game.mode || 'Quiz'}</span>
+            </div>
         </div>
-    </div>
-);
+    );
+};
 
-const LevelAccordion: React.FC<{ level: string; games: any[]; defaultOpen?: boolean }> = ({ level, games, defaultOpen = false }) => {
+const LevelAccordion: React.FC<{ level: string; games: any[]; defaultOpen?: boolean; onPlay: (game: any) => void }> = ({ level, games, defaultOpen = false, onPlay }) => {
     const [isOpen, setIsOpen] = useState(defaultOpen);
 
     return (
@@ -35,7 +45,7 @@ const LevelAccordion: React.FC<{ level: string; games: any[]; defaultOpen?: bool
             {isOpen && (
                 <div className="px-4 pb-4 pt-0 space-y-3 bg-gray-50/50">
                     {games.map((game, index) => (
-                        <GameCard key={game.id || index} game={game} />
+                        <GameCard key={game.id || index} game={game} onPlay={onPlay} />
                     ))}
                 </div>
             )}
@@ -95,6 +105,10 @@ const EducationalGamesScreen: React.FC<EducationalGamesScreenProps> = ({ navigat
 
     if (loading) return <CenteredLoader message="Loading games..." />;
 
+    const handlePlay = (game: any) => {
+        navigateTo('gamePlayer', game.title || game.gameName || 'Game', { game, mode: 'play' });
+    };
+
     return (
         <div className="flex flex-col h-full bg-gray-100 relative">
             <main className="flex-grow p-4 space-y-4 overflow-y-auto pb-24">
@@ -104,7 +118,7 @@ const EducationalGamesScreen: React.FC<EducationalGamesScreenProps> = ({ navigat
                     <p className="text-sm text-purple-700">A comprehensive list of games to make learning fun.</p>
                 </div>
                 {levels.map((level, index) => (
-                    gamesByLevel[level] && <LevelAccordion key={level} level={level} games={gamesByLevel[level]} defaultOpen={index === 0} />
+                    gamesByLevel[level] && <LevelAccordion key={level} level={level} games={gamesByLevel[level]} defaultOpen={index === 0} onPlay={handlePlay} />
                 ))}
             </main>
             <div className="fixed bottom-24 right-6 lg:bottom-12 lg:right-12 z-40">

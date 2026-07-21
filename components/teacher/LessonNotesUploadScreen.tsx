@@ -42,6 +42,7 @@ const LessonNotesUploadScreen: React.FC<LessonNotesUploadScreenProps> = ({ handl
     } = formData;
 
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+    const [uploadingFile, setUploadingFile] = useState<boolean>(false);
 
     const { user, currentSchool } = useAuth(); // Standard hook call
     const { classes: rawClasses, subjects: allSubjects, assignments: rawAssignments, loading: classesLoading } = useTeacherClasses(teacherId);
@@ -73,6 +74,27 @@ const LessonNotesUploadScreen: React.FC<LessonNotesUploadScreenProps> = ({ handl
 
         return allSubjects;
     }, [selectedClassId, allSubjects, rawAssignments]);
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setUploadingFile(true);
+        try {
+            const { url } = await api.uploadFileWithCategory(file, 'lesson_note');
+            if (url) {
+                updateField('fileUrl', url);
+                toast.success('File uploaded');
+            } else {
+                toast.error('Upload failed. Please try again.');
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error('Upload failed. Please try again.');
+        } finally {
+            setUploadingFile(false);
+            e.target.value = '';
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -195,12 +217,16 @@ const LessonNotesUploadScreen: React.FC<LessonNotesUploadScreenProps> = ({ handl
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Attachment (Optional URL)</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Attachment (Optional)</label>
                             <div className="flex items-center gap-2">
-                                <UploadIcon className="w-5 h-5 text-gray-400" />
-                                <input type="text" value={fileUrl} onChange={e => updateField('fileUrl', e.target.value)} placeholder="https://..." className="w-full p-2 border rounded-lg" />
+                                <label className={`flex items-center gap-2 px-3 py-2 border rounded-lg text-sm font-medium cursor-pointer ${uploadingFile ? 'bg-gray-100 text-gray-400' : 'bg-white text-gray-700 hover:bg-gray-50'}`}>
+                                    <UploadIcon className="w-4 h-4" />
+                                    {uploadingFile ? 'Uploading...' : 'Upload File'}
+                                    <input type="file" onChange={handleFileChange} disabled={uploadingFile} className="hidden" />
+                                </label>
+                                <input type="text" value={fileUrl} onChange={e => updateField('fileUrl', e.target.value)} placeholder="Or paste a link (https://...)" className="w-full p-2 border rounded-lg" />
                             </div>
-                            <p className="text-xs text-gray-400 mt-1">Paste a link to your Google Drive or Drop box file.</p>
+                            <p className="text-xs text-gray-400 mt-1">Upload a file directly, or paste a link to your Google Drive/Dropbox file.</p>
                         </div>
 
                         <div className="pt-4 border-t">

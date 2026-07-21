@@ -3,8 +3,14 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import { FeeService } from '../services/fee.service';
 import { getEffectiveBranchId } from '../utils/branchScope';
 
+const ADMIN_ROLES = ['admin', 'proprietor', 'superadmin', 'super_admin'];
+function isAdmin(req: AuthRequest): boolean {
+    return ADMIN_ROLES.includes((req.user.role || '').toLowerCase());
+}
+
 export const createFee = async (req: AuthRequest, res: Response) => {
     try {
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can create fees' });
         const branchId = getEffectiveBranchId(req.user, req.body?.branch_id);
         const result = await FeeService.createFee(req.user.school_id, branchId, req.body);
         res.status(201).json(result);
@@ -35,6 +41,7 @@ export const getFeeById = async (req: AuthRequest, res: Response) => {
 
 export const updateFee = async (req: AuthRequest, res: Response) => {
     try {
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can update fees' });
         const branchId = getEffectiveBranchId(req.user, req.body?.branch_id);
         const result = await FeeService.updateFee(req.user.school_id, branchId, req.params.id as string, req.body);
         res.json(result);
@@ -45,6 +52,7 @@ export const updateFee = async (req: AuthRequest, res: Response) => {
 
 export const updateFeeStatus = async (req: AuthRequest, res: Response) => {
     try {
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can update fee status' });
         const { status } = req.body;
         if (!status) {
             return res.status(400).json({ message: 'Status is required' });
@@ -60,6 +68,7 @@ export const updateFeeStatus = async (req: AuthRequest, res: Response) => {
 
 export const deleteFee = async (req: AuthRequest, res: Response) => {
     try {
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can delete fees' });
         const branchId = getEffectiveBranchId(req.user, req.body?.branch_id);
         await FeeService.deleteFee(req.user.school_id, branchId, req.params.id as string);
         res.status(204).send();
@@ -103,6 +112,7 @@ export const getFinancialAnalytics = async (req: AuthRequest, res: Response) => 
 
 export const recordPayment = async (req: AuthRequest, res: Response) => {
     try {
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can record a payment' });
         const branchId = getEffectiveBranchId(req.user, (req.body?.branchId || req.body?.branch_id));
         const result = await FeeService.recordPayment(req.user.school_id, branchId, req.body);
         res.status(200).json(result);
@@ -124,6 +134,7 @@ export const getPaymentHistory = async (req: AuthRequest, res: Response) => {
 
 export const deletePayment = async (req: AuthRequest, res: Response) => {
     try {
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can delete a payment' });
         const branchId = getEffectiveBranchId(req.user, (req.query.branchId || req.query.branch_id) as string);
         await FeeService.deletePayment(req.user.school_id, branchId, req.params.id as string);
         res.status(204).send();

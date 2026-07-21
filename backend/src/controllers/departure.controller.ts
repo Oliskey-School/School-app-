@@ -47,6 +47,11 @@ export const addAuthorizedPerson = async (req: AuthRequest, res: Response) => {
 
 export const removeAuthorizedPerson = async (req: AuthRequest, res: Response) => {
     try {
+        if (!isAdmin(req)) {
+            const person = await (prisma as any).authorizedPickupPerson.findFirst({ where: { id: req.params.id as string, school_id: req.user.school_id }, select: { student_id: true } });
+            if (!person) throw new Error('Not found');
+            await assertParentOwnsStudent(req, person.student_id);
+        }
         const result = await DepartureService.removeAuthorizedPerson(req.user.school_id, req.params.id as string);
         res.json(result);
     } catch (error: any) { res.status(errStatus(error.message)).json({ message: error.message }); }

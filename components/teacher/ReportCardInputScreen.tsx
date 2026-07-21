@@ -341,7 +341,7 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
 
         setGeneratingRemarkIndex(index);
         try {
-            const ai = getAIClient((import.meta.env as any).VITE_GEMINI_API_KEY || '');
+            const ai = getAIClient();
             const prompt = `Generate a short, constructive remark for a student's report card.
             Subject: ${record.subject}
             Test 1 Score (out of 20): ${record.test1}

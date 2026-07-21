@@ -34,6 +34,7 @@ interface Invoice {
 }
 
 interface InvoiceForm {
+    student_id: string;
     description: string;
     amount: string;
     daysUntilDue: string;
@@ -44,13 +45,17 @@ const AutoInvoiceGenerator = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [isGenerating, setIsGenerating] = useState(false);
     const [invoices, setInvoices] = useState<Invoice[]>([]);
+    const [students, setStudents] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
-    const [form, setForm] = useState<InvoiceForm>({ description: '', amount: '', daysUntilDue: '15' });
+    const [form, setForm] = useState<InvoiceForm>({ student_id: '', description: '', amount: '', daysUntilDue: '15' });
 
     useEffect(() => {
         fetchInvoices();
-    }, []);
+        if (currentSchool?.id) {
+            api.getStudents(currentSchool.id).then(setStudents).catch(() => setStudents([]));
+        }
+    }, [currentSchool?.id]);
 
     const fetchInvoices = async () => {
         setLoading(true);
@@ -87,6 +92,7 @@ const AutoInvoiceGenerator = () => {
         const amount = parseFloat(form.amount);
         const days = parseInt(form.daysUntilDue, 10);
 
+        if (!form.student_id) { toast.error('Please select a student'); return; }
         if (!description) { toast.error('Please enter a fee description'); return; }
         if (isNaN(amount) || amount <= 0) { toast.error('Please enter a valid amount'); return; }
         if (isNaN(days) || days < 1) { toast.error('Please enter valid due days'); return; }
@@ -97,12 +103,13 @@ const AutoInvoiceGenerator = () => {
                 description,
                 amount,
                 due_date: new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString(),
-                student_id: ''
+                student_id: form.student_id,
+                invoice_number: `INV-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`
             }, currentSchool?.id, currentBranchId ?? undefined);
 
             toast.success('Invoice generated successfully!');
             setShowModal(false);
-            setForm({ description: '', amount: '', daysUntilDue: '15' });
+            setForm({ student_id: '', description: '', amount: '', daysUntilDue: '15' });
             fetchInvoices();
         } catch (error) {
             toast.error('Generation failed');
@@ -236,6 +243,19 @@ const AutoInvoiceGenerator = () => {
                         <h2 className="text-2xl font-bold text-gray-900 mb-6">Generate Invoice</h2>
 
                         <div className="space-y-5">
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1.5">Student</label>
+                                <select
+                                    name="student_id"
+                                    value={form.student_id}
+                                    onChange={handleFormChange}
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                                >
+                                    <option value="">Select Student</option>
+                                    {students.map((s: any) => <option key={s.id} value={s.id}>{s.full_name} ({s.grade})</option>)}
+                                </select>
+                            </div>
+
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 mb-1.5">Fee Description</label>
                                 <input

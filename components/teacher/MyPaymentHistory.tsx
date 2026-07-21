@@ -29,6 +29,7 @@ const MyPaymentHistory: React.FC<MyPaymentHistoryProps> = ({ teacherId }) => {
     const [selectedPayment, setSelectedPayment] = useState<PaymentRecord | null>(null);
     const [loading, setLoading] = useState(true);
     const [errorOccurred, setErrorOccurred] = useState(false);
+    const [notSetUp, setNotSetUp] = useState(false);
 
     useEffect(() => {
         fetchPayments();
@@ -38,6 +39,8 @@ const MyPaymentHistory: React.FC<MyPaymentHistoryProps> = ({ teacherId }) => {
         if (!teacherId) return;
         try {
             setLoading(true);
+            setErrorOccurred(false);
+            setNotSetUp(false);
             const data = await api.getTeacherPaymentTransactions(teacherId);
 
             const formatted: PaymentRecord[] = (data || []).map((item: any) => ({
@@ -56,7 +59,9 @@ const MyPaymentHistory: React.FC<MyPaymentHistoryProps> = ({ teacherId }) => {
             setPayments(formatted);
         } catch (error: any) {
             console.error('Error fetching payments:', error);
-            if (error.code === '42P01') { // Table not found
+            if (error.code === '42P01') { // Table not found — legitimate "not set up yet" state
+                setNotSetUp(true);
+            } else {
                 setErrorOccurred(true);
             }
         } finally {
@@ -125,6 +130,18 @@ const MyPaymentHistory: React.FC<MyPaymentHistoryProps> = ({ teacherId }) => {
                 </div>
                 <div className="divide-y divide-gray-200">
                     {errorOccurred ? (
+                        <div className="p-8 text-center text-gray-500">
+                            <DocumentTextIcon className="w-16 h-16 text-amber-300 mx-auto mb-4" />
+                            <p className="text-amber-700 font-semibold">Couldn't load your payment history</p>
+                            <p className="text-gray-500 text-sm mt-1 mb-4">There was a problem reaching the server. Please try again.</p>
+                            <button
+                                onClick={fetchPayments}
+                                className="px-5 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 font-medium text-sm"
+                            >
+                                Retry
+                            </button>
+                        </div>
+                    ) : notSetUp ? (
                         <div className="p-8 text-center text-gray-500">
                             <CheckCircleIcon className="w-16 h-16 text-blue-300 mx-auto mb-4" />
                             <p className="text-blue-700">Digital payment history is currently being synchronized. Please check back later.</p>
