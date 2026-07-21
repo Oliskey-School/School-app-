@@ -1,6 +1,6 @@
 {
   "name": "school-app-oliskey",
-  "version": "0.6.0",
+  "version": "0.6.2",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -82,7 +82,6 @@
     "i18next-browser-languagedetector": "^8.2.1",
     "idb-keyval": "6.2.2",
     "ioredis": "^5.10.1",
-    "json-server": "^0.17.4",
     "jsonwebtoken": "9.0.2",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "5.0.7",
@@ -147,6 +146,7 @@
     "dotenv": "17.2.4",
     "happy-dom": "^20.10.1",
     "jsdom": "27.0.1",
+    "json-server": "^0.17.4",
     "nodemon": "^3.1.14",
     "postcss": "^8.5.15",
     "prisma": "^5.22.0",
