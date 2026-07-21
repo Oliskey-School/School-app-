@@ -18,17 +18,17 @@ export class QuizService {
                 if (filters.subjectId) where.subject_id = filters.subjectId;
                 if (filters.teacherId) where.teacher_id = filters.teacherId;
 
-                // Student scoping: a student only sees PUBLISHED quizzes for the
-                // class(es) they're enrolled in (or matching their grade).
+                // Student scoping: a student only sees PUBLISHED quizzes for the exact
+                // class(es) they're actively enrolled in. Every quiz belongs to exactly
+                // one class (schema: class_id is required, non-nullable) — there is no
+                // "whole grade" quiz — so matching by grade alone would leak a quiz
+                // across sections of the same grade (e.g. JSS1A's CBT showing up for
+                // JSS1B). class_id is therefore the only correct filter.
                 if (filters.forStudent) {
                     where.is_published = true;
                     const classIds: string[] = Array.isArray(filters.studentClassIds) ? filters.studentClassIds : [];
-                    const grade = filters.studentGrade;
-                    const classConds: any[] = [];
-                    if (classIds.length) classConds.push({ class_id: { in: classIds } });
-                    if (grade !== null && grade !== undefined) classConds.push({ class: { grade: Number(grade) } });
-                    // If we have no class/grade info, match nothing rather than leak all.
-                    where.AND = [...(where.AND || []), classConds.length ? { OR: classConds } : { id: '__none__' }];
+                    // If the student has no active enrollment, match nothing rather than leak all.
+                    where.AND = [...(where.AND || []), classIds.length ? { class_id: { in: classIds } } : { id: '__none__' }];
                 }
             } catch (e) {
                 // Ignore parse errors

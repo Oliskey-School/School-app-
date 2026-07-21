@@ -46,26 +46,17 @@ const StudentCBTListScreen: React.FC<StudentCBTListScreenProps> = ({ studentId, 
                     return;
                 }
 
-                // 2. Fetch Quizzes (CBT & Exams)
+                // 2. Fetch Quizzes (CBT & Exams). The backend already scopes this list
+                // to exactly the classes the authenticated student is actively
+                // enrolled in (see quiz.controller.ts / quiz.service.ts) — that's the
+                // real security boundary, so no further class/grade filtering is done
+                // here. A client-side re-filter by grade/section was removed: it was
+                // fragile (skipped whenever a section field was missing) and could
+                // both leak cross-section quizzes through and hide a student's own
+                // valid quiz if the class fields weren't shaped exactly as expected.
                 const quizzesData = await api.getQuizzes(studentData.school_id);
 
-                // Client-side filter for Class Match
-                const filteredQuizzes = (quizzesData || []).filter((quiz: any) => {
-                    if (quiz.classes || (quiz.grade && quiz.section)) {
-                        const sGrade = String(studentData.grade || studentData.class_name?.match(/\d+/)?.[0]);
-                        const sSection = studentData.section || studentData.class_name?.match(/[A-Z]$/)?.[0];
-                        const qGrade = String(quiz.grade || quiz.classes?.grade);
-                        const qSection = quiz.section || quiz.classes?.section;
-
-                        if (sGrade !== qGrade) return false;
-                        if (qSection && sSection && qSection !== sSection) return false;
-
-                        return quiz.is_published || quiz.isPublished;
-                    }
-                    return false;
-                });
-
-                const formattedTests: CBTTest[] = filteredQuizzes.map((q: any) => ({
+                const formattedTests: CBTTest[] = (quizzesData || []).map((q: any) => ({
                     id: q.id,
                     title: q.title,
                     type: (q.description === 'Exam' ? 'Exam' : 'Test'),

@@ -1,6 +1,6 @@
 {
   "name": "school-app-oliskey",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -34,7 +34,7 @@
     "xcode": {
       "uuid": "$uuid"
     },
-    "shell-quote": "1.8.4"
+    "shell-quote": "1.10.0"
   },
   "dependencies": {
     "@capacitor/android": "8.1.0",
@@ -86,7 +86,7 @@
     "jspdf": "^4.2.1",
     "jspdf-autotable": "5.0.7",
     "lucide-react": "0.562.0",
-    "morgan": "1.10.1",
+    "morgan": "1.11.0",
     "multer": "^2.1.1",
     "nativewind": "4.2.1",
     "node-cron": "^4.2.1",
