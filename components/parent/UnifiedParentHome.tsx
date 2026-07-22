@@ -44,7 +44,7 @@ const ATTENDANCE_LABEL: Record<string, string> = {
 
 export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, schoolId, navigateTo }) => {
     const { user, currentSchool } = useAuth();
-    const { switchBranch } = useBranch();
+    const { switchBranch, currentBranch } = useBranch();
     const [children, setChildren] = useState<ChildOverview[]>([]);
     const [activeChildIndex, setActiveChildIndex] = useState(0);
     const [loading, setLoading] = useState(true);
@@ -129,10 +129,17 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
                                             onClick={() => {
                                                 setActiveChildIndex(idx);
                                                 setIsSwitcherOpen(false);
-                                                
-                                                // ðŸš¨ Switch Branch Context to match the child's branch
+
+                                                // Switch Branch Context only when the selected child is
+                                                // actually in a different branch. switchBranch() does a
+                                                // full page reload (to re-init under the new branch),
+                                                // which was firing on every click regardless — wiping
+                                                // activeChildIndex back to its default on remount, so
+                                                // switching always appeared to "just reload" back to the
+                                                // first child. Same-branch siblings (the common case)
+                                                // now switch instantly with no reload.
                                                 const selectedStudent = students.find(s => s.id === c.id);
-                                                if (selectedStudent?.branchId) {
+                                                if (selectedStudent?.branchId && selectedStudent.branchId !== currentBranch?.id) {
                                                     switchBranch(selectedStudent.branchId);
                                                 }
                                             }}

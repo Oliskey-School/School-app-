@@ -50,66 +50,23 @@ router.get('/substitutes', authenticate, async (req: any, res) => {
     } catch (e: any) { res.json([]); }
 });
 
-router.get('/substitutes/requests', authenticate, async (req: any, res) => {
-    try {
-        const { default: prisma } = await import('../config/database');
-        const teacherId = req.query.teacherId as string;
-        const requests = await (prisma as any).substitute_assignment.findMany({
-            where: { substitute_teacher_id: teacherId },
-            orderBy: { date: 'asc' }
-        }).catch(() => []);
-        res.json(requests);
-    } catch (e: any) { res.json([]); }
-});
-
-router.post('/substitutes/requests', authenticate, async (req: any, res) => {
-    try {
-        const { default: prisma } = await import('../config/database');
-        const result = await (prisma as any).substitute_assignment.create({ data: { ...req.body, school_id: req.user.school_id } });
-        res.status(201).json(result);
-    } catch (e: any) { res.status(500).json({ message: e.message }); }
-});
-
-router.get('/appointments/:id', authenticate, async (req: any, res) => {
-    try {
-        const { default: prisma } = await import('../config/database');
-        const result = await (prisma as any).appointment.findUnique({ where: { id: req.params.id } });
-        res.json(result);
-    } catch (e: any) { res.status(500).json({ message: e.message }); }
-});
-
-router.put('/appointments/:id', authenticate, async (req: any, res) => {
-    try {
-        const { default: prisma } = await import('../config/database');
-        const result = await (prisma as any).appointment.update({ where: { id: req.params.id }, data: req.body });
-        res.json(result);
-    } catch (e: any) { res.status(500).json({ message: e.message }); }
-});
-
-router.post('/appointments', authenticate, async (req: any, res) => {
-    try {
-        const { default: prisma } = await import('../config/database');
-        const result = await (prisma as any).appointment.create({ data: { ...req.body, school_id: req.user.school_id } });
-        res.status(201).json(result);
-    } catch (e: any) { res.status(500).json({ message: e.message }); }
-});
-
 router.post('/', authenticate, requirePlanCapacity('teacher'), createTeacher);
 router.get('/', authenticate, getAllTeachers);
 router.get('/:id/salary-profile', authenticate, async (req: any, res) => {
-    const { PayrollService } = await import('../services/payroll.service');
-    const profile = await PayrollService.getTeacherSalary(req.user.school_id, req.params.id);
-    res.json(profile);
-});
-router.get('/:id/payslips', authenticate, async (req: any, res) => {
-    const { PayrollService } = await import('../services/payroll.service');
-    const payslips = await PayrollService.getPayslips(req.user.school_id, req.params.id);
-    res.json(payslips);
-});
-router.get('/:id/payments', authenticate, async (req: any, res) => {
-    const { PayrollService } = await import('../services/payroll.service');
-    const payments = await PayrollService.getTransactions(req.user.school_id, req.params.id);
-    res.json(payments);
+    try {
+        const ADMIN_ROLES = ['admin', 'proprietor', 'superadmin', 'super_admin'];
+        const isAdmin = ADMIN_ROLES.includes((req.user.role || '').toLowerCase());
+        if (!isAdmin) {
+            const { default: prisma } = await import('../config/database');
+            const own = await prisma.teacher.findUnique({ where: { user_id: req.user.id }, select: { id: true } });
+            if (!own || own.id !== req.params.id) {
+                return res.status(403).json({ message: 'You do not have access to this teacher\'s salary profile' });
+            }
+        }
+        const { PayrollService } = await import('../services/payroll.service');
+        const profile = await PayrollService.getTeacherSalary(req.user.school_id, req.params.id);
+        res.json(profile);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
 });
 router.get('/:id/badges', authenticate, async (req: any, res) => {
     const { default: prisma } = await import('../config/database');
@@ -130,21 +87,12 @@ router.get('/:id/workload', authenticate, async (req: any, res) => {
     try {
         const { default: prisma } = await import('../config/database');
         const data = await (prisma as any).teacher_workload.findFirst({
-            where: { teacher_id: req.params.id }, orderBy: { week_start_date: 'desc' }
+            where: { teacher_id: req.params.id, school_id: req.user.school_id }, orderBy: { week_start_date: 'desc' }
         }).catch(() => null);
         res.json(data || {});
     } catch (e: any) { res.json({}); }
 });
 router.get('/:id/certificates', authenticate, getTeacherCertificates);
-router.get('/:id/appointments', authenticate, async (req: any, res) => {
-    try {
-        const { default: prisma } = await import('../config/database');
-        const data = await (prisma as any).appointment.findMany({
-            where: { teacher_id: req.params.id }, orderBy: { date: 'asc' }
-        }).catch(() => []);
-        res.json(data);
-    } catch (e: any) { res.json([]); }
-});
 router.get('/:id', authenticate, getTeacherById);
 router.put('/:id', authenticate, updateTeacher);
 // Branch admin assigns a lent teacher to classes/subjects in THEIR branch only.

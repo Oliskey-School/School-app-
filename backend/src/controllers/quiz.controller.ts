@@ -4,6 +4,21 @@ import { QuizService } from '../services/quiz.service';
 import prisma from '../config/database';
 import { getEffectiveBranchId } from '../utils/branchScope';
 
+const ADMIN_ROLES = ['admin', 'proprietor', 'superadmin', 'super_admin'];
+function isAdmin(req: AuthRequest): boolean {
+    return ADMIN_ROLES.includes((req.user.role || '').toLowerCase());
+}
+
+// A teacher may only publish/unpublish or delete a quiz they created themselves;
+// admins can manage any quiz in the school.
+async function assertOwnsQuiz(req: AuthRequest, quizId: string): Promise<boolean> {
+    if (isAdmin(req)) return true;
+    const quiz = await prisma.quiz.findFirst({ where: { id: quizId, school_id: req.user.school_id }, select: { teacher_id: true } });
+    if (!quiz) return false;
+    const teacher = await prisma.teacher.findUnique({ where: { user_id: req.user.id }, select: { id: true } });
+    return !!teacher && teacher.id === quiz.teacher_id;
+}
+
 export const getQuizzes = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
         const filters: any = { ...req.query };
@@ -77,6 +92,10 @@ export const getQuiz = async (req: AuthRequest, res: Response): Promise<void> =>
 
 export const updateQuizStatus = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
+        if (!(await assertOwnsQuiz(req, req.params.id as string))) {
+            res.status(403).json({ success: false, message: 'You do not have access to this quiz' });
+            return;
+        }
         const { branch_id, ...updateData } = req.body;
         const branchId = getEffectiveBranchId(req.user, branch_id);
         const result = await QuizService.updateQuizStatus(req.user.school_id, branchId, req.params.id as string, updateData);
@@ -113,6 +132,10 @@ export const submitQuizResult = async (req: AuthRequest, res: Response): Promise
 
 export const deleteQuiz = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
+        if (!(await assertOwnsQuiz(req, req.params.id as string))) {
+            res.status(403).json({ success: false, message: 'You do not have access to this quiz' });
+            return;
+        }
         const branchId = getEffectiveBranchId(req.user, req.body.branch_id || req.body.branchId || (req.query.branchId as string));
         await QuizService.deleteQuiz(req.user.school_id, branchId, req.params.id as string);
         res.status(204).send();

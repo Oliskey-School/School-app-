@@ -147,8 +147,8 @@ const StudentProfileScreen: React.FC<StudentProfileScreenProps> = ({ student: ra
                             ID: {student.schoolGeneratedId || student.schoolId || 'Pending Generation'}
                         </p>
                         {(student as any).initial_password && (
-                            <span className="inline-block px-2 py-1 bg-indigo-50 text-indigo-700 text-xs font-mono rounded">
-                                Password: {(student as any).initial_password}
+                            <span className="inline-block px-2 py-1 bg-indigo-50 text-indigo-700 text-xs font-medium rounded">
+                                Password: Set — ask an admin to reset it if the student needs it again
                             </span>
                         )}
                     </div>

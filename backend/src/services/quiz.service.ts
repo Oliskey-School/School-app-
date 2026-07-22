@@ -178,8 +178,8 @@ export class QuizService {
     }
 
     static async getQuiz(schoolId: string, id: string) {
-        return await prisma.quiz.findUnique({
-            where: { id },
+        return await prisma.quiz.findFirst({
+            where: { id, school_id: schoolId },
             include: {
                 questions: {
                     orderBy: { order_index: 'asc' }

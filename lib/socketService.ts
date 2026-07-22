@@ -121,6 +121,32 @@ class SocketService {
             }));
         });
 
+        // A student's own record changed — e.g. promoted to the next grade/class.
+        // Without this, a student already viewing their profile (or the dashboard's
+        // "student" state) keeps showing stale data until a full page reload,
+        // breaking the app's "no reload needed" real-time promise.
+        this.socket.on('student:updated', (data) => {
+            console.log('🎓 [SocketService] Student update received:', data);
+            window.dispatchEvent(new CustomEvent('realtime-update', {
+                detail: { table: 'students', record: data, action: data?.action }
+            }));
+        });
+
+        // Class rosters/assignments changed (e.g. promotion moves students between
+        // classes) — refresh anything listing classes or class membership.
+        this.socket.on('class:updated', (data) => {
+            window.dispatchEvent(new CustomEvent('realtime-update', {
+                detail: { table: 'classes', record: data, action: data?.action }
+            }));
+        });
+
+        // Broader academic-session events (promotion, term rollover, etc.).
+        this.socket.on('academic:updated', (data) => {
+            window.dispatchEvent(new CustomEvent('realtime-update', {
+                detail: { table: 'academic', record: data, action: data?.action }
+            }));
+        });
+
         this.socket.on('disconnect', () => {
             console.log('🔌 [SocketService] WebSocket Disconnected');
         });

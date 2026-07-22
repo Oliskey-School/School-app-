@@ -995,13 +995,17 @@ export class TeacherService {
     /**
      * Update appointment status
      */
-    static async updateAppointmentStatus(schoolId: string, appointmentId: string, status: string) {
+    static async updateAppointmentStatus(schoolId: string, teacherId: string, appointmentId: string, status: string) {
+        // teacher_id in the where clause means a teacher can only ever update the
+        // status of THEIR OWN appointment — a mismatched id updates zero rows and
+        // Prisma throws (record not found) rather than silently touching someone else's.
         const result = await prisma.appointment.update({
-            where: { 
+            where: {
                 id: appointmentId,
-                school_id: schoolId 
+                school_id: schoolId,
+                teacher_id: teacherId,
             },
-            data: { 
+            data: {
                 status: status,
                 updated_at: new Date()
             }
@@ -1091,6 +1095,11 @@ export class TeacherService {
         const teacher = await prisma.teacher.findFirst({ where: { user_id: userId } });
         if (!teacher) throw new Error('Teacher not found');
 
+        // The mentor must be a real teacher in the same school — otherwise a
+        // mentee could link themselves to an arbitrary/cross-school teacher id.
+        const mentor = await prisma.teacher.findFirst({ where: { id: data.mentor_id, school_id: teacher.school_id }, select: { id: true } });
+        if (!mentor) throw new Error('Mentor not found in your school');
+
         return await prisma.mentoringMatch.create({
             data: {
                 mentor_id: data.mentor_id,
@@ -1103,9 +1112,9 @@ export class TeacherService {
         });
     }
 
-    static async getTeacherCertificates(teacherId: string) {
+    static async getTeacherCertificates(schoolId: string, teacherId: string) {
         const certs = await prisma.pDCertificate.findMany({
-            where: { teacher_id: teacherId },
+            where: { teacher_id: teacherId, school_id: schoolId },
             orderBy: { issued_at: 'desc' },
             include: { pd_course: { select: { title: true } } }
         });

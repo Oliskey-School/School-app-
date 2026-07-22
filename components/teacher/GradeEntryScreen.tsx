@@ -4,7 +4,6 @@ import { Exam, Student } from '../../types';
 import { CheckCircleIcon } from '../../constants';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { useAuth } from '../../context/AuthContext';
-import { toast } from 'react-hot-toast';
 
 const getScoreIndicatorStyle = (scoreStr: string): string => {
     const score = parseInt(scoreStr, 10);
@@ -28,9 +27,10 @@ const SaveStatusIndicator: React.FC<{ status: 'idle' | 'saving' | 'saved' }> = (
 
 interface GradeEntryScreenProps {
     exam: Exam;
+    handleBack?: () => void;
 }
 
-const GradeEntryScreen: React.FC<GradeEntryScreenProps> = ({ exam }) => {
+const GradeEntryScreen: React.FC<GradeEntryScreenProps> = ({ exam, handleBack }) => {
     const { currentSchool } = useAuth();
     const [scores, setScores] = useState<{ [studentId: string | number]: string }>({});
     const [students, setStudents] = useState<Student[]>([]);
@@ -160,9 +160,6 @@ const GradeEntryScreen: React.FC<GradeEntryScreenProps> = ({ exam }) => {
         }
     };
 
-    const handleSubmit = () => {
-        toast.success('All grades submitted successfully!');
-    };
 
     if (!exam) return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Select an exam to enter grades.</div>;
 
@@ -219,14 +216,16 @@ const GradeEntryScreen: React.FC<GradeEntryScreenProps> = ({ exam }) => {
                 )}
             </main>
 
-            {/* Footer action button */}
+            {/* Footer action button — grades already autosave per score (see
+                SaveStatusIndicator above), so this just confirms the teacher is
+                done and takes them back rather than performing a separate "submit". */}
             <div className="p-4 bg-white border-t border-gray-200">
                 <button
-                    onClick={handleSubmit}
+                    onClick={() => handleBack?.()}
                     disabled={saveStatus === 'saving'}
                     className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:bg-gray-400"
                 >
-                    Submit All Grades
+                    Done
                 </button>
             </div>
         </div>

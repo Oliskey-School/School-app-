@@ -219,7 +219,9 @@ export const getMyAppointments = async (req: AuthRequest, res: Response) => {
 export const updateMyAppointmentStatus = async (req: AuthRequest, res: Response) => {
     try {
         const { status } = req.body;
-        const result = await TeacherService.updateAppointmentStatus(req.user.school_id, req.params.id as string, status);
+        const teacher = await TeacherService.getTeacherProfileByUserId(req.user.school_id, req.user.id);
+        if (!teacher) return res.status(404).json({ message: 'Teacher profile not found' });
+        const result = await TeacherService.updateAppointmentStatus(req.user.school_id, teacher.id, req.params.id as string, status);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -264,7 +266,13 @@ export const createMyMentoring = async (req: AuthRequest, res: Response) => {
 
 export const getTeacherCertificates = async (req: AuthRequest, res: Response) => {
     try {
-        const result = await TeacherService.getTeacherCertificates(req.params.id as string);
+        const branchId = getEffectiveBranchId(req.user, req.query.branchId as string);
+        const teacher = await TeacherService.getTeacherById(req.user.school_id, branchId, req.params.id as string);
+        if (!teacher) return res.status(404).json({ message: 'Teacher not found' });
+        if (!isAdmin(req) && teacher.user_id !== req.user.id) {
+            return res.status(403).json({ message: 'You do not have access to this teacher record' });
+        }
+        const result = await TeacherService.getTeacherCertificates(req.user.school_id, req.params.id as string);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -292,6 +300,12 @@ export const createSubstituteRequest = async (req: AuthRequest, res: Response) =
 
 export const getTeacherEvaluation = async (req: AuthRequest, res: Response) => {
     try {
+        const branchId = getEffectiveBranchId(req.user, req.query.branchId as string);
+        const teacher = await TeacherService.getTeacherById(req.user.school_id, branchId, req.params.id as string);
+        if (!teacher) return res.status(404).json({ message: 'Teacher not found' });
+        if (!isAdmin(req) && teacher.user_id !== req.user.id) {
+            return res.status(403).json({ message: 'You do not have access to this teacher\'s evaluation' });
+        }
         const result = await TeacherService.getTeacherEvaluation(req.user.school_id, req.params.id as string);
         res.json(result);
     } catch (error: any) {
@@ -311,6 +325,12 @@ export const submitTeacherEvaluation = async (req: AuthRequest, res: Response) =
 
 export const getTeacherPerformance = async (req: AuthRequest, res: Response) => {
     try {
+        const branchId = getEffectiveBranchId(req.user, req.query.branchId as string);
+        const teacher = await TeacherService.getTeacherById(req.user.school_id, branchId, req.params.id as string);
+        if (!teacher) return res.status(404).json({ message: 'Teacher not found' });
+        if (!isAdmin(req) && teacher.user_id !== req.user.id) {
+            return res.status(403).json({ message: 'You do not have access to this teacher\'s performance data' });
+        }
         const result = await TeacherService.getTeacherPerformance(req.user.school_id, req.params.id as string);
         res.json(result);
     } catch (error: any) {
