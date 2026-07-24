@@ -157,35 +157,85 @@ export class QuizService {
         return quiz;
     }
 
-    static async submitQuizResult(schoolId: string, branchId: string | undefined, payload: any) {
+    // student_id and score are NEVER trusted from the client here — the caller
+    // (quiz.controller.ts submitQuizResult) resolves student_id from the
+    // authenticated session and this function recomputes the score itself from
+    // the real answer key, so a student can't forge their own or a peer's grade.
+    static async submitQuizResult(schoolId: string, branchId: string | undefined, studentId: string, payload: { quiz_id: string; answers: Record<string, string>; focus_violations?: number }) {
+        const quiz = await prisma.quiz.findFirst({
+            where: { id: payload.quiz_id, school_id: schoolId },
+            select: {
+                questions: { select: { id: true, correct_answer: true, points: true } },
+            },
+        });
+        if (!quiz) {
+            const err: any = new Error('Quiz not found');
+            err.code = 'P2025';
+            throw err;
+        }
+
+        const answers = payload.answers || {};
+        let earned = 0;
+        let max = 0;
+        for (const q of quiz.questions) {
+            const pts = q.points || 1;
+            max += pts;
+            if (answers[q.id] != null && answers[q.id] === q.correct_answer) earned += pts;
+        }
+        const percentage = max > 0 ? Math.round((earned / max) * 100) : 0;
+
         const submission = await prisma.quizSubmission.create({
             data: {
                 quiz_id: payload.quiz_id,
-                student_id: payload.student_id,
+                student_id: studentId,
                 school_id: schoolId,
                 branch_id: branchId && branchId !== 'all' ? branchId : null,
-                score: payload.score,
-                total_questions: payload.total_questions,
+                score: percentage,
+                total_questions: quiz.questions.length,
                 answers: payload.answers,
                 focus_violations: payload.focus_violations || 0,
-                status: payload.status || 'graded',
-                submitted_at: payload.submitted_at ? new Date(payload.submitted_at) : new Date()
+                status: 'graded',
+                submitted_at: new Date()
             }
         });
 
-        SocketService.emitToSchool(schoolId, 'academic:updated', { action: 'submit_quiz', quizId: payload.quiz_id, studentId: payload.student_id });
+        SocketService.emitToSchool(schoolId, 'academic:updated', { action: 'submit_quiz', quizId: payload.quiz_id, studentId });
         return submission;
     }
 
-    static async getQuiz(schoolId: string, id: string) {
-        return await prisma.quiz.findFirst({
-            where: { id, school_id: schoolId },
+    // excludeAnswers: strip correct_answer/explanation — used when a student is
+    // about to take the quiz, so the answer key never reaches the browser.
+    static async getQuiz(schoolId: string, id: string, opts: { branchId?: string; excludeAnswers?: boolean } = {}) {
+        const where: any = { id, school_id: schoolId };
+        if (opts.branchId && opts.branchId !== 'all') where.branch_id = opts.branchId;
+
+        const quiz = await prisma.quiz.findFirst({
+            where,
             include: {
                 questions: {
-                    orderBy: { order_index: 'asc' }
-                }
-            }
+                    orderBy: { order_index: 'asc' },
+                    select: opts.excludeAnswers ? {
+                        id: true, quiz_id: true, question_text: true, question_type: true,
+                        options: true, points: true, order_index: true,
+                    } : undefined,
+                },
+            },
         });
+
+        if (quiz && opts.excludeAnswers) {
+            // The `options` JSON blob (free-form per question) commonly embeds an
+            // `isCorrect` flag per option — Prisma's `select` can't reach inside a
+            // JSON column, so strip it here or the answer key leaks right back out
+            // through `options` even with correct_answer/explanation excluded above.
+            quiz.questions = (quiz.questions as any[]).map((q: any) => ({
+                ...q,
+                options: Array.isArray(q.options)
+                    ? q.options.map(({ isCorrect, ...opt }: any) => opt)
+                    : q.options,
+            })) as any;
+        }
+
+        return quiz;
     }
 
     static async deleteQuiz(schoolId: string, branchId: string | undefined, id: string) {

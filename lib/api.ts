@@ -2202,6 +2202,15 @@ class ExpressApiClient {
         return this.delete(`/timetables/${id}`);
     }
 
+    async getClassrooms(): Promise<any[]> {
+        try {
+            return await this.get('/classrooms');
+        } catch (err) {
+            console.error('[API] getClassrooms failed:', err);
+            return [];
+        }
+    }
+
     async deleteTimetableByClass(classIdOrName: string, branchId?: string): Promise<any> {
         const qs = branchId && branchId !== 'all' ? `?branchId=${encodeURIComponent(branchId)}` : '';
         return this.delete(`/timetables/class/${encodeURIComponent(classIdOrName)}${qs}`);

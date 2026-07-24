@@ -38,6 +38,7 @@ router.put('/mark-read', async (req: any, res) => {
             where: {
                 id: { in: ids.map(String) },
                 school_id: req.user?.school_id,
+                user_id: req.user?.id,
             },
             data: { is_read: true },
         }).catch(() => ({ count: 0 }));

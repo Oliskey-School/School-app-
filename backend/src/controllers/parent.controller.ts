@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { ParentService } from '../services/parent.service';
+import { TransactionService } from '../services/transaction.service';
 import prisma from '../config/database';
 import { getEffectiveBranchId } from '../utils/branchScope';
 
@@ -9,8 +10,20 @@ function isAdmin(req: AuthRequest): boolean {
     return ADMIN_ROLES.includes((req.user.role || '').toLowerCase());
 }
 
+// A parent must only ever act on their OWN linked children — never trust a
+// client-supplied studentId. Mirrors the same pattern already used correctly
+// in departure.controller.ts.
+async function assertParentOwnsStudent(req: AuthRequest, studentId: string): Promise<void> {
+    if (isAdmin(req)) return;
+    const parent = await prisma.parent.findUnique({ where: { user_id: req.user.id }, select: { id: true } });
+    if (!parent) throw new Error('Not found');
+    const link = await prisma.parentChild.findFirst({ where: { parent_id: parent.id, student_id: studentId, deleted_at: null } });
+    if (!link) throw new Error('Student not found');
+}
+
 export const getParents = async (req: AuthRequest, res: Response) => {
     try {
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can list parents' });
         const branchId = getEffectiveBranchId(req.user, (req.query.branch_id || req.query.branchId) as string);
         const result = await ParentService.getParents(req.user.school_id, branchId);
 
@@ -22,6 +35,7 @@ export const getParents = async (req: AuthRequest, res: Response) => {
 
 export const getParentsByClassId = async (req: AuthRequest, res: Response) => {
     try {
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can list parents by class' });
         const branchId = getEffectiveBranchId(req.user, (req.query.branch_id || req.query.branchId) as string);
         const result = await ParentService.getParentsByClassId((req.user.school_id as string), branchId, (req.params.classId as string));
 
@@ -48,6 +62,10 @@ export const getParentById = async (req: AuthRequest, res: Response) => {
     try {
         const branchId = getEffectiveBranchId(req.user, req.query.branchId as string);
         const result = await ParentService.getParentById(req.user.school_id, branchId, req.params.id as string);
+        if (!result) return res.status(404).json({ message: 'Parent not found' });
+        if (!isAdmin(req) && result.user_id !== req.user.id) {
+            return res.status(403).json({ message: 'You do not have access to this parent record' });
+        }
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -111,7 +129,10 @@ export const getChildrenForParent = async (req: AuthRequest, res: Response) => {
             } 
         });
         if (!parent) return res.status(404).json({ message: 'Parent profile not found in your school' });
-        
+        if (!isAdmin(req) && parent.user_id !== req.user.id) {
+            return res.status(403).json({ message: 'You do not have access to this parent\'s children' });
+        }
+
         const result = await ParentService.getChildren(req.user.school_id, branchId, parent.user_id);
         res.json(result);
     } catch (error: any) {
@@ -161,12 +182,30 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
         
         console.log('📅 [ParentController] createAppointment body:', JSON.stringify(req.body));
         
-        const { 
+        const {
             starts_at, date, title, description, reason,
-            parent_id, requested_by_parent_id,
             teacher_id,
             student_id, student_user_id
         } = req.body;
+        const resolvedStudentId = student_id || student_user_id;
+
+        // parent_id is ALWAYS derived from the caller's own session, never trusted
+        // from the client — otherwise a parent could book an appointment (or spam
+        // teacher slots) under another family's name. Same for student_id: it must
+        // be one of the caller's own linked children.
+        let ownParentId: string;
+        if (isAdmin(req)) {
+            const bodyParentId = req.body.parent_id || req.body.requested_by_parent_id;
+            if (!bodyParentId) return res.status(400).json({ message: 'parent_id is required' });
+            ownParentId = bodyParentId;
+        } else {
+            const ownParent = await prisma.parent.findUnique({ where: { user_id: req.user.id }, select: { id: true } });
+            if (!ownParent) return res.status(404).json({ message: 'Parent profile not found' });
+            ownParentId = ownParent.id;
+        }
+        if (resolvedStudentId) {
+            await assertParentOwnsStudent(req, resolvedStudentId);
+        }
 
         // Extremely robust date parsing
         const rawDate = starts_at || date || req.body?.starts_at || req.body?.date;
@@ -186,9 +225,9 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
         const prismaData = {
             school_id: schoolId,
             branch_id: (branchId && branchId !== 'all') ? branchId : null,
-            parent_id: parent_id || requested_by_parent_id,
+            parent_id: ownParentId,
             teacher_id: teacher_id,
-            student_id: student_id || student_user_id,
+            student_id: resolvedStudentId,
             title: title || `Meeting for Student`,
             description: description || reason || 'No details provided',
             date: appointmentDate,
@@ -234,31 +273,52 @@ export const markNotificationRead = async (req: AuthRequest, res: Response) => {
 
 export const getChildOverview = async (req: AuthRequest, res: Response) => {
     try {
+        await assertParentOwnsStudent(req, req.params.studentId as string);
         const branchId = req.user.branch_id || (req.query.branchId as string);
         const result = await ParentService.getChildOverview(req.user.school_id, branchId, req.params.studentId as string);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        res.status(error.message === 'Student not found' ? 404 : 500).json({ message: error.message });
     }
 };
 
 export const getStudentFees = async (req: AuthRequest, res: Response) => {
     try {
+        await assertParentOwnsStudent(req, req.params.studentId as string);
         const branchId = req.user.branch_id || (req.query.branchId as string);
         const result = await ParentService.getStudentFees(req.user.school_id, branchId, req.params.studentId as string);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        res.status(error.message === 'Student not found' ? 404 : 500).json({ message: error.message });
     }
 };
 
 export const recordPayment = async (req: AuthRequest, res: Response) => {
     try {
+        const { student_id, reference, gateway } = req.body;
+        if (!student_id) return res.status(400).json({ message: 'student_id is required' });
+        await assertParentOwnsStudent(req, student_id);
+
+        // Never trust a client-supplied amount/status for a payment — verify the
+        // reference against the real gateway (same check used in
+        // transaction.controller.ts) and only record what the gateway confirms.
+        if (!reference || !gateway) {
+            return res.status(400).json({ message: 'A verified gateway reference is required to record a payment' });
+        }
         const branchId = req.user.branch_id || req.body.branch_id;
-        const result = await ParentService.recordPayment(req.user.school_id, branchId, req.body);
+        const verified = await TransactionService.verifyPayment(req.user.school_id, branchId, reference, gateway);
+        if (!verified || (verified as any).status !== 'success') {
+            return res.status(402).json({ message: 'Payment could not be verified with the gateway' });
+        }
+
+        const result = await ParentService.recordPayment(req.user.school_id, branchId, {
+            ...req.body,
+            student_id,
+            amount: (verified as any).amount,
+        });
         res.status(201).json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        res.status(error.message === 'Student not found' ? 404 : 500).json({ message: error.message });
     }
 };
 
@@ -363,45 +423,3 @@ export const getTeacherAvailability = async (req: AuthRequest, res: Response) =>
     }
 };
 
-export const getParentChildren = async (req: AuthRequest, res: Response) => {
-    try {
-        const { student_id, parent_id } = req.query;
-        const where: any = {
-            school_id: req.user.school_id
-        };
-
-        // Handle both JS undefined/null and literal "undefined"/"null" strings from frontend
-        if (student_id && student_id !== 'undefined' && student_id !== 'null') {
-            where.student_id = student_id;
-        }
-        if (parent_id && parent_id !== 'undefined' && parent_id !== 'null') {
-            where.parent_id = parent_id;
-        }
-
-        console.log('🔍 [ParentController] getParentChildren query:', where);
-        const result = await prisma.parentChild.findMany({
-            where,
-            include: {
-                student: {
-                    select: {
-                        id: true,
-                        full_name: true,
-                        school_generated_id: true
-                    }
-                },
-                parent: {
-                    select: {
-                        id: true,
-                        full_name: true,
-                        school_generated_id: true
-                    }
-                }
-            }
-        });
-
-        res.json(result);
-    } catch (error: any) {
-        console.error('🔥 [ParentController] getParentChildren Error:', error);
-        res.status(500).json({ message: error.message });
-    }
-};

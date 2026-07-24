@@ -12,6 +12,26 @@ function isAdmin(req: AuthRequest): boolean {
     return ADMIN_ROLES.includes((req.user.role || '').toLowerCase());
 }
 
+// A student may only view their OWN record; a parent only their linked
+// children. Teachers/admins keep their existing school/branch-scoped access
+// (already enforced by getEffectiveBranchId + StudentService's school_id
+// filter) — this only closes the student-to-student and parent-to-other-child
+// IDOR gap, not the accepted teacher/admin path.
+async function assertCanViewStudent(req: AuthRequest, studentId: string): Promise<boolean> {
+    const role = (req.user.role || '').toUpperCase();
+    if (role === 'STUDENT') {
+        const student = await prisma.student.findUnique({ where: { user_id: req.user.id }, select: { id: true } });
+        return !!student && student.id === studentId;
+    }
+    if (role === 'PARENT') {
+        const parent = await prisma.parent.findUnique({ where: { user_id: req.user.id }, select: { id: true } });
+        if (!parent) return false;
+        const link = await prisma.parentChild.findFirst({ where: { parent_id: parent.id, student_id: studentId }, select: { id: true } });
+        return !!link;
+    }
+    return true; // TEACHER/ADMIN/other staff — unchanged from existing behavior
+}
+
 export const getNextAdmissionNumber = async (req: AuthRequest, res: Response) => {
     try {
         const schoolId = req.user.school_id;
@@ -81,6 +101,9 @@ export const getAllStudents = async (req: AuthRequest, res: Response) => {
 
 export const getStudentById = async (req: AuthRequest, res: Response) => {
     try {
+        if (!(await assertCanViewStudent(req, req.params.id as string))) {
+            return res.status(404).json({ message: 'Student not found' });
+        }
         const branchId = getEffectiveBranchId(req.user, req.query.branchId as string);
         const result = await StudentService.getStudentById(req.user.school_id, branchId, req.params.id as string);
         if (!result) {
@@ -98,6 +121,9 @@ export const getStudentByStudentId = async (req: AuthRequest, res: Response) => 
         const branchId = getEffectiveBranchId(req.user, req.query.branchId as string || req.query.branch_id as string);
         const result = await StudentService.getStudentByStudentId(req.user.school_id, branchId, req.params.studentId as string);
         if (!result) return res.status(404).json({ message: 'Student not found' });
+        if (!(await assertCanViewStudent(req, (result as any).id))) {
+            return res.status(404).json({ message: 'Student not found' });
+        }
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -170,6 +196,9 @@ export const getMyPerformance = async (req: AuthRequest, res: Response) => {
 
 export const getStudentPerformance = async (req: AuthRequest, res: Response) => {
     try {
+        if (!(await assertCanViewStudent(req, req.params.id as string))) {
+            return res.status(404).json({ message: 'Student not found' });
+        }
         const branchId = getEffectiveBranchId(req.user, req.query.branchId as string);
         const role = req.user.role;
         let subjectFilter: string | string[] | undefined = req.query.subject as string;
@@ -193,6 +222,9 @@ export const getStudentPerformance = async (req: AuthRequest, res: Response) => 
 
 export const getStudentBehaviorNotes = async (req: AuthRequest, res: Response) => {
     try {
+        if (!(await assertCanViewStudent(req, req.params.id as string))) {
+            return res.status(404).json({ message: 'Student not found' });
+        }
         const branchId = getEffectiveBranchId(req.user, req.query.branchId as string);
         const result = await StudentService.getBehaviorNotes(req.user.school_id, branchId, req.params.id as string);
         res.json(result);
@@ -469,6 +501,9 @@ export const getStudentsByClassId = async (req: AuthRequest, res: Response) => {
 };
 export const getStudentSubjects = async (req: AuthRequest, res: Response) => {
     try {
+        if (!(await assertCanViewStudent(req, req.params.id as string))) {
+            return res.status(404).json({ message: 'Student not found' });
+        }
         const schoolId = req.user.school_id as string;
         const studentId = req.params.id as string;
         const result = await StudentService.getStudentSubjects(schoolId, studentId);

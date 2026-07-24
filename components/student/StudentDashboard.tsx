@@ -44,6 +44,7 @@ const ClassroomScreen = lazyWithRetry(() => import('../student/ClassroomScreen')
 const VirtualClassroom = lazyWithRetry(() => import('../video/VirtualClassroom'));
 const AttendanceScreen = lazyWithRetry(() => import('../student/AttendanceScreen'));
 const ResultsScreen = lazyWithRetry(() => import('../student/ResultsScreen'));
+const SelectReportTermScreen = lazyWithRetry(() => import('../shared/SelectReportTermScreen'));
 const StudentFinanceScreen = lazyWithRetry(() => import('../student/StudentFinanceScreen'));
 const AchievementsScreen = lazyWithRetry(() => import('../student/AchievementsScreen'));
 const StudentMessagesScreen = lazyWithRetry(() => import('../student/StudentMessagesScreen'));
@@ -727,6 +728,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
         liveClass: VirtualClassroom,
         attendance: AttendanceScreen,
         results: ResultsScreen,
+        selectReportTerm: (props: any) => <SelectReportTermScreen {...props} targetView="results" />,
         finances: StudentFinanceScreen,
         achievements: AchievementsScreen,
         messages: StudentMessagesScreen,

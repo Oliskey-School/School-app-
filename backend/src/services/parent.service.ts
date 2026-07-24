@@ -708,8 +708,11 @@ export class ParentService {
     }
 
     static async markNotificationRead(schoolId: string, branch_id: string | undefined, notificationId: string) {
+        // school_id in the where clause stops a cross-tenant write — without it,
+        // any authenticated user could mark any OTHER school's notification read
+        // just by knowing/guessing its id.
         return await prisma.notification.update({
-            where: { id: notificationId },
+            where: { id: notificationId, school_id: schoolId } as any,
             data: { is_read: true }
         });
     }

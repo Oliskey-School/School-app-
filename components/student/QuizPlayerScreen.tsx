@@ -198,9 +198,9 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, cbtExamId, 
     setIsSubmitting(true);
 
     if (autoSubmit) {
-      toast('Violation limit reached! Auto-submitting... (v1.2)', { icon: 'ðŸš«' });
+      toast('Violation limit reached! Auto-submitting...', { icon: '🚫' });
     } else {
-      toast.loading('Submitting assessment... (v1.2)');
+      toast.loading('Submitting assessment...');
     }
 
     try {

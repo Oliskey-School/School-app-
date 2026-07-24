@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, X, Clock, Users, Send } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 import { getCachedRoster, submitBulkAttendance, AttendanceStatus } from '../../lib/attendance-service';
 import { useAuth } from '../../context/AuthContext';
 import { useAutoSync } from '../../hooks/useAutoSync';
@@ -37,7 +38,11 @@ export const QuickAttendance: React.FC<{ classId: string }> = ({ classId }) => {
 
     const handleSubmit = async () => {
         if (!currentSchool) return;
-        
+        if (!classId) {
+            toast.error('No class selected. Please go back and pick a class first.');
+            return;
+        }
+
         const records = students.map(s => ({
             student_id: s.id,
             class_id: classId,
@@ -47,9 +52,13 @@ export const QuickAttendance: React.FC<{ classId: string }> = ({ classId }) => {
             date: new Date().toISOString().split('T')[0]
         }));
 
-        await submitBulkAttendance(records);
-        setShowSuccess(true);
-        setTimeout(() => setShowSuccess(false), 2000);
+        try {
+            await submitBulkAttendance(records);
+            setShowSuccess(true);
+            setTimeout(() => setShowSuccess(false), 2000);
+        } catch (error: any) {
+            toast.error(error?.message || 'Failed to save attendance. Please try again.');
+        }
     };
 
     return (

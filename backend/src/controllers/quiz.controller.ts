@@ -79,7 +79,31 @@ export const createQuizWithQuestions = async (req: AuthRequest, res: Response): 
 
 export const getQuiz = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const result = await QuizService.getQuiz(req.user.school_id, req.params.id as string);
+        const branchId = getEffectiveBranchId(req.user, req.query.branchId as string);
+        const quizId = req.params.id as string;
+
+        if (req.user.role === 'STUDENT') {
+            // A student may only fetch a quiz that is (a) published and (b) for a
+            // class they're actively enrolled in — and never with the answer key.
+            const student = await prisma.student.findUnique({ where: { user_id: req.user.id }, select: { id: true } });
+            if (!student) { res.status(404).json({ success: false, message: 'Quiz not found' }); return; }
+            const quiz = await prisma.quiz.findFirst({ where: { id: quizId, school_id: req.user.school_id }, select: { class_id: true, is_published: true } });
+            if (!quiz || !quiz.is_published) { res.status(404).json({ success: false, message: 'Quiz not found' }); return; }
+            const enrolled = await prisma.studentEnrollment.findFirst({ where: { student_id: student.id, class_id: quiz.class_id, status: 'Active' }, select: { id: true } });
+            if (!enrolled) { res.status(403).json({ success: false, message: 'You do not have access to this quiz' }); return; }
+
+            const result = await QuizService.getQuiz(req.user.school_id, quizId, { branchId, excludeAnswers: true });
+            res.status(200).json(result);
+            return;
+        }
+
+        // Teacher/admin path — full data including answers, but a teacher must own
+        // the quiz (admins may view any quiz in the school).
+        if (req.user.role === 'TEACHER' && !(await assertOwnsQuiz(req, quizId))) {
+            res.status(403).json({ success: false, message: 'You do not have access to this quiz' });
+            return;
+        }
+        const result = await QuizService.getQuiz(req.user.school_id, quizId, { branchId });
         if (!result) {
             res.status(404).json({ success: false, message: 'Quiz not found' });
             return;
@@ -107,17 +131,21 @@ export const updateQuizStatus = async (req: AuthRequest, res: Response): Promise
 
 export const submitQuizResult = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const { quiz_id, student_id } = req.body || {};
+        const { quiz_id } = req.body || {};
         if (!quiz_id) {
             res.status(400).json({ success: false, message: 'quiz_id is required' });
             return;
         }
-        if (!student_id) {
-            res.status(400).json({ success: false, message: 'student_id is required' });
+        // student_id is NEVER taken from the body — only the caller's own student
+        // record may submit a quiz result, and the score is computed server-side
+        // in QuizService.submitQuizResult from the real answer key.
+        const student = await prisma.student.findUnique({ where: { user_id: req.user.id }, select: { id: true } });
+        if (!student) {
+            res.status(403).json({ success: false, message: 'Only students may submit quiz results' });
             return;
         }
         const branchId = getEffectiveBranchId(req.user, req.body.branch_id || req.body.branchId);
-        const result = await QuizService.submitQuizResult(req.user.school_id, branchId, req.body);
+        const result = await QuizService.submitQuizResult(req.user.school_id, branchId, student.id, req.body);
         res.status(201).json(result);
     } catch (error: any) {
         // Unknown quiz/student (e.g. a demo quiz that is not a persisted row) is a

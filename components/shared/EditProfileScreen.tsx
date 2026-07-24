@@ -7,6 +7,7 @@ import { api } from '../../lib/api';
 import { LockIcon, UserIcon, EyeIcon, EyeOffIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from './LanguageSwitcher';
+import { useUserIdentity } from '../../lib/hooks/useUserIdentity';
 
 interface EditProfileScreenProps {
     onBack: () => void;
@@ -55,6 +56,7 @@ const InputField: React.FC<{ label: string, value: string, onChange?: (val: stri
 const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack, user, onProfileUpdate }) => {
     const { updateProfile } = useProfile();
     const { user: authUser } = useAuth();
+    const { customId, formatId } = useUserIdentity();
     const { t } = useTranslation();
     const [name, setName] = useState(user?.name || '');
     const [displayName, setDisplayName] = useState('');
@@ -281,9 +283,7 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack, user, onP
                             <div className="w-full">
                                 <InputField
                                     label="Student ID"
-                                    value={(user?.code || user?.id?.toString() || "0001").replace(/-/g, '_').includes('OLISKEY')
-                                        ? (user?.code || user?.id?.toString() || "0001").replace(/-/g, '_').toUpperCase()
-                                        : `OLISKEY_MAIN_STD_${(user?.code || user?.id?.toString() || "0001").replace(/-/g, '_').toUpperCase()}`}
+                                    value={formatId(customId, 'student') || 'Pending Generation'}
                                     readOnly
                                 />
                             </div>

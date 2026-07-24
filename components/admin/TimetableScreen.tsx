@@ -223,6 +223,7 @@ const TimetableOverview: React.FC<TimetableOverviewProps> = ({ navigateTo, schoo
 
                                                 const schedule: any = {};
                                                 const teacherAssignments: any = {};
+                                                let classroomId: string | undefined;
 
                                                 // Resolve teacher IDs → names via REST teachers endpoint
                                                 const teacherIds = Array.from(new Set((entries || []).map((e: any) => e.teacher_id).filter(Boolean)));
@@ -242,6 +243,9 @@ const TimetableOverview: React.FC<TimetableOverviewProps> = ({ navigateTo, schoo
                                                     if (e.teacher_id) {
                                                         teacherAssignments[key] = teacherMap.get(String(e.teacher_id)) || '';
                                                     }
+                                                    if (e.classroom_id && !classroomId) {
+                                                        classroomId = e.classroom_id;
+                                                    }
                                                 });
 
                                                 navigateTo('timetableEditor', `Edit ${tt.className}`, {
@@ -249,6 +253,7 @@ const TimetableOverview: React.FC<TimetableOverviewProps> = ({ navigateTo, schoo
                                                         className: tt.className,
                                                         schedule,
                                                         teacherAssignments,
+                                                        classroomId,
                                                         status: tt.status
                                                     }
                                                 });

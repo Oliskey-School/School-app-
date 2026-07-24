@@ -49,17 +49,18 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
     const [activeChildIndex, setActiveChildIndex] = useState(0);
     const [loading, setLoading] = useState(true);
     const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
+    const [latestNotice, setLatestNotice] = useState<any | null>(null);
 
     const load = useCallback(async () => {
         if (!user || (!currentSchool && !schoolId) || students.length === 0) {
             if (students.length === 0) setLoading(false);
             return;
         }
-        
+
         setLoading(true);
         try {
             // Fetch data for ALL children to allow quick switching
-            const overviewPromises = students.map(s => 
+            const overviewPromises = students.map(s =>
                 api.getChildOverview(s.id)
             );
             const results = await Promise.all(overviewPromises);
@@ -69,12 +70,22 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
         } finally {
             setLoading(false);
         }
-    }, [user, currentSchool, schoolId, students]);
+
+        try {
+            const effectiveSchoolId = currentSchool?.id || schoolId;
+            if (effectiveSchoolId) {
+                const notices = await api.getNotices(effectiveSchoolId, currentBranch?.id);
+                setLatestNotice((notices || [])[0] || null);
+            }
+        } catch (err) {
+            console.error("Error loading latest notice:", err);
+        }
+    }, [user, currentSchool, schoolId, students, currentBranch?.id]);
 
     // Real-time synchronization
     // Note: We sync on 'students' because child overview depends on a variety of data (attendance, grades, etc)
     // but the unified home specifically manages the "child context"
-    useAutoSync(['students', 'attendance', 'assignments', 'grades'], load);
+    useAutoSync(['students', 'attendance', 'assignments', 'grades', 'notices'], load);
 
     useEffect(() => {
         load();
@@ -220,10 +231,13 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
                     <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest">Daily Report</h3>
                 </div>
                 {/* Attendance Card */}
-                <motion.div 
-                    whileTap={{ scale: 0.98 }} 
+                <motion.div
+                    whileTap={{ scale: 0.98 }}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => navigateTo('attendance', 'Attendance', { student: students[activeChildIndex], studentId: child.id })}
-                    className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigateTo('attendance', 'Attendance', { student: students[activeChildIndex], studentId: child.id }); } }}
+                    className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-300"
                 >
                     <div className="flex items-center gap-4">
                         <div className="bg-emerald-50 p-3 rounded-xl">
@@ -243,10 +257,13 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
                 </motion.div>
 
                 {/* Assignments Card */}
-                <motion.div 
-                    whileTap={{ scale: 0.98 }} 
+                <motion.div
+                    whileTap={{ scale: 0.98 }}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => navigateTo('childDetail', child.name, { student: students[activeChildIndex], initialTab: 'academic' })}
-                    className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigateTo('childDetail', child.name, { student: students[activeChildIndex], initialTab: 'academic' }); } }}
+                    className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-300"
                 >
                     <div className="flex items-center gap-4">
                         <div className="bg-blue-50 p-3 rounded-xl">
@@ -261,10 +278,13 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
                 </motion.div>
 
                 {/* Fees Card */}
-                <motion.div 
-                    whileTap={{ scale: 0.98 }} 
+                <motion.div
+                    whileTap={{ scale: 0.98 }}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => navigateTo('feeStatus', 'Fee Status')}
-                    className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigateTo('feeStatus', 'Fee Status'); } }}
+                    className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-300"
                 >
                     <div className="flex items-center gap-4">
                         <div className="bg-amber-50 p-3 rounded-xl">
@@ -293,7 +313,7 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
                                 <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Latest Performance</p>
                                 <p className="text-gray-900 font-bold">
                                     {child.latest_result.subject}: {child.latest_result.score}% 
-                                    <span className="ml-2 text-emerald-600 text-sm">â†‘</span>
+                                    <span className="ml-2 text-emerald-600 text-sm">↑</span>
                                 </p>
                             </div>
                         </div>
@@ -301,19 +321,27 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
                     </motion.div>
                 )}
 
-                {/* Announcement Placeholder */}
-                <motion.div whileTap={{ scale: 0.98 }} className="bg-gradient-to-r from-indigo-600 to-purple-700 p-5 rounded-2xl shadow-lg text-white flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <div className="bg-white/20 p-3 rounded-xl">
-                            <Bell className="w-6 h-6" />
+                {latestNotice && (
+                    <motion.div
+                        whileTap={{ scale: 0.98 }}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => navigateTo('noticeboard', 'Noticeboard', {})}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigateTo('noticeboard', 'Noticeboard', {}); } }}
+                        className="bg-gradient-to-r from-indigo-600 to-purple-700 p-5 rounded-2xl shadow-lg text-white flex items-center justify-between cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/60"
+                    >
+                        <div className="flex items-center gap-4">
+                            <div className="bg-white/20 p-3 rounded-xl">
+                                <Bell className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <p className="text-xs font-bold opacity-80 uppercase tracking-wider">New Announcement</p>
+                                <p className="font-bold">{latestNotice.title}</p>
+                            </div>
                         </div>
-                        <div>
-                            <p className="text-xs font-bold opacity-80 uppercase tracking-wider">New Announcement</p>
-                            <p className="font-bold">Inter-house Sports Day 2026</p>
-                        </div>
-                    </div>
-                    <ChevronRight className="w-5 h-5 opacity-50" />
-                </motion.div>
+                        <ChevronRight className="w-5 h-5 opacity-50" />
+                    </motion.div>
+                )}
             </div>
         </div>
     );

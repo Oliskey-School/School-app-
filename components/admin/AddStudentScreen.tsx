@@ -195,6 +195,11 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
     // already customized and saved (an empty saved list is fine to auto-fill over —
     // that's the documented "inherit from class" default).
     const skipNextAutoFillRef = React.useRef(false);
+    // Once the admin manually picks a class, the async edit-mode fetch below must
+    // never overwrite that choice if its response lands after the click — without
+    // this, a slow network response silently reverted the selection back to the
+    // student's full (active + inactive) enrollment history mid-edit.
+    const classManuallySetRef = React.useRef(false);
     useEffect(() => {
         if (studentToEdit) return;
         if (currentBranch?.id && !branchAutoSetRef.current) {
@@ -255,13 +260,17 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
 
     // Admins see ALL 16 standard academic levels in the dropdown — even ones with no class
     // record yet. For those, we emit a placeholder id (`__create__:grade:section:branch`)
-    // and materialize a real class record on submit. Teachers keep the assigned-only view.
+    // and materialize a real class record on submit, SCOPED TO THE CURRENT BRANCH. Classes
+    // in other branches are a different, isolated set of students/teachers and must never
+    // be shown or selectable here — if this branch doesn't have its own "SSS 1" yet, the
+    // right behavior is to create one for this branch, not silently reuse another branch's.
+    // Teachers keep the assigned-only view.
     const availableClasses = useMemo(() => {
         const branchId = selectedBranchId || null;
         const existingByKey = new Map<string, any>();
         branchScopedClasses.forEach(cls => {
             const key = `${cls.grade}:${cls.section || 'A'}`;
-            existingByKey.set(key, cls);
+            if (!existingByKey.has(key)) existingByKey.set(key, cls);
         });
 
         const merged: any[] = [];
@@ -293,6 +302,14 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
 
         return merged;
     }, [branchScopedClasses, selectedBranchId, isTeacherRole]);
+
+    // Only distinguish "(A)" / "(B)" etc. when a grade genuinely has more than one class
+    // in this branch — a single class for a grade should just show its plain name.
+    const classCountByGrade = useMemo(() => {
+        const counts = new Map<number, number>();
+        availableClasses.forEach(cls => counts.set(cls.grade, (counts.get(cls.grade) || 0) + 1));
+        return counts;
+    }, [availableClasses]);
 
     const grade = useMemo(() => {
         if (selectedClassIds.length === 0) return 0;
@@ -524,9 +541,16 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                         skipNextAutoFillRef.current = true;
                     }
 
-                    // Set Enrollments
-                    if (studentData.enrollments) {
-                        setSelectedClassIds(studentData.enrollments.map((e: any) => e.class_id));
+                    // Set Enrollments — only the currently ACTIVE one(s). A student can
+                    // accumulate many Inactive enrollment rows over their history (every
+                    // past class they were ever in); pre-selecting all of them would
+                    // re-submit the student into multiple classes at once, and the last
+                    // one processed server-side silently wins, undoing whatever the
+                    // admin picks. Skip entirely if the admin already made a manual pick
+                    // while this fetch was still in flight.
+                    if (studentData.enrollments && !classManuallySetRef.current) {
+                        const activeEnrollments = studentData.enrollments.filter((e: any) => e.status === 'Active');
+                        setSelectedClassIds(activeEnrollments.map((e: any) => e.class_id));
                     }
 
                     // Set Guardian Info
@@ -882,26 +906,20 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Class Enrollments</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Class</label>
                                     <div className="bg-gray-50 border border-gray-300 rounded-lg p-3 max-h-48 overflow-y-auto space-y-2">
                                         {availableClasses.length > 0 ? (
                                             availableClasses.map((cls) => (
                                                 <label key={cls.id} className="flex items-center space-x-3 p-2 hover:bg-white rounded-md cursor-pointer transition-colors border border-transparent hover:border-gray-200">
                                                     <input
-                                                        type="checkbox"
-                                                        className="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                                        type="radio"
+                                                        name="classEnrollment"
+                                                        className="h-5 w-5 border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                                         checked={selectedClassIds.includes(cls.id)}
-                                                        onChange={(e) => {
-                                                            if (e.target.checked) {
-                                                                setSelectedClassIds([...selectedClassIds, cls.id]);
-                                                            } else {
-                                                                setSelectedClassIds(selectedClassIds.filter(id => id !== cls.id));
-                                                            }
-                                                        }}
+                                                        onChange={() => { classManuallySetRef.current = true; setSelectedClassIds([cls.id]); }}
                                                     />
                                                     <span className="text-sm font-medium text-gray-700">
-                                                        {cls.name} {cls.section ? `(${cls.section})` : ''}
-                                                        {(!selectedBranchId || cls.branch_id !== selectedBranchId) && cls.branch_id ? ` — ${branchNameMap[cls.branch_id] || 'Other branch'}` : ''}
+                                                        {cls.name}{cls.section && (classCountByGrade.get(cls.grade) || 0) > 1 ? ` (${cls.section})` : ''}
                                                     </span>
                                                 </label>
                                             ))
@@ -909,7 +927,7 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                                             <p className="text-xs text-gray-500 italic py-2 text-center">No classes configured for this school.</p>
                                         )}
                                     </div>
-                                    <p className="mt-1 text-xs text-gray-400">The first selected class will be treated as the Primary Class.</p>
+                                    <p className="mt-1 text-xs text-gray-400">A student belongs to exactly one class. Selecting a new class moves them out of their current one.</p>
                                 </div>
 
                                 <div>

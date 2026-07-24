@@ -210,11 +210,11 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
 
         const toastId = toast.loading('Uploading document...');
         try {
-            // In a real app, you'd upload to S3/Cloudinary first
-            // For now, we simulate the URL
+            const { url } = await api.uploadFileWithCategory(file, 'student_document');
+            if (!url) throw new Error('Upload did not return a file URL');
             const docData = {
                 name: file.name,
-                url: `/uploads/${file.name}`, // Placeholder
+                url,
                 type: file.type,
                 size: `${(file.size / 1024).toFixed(1)} KB`
             };

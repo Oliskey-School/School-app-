@@ -47,6 +47,7 @@ const SKIP_PATTERNS = [
     /broadcast/i,
     /^send all/i,
     /blast/i,
+    /update\s*now/i, // PWA "new version available" banner — triggers a real reload
 ];
 
 const isSkipLabel = (label: string) => SKIP_PATTERNS.some(p => p.test(label));

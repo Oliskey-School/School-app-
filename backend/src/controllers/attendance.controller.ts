@@ -4,6 +4,26 @@ import { AttendanceService } from '../services/attendance.service';
 import prisma from '../config/database';
 import { getEffectiveBranchId } from '../utils/branchScope';
 
+const ADMIN_ROLES = ['admin', 'proprietor', 'superadmin', 'super_admin'];
+
+// A student may only view their OWN attendance; a parent only their linked
+// children's. Teachers/admins are unaffected (already school/branch-scoped).
+async function getAuthorizedStudentIds(req: AuthRequest): Promise<string[] | null> {
+    const role = (req.user.role || '').toLowerCase();
+    if (ADMIN_ROLES.includes(role) || role === 'teacher') return null; // null = no restriction
+    if (role === 'student') {
+        const student = await prisma.student.findUnique({ where: { user_id: req.user.id }, select: { id: true } });
+        return student ? [student.id] : [];
+    }
+    if (role === 'parent') {
+        const parent = await prisma.parent.findUnique({ where: { user_id: req.user.id }, select: { id: true } });
+        if (!parent) return [];
+        const links = await prisma.parentChild.findMany({ where: { parent_id: parent.id }, select: { student_id: true } });
+        return links.map(l => l.student_id);
+    }
+    return [];
+}
+
 export const getAttendance = async (req: AuthRequest, res: Response) => {
     try {
         const { classId, date } = req.query;
@@ -97,6 +117,14 @@ export const saveAttendance = async (req: AuthRequest, res: Response) => {
         if (!records || !Array.isArray(records)) {
             return res.status(400).json({ message: 'records array is required' });
         }
+        // Validate up front, before the ownership check below (which silently
+        // skips itself when class_id is missing — filter(Boolean) empties the
+        // list) and before Prisma, which otherwise throws a raw stack trace
+        // straight to the client instead of a clean 400.
+        const invalidIndex = records.findIndex((r: any) => !r?.student_id || !r?.class_id || !r?.date || !r?.status);
+        if (invalidIndex !== -1) {
+            return res.status(400).json({ message: `records[${invalidIndex}] is missing student_id, class_id, date, or status` });
+        }
 
         // Teachers may only save attendance for classes they own
         if (req.user.role === 'TEACHER') {
@@ -134,6 +162,10 @@ export const saveAttendance = async (req: AuthRequest, res: Response) => {
 export const getAttendanceByStudent = async (req: AuthRequest, res: Response) => {
     try {
         const { studentId } = req.params;
+        const allowed = await getAuthorizedStudentIds(req);
+        if (allowed && !allowed.includes(studentId as string)) {
+            return res.status(403).json({ message: 'You do not have access to this student\'s attendance' });
+        }
         const branchId = getEffectiveBranchId(req.user, (req.query.branch_id || req.query.branchId) as string);
         const result = await AttendanceService.getAttendanceByStudent(req.user.school_id, branchId, studentId as string);
         res.json(result);
@@ -148,8 +180,12 @@ export const bulkFetchAttendance = async (req: AuthRequest, res: Response) => {
         if (!Array.isArray(studentIds)) {
             return res.status(400).json({ message: 'studentIds array is required' });
         }
+        const allowed = await getAuthorizedStudentIds(req);
+        const safeStudentIds: string[] = allowed ? (studentIds as string[]).filter(id => allowed.includes(id)) : studentIds;
+        if (allowed && safeStudentIds.length === 0) return res.json([]);
+
         const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
-        const result = await AttendanceService.getAttendanceByStudentIds(req.user.school_id, branchId, studentIds, startDate, endDate);
+        const result = await AttendanceService.getAttendanceByStudentIds(req.user.school_id, branchId, safeStudentIds, startDate, endDate);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });

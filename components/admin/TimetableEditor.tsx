@@ -293,6 +293,13 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
     const teacherAssignments = currentSchedule.teacherAssignments || {};
     const selectedClass = currentSchedule.className || '';
     const status = currentSchedule.status || 'Draft';
+    const classroomId = currentSchedule.classroomId || '';
+
+    const [classrooms, setClassrooms] = useState<{ id: string; name: string }[]>([]);
+
+    const setClassroomId = (value: string) => {
+        setSchedules(prev => prev.map((s, i) => i === activeIndex ? { ...s, classroomId: value } : s));
+    };
 
     const [teachers, setTeachers] = useState<string[]>(['Mr. Anderson', 'Ms. Davis', 'Mrs. Wilson', 'Mr. Brown', 'Dr. Clark']);
     const [isSaving, setIsSaving] = useState(false);
@@ -328,6 +335,7 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                     className: timetableData.className || '',
                     classId: timetableData.classId,
                     branchId: timetableData.branchId,
+                    classroomId: timetableData.classroomId || '',
                     timetable: timetableData.timetable || timetableData.schedule || {},
                     teacherAssignments: timetableData.teacherAssignments || {},
                     deptCells: timetableData.deptCells || {},
@@ -365,6 +373,12 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
             if (data) {
                 setTeachers(data.map((t: any) => t.name || t.full_name));
                 (window as any).__teacherData = data;
+            }
+
+            // Get classrooms (for scan-attendance room assignment)
+            const rooms = await api.getClassrooms();
+            if (rooms) {
+                setClassrooms(rooms.map((r: any) => ({ id: r.id, name: r.name })));
             }
         };
         fetchContext();
@@ -559,6 +573,7 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                         class_id: sched.classId || timetableData?.classId || undefined,
                         branch_id: sched.branchId || timetableData?.branchId || undefined,
                         teacher_id: teacherId,
+                        classroom_id: sched.classroomId || undefined,
                         status: statusToSave,
                         school_id: schoolId // Ensure this is handled if null (RLS might handle it or default)
                     });
@@ -871,6 +886,25 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                                     </button>
                                 ))}
                             </div>
+                        </div>
+                    )}
+
+                    {/* CLASSROOM ASSIGNMENT — the physical room this class's periods are scanned in */}
+                    {selectedClass && (
+                        <div className="px-4 md:px-8 pt-4 z-10 relative">
+                            <label className="flex items-center gap-3 bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-sm">
+                                <span className="text-xs font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">Classroom</span>
+                                <select
+                                    value={classroomId}
+                                    onChange={(e) => setClassroomId(e.target.value)}
+                                    className="flex-1 text-sm font-semibold text-gray-800 bg-transparent focus:outline-none"
+                                >
+                                    <option value="">No classroom assigned</option>
+                                    {classrooms.map(room => (
+                                        <option key={room.id} value={room.id}>{room.name}</option>
+                                    ))}
+                                </select>
+                            </label>
                         </div>
                     )}
 

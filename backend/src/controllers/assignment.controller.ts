@@ -4,6 +4,11 @@ import { AssignmentService } from '../services/assignment.service';
 import prisma from '../config/database';
 import { getEffectiveBranchId } from '../utils/branchScope';
 
+const ADMIN_ROLES = ['admin', 'proprietor', 'superadmin', 'super_admin'];
+function isAdminRole(req: AuthRequest): boolean {
+    return ADMIN_ROLES.includes((req.user.role || '').toLowerCase());
+}
+
 export const getAssignments = async (req: AuthRequest, res: Response) => {
     try {
         let teacherId = undefined;
@@ -104,6 +109,12 @@ export const getAssignment = async (req: AuthRequest, res: Response) => {
 
 export const getSubmissions = async (req: AuthRequest, res: Response) => {
     try {
+        // Listing every student's submissions for an assignment (names, files,
+        // grades) is a teacher/admin grading view — never a student endpoint. A
+        // student's own single submission goes through getAssignmentSubmission.
+        if (!isAdminRole(req) && req.user.role !== 'TEACHER') {
+            return res.status(403).json({ message: 'Only teachers or admins may view all submissions for an assignment' });
+        }
         const branchId = getEffectiveBranchId(req.user, (req.body?.branch_id || req.query?.branchId));
         const result = await AssignmentService.getSubmissions(req.user.school_id, branchId, req.params.id as string);
         res.json(result);
@@ -137,11 +148,20 @@ export const getAssignmentSubmission = async (req: AuthRequest, res: Response) =
 
 export const gradeSubmission = async (req: AuthRequest, res: Response) => {
     try {
+        const isAdmin = isAdminRole(req);
+        if (!isAdmin && req.user.role !== 'TEACHER') {
+            return res.status(403).json({ message: 'Only teachers or admins may grade submissions' });
+        }
+        let callerTeacherId: string | null = null;
+        if (!isAdmin) {
+            const teacher = await prisma.teacher.findUnique({ where: { user_id: req.user.id }, select: { id: true } });
+            callerTeacherId = teacher?.id ?? null;
+        }
         const branchId = getEffectiveBranchId(req.user, (req.body?.branch_id || req.query?.branchId));
-        const result = await AssignmentService.gradeSubmission(req.user.school_id, branchId, req.params.id as string, req.body);
+        const result = await AssignmentService.gradeSubmission(req.user.school_id, branchId, callerTeacherId, isAdmin, req.params.id as string, req.body);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        res.status(error.status || 500).json({ message: error.message });
     }
 };
 

@@ -19,12 +19,17 @@ const SelectChildForReportScreen: React.FC<SelectChildForReportScreenProps> = ({
     try {
       const data = await api.getMyChildren();
       if (data) {
+        // getMyChildren() includes each child's report_cards (Prisma snake_case);
+        // preserve it here — ReportCardScreen reads it directly off this object,
+        // and dropping it here was why parents always saw "No Published Reports"
+        // even when the student could see them.
         const mappedStudents = data.map((s: any) => ({
           id: s.id,
           name: s.name || s.full_name || 'Unknown Student',
           avatarUrl: s.avatar_url,
           grade: s.grade || s.class?.name || '',
-          section: s.section || ''
+          section: s.section || '',
+          reportCards: s.reportCards || s.report_cards || [],
         } as Student));
         setChildren(mappedStudents);
       }
@@ -45,7 +50,7 @@ const SelectChildForReportScreen: React.FC<SelectChildForReportScreenProps> = ({
   if (loading) return <div className="p-8 text-center">Loading children...</div>;
 
   const handleSelectChild = (student: Student) => {
-    navigateTo('reportCard', `${student.name}'s Report`, { student });
+    navigateTo('selectReportTerm', `${student.name}'s Report`, { student });
   };
 
   return (

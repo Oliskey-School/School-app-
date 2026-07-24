@@ -12,6 +12,11 @@ interface ResultsScreenProps {
     studentId: string | number;
     student?: Student;
     schoolId?: string;
+    // Carried over from SelectReportTermScreen when the student picked a
+    // specific year/term rather than landing here directly.
+    term?: string;
+    session?: string;
+    navigateTo?: (view: string, title: string, props?: any) => void;
 }
 
 const TermTab: React.FC<{ term: string; isActive: boolean; onClick: () => void; }> = ({ term, isActive, onClick }) => (
@@ -169,13 +174,18 @@ const ReportCardView: React.FC<{ report: ReportCard, student?: Student, schoolNa
     );
 };
 
-const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoolId }) => {
+const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoolId, term: requestedTerm, session: requestedSession, navigateTo }) => {
     const { currentSchool } = useAuth();
     const [performanceData, setPerformanceData] = useState<any[]>([]);
     const [reportCards, setReportCards] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [activeTerm, setActiveTerm] = useState<string>('');
+    const [activeTerm, setActiveTerm] = useState<string>(requestedTerm || '');
+    // A specific session ('' means "don't filter by session, just show
+    // whatever's available for the term" — the pre-existing default behavior
+    // for students landing here directly rather than via the term picker).
+    const [activeSession, setActiveSession] = useState<string>(requestedSession || '');
     const [quizResults, setQuizResults] = useState<any[]>([]);
+    const [attendancePercentage, setAttendancePercentage] = useState(0);
     const [showFullReport, setShowFullReport] = useState(false);
     const [isDownloading, setIsDownloading] = useState(false);
     const reportRef = useRef<HTMLDivElement>(null);
@@ -192,11 +202,15 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
 
             if (grades) {
                 setPerformanceData(grades);
-                const terms = Array.from(new Set(grades.map((d: any) => d.term)));
-                if (terms.length > 0 && !activeTerm) {
-                    setActiveTerm(terms[terms.length - 1] as string);
-                } else if (terms.length === 0) {
-                    setActiveTerm('First Term');
+                // A specific term/session was already picked via the term
+                // selector — don't override it with the "latest term" default.
+                if (!requestedTerm) {
+                    const terms = Array.from(new Set(grades.map((d: any) => d.term)));
+                    if (terms.length > 0 && !activeTerm) {
+                        setActiveTerm(terms[terms.length - 1] as string);
+                    } else if (terms.length === 0) {
+                        setActiveTerm('First Term');
+                    }
                 }
             }
 
@@ -208,7 +222,7 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
         } finally {
             setLoading(false);
         }
-    }, [studentId, currentSchool?.id, activeTerm]);
+    }, [studentId, currentSchool?.id, activeTerm, requestedTerm]);
 
     const fetchQuizResults = useCallback(async () => {
         try {
@@ -219,20 +233,34 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
         }
     }, []);
 
+    const fetchAttendanceStats = useCallback(async () => {
+        try {
+            const data = studentId
+                ? await api.getStudentAttendance(String(studentId))
+                : await api.getMyAttendance();
+            const records = (data || []) as any[];
+            const schoolDays = records.filter(d => d.status !== 'Leave');
+            const presentDays = schoolDays.filter(d => d.status === 'Present' || d.status === 'Late').length;
+            setAttendancePercentage(schoolDays.length > 0 ? Math.round((presentDays / schoolDays.length) * 100) : 0);
+        } catch (err) {
+            console.error('Error fetching attendance stats:', err);
+        }
+    }, [studentId]);
+
     // Real-time synchronization
     useAutoSync(['grades', 'report_cards'], fetchData);
     useAutoSync(['quiz_submissions'], fetchQuizResults);
+    useAutoSync(['attendance'], fetchAttendanceStats);
 
     useEffect(() => {
         fetchData();
         fetchQuizResults();
-    }, [fetchData, fetchQuizResults]);
+        fetchAttendanceStats();
+    }, [fetchData, fetchQuizResults, fetchAttendanceStats]);
 
     const termGrades = useMemo(() => {
         return performanceData.filter(d => d.term === activeTerm);
     }, [performanceData, activeTerm]);
-
-    const attendancePercentage = student?.attendanceStatus === 'Present' ? 95 : 85;
 
     const availableTerms = useMemo(() => {
         const terms = Array.from(new Set(performanceData.map((d: any) => d.term)));
@@ -240,8 +268,8 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
     }, [performanceData]);
 
     const activeReportCard = useMemo(() => {
-        return reportCards.find(r => r.term === activeTerm && r.is_published);
-    }, [reportCards, activeTerm]);
+        return reportCards.find(r => r.term === activeTerm && (!activeSession || r.session === activeSession) && r.is_published);
+    }, [reportCards, activeTerm, activeSession]);
 
     const isAnyResultPublished = useMemo(() => {
         return reportCards.some(r => r.is_published);
@@ -320,12 +348,20 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
 
     return (
         <div className="flex flex-col h-full bg-gray-100">
-            <div className="p-4 bg-white/80 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-10 print:hidden">
-                <div className="flex space-x-1 bg-gray-200 p-1 rounded-lg overflow-x-auto">
+            <div className="p-4 bg-white/80 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-10 print:hidden flex flex-wrap items-center gap-2">
+                <div className="flex space-x-1 bg-gray-200 p-1 rounded-lg overflow-x-auto flex-1">
                     {availableTerms.map(term => (
-                        <TermTab key={term} term={term} isActive={activeTerm === term} onClick={() => { setActiveTerm(term); setShowFullReport(false); }} />
+                        <TermTab key={term} term={term} isActive={activeTerm === term} onClick={() => { setActiveTerm(term); setActiveSession(''); setShowFullReport(false); }} />
                     ))}
                 </div>
+                {navigateTo && (
+                    <button
+                        onClick={() => navigateTo('selectReportTerm', 'Select Term', { student, studentId })}
+                        className="px-3 py-2 text-sm font-semibold text-orange-600 hover:underline whitespace-nowrap"
+                    >
+                        Change Year/Term
+                    </button>
+                )}
             </div>
 
             <main className="flex-grow p-4 overflow-y-auto">

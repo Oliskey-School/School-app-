@@ -47,25 +47,37 @@ const CreateAssignmentScreen: React.FC<CreateAssignmentScreenProps> = ({ classIn
   const [selectedSubjectId, setSelectedSubjectId] = useState('');
   const [loading, setLoading] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
-  const { classes: availableClasses, subjects: dbSubjects, assignments: rawAssignments, loading: dataLoading, teacherId: resolvedTeacherId } = useTeacherClasses();
-  const { user, currentSchool } = useAuth();
+  const { user, currentSchool, currentBranchId } = useAuth();
+  // Scope the class list to the teacher's currently ACTIVE branch — without this,
+  // the dropdown could offer a class from a different branch than the one the
+  // backend will actually accept, producing a confusing "Class not found or
+  // outside your branch" failure only at submit time.
+  const { classes: availableClasses, subjects: dbSubjects, assignments: rawAssignments, loading: dataLoading, teacherId: resolvedTeacherId } = useTeacherClasses(undefined, currentBranchId);
   const { profile } = useProfile();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Derive subjects filtered by selected class
-  const teacherSubjects = useMemo(() => {
-    if (!selectedClassId) return dbSubjects;
-    if (rawAssignments.length > 0) {
-      // rawAssignments is Array<{ classId, subjectId }>
-      const classSubjectIds = rawAssignments
-        .filter(a => a.classId === selectedClassId)
-        .map(a => a.subjectId);
-      if (classSubjectIds.length > 0) {
-        return dbSubjects.filter(sub => classSubjectIds.includes(sub.id));
-      }
-    }
-    return dbSubjects;
-  }, [selectedClassId, dbSubjects, rawAssignments]);
+  // The class dropdown must offer exactly the (class, subject) combinations this
+  // teacher is actually assigned to teach — never an unrelated subject list a
+  // teacher could pick that doesn't correspond to any real assignment. Build one
+  // option per real teaching assignment (classId+subjectId pair from
+  // rawAssignments, the authoritative source), not from the class-only list,
+  // which loses the subject id and previously let the UI silently mismatch class
+  // and subject on submit.
+  const classSubjectOptions = useMemo(() => {
+    return rawAssignments
+      .map(a => {
+        const cls = availableClasses.find(c => c.id === a.classId);
+        const sub = dbSubjects.find(s => s.id === a.subjectId);
+        if (!cls || !sub) return null;
+        return {
+          key: `${a.classId}::${a.subjectId}`,
+          classId: a.classId,
+          subjectId: a.subjectId,
+          label: `${getFormattedClassName(cls.grade, cls.section)} - ${sub.name}`,
+        };
+      })
+      .filter((o): o is { key: string; classId: string; subjectId: string; label: string } => !!o);
+  }, [rawAssignments, availableClasses, dbSubjects]);
 
   useEffect(() => {
     if (classInfo?.id && !selectedClassId) {
@@ -212,35 +224,23 @@ const CreateAssignmentScreen: React.FC<CreateAssignmentScreenProps> = ({ classIn
             <div className="lg:col-span-1 space-y-5">
               <div className="bg-white p-4 rounded-xl shadow-sm space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Class</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Class & Subject</label>
                   <select
-                    value={selectedClassId}
+                    value={selectedClassId && selectedSubjectId ? `${selectedClassId}::${selectedSubjectId}` : ''}
                     onChange={e => {
-                      const classId = e.target.value;
-                      setSelectedClassId(classId);
-                      // Auto-select subject if mapping exists
-                      const mapping = rawAssignments.find(a => a.classId === classId);
-                      if (mapping) {
-                        setSelectedSubjectId(mapping.subjectId);
-                      }
+                      const [classId, subjectId] = e.target.value.split('::');
+                      setSelectedClassId(classId || '');
+                      setSelectedSubjectId(subjectId || '');
                     }}
                     required
                     className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg"
                   >
-                    <option value="">Select class</option>
-                    {availableClasses.map(c => (
-                      <option key={`${c.id}-${c.subject}`} value={c.id}>
-                        {getFormattedClassName(c.grade, c.section)} - {c.subject}
-                      </option>
+                    <option value="">Select class & subject</option>
+                    {classSubjectOptions.map(o => (
+                      <option key={o.key} value={o.key}>{o.label}</option>
                     ))}
                   </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
-                  <select value={selectedSubjectId} onChange={e => setSelectedSubjectId(e.target.value)} required className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg">
-                    <option value="">Select subject</option>
-                    {teacherSubjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
+                  <p className="text-xs text-gray-400 mt-1">Only classes and subjects you're assigned to teach are shown.</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>

@@ -43,6 +43,7 @@ import AttendanceScreen from '../student/AttendanceScreen';
 import FeeStatusScreen from './FeeStatusScreen';
 import SelectChildForReportScreen from './SelectChildForReportScreen';
 import ReportCardScreen from './ReportCardScreen';
+import SelectReportTermScreen from '../shared/SelectReportTermScreen';
 import TimetableScreen from '../shared/TimetableScreen';
 import PickupAuthorizationScreen from './PickupAuthorizationScreen';
 import ParentProfileScreen from './ParentProfileScreen';
@@ -648,6 +649,7 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
         busRoute: BusRouteScreen,
         feeStatus: (props: any) => <FeeStatusScreen {...props} parentId={parentId} />,
         selectReport: (props: any) => <SelectChildForReportScreen {...props} parentId={parentId} />,
+        selectReportTerm: (props: any) => <SelectReportTermScreen {...props} targetView="reportCard" changeChildView="selectReport" />,
         reportCard: ReportCardScreen,
         timetable: (props: any) => <TimetableScreen {...props} context={{ userType: 'parent', userId: parentId || '' }} students={students} />,
         more: ParentProfileScreen,

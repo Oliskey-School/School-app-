@@ -1063,7 +1063,7 @@ export class StudentService {
 
             const classData = await tx.class.findUnique({
                 where: { id: targetClassId },
-                select: { id: true, name: true }
+                select: { id: true, name: true, grade: true, section: true }
             });
 
             if (!classData) throw new Error('Class not found');
@@ -1087,11 +1087,25 @@ export class StudentService {
                     school_id: schoolId,
                     branch_id: branchId || null,
                     is_primary: true,
+                    status: 'Active',
                     updated_at: new Date()
                 } as any,
                 update: {
-                    is_primary: true
+                    is_primary: true,
+                    // The row can already exist from a PRIOR assignment that was later
+                    // deactivated (e.g. the student was moved elsewhere and is now being
+                    // moved back) — without this, re-assigning to that same class left the
+                    // enrollment permanently stuck Inactive despite being the current one.
+                    status: 'Active'
                 }
+            });
+
+            // Keep the student's own grade/section in sync with their active class —
+            // without this, the student's profile kept showing their old class/grade
+            // forever after a reassignment, even though the enrollment itself was correct.
+            await tx.student.update({
+                where: { id: studentId },
+                data: { grade: classData.grade, section: classData.section }
             });
 
             // Send notifications
@@ -1121,6 +1135,9 @@ export class StudentService {
                     }
                 }
             }
+
+            SocketService.emitToSchool(schoolId, 'student:updated', { action: 'class_assign', studentId });
+            SocketService.emitToSchool(schoolId, 'class:updated', { action: 'class_assign', studentId });
 
             return { success: true };
         });

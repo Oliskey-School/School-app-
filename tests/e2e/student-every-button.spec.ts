@@ -47,6 +47,7 @@ const SKIP_PATTERNS = [
     /broadcast/i,
     /^send all/i,
     /blast/i,
+    /update\s*now/i, // PWA "new version available" banner — triggers a real reload
 ];
 
 const isSkipLabel = (label: string) => SKIP_PATTERNS.some(p => p.test(label));
@@ -90,6 +91,15 @@ async function ensureStudentDashboard(page: Page, baseURL: string) {
 }
 
 async function dismissAnyOverlay(page: Page) {
+    // The promotion/graduation celebration modal (components/shared/PromotionCelebration.tsx)
+    // is deliberately non-Escape-dismissable (a reward moment the student must
+    // acknowledge) and its only control is "Let's go! 🚀" / "Thank you!" — handle
+    // it explicitly before the generic Escape/Cancel/Close sweep below.
+    const promoBtn = page.locator('[role="dialog"] button:has-text("Let\'s go"), [role="dialog"] button:has-text("Thank you")').first();
+    if (await promoBtn.count() > 0) {
+        await promoBtn.click({ timeout: 1000 }).catch(() => { });
+        await page.waitForTimeout(200);
+    }
     await page.keyboard.press('Escape').catch(() => { });
     await page.waitForTimeout(120);
     await page.keyboard.press('Escape').catch(() => { });
@@ -127,6 +137,13 @@ test('every student screen — every clickable button passes (no 5xx, no pageerr
     });
 
     await loginAsDemoStudent(page, baseURL!);
+    // PromotionCelebration's notification check is async — poll briefly rather
+    // than a single fixed wait, since a slow first request could otherwise leave
+    // the modal appearing just after our one dismissal attempt.
+    for (let i = 0; i < 5; i++) {
+        await page.waitForTimeout(600);
+        await dismissAnyOverlay(page);
+    }
 
     const views: string[] = await page.evaluate(() => (window as any).STUDENT_COMPONENTS || []);
     console.log(`>>> Discovered ${views.length} student views`);
@@ -160,6 +177,7 @@ test('every student screen — every clickable button passes (no 5xx, no pageerr
         }
 
         await page.waitForTimeout(1500);
+        await dismissAnyOverlay(page); // catches PromotionCelebration if it appeared after login/navigation
 
         const buttonLocators = page.locator('main button:visible:not([disabled]), main [role="button"]:visible:not([aria-disabled="true"]), main a[href]:visible').filter({ hasNot: page.locator('[data-shell="true"]') });
         const buttonsFound = await buttonLocators.count();

@@ -139,27 +139,47 @@ export class AssignmentService {
         });
     }
 
-    static async gradeSubmission(schoolId: string, branchId: string | undefined, submissionId: string, gradeData: any) {
+    static async gradeSubmission(schoolId: string, branchId: string | undefined, callerTeacherId: string | null, isAdmin: boolean, submissionId: string, gradeData: { score?: number; feedback?: string; status?: string }) {
         // First verify ownership
         const submission = await prisma.assignmentSubmission.findUnique({
             where: { id: submissionId },
-            include: { 
+            include: {
                 assignment: {
                     include: { class: true }
-                } 
+                }
             }
         });
 
-        const classRecord = (submission as any)?.assignment?.class;
+        const assignment = (submission as any)?.assignment;
+        const classRecord = assignment?.class;
         const branchMismatch = branchId && branchId !== 'all' && classRecord?.branch_id && classRecord.branch_id !== branchId;
 
         if (!submission || classRecord?.school_id !== schoolId || branchMismatch) {
             throw new Error('Submission not found or access denied');
         }
 
+        // Only an admin, or the teacher who owns the assignment (when one is set),
+        // may grade it — never the submitting student themselves.
+        if (!isAdmin && assignment?.teacher_id && assignment.teacher_id !== callerTeacherId) {
+            const err: any = new Error('You do not have access to grade this submission');
+            err.status = 403;
+            throw err;
+        }
+        if (!isAdmin && !callerTeacherId) {
+            const err: any = new Error('Only teachers or admins may grade submissions');
+            err.status = 403;
+            throw err;
+        }
+
+        // Whitelist — never spread the raw request body into an update().
+        const allowed: any = {};
+        if (gradeData.score !== undefined) allowed.score = gradeData.score;
+        if (gradeData.feedback !== undefined) allowed.feedback = gradeData.feedback;
+        allowed.status = gradeData.status || 'Graded';
+
         const updated = await prisma.assignmentSubmission.update({
             where: { id: submissionId },
-            data: gradeData
+            data: allowed
         });
 
         SocketService.emitToSchool(schoolId, 'assignment:updated', { action: 'grade', submissionId });

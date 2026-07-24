@@ -254,7 +254,6 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 router.use('/', offlineChannelRoutes);
-router.get('/parent-children', authenticate, ParentController.getParentChildren);
 
 router.use('/', inviteRoutes);
 

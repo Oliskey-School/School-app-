@@ -53,7 +53,15 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, currentUser
                 const kidsData = await api.getMyChildren();
                 if (kidsData && kidsData.length > 0) {
                     setStudents(kidsData);
-                    if (!selectedStudent) setSelectedStudent(kidsData[0]);
+                    // Functional update so this never needs selectedStudent as a
+                    // dependency — only defaults to the first child when nothing is
+                    // selected yet, using the LATEST state rather than a stale
+                    // closure value. Depending on selectedStudent here previously
+                    // made init() (which re-fetches the parent profile AND the full
+                    // children list) re-run on every child switch — both wasteful
+                    // and, via the reactive loop it created, the reason switching
+                    // children could snap back to the first one.
+                    setSelectedStudent(prev => prev || kidsData[0]);
                 } else {
                     toast('No children found linked to your account.');
                 }
@@ -63,7 +71,7 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, currentUser
             }
         }
         setLoading(false);
-    }, [parentId, schoolId, selectedStudent]);
+    }, [parentId, schoolId]);
 
     useEffect(() => {
         init();
@@ -114,12 +122,6 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, currentUser
             setLoading(false);
         }
     }, []);
-
-    useEffect(() => {
-        if (selectedStudent) {
-            loadFees(selectedStudent.id);
-        }
-    }, [selectedStudent, loadFees]);
 
     const handleDownloadReceipt = async (fee: Fee) => {
         try {

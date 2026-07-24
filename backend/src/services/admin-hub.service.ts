@@ -414,23 +414,49 @@ export class SafetyService {
         });
     }
 
+    // The frontend's Drill form/list (components/admin/SafetyHealthLogs.tsx) uses
+    // duration_minutes/participants_count/success_rating, but the actual columns
+    // are duration/participants/outcome — map both directions here rather than
+    // spreading the raw request body into Prisma (which crashed with "Unknown
+    // argument" since those frontend names aren't real columns).
+    private static mapDrillToFrontend(drill: any) {
+        const { duration, participants, outcome, ...rest } = drill;
+        return {
+            ...rest,
+            duration_minutes: duration,
+            participants_count: participants,
+            success_rating: outcome,
+        };
+    }
+
     static async getEmergencyDrills(schoolId: string) {
         // @ts-ignore
-        return prisma.emergencyDrill.findMany({
+        const drills = await prisma.emergencyDrill.findMany({
             where: { school_id: schoolId },
             orderBy: { drill_date: 'desc' }
         });
+        return drills.map((d: any) => this.mapDrillToFrontend(d));
     }
 
     static async createEmergencyDrill(schoolId: string, data: any) {
+        const { duration_minutes, participants_count, success_rating, drill_type, drill_date, start_time, end_time, notes, conducted_by, branch_id } = data;
         // @ts-ignore
-        return prisma.emergencyDrill.create({
+        const drill = await prisma.emergencyDrill.create({
             data: {
-                ...data,
+                drill_type,
+                start_time,
+                end_time,
+                notes,
+                conducted_by,
+                duration: duration_minutes,
+                participants: participants_count != null ? String(participants_count) : undefined,
+                outcome: success_rating,
                 school_id: schoolId,
-                drill_date: data.drill_date ? new Date(data.drill_date) : new Date()
+                branch_id: branch_id || null,
+                drill_date: drill_date ? new Date(drill_date) : new Date()
             }
         });
+        return this.mapDrillToFrontend(drill);
     }
 
     static async getSafeguardingPolicies(schoolId: string) {

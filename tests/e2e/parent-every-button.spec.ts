@@ -47,6 +47,7 @@ const SKIP_PATTERNS = [
     /broadcast/i,
     /^send all/i,
     /blast/i,
+    /update\s*now/i, // PWA "new version available" banner — triggers a real reload
 ];
 
 const isSkipLabel = (label: string) => SKIP_PATTERNS.some(p => p.test(label));
@@ -100,6 +101,17 @@ async function ensureParentDashboard(page: Page, baseURL: string) {
 }
 
 async function dismissAnyOverlay(page: Page) {
+    // The promotion/graduation celebration modal (components/shared/PromotionCelebration.tsx)
+    // is deliberately non-Escape-dismissable (a reward moment the parent must
+    // acknowledge) and its only control is "Let's go! 🚀" / "Thank you!". A parent
+    // with MULTIPLE promoted children gets one queued modal PER child — dismissing
+    // one immediately reveals the next — so loop until none remain (bounded to
+    // avoid ever hanging on a genuinely stuck dialog).
+    const promoBtn = page.locator('[role="dialog"] button:has-text("Let\'s go"), [role="dialog"] button:has-text("Thank you")').first();
+    for (let i = 0; i < 10 && await promoBtn.count() > 0; i++) {
+        await promoBtn.click({ timeout: 1000 }).catch(() => { });
+        await page.waitForTimeout(200);
+    }
     await page.keyboard.press('Escape').catch(() => { });
     await page.waitForTimeout(120);
     await page.keyboard.press('Escape').catch(() => { });
@@ -138,6 +150,10 @@ test('every parent screen — every clickable button passes (no 5xx, no pageerro
 
     await enableAuditMode(page);
     await loginAsDemoParent(page, baseURL!);
+    // Accumulated test data (e.g. a promotion/assignment notification for this
+    // demo parent's child from earlier runs) can render a blocking modal right
+    // after login — dismiss it now, before the first click is ever attempted.
+    await dismissAnyOverlay(page);
 
     const views: string[] = await page.evaluate(() => (window as any).PARENT_COMPONENTS || []);
     console.log(`>>> Discovered ${views.length} parent views`);
@@ -171,6 +187,7 @@ test('every parent screen — every clickable button passes (no 5xx, no pageerro
         }
 
         await page.waitForTimeout(1500);
+        await dismissAnyOverlay(page);
 
         const buttonLocators = page.locator('main button:visible:not([disabled]), main [role="button"]:visible:not([aria-disabled="true"]), main a[href]:visible').filter({ hasNot: page.locator('[data-shell="true"]') });
         const buttonsFound = await buttonLocators.count();

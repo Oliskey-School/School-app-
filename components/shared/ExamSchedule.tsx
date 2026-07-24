@@ -1,7 +1,9 @@
-import React from 'react';
-import { EXAM_TYPE_COLORS, ClockIcon, ExamIcon } from '../../constants';
-import { mockExamsData } from '../../data';
+import React, { useState, useEffect } from 'react';
+import { EXAM_TYPE_COLORS, ClockIcon, ExamIcon, AlertTriangleIcon } from '../../constants';
 import { Exam } from '../../types';
+import { api } from '../../lib/api';
+import { useAuth } from '../../context/AuthContext';
+import { useAutoSync } from '../../hooks/useAutoSync';
 
 // Function to group exams by date
 const groupExamsByDate = (exams: Exam[]) => {
@@ -16,8 +18,40 @@ const groupExamsByDate = (exams: Exam[]) => {
 };
 
 const ExamSchedule: React.FC = () => {
-    
-    const publishedExams = mockExamsData
+    const { currentSchool, currentBranchId } = useAuth();
+    const [exams, setExams] = useState<Exam[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [errorOccurred, setErrorOccurred] = useState(false);
+
+    const fetchExams = async () => {
+        if (!currentSchool?.id) return;
+        try {
+            setLoading(true);
+            setErrorOccurred(false);
+            const data = await api.getExams(currentSchool.id, currentBranchId || undefined);
+            const mapped: Exam[] = (data || []).map((e: any) => ({
+                id: e.id,
+                type: e.exam_type || e.type || 'Exam',
+                date: e.date ? new Date(e.date).toISOString().split('T')[0] : '',
+                time: e.start_time ? new Date(e.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined,
+                className: e.class_name || e.className || '',
+                subject: e.subject,
+                isPublished: e.is_published ?? e.isPublished ?? false,
+                teacherId: e.teacher_id || e.teacherId,
+            }));
+            setExams(mapped);
+        } catch (err) {
+            console.error('Error fetching exam schedule:', err);
+            setErrorOccurred(true);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => { fetchExams(); }, [currentSchool?.id, currentBranchId]);
+    useAutoSync(['exams'], fetchExams);
+
+    const publishedExams = exams
         .filter(exam => exam.isPublished)
         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
@@ -26,7 +60,21 @@ const ExamSchedule: React.FC = () => {
     return (
         <div className="flex flex-col h-full bg-gray-50">
             <main className="flex-grow p-4 space-y-6 overflow-y-auto">
-                {Object.keys(groupedExams).length > 0 ? (
+                {loading ? (
+                    <div className="flex justify-center py-10"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div></div>
+                ) : errorOccurred ? (
+                    <div className="text-center py-10 bg-white rounded-lg shadow-sm mt-8">
+                        <AlertTriangleIcon className="mx-auto h-12 w-12 text-amber-300" />
+                        <h3 className="mt-2 text-sm font-medium text-gray-900">Couldn't load the exam schedule</h3>
+                        <p className="mt-1 text-sm text-gray-500 mb-4">There was a problem reaching the server. Please try again.</p>
+                        <button
+                            onClick={fetchExams}
+                            className="px-5 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium text-sm"
+                        >
+                            Retry
+                        </button>
+                    </div>
+                ) : Object.keys(groupedExams).length > 0 ? (
                     Object.entries(groupedExams).map(([date, examsOnDate]) => (
                         <div key={date}>
                             <div className="mb-3 pl-1">

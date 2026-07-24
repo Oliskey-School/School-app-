@@ -212,9 +212,10 @@ const AddEntryForm = ({
                             <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">Duration (Mins)</label>
                             <input
                                 type="number"
+                                min="0"
                                 className="w-full px-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none text-gray-900 font-medium"
                                 value={formData.duration_minutes || ''}
-                                onChange={(e) => setFormData({ ...formData, duration_minutes: parseInt(e.target.value) })}
+                                onChange={(e) => setFormData({ ...formData, duration_minutes: Math.max(0, parseInt(e.target.value) || 0) })}
                             />
                         </div>
                     </div>
@@ -222,9 +223,10 @@ const AddEntryForm = ({
                         <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">Participants Count</label>
                         <input
                             type="number"
+                            min="0"
                             className="w-full px-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none text-gray-900 font-medium"
                             value={formData.participants_count || ''}
-                            onChange={(e) => setFormData({ ...formData, participants_count: parseInt(e.target.value) })}
+                            onChange={(e) => setFormData({ ...formData, participants_count: Math.max(0, parseInt(e.target.value) || 0) })}
                         />
                     </div>
                     <div className="space-y-2">

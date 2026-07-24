@@ -16,7 +16,6 @@ router.get('/:id/children', getChildrenForParent);
 router.get('/', getParents);
 router.post('/', createParent);
 router.post('/link-child', linkChild);
-router.post('/link-child', linkChild);
 router.post('/link-child-unique', linkChild);
 router.post('/unlink-child', unlinkChild);
 router.post('/appointments', createAppointment);

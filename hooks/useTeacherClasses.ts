@@ -68,8 +68,16 @@ export const useTeacherClasses = (teacherId?: string | null, branchId?: string |
                         teacherData.classes.forEach((item: any) => {
                             const c = item.class;
                             const s = item.subject;
-                            // Only include classes for the active branch (branch_id null = school-wide, always shown)
-                            const classBranch: string | null = item.branch_id ?? c?.branch_id ?? null;
+                            // Only include classes for the active branch (branch_id null = school-wide, always shown).
+                            // The CLASS's own branch_id is authoritative here — it's what the backend
+                            // actually checks when the class is used (e.g. creating an assignment).
+                            // The ClassTeacher join row's own branch_id tag can legitimately differ
+                            // (e.g. a teacher lent across branches keeps one assignment row per branch
+                            // they operate in, not per branch the class belongs to) — preferring it
+                            // over the class's real branch let classes from OTHER branches slip through
+                            // the filter, so a class would appear pickable here yet be rejected by the
+                            // backend as "outside your branch" the moment it was actually used.
+                            const classBranch: string | null = c?.branch_id ?? item.branch_id ?? null;
                             if (branchId && branchId !== 'all' && classBranch !== null && classBranch !== branchId) return;
 
                             if (c) {

@@ -186,18 +186,27 @@ const TermReport: React.FC<{ report: ReportCard, student: Student, schoolName?: 
 
 interface ReportCardScreenProps {
     student: Student;
+    // Carried over from SelectReportTermScreen when the caller already picked
+    // a specific year/term — pre-selects that report instead of defaulting to
+    // the most recent one.
+    term?: string;
+    session?: string;
+    navigateTo?: (view: string, title: string, props?: any) => void;
 }
 
-const ReportCardScreen: React.FC<ReportCardScreenProps> = ({ student }) => {
+const ReportCardScreen: React.FC<ReportCardScreenProps> = ({ student, term, session, navigateTo }) => {
     if (!student) return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Select a child to view their report card.</div>;
     const { currentSchool } = useAuth();
     const publishedReportsSummary = useMemo(() =>
-        (student.reportCards || []).filter(r => r.status === 'Published'),
+        ((student.reportCards || (student as any).report_cards || []) as ReportCard[]).filter(r => r.status === 'Published'),
         [student]
     );
 
+    const requestedKey = term && session ? `${term}|${session}` : null;
+    const requestedExists = requestedKey && publishedReportsSummary.some(r => `${r.term}|${r.session}` === requestedKey);
+
     const [activeReportKey, setActiveReportKey] = useState<string | null>(
-        publishedReportsSummary[0] ? `${publishedReportsSummary[0].term}|${publishedReportsSummary[0].session}` : null
+        requestedExists ? requestedKey : (publishedReportsSummary[0] ? `${publishedReportsSummary[0].term}|${publishedReportsSummary[0].session}` : null)
     );
     const [activeReport, setActiveReport] = useState<ReportCard | null>(null);
     const [loading, setLoading] = useState(false);
@@ -256,15 +265,35 @@ const ReportCardScreen: React.FC<ReportCardScreenProps> = ({ student }) => {
         );
     }
 
+    // A specific term/session was requested (came from SelectReportTermScreen)
+    // but this child has no published report for it — say so plainly rather
+    // than silently substituting a different term's report.
+    if (requestedKey && !requestedExists) {
+        return (
+            <div className="p-6 text-center bg-gray-50 h-full flex flex-col justify-center">
+                <h3 className="font-bold text-lg text-gray-800">No Report for {term} · {session}</h3>
+                <p className="text-gray-600 mt-2">That term hasn't been published for {student.name} yet.</p>
+                {navigateTo && (
+                    <button
+                        onClick={() => navigateTo('selectReportTerm', 'Select Term', { student })}
+                        className="mt-4 mx-auto px-5 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm"
+                    >
+                        Pick Another Term
+                    </button>
+                )}
+            </div>
+        );
+    }
+
     return (
         <div className="p-2 sm:p-4 bg-gray-50 font-serif min-h-full">
             <div className="max-w-4xl mx-auto">
-                <div className="mb-4 flex justify-between items-center print:hidden">
+                <div className="mb-4 flex flex-wrap justify-between items-center gap-2 print:hidden">
                     <div className="flex space-x-1 bg-gray-200 p-1 rounded-lg overflow-x-auto scrollbar-hide">
                         {publishedReportsSummary.map(report => {
                             const reportKey = `${report.term}|${report.session}`;
                             const isUniqueSession = publishedReportsSummary.filter(r => r.term === report.term).length > 1;
-                            
+
                             return (
                                 <button
                                     key={reportKey}
@@ -277,14 +306,24 @@ const ReportCardScreen: React.FC<ReportCardScreenProps> = ({ student }) => {
                             );
                         })}
                     </div>
-                    <button
-                        onClick={handlePrint}
-                        disabled={!activeReport || loading}
-                        className="flex items-center space-x-2 px-4 py-2 bg-green-500 text-white font-sans font-semibold rounded-lg shadow-md hover:bg-green-600 disabled:opacity-50"
-                    >
-                        <DocumentTextIcon className="w-5 h-5" />
-                        <span className="hidden sm:inline">Print</span>
-                    </button>
+                    <div className="flex items-center gap-2">
+                        {navigateTo && (
+                            <button
+                                onClick={() => navigateTo('selectReportTerm', 'Select Term', { student })}
+                                className="px-3 py-2 text-sm font-sans font-semibold text-green-700 hover:underline"
+                            >
+                                Change Year/Term
+                            </button>
+                        )}
+                        <button
+                            onClick={handlePrint}
+                            disabled={!activeReport || loading}
+                            className="flex items-center space-x-2 px-4 py-2 bg-green-500 text-white font-sans font-semibold rounded-lg shadow-md hover:bg-green-600 disabled:opacity-50"
+                        >
+                            <DocumentTextIcon className="w-5 h-5" />
+                            <span className="hidden sm:inline">Print</span>
+                        </button>
+                    </div>
                 </div>
 
                 {loading ? (

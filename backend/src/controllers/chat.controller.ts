@@ -2,11 +2,23 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { ChatService } from '../services/chat.service';
 import { DEMO_SCHOOL_ID } from '../config/env';
+import prisma from '../config/database';
 
 const chatService = new ChatService();
 
 const resolveSchoolId = (req: AuthRequest): string | undefined =>
     req.user?.school_id || (req.user?.is_demo ? DEMO_SCHOOL_ID : undefined);
+
+// A user may only read/post/mark-read in a room they're actually a participant
+// of — without this, any authenticated user could access any room in any
+// school just by knowing/guessing its id.
+async function isRoomParticipant(roomId: string, userId: string): Promise<boolean> {
+    const participant = await prisma.chatParticipant.findUnique({
+        where: { room_id_user_id: { room_id: roomId, user_id: userId } },
+        select: { id: true },
+    });
+    return !!participant;
+}
 
 export const getChatRooms = async (req: AuthRequest, res: Response) => {
     try {
@@ -22,6 +34,11 @@ export const getChatRooms = async (req: AuthRequest, res: Response) => {
 export const getChatMessages = async (req: AuthRequest, res: Response) => {
     try {
         const { roomId } = req.params;
+        const userId = req.user?.id;
+        if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+        if (!(await isRoomParticipant(roomId as string, userId))) {
+            return res.status(403).json({ message: 'You are not a participant in this conversation' });
+        }
         const messages = await chatService.getChatMessages(roomId as string);
         res.json(messages);
     } catch (error: any) {
@@ -35,6 +52,9 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
         const { content, type, mediaUrl } = req.body;
         const senderId = req.user?.id;
         if (!senderId) return res.status(401).json({ message: 'Unauthorized' });
+        if (!(await isRoomParticipant(roomId as string, senderId))) {
+            return res.status(403).json({ message: 'You are not a participant in this conversation' });
+        }
         const message = await chatService.sendMessage(roomId as string, senderId, content, type, mediaUrl);
         res.json(message);
     } catch (error: any) {

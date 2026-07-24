@@ -87,11 +87,11 @@ const PickupAuthorizationScreen = () => {
 
             {showAdd && (
                 <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 space-y-2">
-                    <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Full name"
+                    <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Full name" aria-label="Full name"
                         className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400" />
-                    <input value={form.relationship} onChange={e => setForm(f => ({ ...f, relationship: e.target.value }))} placeholder="Relationship (e.g. Uncle, Driver)"
+                    <input value={form.relationship} onChange={e => setForm(f => ({ ...f, relationship: e.target.value }))} placeholder="Relationship (e.g. Uncle, Driver)" aria-label="Relationship"
                         className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400" />
-                    <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="Phone (optional)"
+                    <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="Phone (optional)" aria-label="Phone (optional)"
                         className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400" />
                     <button onClick={handleAdd} disabled={saving} className="bg-indigo-600 text-white text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60">
                         {saving ? 'Saving...' : 'Add'}
@@ -112,7 +112,7 @@ const PickupAuthorizationScreen = () => {
                                 <p className="font-semibold text-gray-900 text-sm">{p.name}</p>
                                 <p className="text-xs text-gray-400">{p.relationship}{p.phone ? ` · ${p.phone}` : ''}</p>
                             </div>
-                            <button onClick={() => handleRemove(p.id)}><Trash2 className="w-4 h-4 text-gray-300 hover:text-red-500" /></button>
+                            <button onClick={() => handleRemove(p.id)} aria-label={`Remove ${p.name}`}><Trash2 className="w-4 h-4 text-gray-300 hover:text-red-500" /></button>
                         </div>
                     ))}
                 </div>
