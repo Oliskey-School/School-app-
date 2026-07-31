@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useBranch } from '../../context/BranchContext';
@@ -129,42 +130,44 @@ const ClassVerificationScreen = () => {
                         onChange={(e) => setDate(e.target.value)}
                         className="border border-gray-200 rounded-xl px-4 py-2 focus:ring-2 focus:ring-indigo-500 outline-none font-semibold text-gray-600"
                     />
-                    <button
+                    <motion.button
+                        whileHover={{ rotate: 90 }}
+                        whileTap={{ scale: 0.9 }}
                         onClick={() => fetchReport(true)}
                         className="p-2.5 bg-white border border-gray-200 rounded-xl text-gray-500 hover:bg-gray-50 transition-colors"
                         title="Refresh"
                     >
                         <RefreshCw className="w-4 h-4" />
-                    </button>
+                    </motion.button>
                 </div>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                 {statCards.map((card, i) => (
-                    <div key={i} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+                    <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: i * 0.05 }} whileHover={{ y: -2 }} className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-md transition-shadow border border-gray-100">
                         <div className={`w-9 h-9 rounded-xl ${card.bg} flex items-center justify-center mb-2`}>
                             {card.icon}
                         </div>
                         <p className="text-2xl font-bold text-gray-900">{loading ? '—' : card.value}</p>
                         <p className="text-xs text-gray-500 font-semibold">{card.label}</p>
-                    </div>
+                    </motion.div>
                 ))}
             </div>
 
             {loading ? (
                 <div className="text-center py-12 text-gray-500">Loading verification report...</div>
             ) : lessons.length === 0 ? (
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
+                <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.25 }} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
                     <QrCode className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                     <h3 className="font-bold text-lg text-gray-900">No verifiable lessons for this day</h3>
                     <p className="text-gray-500 mt-1 max-w-md mx-auto">
                         Lessons appear here when a published timetable entry is linked to a classroom with a QR code.
                     </p>
-                </div>
+                </motion.div>
             ) : (
                 <>
                     {/* Lessons table */}
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                         <div className="px-5 py-4 border-b border-gray-100">
                             <h2 className="font-bold text-gray-900">All Scheduled Lessons</h2>
                         </div>
@@ -223,10 +226,10 @@ const ClassVerificationScreen = () => {
                                 </tbody>
                             </table>
                         </div>
-                    </div>
+                    </motion.div>
 
                     {/* Per-teacher summary */}
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: 0.05 }} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                         <div className="px-5 py-4 border-b border-gray-100">
                             <h2 className="font-bold text-gray-900">Teacher Daily Summary</h2>
                         </div>
@@ -263,7 +266,7 @@ const ClassVerificationScreen = () => {
                                 </tbody>
                             </table>
                         </div>
-                    </div>
+                    </motion.div>
                 </>
             )}
         </div>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
@@ -62,13 +63,10 @@ const VolunteeringScreen: React.FC = () => {
     }, [fetchOpportunities, fetchMySignups]);
 
     const handleSignUpToggle = async (id: string) => {
-        if (pendingIds.has(id)) return;
-
-        if (signedUpEvents.has(id)) {
-            // No cancel route available — remove from local state only
-            setSignedUpEvents(prev => { const s = new Set(prev); s.delete(id); return s; });
-            return;
-        }
+        // Signing up is a one-way action here — there's no cancel/withdraw endpoint yet,
+        // so once signed up the button becomes a disabled "Signed Up" state rather than
+        // pretending to cancel (which would only clear local state, not the real signup).
+        if (pendingIds.has(id) || signedUpEvents.has(id)) return;
 
         setPendingIds(prev => new Set(prev).add(id));
         try {
@@ -102,14 +100,21 @@ const VolunteeringScreen: React.FC = () => {
                     <div className="text-center p-8 text-gray-500">No active volunteering opportunities.</div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {opportunities.map(opp => {
+                        {opportunities.map((opp, i) => {
                             const isSignedUp = signedUpEvents.has(opp.id);
                             const isPending = pendingIds.has(opp.id);
                             const spotsLeft = opp.spotsAvailable - (opp.spotsFilled + (isSignedUp ? 1 : 0));
                             const isFull = spotsLeft <= 0;
 
                             return (
-                                <div key={opp.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow">
+                                <motion.div
+                                    key={opp.id}
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.25, delay: Math.min(i, 10) * 0.05 }}
+                                    whileHover={{ y: -2 }}
+                                    className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow"
+                                >
                                     <div className="flex justify-between items-start mb-2">
                                         <h4 className="font-bold text-gray-800 text-lg">{opp.title}</h4>
                                         <span className={`text-xs font-bold px-2 py-1 rounded-full uppercase tracking-wider ${isFull ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'
@@ -131,20 +136,21 @@ const VolunteeringScreen: React.FC = () => {
                                         <p className="text-xs font-bold text-gray-400">
                                             {Math.max(0, spotsLeft)} <span className="font-normal">spots remaining</span>
                                         </p>
-                                        <button
+                                        <motion.button
+                                            whileTap={{ scale: isFull || isPending || isSignedUp ? 1 : 0.95 }}
                                             onClick={() => handleSignUpToggle(opp.id)}
-                                            disabled={(isFull && !isSignedUp) || isPending}
-                                            className={`py-2.5 px-6 text-sm font-bold rounded-xl transition-all shadow-sm active:scale-95 ${isSignedUp
-                                                ? 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100'
+                                            disabled={isFull || isPending || isSignedUp}
+                                            className={`py-2.5 px-6 text-sm font-bold rounded-xl shadow-sm transition-colors ${isSignedUp
+                                                ? 'bg-green-50 text-green-700 border border-green-200 cursor-default shadow-none'
                                                 : isFull || isPending
                                                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none'
                                                     : 'bg-green-600 text-white hover:bg-green-700 hover:shadow-green-200'
                                                 }`}
                                         >
-                                            {isPending ? 'Signing up...' : isSignedUp ? 'Cancel' : isFull ? 'Full' : 'Sign Up'}
-                                        </button>
+                                            {isPending ? 'Signing up...' : isSignedUp ? '✓ Signed Up' : isFull ? 'Full' : 'Sign Up'}
+                                        </motion.button>
                                     </div>
-                                </div>
+                                </motion.div>
                             );
                         })}
                     </div>

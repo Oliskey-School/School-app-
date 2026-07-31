@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
 import { toast } from 'react-hot-toast';
@@ -10,6 +11,7 @@ import PaymentPlanModal from './PaymentPlanModal';
 import { useAuth } from '../../context/AuthContext';
 import { useProfile } from '../../context/ProfileContext';
 import SearchableStudentSelect from '../shared/SearchableStudentSelect';
+import CenteredLoader from '../ui/CenteredLoader';
 
 const AssignFeeSchema = Yup.object().shape({
     title: Yup.string().required('Title is required'),
@@ -150,27 +152,25 @@ const AssignFeePage: React.FC<AssignFeePageProps> = ({
     return (
         <div className="flex flex-col h-full bg-gray-50">
             <main className="flex-grow p-4 md:p-6 space-y-6 overflow-y-auto pb-32">
-                <div className="max-w-2xl mx-auto">
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="max-w-2xl mx-auto">
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                         <div className="p-6 border-b border-gray-50 flex justify-between items-center">
                             <div>
                                 <h1 className="text-xl font-bold text-gray-900">Assign New Fee</h1>
                                 <p className="text-sm text-gray-500">Record a new payment obligation for a student</p>
                             </div>
-                            <button
+                            <motion.button
+                                whileTap={{ scale: 0.9 }}
                                 onClick={handleBack}
                                 className="p-2 hover:bg-gray-100 rounded-full transition-colors"
                             >
                                 <ArrowLeft className="w-5 h-5 text-gray-500" />
-                            </button>
+                            </motion.button>
                         </div>
 
                         <div className="p-6">
                             {loading ? (
-                                <div className="flex flex-col items-center justify-center py-12">
-                                    <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-                                    <p className="mt-4 text-gray-500">Loading students...</p>
-                                </div>
+                                <CenteredLoader message="Loading students..." className="py-12" />
                             ) : (
                                 <Formik
                                     initialValues={{ title: '', amount: '', description: '', dueDate: '', studentId: '', curriculumType: 'General' }}
@@ -250,20 +250,24 @@ const AssignFeePage: React.FC<AssignFeePageProps> = ({
                                             </div>
 
                                             <div className="pt-4 flex gap-4">
-                                                <button
+                                                <motion.button
+                                                    whileHover={{ scale: 1.02 }}
+                                                    whileTap={{ scale: 0.98 }}
                                                     type="button"
                                                     onClick={handleBack}
-                                                    className="flex-1 px-6 py-3 border border-gray-200 text-gray-600 rounded-xl font-bold hover:bg-gray-50 transition-all active:scale-95"
+                                                    className="flex-1 px-6 py-3 border border-gray-200 text-gray-600 rounded-xl font-bold hover:bg-gray-50 transition-all"
                                                 >
                                                     Cancel
-                                                </button>
-                                                <button
+                                                </motion.button>
+                                                <motion.button
+                                                    whileHover={!isSubmitting ? { scale: 1.02 } : {}}
+                                                    whileTap={!isSubmitting ? { scale: 0.98 } : {}}
                                                     type="submit"
                                                     disabled={isSubmitting}
-                                                    className="flex-[2] bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50"
+                                                    className="flex-[2] bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all disabled:opacity-50"
                                                 >
                                                     {isSubmitting ? 'Assigning...' : 'Assign Fee'}
-                                                </button>
+                                                </motion.button>
                                             </div>
                                         </Form>
                                     )}
@@ -271,7 +275,7 @@ const AssignFeePage: React.FC<AssignFeePageProps> = ({
                             )}
                         </div>
                     </div>
-                </div>
+                </motion.div>
             </main>
 
             {/* Payment Plan Modal */}

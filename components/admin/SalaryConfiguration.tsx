@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { formatCurrency, calculateGrossSalary } from '../../lib/payroll';
 import { toast } from 'react-hot-toast';
+import CenteredLoader from '../ui/CenteredLoader';
 import {
     PlusIcon,
     EditIcon,
@@ -126,19 +128,22 @@ const SalaryConfiguration: React.FC<SalaryConfigurationProps> = ({ navigateTo, h
                     <h2 className="text-2xl font-bold text-gray-900">Salary Configuration</h2>
                     <p className="text-sm text-gray-600 mt-1">Manage teacher salary settings</p>
                 </div>
-                <button
+                <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={() => setShowForm(true)}
                     className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
                 >
                     <PlusIcon className="w-5 h-5" />
                     <span>Add Salary</span>
-                </button>
+                </motion.button>
             </div>
 
             {/* Salary Form Modal */}
+            <AnimatePresence>
             {showForm && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} transition={{ type: 'spring', stiffness: 400, damping: 32 }} className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                         <div className="p-6">
                             <h3 className="text-xl font-bold text-gray-900 mb-4">
                                 {editingId ? 'Edit Salary' : 'Add New Salary'}
@@ -267,25 +272,30 @@ const SalaryConfiguration: React.FC<SalaryConfigurationProps> = ({ navigateTo, h
                                 </div>
 
                                 <div className="flex space-x-3 pt-4">
-                                    <button
+                                    <motion.button
+                                        whileHover={{ scale: 1.02 }}
+                                        whileTap={{ scale: 0.98 }}
                                         type="submit"
                                         className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
                                     >
                                         {editingId ? 'Update Salary' : 'Create Salary'}
-                                    </button>
-                                    <button
+                                    </motion.button>
+                                    <motion.button
+                                        whileHover={{ scale: 1.02 }}
+                                        whileTap={{ scale: 0.98 }}
                                         type="button"
                                         onClick={resetForm}
                                         className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
                                     >
                                         Cancel
-                                    </button>
+                                    </motion.button>
                                 </div>
                             </form>
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
 
             {/* Teachers List */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100">
@@ -294,25 +304,27 @@ const SalaryConfiguration: React.FC<SalaryConfigurationProps> = ({ navigateTo, h
                 </div>
                 <div className="divide-y divide-gray-200">
                     {loading ? (
-                        <div className="p-8 text-center text-gray-500">Loading...</div>
+                        <CenteredLoader className="p-8" />
                     ) : teachers.length === 0 ? (
                         <div className="p-8 text-center text-gray-500">No teachers found</div>
                     ) : (
-                        teachers.map((teacher) => (
-                            <div key={teacher.id} className="p-6 hover:bg-gray-50">
+                        teachers.map((teacher, ti) => (
+                            <motion.div key={teacher.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(ti, 15) * 0.02 }} className="p-6 hover:bg-gray-50">
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <h4 className="font-semibold text-gray-900">{teacher.full_name}</h4>
                                         <p className="text-sm text-gray-600">{teacher.email}</p>
                                     </div>
-                                    <button
+                                    <motion.button
+                                        whileHover={{ scale: 1.02 }}
+                                        whileTap={{ scale: 0.98 }}
                                         onClick={() => navigateTo('teacherSalaryDetail', 'Salary Details', { teacherId: teacher.id })}
                                         className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium"
                                     >
                                         View Salary
-                                    </button>
+                                    </motion.button>
                                 </div>
-                            </div>
+                            </motion.div>
                         ))
                     )}
                 </div>

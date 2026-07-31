@@ -63,6 +63,8 @@ export interface Exam {
   date: string;
   time?: string;
   className: string;
+  classId?: string; // Real class UUID — used to fetch the roster reliably instead of
+                     // re-parsing className (which breaks for Nigerian "JSS"/"SSS" names)
   subject: string;
   isPublished: boolean;
   teacherId?: string; // To associate exams with the teacher who created them

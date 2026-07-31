@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { useProfile } from '../../context/ProfileContext';
 import { toast } from 'react-hot-toast';
 import { DocumentTextIcon, CheckCircleIcon, XCircleIcon, ClockIcon } from '../../constants';
+import CenteredLoader from '../ui/CenteredLoader';
 
 interface PermissionSlip {
     id: number;
@@ -125,29 +127,28 @@ const PermissionSlips: React.FC = () => {
                     </p>
                 </div>
                 {!isParent && (
-                    <button
+                    <motion.button
+                        whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                         onClick={() => setShowCreate(true)}
                         className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
                     >
                         Create Permission Slip
-                    </button>
+                    </motion.button>
                 )}
             </div>
 
             {/* Slips List */}
             <div className="grid grid-cols-1 gap-4">
                 {loading ? (
-                    <div className="flex justify-center py-12">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-                    </div>
+                    <CenteredLoader className="py-12" />
                 ) : slips.length === 0 ? (
                     <div className="text-center py-12 bg-white rounded-xl border border-gray-200">
                         <DocumentTextIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                         <p className="text-gray-600">No permission slips</p>
                     </div>
                 ) : (
-                    slips.map((slip) => (
-                        <div key={slip.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                    slips.map((slip, si) => (
+                        <motion.div key={slip.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(si, 15) * 0.03 }} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                             <div className="flex items-start justify-between">
                                 <div className="flex-1">
                                     <div className="flex items-center space-x-2 mb-2">
@@ -174,25 +175,27 @@ const PermissionSlips: React.FC = () => {
                                 </div>
                                 {isParent && slip.status === 'Pending' && (
                                     <div className="flex flex-col space-y-2">
-                                        <button
+                                        <motion.button
+                                            whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                                             onClick={() => handleSign(slip.id)}
                                             className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium text-sm flex items-center space-x-1"
                                         >
                                             <CheckCircleIcon className="w-4 h-4" />
                                             <span>Sign & Approve</span>
-                                        </button>
+                                        </motion.button>
                                     </div>
                                 )}
                             </div>
-                        </div>
+                        </motion.div>
                     ))
                 )}
             </div>
 
             {/* Create Modal */}
+            <AnimatePresence>
             {showCreate && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} transition={{ type: 'spring', stiffness: 400, damping: 32 }} className="bg-white rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                         <h3 className="text-xl font-bold text-gray-900 mb-4">Create Permission Slip</h3>
                         <form onSubmit={handleCreate} className="space-y-4">
                             <div>
@@ -284,24 +287,27 @@ const PermissionSlips: React.FC = () => {
                             </div>
 
                             <div className="flex space-x-3 pt-4">
-                                <button
+                                <motion.button
+                                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                                     type="button"
                                     onClick={() => setShowCreate(false)}
                                     className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
                                 >
                                     Cancel
-                                </button>
-                                <button
+                                </motion.button>
+                                <motion.button
+                                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                                     type="submit"
                                     className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
                                 >
                                     Create Slip
-                                </button>
+                                </motion.button>
                             </div>
                         </form>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
         </div>
     );
 };

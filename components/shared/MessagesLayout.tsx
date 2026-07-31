@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { lazyWithRetry } from '../../lib/lazyRetry';
@@ -175,13 +176,15 @@ const MessagesLayout: React.FC<MessagesLayoutProps> = ({
                             )}
                         </div>
                         {/* New message button — 44×44 touch target */}
-                        <button
+                        <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.92, rotate: 90 }}
                             onClick={handlePlusClick}
                             className={`min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full ${t.btn} transition-colors`}
                             aria-label="New Message"
                         >
                             <PlusIcon className="w-5 h-5" />
-                        </button>
+                        </motion.button>
                     </div>
 
                     {/* Search */}
@@ -200,16 +203,17 @@ const MessagesLayout: React.FC<MessagesLayoutProps> = ({
                     {/* Filters — 44px tap height */}
                     <div className="flex gap-1.5">
                         {(['All', 'Unread', 'Groups'] as const).map(f => (
-                            <button
+                            <motion.button
                                 key={f}
+                                whileTap={{ scale: 0.95 }}
                                 onClick={() => setActiveFilter(f)}
-                                className={`px-3 py-2 min-h-[36px] text-xs font-semibold rounded-full transition-all ${activeFilter === f ? t.filterActive + ' shadow-sm' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                                className={`px-3 py-2 min-h-[36px] text-xs font-semibold rounded-full transition-colors ${activeFilter === f ? t.filterActive + ' shadow-sm' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
                             >
                                 {f}
                                 {f === 'Unread' && totalUnread > 0 && (
                                     <span className="ml-1 bg-white/30 rounded-full px-1">{totalUnread}</span>
                                 )}
-                            </button>
+                            </motion.button>
                         ))}
                     </div>
                 </div>
@@ -230,14 +234,17 @@ const MessagesLayout: React.FC<MessagesLayoutProps> = ({
                         </div>
                     ) : (
                         <div>
-                            {filtered.map(room => {
+                            {filtered.map((room, i) => {
                                 const isSelected = isDesktop && selectedRoomId === room.id;
                                 const hasUnread = room.unreadCount > 0;
                                 return (
-                                    <button
+                                    <motion.button
                                         key={room.id}
+                                        initial={{ opacity: 0, y: 6 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ duration: 0.2, delay: Math.min(i, 12) * 0.03 }}
                                         onClick={() => handleSelect(room)}
-                                        className={`w-full text-left px-4 py-3.5 flex items-center gap-3 transition-all ${isSelected ? t.selected + ' shadow-sm' : t.hover} border-b border-gray-50/80 last:border-b-0`}
+                                        className={`w-full text-left px-4 py-3.5 flex items-center gap-3 transition-colors ${isSelected ? t.selected + ' shadow-sm' : t.hover} border-b border-gray-50/80 last:border-b-0`}
                                         style={{ touchAction: 'manipulation' }}
                                     >
                                         <div className="relative flex-shrink-0">
@@ -271,7 +278,7 @@ const MessagesLayout: React.FC<MessagesLayoutProps> = ({
                                                 )}
                                             </div>
                                         </div>
-                                    </button>
+                                    </motion.button>
                                 );
                             })}
                         </div>

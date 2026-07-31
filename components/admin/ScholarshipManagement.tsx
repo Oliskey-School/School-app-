@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { Award, Users, DollarSign, CheckCircle, XCircle, Clock, TrendingUp } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import CenteredLoader from '../ui/CenteredLoader';
 
 interface Scholarship {
     id: number;
@@ -308,7 +310,7 @@ const ScholarshipManagement: React.FC = () => {
     };
 
     if (loading) {
-        return <div className="flex justify-center items-center h-64"><div className="w-8 h-8 border-4 border-amber-600 border-t-transparent rounded-full animate-spin"></div></div>;
+        return <CenteredLoader className="h-64" />;
     }
 
     return (
@@ -360,7 +362,8 @@ const ScholarshipManagement: React.FC = () => {
 
             {/* Tabs */}
             <div className="flex space-x-2 mb-6">
-                <button
+                <motion.button
+                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                     onClick={() => setActiveTab('scholarships')}
                     className={`px-6 py-3 rounded-lg font-semibold transition-colors ${activeTab === 'scholarships'
                         ? 'bg-amber-600 text-white'
@@ -368,8 +371,9 @@ const ScholarshipManagement: React.FC = () => {
                         }`}
                 >
                     Scholarships ({scholarships.length})
-                </button>
-                <button
+                </motion.button>
+                <motion.button
+                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                     onClick={() => setActiveTab('applications')}
                     className={`px-6 py-3 rounded-lg font-semibold transition-colors ${activeTab === 'applications'
                         ? 'bg-amber-600 text-white'
@@ -377,8 +381,9 @@ const ScholarshipManagement: React.FC = () => {
                         }`}
                 >
                     Applications ({applications.length})
-                </button>
-                <button
+                </motion.button>
+                <motion.button
+                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                     onClick={() => setActiveTab('recipients')}
                     className={`px-6 py-3 rounded-lg font-semibold transition-colors ${activeTab === 'recipients'
                         ? 'bg-amber-600 text-white'
@@ -386,23 +391,25 @@ const ScholarshipManagement: React.FC = () => {
                         }`}
                 >
                     Recipients ({recipients.length})
-                </button>
+                </motion.button>
             </div>
 
             {/* Scholarships Tab */}
             {activeTab === 'scholarships' && (
                 <div className="space-y-6">
                     {!showCreateForm && (
-                        <button
+                        <motion.button
+                            whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
                             onClick={() => setShowCreateForm(true)}
                             className="w-full px-6 py-4 bg-amber-600 text-white rounded-xl hover:bg-amber-700 font-bold transition-colors"
                         >
                             + Create New Scholarship
-                        </button>
+                        </motion.button>
                     )}
 
+                    <AnimatePresence>
                     {showCreateForm && (
-                        <div className="bg-white rounded-xl shadow-sm p-6">
+                        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="bg-white rounded-xl shadow-sm p-6 overflow-hidden">
                             <h2 className="text-2xl font-bold text-gray-900 mb-4">Create Scholarship</h2>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -500,7 +507,8 @@ const ScholarshipManagement: React.FC = () => {
                             </div>
 
                             <div className="flex space-x-3">
-                                <button
+                                <motion.button
+                                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                                     onClick={() => {
                                         setShowCreateForm(false);
                                         resetForm();
@@ -508,20 +516,22 @@ const ScholarshipManagement: React.FC = () => {
                                     className="flex-1 px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-semibold"
                                 >
                                     Cancel
-                                </button>
-                                <button
+                                </motion.button>
+                                <motion.button
+                                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                                     onClick={handleCreateScholarship}
                                     className="flex-1 px-6 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 font-semibold"
                                 >
                                     Create Scholarship
-                                </button>
+                                </motion.button>
                             </div>
-                        </div>
+                        </motion.div>
                     )}
+                    </AnimatePresence>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {scholarships.map(scholarship => (
-                            <div key={scholarship.id} className="bg-white rounded-xl shadow-sm p-6">
+                        {scholarships.map((scholarship, sci) => (
+                            <motion.div key={scholarship.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(sci, 15) * 0.03 }} className="bg-white rounded-xl shadow-sm p-6">
                                 <div className="flex items-start justify-between mb-3">
                                     <h3 className="text-lg font-bold text-gray-900">{scholarship.scholarship_name}</h3>
                                     <span className={`px-3 py-1 rounded-full text-xs font-semibold ${scholarship.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
@@ -555,7 +565,7 @@ const ScholarshipManagement: React.FC = () => {
                                         Renewable
                                     </span>
                                 )}
-                            </div>
+                            </motion.div>
                         ))}
                     </div>
                 </div>
@@ -570,8 +580,8 @@ const ScholarshipManagement: React.FC = () => {
                             <p className="text-lg">No applications yet</p>
                         </div>
                     ) : (
-                        applications.map(app => (
-                            <div key={app.id} className="bg-white rounded-xl shadow-sm p-6">
+                        applications.map((app, ai) => (
+                            <motion.div key={app.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(ai, 15) * 0.03 }} className="bg-white rounded-xl shadow-sm p-6">
                                 <div className="flex items-start justify-between mb-4">
                                     <div>
                                         <h3 className="text-lg font-bold text-gray-900">{app.students?.name}</h3>
@@ -589,23 +599,25 @@ const ScholarshipManagement: React.FC = () => {
 
                                 {app.status === 'Pending' && (
                                     <div className="flex space-x-3">
-                                        <button
+                                        <motion.button
+                                            whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                                             onClick={() => handleApproveApplication(app.id, app.scholarship_id, app.student_id)}
                                             className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold flex items-center justify-center space-x-2"
                                         >
                                             <CheckCircle className="h-4 w-4" />
                                             <span>Approve</span>
-                                        </button>
-                                        <button
+                                        </motion.button>
+                                        <motion.button
+                                            whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                                             onClick={() => handleRejectApplication(app.id)}
                                             className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold flex items-center justify-center space-x-2"
                                         >
                                             <XCircle className="h-4 w-4" />
                                             <span>Reject</span>
-                                        </button>
+                                        </motion.button>
                                     </div>
                                 )}
-                            </div>
+                            </motion.div>
                         ))
                     )}
                 </div>
@@ -620,8 +632,8 @@ const ScholarshipManagement: React.FC = () => {
                             <p className="text-lg">No recipients yet</p>
                         </div>
                     ) : (
-                        recipients.map(recipient => (
-                            <div key={recipient.id} className="bg-white rounded-xl shadow-sm p-6">
+                        recipients.map((recipient, ri) => (
+                            <motion.div key={recipient.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(ri, 15) * 0.03 }} className="bg-white rounded-xl shadow-sm p-6">
                                 <div className="flex items-start justify-between">
                                     <div>
                                         <h3 className="text-lg font-bold text-gray-900">{recipient.students?.name}</h3>
@@ -636,7 +648,7 @@ const ScholarshipManagement: React.FC = () => {
                                         <p className="text-xs text-gray-500 mt-2">Awarded: {new Date(recipient.award_date).toLocaleDateString()}</p>
                                     </div>
                                 </div>
-                            </div>
+                            </motion.div>
                         ))
                     )}
                 </div>

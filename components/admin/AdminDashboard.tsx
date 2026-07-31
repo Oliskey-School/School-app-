@@ -692,6 +692,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
     // upgrade/subscription have their own internal layout and need overflow-y-auto to scroll,
     // so they must NOT be included in hidePadding (which triggers overflow-hidden in DashboardLayout).
     const hidePadding = fullWidthViews.includes(currentNavigation.view);
+    // Views with their own docked/sticky bottom action bar manage their own internal
+    // scroll + bottom spacing, so the layout's blanket pb-24/lg:pb-12 stacks on top of
+    // their bar and leaves a dead gap beneath it. Unlike fullWidthViews, this keeps the
+    // normal centered/padded content width — only the vertical scroll+padding mechanics change.
+    const stickyFooterViews = ['studentProfileAdminView', 'studentProfileDashboard'];
+    const stickyFooterLayout = stickyFooterViews.includes(currentNavigation.view);
     const hideBottomNav = hideLayoutNav || currentNavigation.view === 'chat';
 
     return (
@@ -703,6 +709,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
             hideHeader={hideLayoutNav}
             hideSidebar={hideLayoutNav}
             hidePadding={hidePadding}
+            stickyFooterLayout={stickyFooterLayout}
             hideBottomNav={hideBottomNav}
         >
             {/* Database Connection Error */}

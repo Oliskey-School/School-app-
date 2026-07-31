@@ -1,8 +1,16 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { motion } from 'framer-motion';
 import { useAutoSync } from '../../hooks/useAutoSync';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import {
+    MotionCard as Card,
+    MotionCardHeader as CardHeader,
+    MotionCardTitle as CardTitle,
+    MotionCardContent as CardContent,
+    MotionBadge as Badge,
+    MotionList,
+    MotionListItem,
+} from '../ui/simple-ui';
 import { Button } from '../ui/button';
-import { Badge } from '../ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { api } from '../../lib/api';
 import {
@@ -21,6 +29,17 @@ import { useUserIdentity } from '../../lib/hooks/useUserIdentity';
 import { toast } from 'react-hot-toast';
 
 // ... (existing imports)
+
+// Extracurricular activities don't carry a `color` field from the API — cycle
+// through a fixed, fully-static palette by index instead of building Tailwind
+// class names dynamically (which the compiler can't detect and would purge).
+const ACTIVITY_COLOR_PALETTE = [
+    { iconBg: 'bg-orange-100', iconText: 'text-orange-600', badgeBg: 'bg-orange-50', badgeText: 'text-orange-700', badgeBorder: 'border-orange-200' },
+    { iconBg: 'bg-blue-100', iconText: 'text-blue-600', badgeBg: 'bg-blue-50', badgeText: 'text-blue-700', badgeBorder: 'border-blue-200' },
+    { iconBg: 'bg-purple-100', iconText: 'text-purple-600', badgeBg: 'bg-purple-50', badgeText: 'text-purple-700', badgeBorder: 'border-purple-200' },
+    { iconBg: 'bg-emerald-100', iconText: 'text-emerald-600', badgeBg: 'bg-emerald-50', badgeText: 'text-emerald-700', badgeBorder: 'border-emerald-200' },
+    { iconBg: 'bg-pink-100', iconText: 'text-pink-600', badgeBg: 'bg-pink-50', badgeText: 'text-pink-700', badgeBorder: 'border-pink-200' },
+];
 
 interface StudentProfileEnhancedProps {
     studentId?: string | number;
@@ -65,15 +84,9 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
     }, [initialStudent]);
 
     const generateLearningFocus = useCallback(async (studentData: any, averageScore: number) => {
-        const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-        if (!apiKey || apiKey === 'your_gemini_api_key_here') {
-            console.log("AI Focus skipped: Gemini API Key not configured.");
-            return;
-        }
-
         setFocusLoading(true);
         try {
-            const ai = getAIClient(apiKey);
+            const ai = getAIClient();
 
             const prompt = `Analyze this student's performance and suggest 2 key learning focus areas for today.
             Student: ${studentData.first_name}
@@ -263,6 +276,16 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
         return 'F';
     };
 
+    // Fully static class strings (Tailwind can't detect classes built by string
+    // interpolation at build time, so those would silently purge from the CSS).
+    const GRADE_BADGE_CLASSES: Record<string, string> = {
+        blue: 'bg-blue-100 text-blue-700',
+        green: 'bg-emerald-100 text-emerald-700',
+        purple: 'bg-purple-100 text-purple-700',
+        pink: 'bg-pink-100 text-pink-700',
+        indigo: 'bg-indigo-100 text-indigo-700',
+    };
+
     // Build a real PDF transcript from the student's own data (name, ID, class,
     // average, and each subject's published score) instead of printing the page.
     const handleDownloadTranscript = async () => {
@@ -334,7 +357,10 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
         });
     }, [assignedSubjects, reportCards]);
 
-    if (loading || !student) {
+    // Optimistic UI: only block the whole screen on the very first load (no
+    // student data yet). Background re-syncs (real-time updates via useAutoSync)
+    // set `loading` again but must not blank out an already-rendered profile.
+    if (!student) {
         return (
             <div className="flex items-center justify-center min-h-screen bg-slate-50">
                 <div className="flex flex-col items-center gap-4">
@@ -347,6 +373,18 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+            {/* Thin top progress bar for background re-syncs — keeps the already-
+                rendered profile visible instead of blanking it on every refetch. */}
+            {loading && (
+                <div className="fixed top-0 left-0 right-0 z-50 h-0.5 bg-orange-100 overflow-hidden">
+                    <motion.div
+                        className="h-full bg-orange-500"
+                        initial={{ x: '-100%' }}
+                        animate={{ x: '100%' }}
+                        transition={{ duration: 1, repeat: Infinity, ease: 'easeInOut' }}
+                    />
+                </div>
+            )}
             {/* Premium Header Section */}
             <div className="relative overflow-hidden">
                 {/* Decorative Elements */}
@@ -397,16 +435,20 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                                             <GraduationCap className="w-4 h-4 mr-2" />
                                             {student.class_name || `Grade ${student.grade}`}
                                         </Badge>
-                                        <div
-                                            className="cursor-pointer hover:opacity-80 transition-opacity"
+                                        <motion.button
+                                            type="button"
+                                            whileHover={{ opacity: 0.85 }}
+                                            whileTap={{ scale: 0.96 }}
+                                            className="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
                                             onClick={() => copyToClipboard(student.school_generated_id || student.admission_number || '')}
+                                            aria-label="Copy student ID to clipboard"
                                         >
                                             <Badge className="bg-white/20 text-white border-white/30 backdrop-blur-sm px-4 py-1.5 text-sm flex items-center gap-2">
                                                 ID: {student.school_generated_id || student.admission_number || 'Pending'}
                                                 <Copy className="w-3 h-3 opacity-70" />
                                                 {copied && <span className="text-xs ml-1">Copied!</span>}
                                             </Badge>
-                                        </div>
+                                        </motion.button>
                                     </div>
                                     <div className="flex flex-wrap gap-2 text-sm text-white/90">
                                         <div className="flex items-center gap-1.5">
@@ -419,38 +461,46 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
 
                             {/* Stats Cards - Horizontal on Desktop */}
                             <div className="flex-1 w-full">
-                                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-                                    <StatCard
-                                        icon={<TrendingUp className="w-5 h-5" />}
-                                        label="Attendance"
-                                        value={`${stats.attendanceRate}%`}
-                                        trend={stats.attendanceRate > 90 ? "+ Good" : "Needs Imp."}
-                                        trendUp={stats.attendanceRate > 90}
-                                    />
-                                    <StatCard
-                                        icon={<Award className="w-5 h-5" />}
-                                        label="Average"
-                                        value={`${stats.averageScore}%`}
-                                        trend={stats.averageScore > 75 ? "+ Good" : "Fair"}
-                                        trendUp={stats.averageScore > 75}
-                                    />
-                                    <StatCard
-                                        icon={<BookOpen className="w-5 h-5" />}
-                                        label="Performance"
-                                        value={performance.length.toString()}
-                                        badge="Subjects"
-                                    />
-                                    <StatCard
-                                        icon={<Target className="w-5 h-5" />}
-                                        label="Submitted"
-                                        value={stats.assignmentsSubmitted.toString()}
-                                        badge="Assign."
-                                    />
-                                </div>
+                                <MotionList className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4" stagger={0.06}>
+                                    <MotionListItem>
+                                        <StatCard
+                                            icon={<TrendingUp className="w-5 h-5" />}
+                                            label="Attendance"
+                                            value={`${stats.attendanceRate}%`}
+                                            trend={stats.attendanceRate > 90 ? "+ Good" : "Needs Imp."}
+                                            trendUp={stats.attendanceRate > 90}
+                                        />
+                                    </MotionListItem>
+                                    <MotionListItem>
+                                        <StatCard
+                                            icon={<Award className="w-5 h-5" />}
+                                            label="Average"
+                                            value={`${stats.averageScore}%`}
+                                            trend={stats.averageScore > 75 ? "+ Good" : "Fair"}
+                                            trendUp={stats.averageScore > 75}
+                                        />
+                                    </MotionListItem>
+                                    <MotionListItem>
+                                        <StatCard
+                                            icon={<BookOpen className="w-5 h-5" />}
+                                            label="Performance"
+                                            value={performance.length.toString()}
+                                            badge="Subjects"
+                                        />
+                                    </MotionListItem>
+                                    <MotionListItem>
+                                        <StatCard
+                                            icon={<Target className="w-5 h-5" />}
+                                            label="Submitted"
+                                            value={stats.assignmentsSubmitted.toString()}
+                                            badge="Assign."
+                                        />
+                                    </MotionListItem>
+                                </MotionList>
 
                                 {/* Action Buttons */}
                                 <div className="flex flex-col sm:flex-row flex-wrap gap-3 mt-6">
-                                    <Button onClick={handleDownloadTranscript} className="w-full sm:w-auto bg-white text-orange-700 hover:bg-white shadow-lg font-bold order-2 sm:order-1">
+                                    <Button onClick={handleDownloadTranscript} className="w-full sm:w-auto !bg-white !text-orange-700 hover:!bg-orange-50 shadow-lg font-bold order-2 sm:order-1">
                                         <Download className="w-4 h-4 mr-2" />
                                         Download Transcript
                                     </Button>
@@ -461,17 +511,17 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                                         } catch {
                                             toast.error('Could not copy link. Please copy it from the address bar.');
                                         }
-                                    }} className="w-full sm:w-auto bg-white/10 text-white border-white/30 hover:bg-white/20 backdrop-blur-sm order-1 sm:order-2">
+                                    }} className="w-full sm:w-auto !bg-white/10 !text-white border border-white/30 hover:!bg-white/20 backdrop-blur-sm order-1 sm:order-2">
                                         <Share2 className="w-4 h-4 mr-2" />
                                         Share Profile
                                     </Button>
                                     {navigateTo && (
                                         <>
-                                            <Button onClick={() => navigateTo('editProfile', 'Edit Profile')} className="w-full sm:w-auto bg-white/10 text-white border-white/30 hover:bg-white/20 backdrop-blur-sm order-3">
+                                            <Button onClick={() => navigateTo('editProfile', 'Edit Profile')} className="w-full sm:w-auto !bg-white/10 !text-white border border-white/30 hover:!bg-white/20 backdrop-blur-sm order-3">
                                                 <Settings className="w-4 h-4 mr-2" />
                                                 Edit Profile
                                             </Button>
-                                            <Button onClick={() => navigateTo('changePassword', 'Change Password')} className="w-full sm:w-auto bg-white/10 text-white border-white/30 hover:bg-white/20 backdrop-blur-sm order-4">
+                                            <Button onClick={() => navigateTo('changePassword', 'Change Password')} className="w-full sm:w-auto !bg-white/10 !text-white border border-white/30 hover:!bg-white/20 backdrop-blur-sm order-4">
                                                 <Lock className="w-4 h-4 mr-2" />
                                                 Change Password
                                             </Button>
@@ -489,34 +539,35 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                 {/* Premium Tabs */}
                 <div className="bg-white rounded-2xl shadow-xl border border-slate-200/50 overflow-hidden">
                     <Tabs defaultValue={initialTab || 'overview'} className="w-full">
-                        <div className="border-b border-slate-200 bg-slate-50/50 px-6">
-                            <TabsList className="bg-transparent h-auto p-0 gap-6">
-                                <TabsTrigger
-                                    value="overview"
-                                    className="data-[state=active]:bg-transparent data-[state=active]:text-orange-600 data-[state=active]:border-b-2 data-[state=active]:border-orange-600 rounded-none px-0 pb-4 pt-4 font-semibold"
-                                >
-                                    Overview
-                                </TabsTrigger>
-                                <TabsTrigger
-                                    value="academic"
-                                    className="data-[state=active]:bg-transparent data-[state=active]:text-orange-600 data-[state=active]:border-b-2 data-[state=active]:border-orange-600 rounded-none px-0 pb-4 pt-4 font-semibold"
-                                >
-                                    Academic
-                                </TabsTrigger>
-                                <TabsTrigger
-                                    value="activities"
-                                    className="data-[state=active]:bg-transparent data-[state=active]:text-orange-600 data-[state=active]:border-b-2 data-[state=active]:border-orange-600 rounded-none px-0 pb-4 pt-4 font-semibold"
-                                >
-                                    Activities
-                                </TabsTrigger>
-                                <TabsTrigger
-                                    value="documents"
-                                    className="data-[state=active]:bg-transparent data-[state=active]:text-orange-600 data-[state=active]:border-b-2 data-[state=active]:border-orange-600 rounded-none px-0 pb-4 pt-4 font-semibold"
-                                >
-                                    Documents
-                                </TabsTrigger>
-                            </TabsList>
-                        </div>
+                        {/* TabsList must be a direct child of Tabs — MotionTabs only injects
+                            activeTab/setActiveTab into its immediate children, so wrapping this
+                            in a plain <div> silently breaks tab switching entirely. */}
+                        <TabsList className="!flex !w-full !justify-start !rounded-none !bg-slate-50/50 !h-auto !p-0 gap-6 border-b border-slate-200 px-6">
+                            <TabsTrigger
+                                value="overview"
+                                className="!bg-transparent data-[state=active]:!text-orange-600 data-[state=active]:!border-orange-600 !border-b-2 border-transparent !shadow-none rounded-none px-0 pb-4 pt-4 font-semibold !text-gray-500"
+                            >
+                                Overview
+                            </TabsTrigger>
+                            <TabsTrigger
+                                value="academic"
+                                className="!bg-transparent data-[state=active]:!text-orange-600 data-[state=active]:!border-orange-600 !border-b-2 border-transparent !shadow-none rounded-none px-0 pb-4 pt-4 font-semibold !text-gray-500"
+                            >
+                                Academic
+                            </TabsTrigger>
+                            <TabsTrigger
+                                value="activities"
+                                className="!bg-transparent data-[state=active]:!text-orange-600 data-[state=active]:!border-orange-600 !border-b-2 border-transparent !shadow-none rounded-none px-0 pb-4 pt-4 font-semibold !text-gray-500"
+                            >
+                                Activities
+                            </TabsTrigger>
+                            <TabsTrigger
+                                value="documents"
+                                className="!bg-transparent data-[state=active]:!text-orange-600 data-[state=active]:!border-orange-600 !border-b-2 border-transparent !shadow-none rounded-none px-0 pb-4 pt-4 font-semibold !text-gray-500"
+                            >
+                                Documents
+                            </TabsTrigger>
+                        </TabsList>
 
                         {/* Overview Tab */}
                         <TabsContent value="overview" className="p-6 lg:p-8">
@@ -524,7 +575,7 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                                 {/* Left Column -2/3 */}
                                 <div className="lg:col-span-2 space-y-6">
                                     {/* Personal Information */}
-                                    <Card className="border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+                                    <Card className="border-slate-200 shadow-sm">
                                         <CardHeader className="border-b border-slate-100 bg-slate-50/50">
                                             <CardTitle className="flex items-center gap-3 text-lg">
                                                 <div className="p-2 bg-orange-100 rounded-lg">
@@ -580,7 +631,7 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                                     )}
 
                                     {/* Academic Performance */}
-                                    <Card className="border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+                                    <Card className="border-slate-200 shadow-sm">
                                         <CardHeader className="border-b border-slate-100 bg-slate-50/50">
                                             <CardTitle className="flex items-center gap-3 text-lg">
                                                 <div className="p-2 bg-purple-100 rounded-lg">
@@ -590,32 +641,33 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                                             </CardTitle>
                                         </CardHeader>
                                         <CardContent className="p-6">
-                                            <div className="space-y-5">
+                                            <MotionList className="space-y-5" stagger={0.05}>
                                                 {overviewRows.length > 0 ? overviewRows.map((p, i) => (
-                                                    p.score == null ? (
-                                                        <div key={i} className="flex items-center justify-between">
-                                                            <span className="text-sm font-semibold text-slate-700">{p.subject}</span>
-                                                            <span className="text-xs font-medium text-slate-400 italic">No result yet</span>
-                                                        </div>
-                                                    ) : (
-                                                        <PerformanceBar
-                                                            key={i}
-                                                            subject={p.subject}
-                                                            score={p.score}
-                                                            grade={getGradeLetter(p.score)}
-                                                            color={getGradeColor(p.score)}
-                                                        />
-                                                    )
+                                                    <MotionListItem key={i}>
+                                                        {p.score == null ? (
+                                                            <div className="flex items-center justify-between">
+                                                                <span className="text-sm font-semibold text-slate-700">{p.subject}</span>
+                                                                <span className="text-xs font-medium text-slate-400 italic">No result yet</span>
+                                                            </div>
+                                                        ) : (
+                                                            <PerformanceBar
+                                                                subject={p.subject}
+                                                                score={p.score}
+                                                                grade={getGradeLetter(p.score)}
+                                                                color={getGradeColor(p.score)}
+                                                            />
+                                                        )}
+                                                    </MotionListItem>
                                                 )) : (
                                                     <div className="text-center py-4 text-slate-500">No subjects assigned yet.</div>
                                                 )}
-                                            </div>
+                                            </MotionList>
                                         </CardContent>
                                     </Card>
                                 </div>
 
                                 {/* Right Column - 1/3 */}
-                                <div className="space-y-6">
+                                <div className="space-y-6 lg:sticky lg:top-6 lg:self-start">
                                     {/* Quick Stats */}
                                     <Card className="border-slate-200 shadow-sm bg-gradient-to-br from-orange-50 to-red-50">
                                         <CardHeader>
@@ -638,16 +690,19 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                                             </CardTitle>
                                         </CardHeader>
                                         <CardContent className="p-0">
-                                            {events.length > 0 ? events.map((event, i) => (
-                                                <EventItem
-                                                    key={i}
-                                                    date={new Date(event.date).toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}
-                                                    title={event.title}
-                                                    time={event.type === 'Assignment' ? 'Due Date' : new Date(event.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                />
-                                            )) : (
-                                                <div className="p-4 text-center text-slate-500 text-sm">No upcoming events.</div>
-                                            )}
+                                            <MotionList stagger={0.05}>
+                                                {events.length > 0 ? events.map((event, i) => (
+                                                    <MotionListItem key={i}>
+                                                        <EventItem
+                                                            date={new Date(event.date).toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}
+                                                            title={event.title}
+                                                            time={event.type === 'Assignment' ? 'Due Date' : new Date(event.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                        />
+                                                    </MotionListItem>
+                                                )) : (
+                                                    <div className="p-4 text-center text-slate-500 text-sm">No upcoming events.</div>
+                                                )}
+                                            </MotionList>
                                         </CardContent>
                                     </Card>
                                 </div>
@@ -663,9 +718,9 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                                 <CardContent className="p-0">
                                     <div className="overflow-x-auto">
                                         <table className="w-full text-sm text-left">
-                                            <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-100">
+                                            <thead className="sticky top-0 z-10 bg-slate-50 text-slate-500 font-medium border-b border-slate-100">
                                                 <tr>
-                                                    <th className="px-6 py-4">Subject</th>
+                                                    <th className="sticky left-0 z-10 bg-slate-50 px-6 py-4 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]">Subject</th>
                                                     <th className="px-6 py-4">Assessment</th>
                                                     <th className="px-6 py-4">Score</th>
                                                     <th className="px-6 py-4">Grade</th>
@@ -675,11 +730,11 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                                             <tbody className="divide-y divide-slate-100">
                                                 {performance.length > 0 ? performance.map((p, i) => (
                                                     <tr key={i} className="hover:bg-slate-50 transition-colors">
-                                                        <td className="px-6 py-4 font-medium text-slate-900">{p.subject}</td>
-                                                        <td className="px-6 py-4 text-slate-500">End of Term</td>
+                                                        <td className="sticky left-0 z-[5] bg-white px-6 py-4 font-medium text-slate-900 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]">{p.subject}</td>
+                                                        <td className="px-6 py-4 text-slate-500">{p.term || p.assessment_type || 'Term Record'}</td>
                                                         <td className="px-6 py-4 font-semibold">{p.score}%</td>
                                                         <td className="px-6 py-4">
-                                                            <Badge className={`${getGradeColor(p.score).replace('bg-', 'bg-').replace('text-', 'text-')}-100 text-${getGradeColor(p.score).replace('bg-', '')}-700 border-0`}>
+                                                            <Badge className={`${GRADE_BADGE_CLASSES[getGradeColor(p.score)]} border-0`}>
                                                                 {getGradeLetter(p.score)}
                                                             </Badge>
                                                         </td>
@@ -698,10 +753,13 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                         </TabsContent>
 
                         <TabsContent value="activities" className="p-6 lg:p-8">
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {activities.length > 0 ? activities.map((activity, i) => (
-                                    <div key={i} className="bg-white border boundary-slate-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
-                                        <div className={`w-12 h-12 rounded-lg bg-${activity.color}-100 text-${activity.color}-600 flex items-center justify-center mb-4`}>
+                            <MotionList className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" stagger={0.06}>
+                                {activities.length > 0 ? activities.map((activity, i) => {
+                                    const palette = ACTIVITY_COLOR_PALETTE[i % ACTIVITY_COLOR_PALETTE.length];
+                                    return (
+                                    <MotionListItem key={i}>
+                                    <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow h-full">
+                                        <div className={`w-12 h-12 rounded-lg ${palette.iconBg} ${palette.iconText} flex items-center justify-center mb-4`}>
                                             <Target className="w-6 h-6" />
                                         </div>
                                         <h3 className="text-lg font-bold text-slate-900 mb-1">{activity.name}</h3>
@@ -710,23 +768,29 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                                             <Clock className="w-3 h-3" />
                                             {activity.schedule}
                                         </div>
-                                        <Badge className={`bg-${activity.color}-50 text-${activity.color}-700 border-${activity.color}-200`}>
+                                        <Badge className={`${palette.badgeBg} ${palette.badgeText} ${palette.badgeBorder}`}>
                                             {activity.status}
                                         </Badge>
                                     </div>
-                                )) : (
+                                    </MotionListItem>
+                                    );
+                                }) : (
                                     <div className="col-span-full py-12 text-center text-slate-500 bg-white rounded-xl border-2 border-dashed border-slate-200">
                                         No extracurricular activities recorded yet.
                                     </div>
                                 )}
                                 {/* Add New Activity Button */}
-                                <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 flex flex-col items-center justify-center text-slate-400 hover:border-orange-200 hover:text-orange-500 hover:bg-orange-50/50 transition-all cursor-pointer">
+                                <button
+                                    type="button"
+                                    onClick={() => navigateTo?.('extracurriculars', 'Extracurriculars')}
+                                    className="border-2 border-dashed border-slate-200 rounded-xl p-6 flex flex-col items-center justify-center text-slate-400 hover:border-orange-200 hover:text-orange-500 hover:bg-orange-50/50 transition-all cursor-pointer"
+                                >
                                     <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-4 group-hover:bg-orange-100">
                                         <span className="text-2xl font-light">+</span>
                                     </div>
                                     <span className="font-medium">Join New Activity</span>
-                                </div>
-                            </div>
+                                </button>
+                            </MotionList>
                         </TabsContent>
 
                         <TabsContent value="documents" className="p-6 lg:p-8">
@@ -751,31 +815,43 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                                     </div>
                                 </CardHeader>
                                 <CardContent className="divide-y divide-slate-100">
-                                    {documents.length > 0 ? documents.map((doc, i) => (
-                                        <div key={i} className="flex items-center justify-between p-4 hover:bg-slate-50 transition-colors">
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-10 h-10 rounded-lg bg-red-50 text-red-500 flex items-center justify-center">
-                                                    <FileText className="w-5 h-5" />
-                                                </div>
-                                                <div>
-                                                    <div className="font-medium text-slate-900">{doc.name}</div>
-                                                    <div className="text-xs text-slate-500 flex items-center gap-2">
-                                                        <span>{doc.date}</span>
-                                                        <span>•</span>
-                                                        <span>{doc.size}</span>
+                                    <MotionList stagger={0.05}>
+                                        {documents.length > 0 ? documents.map((doc, i) => (
+                                            <MotionListItem key={i}>
+                                                <div className="flex items-center justify-between p-4 hover:bg-slate-50 transition-colors">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="w-10 h-10 rounded-lg bg-red-50 text-red-500 flex items-center justify-center">
+                                                            <FileText className="w-5 h-5" />
+                                                        </div>
+                                                        <div>
+                                                            <div className="font-medium text-slate-900">{doc.name}</div>
+                                                            <div className="text-xs text-slate-500 flex items-center gap-2">
+                                                                <span>{doc.date}</span>
+                                                                <span>•</span>
+                                                                <span>{doc.size}</span>
+                                                            </div>
+                                                        </div>
                                                     </div>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="hidden sm:flex"
+                                                        onClick={() => {
+                                                            if (!doc.url) { toast.error('No file available for this document.'); return; }
+                                                            window.open(doc.url, '_blank', 'noopener,noreferrer');
+                                                        }}
+                                                    >
+                                                        <Download className="w-4 h-4 mr-2" />
+                                                        Download
+                                                    </Button>
                                                 </div>
+                                            </MotionListItem>
+                                        )) : (
+                                            <div className="p-12 text-center text-slate-500">
+                                                No documents available for download.
                                             </div>
-                                            <Button variant="outline" size="sm" className="hidden sm:flex" onClick={() => toast.success(`Downloading ${doc.name}...`)}>
-                                                <Download className="w-4 h-4 mr-2" />
-                                                Download
-                                            </Button>
-                                        </div>
-                                    )) : (
-                                        <div className="p-12 text-center text-slate-500">
-                                            No documents available for download.
-                                        </div>
-                                    )}
+                                        )}
+                                    </MotionList>
                                 </CardContent>
                             </Card>
                         </TabsContent>
@@ -829,11 +905,11 @@ function InfoField({ icon, label, value }: any) {
 // Performance Bar
 function PerformanceBar({ subject, score, grade, color }: any) {
     const colorMap: any = {
-        blue: { bg: 'bg-blue-500', light: 'bg-blue-100' },
-        green: { bg: 'bg-emerald-500', light: 'bg-emerald-100' },
-        purple: { bg: 'bg-purple-500', light: 'bg-purple-100' },
-        pink: { bg: 'bg-pink-500', light: 'bg-pink-100' },
-        indigo: { bg: 'bg-indigo-500', light: 'bg-indigo-100' },
+        blue: { bg: 'bg-blue-500', light: 'bg-blue-100', text: 'text-blue-700' },
+        green: { bg: 'bg-emerald-500', light: 'bg-emerald-100', text: 'text-emerald-700' },
+        purple: { bg: 'bg-purple-500', light: 'bg-purple-100', text: 'text-purple-700' },
+        pink: { bg: 'bg-pink-500', light: 'bg-pink-100', text: 'text-pink-700' },
+        indigo: { bg: 'bg-indigo-500', light: 'bg-indigo-100', text: 'text-indigo-700' },
     };
 
     return (
@@ -842,7 +918,7 @@ function PerformanceBar({ subject, score, grade, color }: any) {
                 <span className="text-sm font-semibold text-slate-700">{subject}</span>
                 <div className="flex items-center gap-3">
                     <span className="text-xs font-semibold text-slate-500">{score}%</span>
-                    <Badge className={`${colorMap[color].light} text-${color}-700 border-0 text-xs`}>
+                    <Badge className={`${colorMap[color].light} ${colorMap[color].text} border-0 text-xs`}>
                         {grade}
                     </Badge>
                 </div>

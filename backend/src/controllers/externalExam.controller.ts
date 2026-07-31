@@ -4,7 +4,8 @@ import { ExternalExamService } from '../services/externalExam.service';
 
 export const getExamBodies = async (req: AuthRequest, res: Response) => {
     try {
-        const schoolId = (req.query.schoolId as string) || req.user.school_id;
+        // Always trust the verified token's school_id, never a client-supplied query param.
+        const schoolId = req.user.school_id;
         const result = await ExternalExamService.getExamBodies(schoolId);
         res.json(result);
     } catch (error: any) {
@@ -25,7 +26,7 @@ export const createExamBody = async (req: AuthRequest, res: Response) => {
 export const getExamRegistrations = async (req: AuthRequest, res: Response) => {
     try {
         const { bodyId } = req.params;
-        const schoolId = (req.query.schoolId as string) || (req.user.school_id as string);
+        const schoolId = req.user.school_id as string;
         const result = await ExternalExamService.getExamRegistrations(bodyId as string, schoolId);
         res.json(result);
     } catch (error: any) {

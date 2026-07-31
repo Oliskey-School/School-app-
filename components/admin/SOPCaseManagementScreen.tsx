@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { Shield, AlertTriangle, ChevronRight, Plus } from 'lucide-react';
+import CenteredLoader from '../ui/CenteredLoader';
 
 interface SOPCaseManagementScreenProps {
     navigateTo: (view: string, title: string, props?: any) => void;
@@ -48,14 +50,14 @@ const SOPCaseManagementScreen: React.FC<SOPCaseManagementScreenProps> = ({ navig
                     <p className="text-gray-500">Every reported incident, its workflow progress, and its permanent record.</p>
                 </div>
                 <div className="flex gap-2">
-                    <button onClick={() => navigateTo('sopSettings', 'SOP Incident Types')}
+                    <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => navigateTo('sopSettings', 'SOP Incident Types')}
                         className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl hover:bg-gray-50 transition-colors font-semibold">
                         <Shield className="w-4 h-4" /> Incident Types
-                    </button>
-                    <button onClick={() => navigateTo('reportIncident', 'Report Incident')}
+                    </motion.button>
+                    <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => navigateTo('reportIncident', 'Report Incident')}
                         className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl hover:bg-indigo-700 transition-colors shadow-sm font-semibold">
                         <Plus className="w-5 h-5" /> Report Incident
-                    </button>
+                    </motion.button>
                 </div>
             </div>
 
@@ -69,7 +71,7 @@ const SOPCaseManagementScreen: React.FC<SOPCaseManagementScreenProps> = ({ navig
             </div>
 
             {loading ? (
-                <div className="text-center py-12 text-gray-500">Loading cases...</div>
+                <CenteredLoader message="Loading cases..." className="py-12" />
             ) : cases.length === 0 ? (
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
                     <Shield className="w-12 h-12 text-gray-300 mx-auto mb-4" />
@@ -79,8 +81,8 @@ const SOPCaseManagementScreen: React.FC<SOPCaseManagementScreenProps> = ({ navig
             ) : (
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                     <div className="divide-y divide-gray-50">
-                        {cases.map(c => (
-                            <button key={c.id} onClick={() => navigateTo('sopCaseDetail', c.title, { caseId: c.id })}
+                        {cases.map((c, ci) => (
+                            <motion.button key={c.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(ci, 15) * 0.02 }} onClick={() => navigateTo('sopCaseDetail', c.title, { caseId: c.id })}
                                 className="w-full px-5 py-4 flex items-center justify-between gap-3 hover:bg-gray-50/50 text-left">
                                 <div>
                                     <div className="flex items-center gap-2">
@@ -95,7 +97,7 @@ const SOPCaseManagementScreen: React.FC<SOPCaseManagementScreenProps> = ({ navig
                                     </span>
                                     <ChevronRight className="w-4 h-4 text-gray-300" />
                                 </div>
-                            </button>
+                            </motion.button>
                         ))}
                     </div>
                 </div>

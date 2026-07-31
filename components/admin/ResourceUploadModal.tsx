@@ -1,5 +1,6 @@
 
 import React, { useState, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api'; // Backend REST client
 import { XCircleIcon, CloudUploadIcon, DocumentTextIcon, VideoIcon, PhotoIcon, MicrophoneIcon } from '../../constants';
@@ -22,8 +23,6 @@ const ResourceUploadModal: React.FC<ResourceUploadModalProps> = ({ isOpen, onClo
     const [uploading, setUploading] = useState(false);
     const [progress, setProgress] = useState(0);
     const fileInputRef = useRef<HTMLInputElement>(null);
-
-    if (!isOpen) return null;
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -87,11 +86,13 @@ const ResourceUploadModal: React.FC<ResourceUploadModalProps> = ({ isOpen, onClo
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg flex flex-col max-h-[90vh]">
+        <AnimatePresence>
+        {isOpen && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} transition={{ type: 'spring', stiffness: 400, damping: 32 }} className="bg-white rounded-2xl shadow-xl w-full max-w-lg flex flex-col max-h-[90vh]">
                 <div className="p-4 border-b flex justify-between items-center bg-gray-50 rounded-t-2xl">
                     <h3 className="text-lg font-bold text-gray-800">Upload Learning Material</h3>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><XCircleIcon className="w-6 h-6" /></button>
+                    <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={onClose} className="text-gray-400 hover:text-gray-600"><XCircleIcon className="w-6 h-6" /></motion.button>
                 </div>
 
                 <form onSubmit={handleUpload} className="p-6 space-y-4 overflow-y-auto">
@@ -146,18 +147,20 @@ const ResourceUploadModal: React.FC<ResourceUploadModalProps> = ({ isOpen, onClo
 
                     {uploading && (
                         <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
-                            <div className="bg-orange-600 h-2.5 rounded-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
+                            <motion.div initial={{ width: 0 }} animate={{ width: `${progress}%` }} transition={{ duration: 0.3, ease: 'easeOut' }} className="bg-orange-600 h-2.5 rounded-full" />
                         </div>
                     )}
 
                     <div className="pt-2">
-                        <button type="submit" disabled={uploading} className="w-full py-3 px-4 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-xl shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center">
+                        <motion.button whileHover={!uploading ? { scale: 1.01 } : {}} whileTap={!uploading ? { scale: 0.98 } : {}} type="submit" disabled={uploading} className="w-full py-3 px-4 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-xl shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center">
                             {uploading ? 'Uploading...' : 'Publish Material'}
-                        </button>
+                        </motion.button>
                     </div>
                 </form>
-            </div>
-        </div>
+            </motion.div>
+        </motion.div>
+        )}
+        </AnimatePresence>
     );
 };
 

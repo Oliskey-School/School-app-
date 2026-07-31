@@ -10,7 +10,7 @@ interface CredentialsModalProps {
   username: string;
   password: string;
   email: string;
-  userType: 'Student' | 'Teacher' | 'Parent' | 'Admin';
+  userType: string;
   secondaryCredentials?: {
     userName: string;
     username: string;

@@ -1,8 +1,10 @@
 ﻿import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
 import { useAutoSync } from '../../hooks/useAutoSync';
+import CenteredLoader from '../ui/CenteredLoader';
 import {
     Building2,
     BedDouble,
@@ -91,10 +93,10 @@ const HostelTab = ({ hostels, onAdd, onDelete }: { hostels: Hostel[]; onAdd: () 
     <div className="space-y-6">
         <div className="flex justify-between items-center">
             <h2 className="text-lg font-bold text-gray-700">All Hostels</h2>
-            <button onClick={onAdd} className="flex items-center space-x-2 bg-indigo-600 text-white px-5 py-2.5 rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 font-bold">
+            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={onAdd} className="flex items-center space-x-2 bg-indigo-600 text-white px-5 py-2.5 rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 font-bold">
                 <PlusIcon className="w-5 h-5" />
                 <span>Add Hostel</span>
-            </button>
+            </motion.button>
         </div>
         {hostels.length === 0 ? (
             <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-gray-200">
@@ -104,8 +106,8 @@ const HostelTab = ({ hostels, onAdd, onDelete }: { hostels: Hostel[]; onAdd: () 
             </div>
         ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {hostels.map(h => (
-                    <div key={h.id} className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4 hover:shadow-md transition-shadow group">
+                {hostels.map((h, hi) => (
+                    <motion.div key={h.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(hi, 15) * 0.03 }} className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4 hover:shadow-md transition-shadow group">
                         <div className="flex justify-between items-start">
                             <div className={`p-3 rounded-2xl ${h.type === 'boys' ? 'bg-blue-50 text-blue-600' : h.type === 'girls' ? 'bg-pink-50 text-pink-600' : 'bg-purple-50 text-purple-600'}`}>
                                 <Building2 className="w-6 h-6" />
@@ -134,7 +136,7 @@ const HostelTab = ({ hostels, onAdd, onDelete }: { hostels: Hostel[]; onAdd: () 
                         >
                             Delete Hostel
                         </button>
-                    </div>
+                    </motion.div>
                 ))}
             </div>
         )}
@@ -146,10 +148,10 @@ const RoomTab = ({ rooms, onAdd, onDelete }: { rooms: HostelRoom[]; onAdd: () =>
     <div className="space-y-6">
         <div className="flex justify-between items-center">
             <h2 className="text-lg font-bold text-gray-700">Room Management</h2>
-            <button onClick={onAdd} className="flex items-center space-x-2 bg-indigo-600 text-white px-5 py-2.5 rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 font-bold">
+            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={onAdd} className="flex items-center space-x-2 bg-indigo-600 text-white px-5 py-2.5 rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 font-bold">
                 <PlusIcon className="w-5 h-5" />
                 <span>Add Room</span>
-            </button>
+            </motion.button>
         </div>
         <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
             <table className="w-full text-left border-collapse">
@@ -166,8 +168,8 @@ const RoomTab = ({ rooms, onAdd, onDelete }: { rooms: HostelRoom[]; onAdd: () =>
                 <tbody className="divide-y divide-gray-50">
                     {rooms.length === 0 ? (
                         <tr><td colSpan={6} className="px-6 py-12 text-center text-gray-400">No rooms added yet.</td></tr>
-                    ) : rooms.map(room => (
-                        <tr key={room.id} className="hover:bg-gray-50/30 transition-colors">
+                    ) : rooms.map((room, roi) => (
+                        <motion.tr key={room.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(roi, 15) * 0.02 }} className="hover:bg-gray-50/30 transition-colors">
                             <td className="px-6 py-5">
                                 <div className="flex items-center space-x-3">
                                     <div className="p-2 bg-gray-100 rounded-xl"><DoorOpen className="w-4 h-4 text-gray-600" /></div>
@@ -190,7 +192,7 @@ const RoomTab = ({ rooms, onAdd, onDelete }: { rooms: HostelRoom[]; onAdd: () =>
                                     <Trash2 className="w-4 h-4" />
                                 </button>
                             </td>
-                        </tr>
+                        </motion.tr>
                     ))}
                 </tbody>
             </table>
@@ -203,10 +205,10 @@ const VisitorTab = ({ visitors, onAdd }: { visitors: VisitorLog[]; onAdd: () => 
     <div className="space-y-6">
         <div className="flex justify-between items-center">
             <h2 className="text-lg font-bold text-gray-700">Visitor Log</h2>
-            <button onClick={onAdd} className="flex items-center space-x-2 bg-indigo-600 text-white px-5 py-2.5 rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 font-bold">
+            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={onAdd} className="flex items-center space-x-2 bg-indigo-600 text-white px-5 py-2.5 rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 font-bold">
                 <PlusIcon className="w-5 h-5" />
                 <span>Log Visit</span>
-            </button>
+            </motion.button>
         </div>
         {visitors.length === 0 ? (
             <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-gray-200">
@@ -215,8 +217,8 @@ const VisitorTab = ({ visitors, onAdd }: { visitors: VisitorLog[]; onAdd: () => 
             </div>
         ) : (
             <div className="grid grid-cols-1 gap-4">
-                {visitors.map(v => (
-                    <div key={v.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-start space-x-4 hover:shadow-md transition-shadow">
+                {visitors.map((v, vi) => (
+                    <motion.div key={v.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(vi, 15) * 0.03 }} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-start space-x-4 hover:shadow-md transition-shadow">
                         <div className="p-3 bg-indigo-50 text-indigo-600 rounded-full">
                             <Users className="w-6 h-6" />
                         </div>
@@ -240,7 +242,7 @@ const VisitorTab = ({ visitors, onAdd }: { visitors: VisitorLog[]; onAdd: () => 
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    </motion.div>
                 ))}
             </div>
         )}
@@ -352,8 +354,8 @@ const HostelManagementScreen = () => {
 
     // ─── Add Form (Modal) ────────────────────────────────────────────────
     const renderAddForm = () => (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-[2rem] p-8 max-w-lg w-full space-y-8 shadow-2xl">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} transition={{ type: 'spring', stiffness: 400, damping: 32 }} className="bg-white rounded-[2rem] p-8 max-w-lg w-full space-y-8 shadow-2xl">
                 <div>
                     <h2 className="text-2xl font-bold text-gray-900 font-outfit">
                         {activeTab === 'hostels' ? 'Add Hostel' : activeTab === 'rooms' ? 'Add Room' : activeTab === 'visitors' ? 'Log Visitor' : 'Allocate Bed'}
@@ -445,11 +447,11 @@ const HostelManagementScreen = () => {
                     )}
                 </div>
                 <div className="flex space-x-4">
-                    <button onClick={() => { setIsAdding(false); setFormData({}); }} className="flex-grow py-4 px-6 border border-gray-100 rounded-2xl text-gray-600 font-bold hover:bg-gray-50 transition-all active:scale-95">Cancel</button>
-                    <button onClick={handleSave} className="flex-grow py-4 px-6 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 active:scale-95" disabled={loading}>{loading ? 'Saving...' : 'Confirm'}</button>
+                    <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => { setIsAdding(false); setFormData({}); }} className="flex-grow py-4 px-6 border border-gray-100 rounded-2xl text-gray-600 font-bold hover:bg-gray-50 transition-all">Cancel</motion.button>
+                    <motion.button whileHover={!loading ? { scale: 1.02 } : {}} whileTap={!loading ? { scale: 0.98 } : {}} onClick={handleSave} className="flex-grow py-4 px-6 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100" disabled={loading}>{loading ? 'Saving...' : 'Confirm'}</motion.button>
                 </div>
-            </div>
-        </div>
+            </motion.div>
+        </motion.div>
     );
 
     return (
@@ -470,12 +472,15 @@ const HostelManagementScreen = () => {
                         <button
                             key={tab.key}
                             onClick={() => setActiveTab(tab.key)}
-                            className={`flex items-center space-x-2 px-4 py-2 rounded-xl transition-all font-bold whitespace-nowrap ${
-                                activeTab === tab.key ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                            className={`relative flex items-center space-x-2 px-4 py-2 rounded-xl transition-colors font-bold whitespace-nowrap ${
+                                activeTab === tab.key ? 'text-indigo-600' : 'text-gray-500 hover:text-gray-700'
                             }`}
                         >
-                            <tab.icon className="w-4 h-4" />
-                            <span className="text-sm">{tab.label}</span>
+                            {activeTab === tab.key && (
+                                <motion.div layoutId="hostelTab" className="absolute inset-0 bg-white rounded-xl shadow-sm" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />
+                            )}
+                            <tab.icon className="w-4 h-4 relative" />
+                            <span className="text-sm relative">{tab.label}</span>
                         </button>
                     ))}
                 </div>
@@ -491,10 +496,7 @@ const HostelManagementScreen = () => {
 
             {/* Content */}
             {loading ? (
-                <div className="flex flex-col items-center justify-center py-40 space-y-4">
-                    <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-                    <p className="text-gray-400 font-medium animate-pulse">Loading hostel data...</p>
-                </div>
+                <CenteredLoader message="Loading hostel data..." className="py-40" />
             ) : (
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                     {activeTab === 'hostels' && <HostelTab hostels={hostels} onAdd={() => setIsAdding(true)} onDelete={(id) => handleDelete('hostels', id)} />}
@@ -518,7 +520,9 @@ const HostelManagementScreen = () => {
             )}
 
             {/* Add Modal */}
+            <AnimatePresence>
             {isAdding && renderAddForm()}
+            </AnimatePresence>
         </div>
     );
 };

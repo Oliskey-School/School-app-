@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { api } from '../../lib/api';
 import { useProfile } from '../../context/ProfileContext';
 import { toast } from 'react-hot-toast';
@@ -9,6 +10,7 @@ import {
     ChevronLeft,
     Building
 } from 'lucide-react';
+import CredentialsModal from '../ui/CredentialsModal';
 
 
 type UserRole =
@@ -19,7 +21,8 @@ type UserRole =
     | 'proprietor'
     | 'inspector'
     | 'examofficer'
-    | 'complianceofficer';
+    | 'complianceofficer'
+    | 'counselor';
 
 const roleOptions: { value: UserRole; label: string; description: string }[] = [
     { value: 'proprietor', label: 'Proprietor', description: 'School owner with full administrative access' },
@@ -27,6 +30,7 @@ const roleOptions: { value: UserRole; label: string; description: string }[] = [
     { value: 'inspector', label: 'Inspector', description: 'Regulatory or quality assurance officer' },
     { value: 'examofficer', label: 'Exam Officer', description: 'Manages examinations and results' },
     { value: 'complianceofficer', label: 'Compliance Officer', description: 'Ensures regulatory compliance' },
+    { value: 'counselor', label: 'Counselor', description: 'Student welfare and guidance counseling' },
     { value: 'parent', label: 'Parent', description: 'Guardian with access to child information' },
     { value: 'student', label: 'Student', description: 'Student account for learning portal' },
 ];
@@ -47,6 +51,7 @@ const InviteStaffScreen: React.FC<InviteStaffScreenProps> = ({ handleBack, navig
         fullName: '',
         branchId: ''
     });
+    const [credentials, setCredentials] = useState<{ userName: string; username: string; password: string; email: string; userType: string } | null>(null);
 
     useEffect(() => {
         if (profile?.schoolId) {
@@ -94,12 +99,18 @@ const InviteStaffScreen: React.FC<InviteStaffScreenProps> = ({ handleBack, navig
                 throw new Error(result.message || 'Failed to send invitation');
             }
 
-            toast.success(`Invitation sent to ${invitationForm.email}!`);
+            const data = result?.data || {};
+            toast.success(`${invitationForm.fullName} was added successfully!`);
+            // No real invitation email goes out yet — this is the ONLY place these
+            // credentials are ever shown, same as Add Teacher / Add Student.
+            setCredentials({
+                userName: invitationForm.fullName,
+                username: data.username || data.school_generated_id || invitationForm.email,
+                password: data.initial_password || '',
+                email: invitationForm.email,
+                userType: roleOptions.find(r => r.value === invitationForm.role)?.label || invitationForm.role
+            });
             setInvitationForm({ email: '', role: 'teacher', fullName: '', branchId: branches.length > 0 ? (branches.find(b => b.is_main)?.id || branches[0].id) : '' });
-
-            // Navigate back after success
-            if (handleBack) handleBack();
-            else if (navigateTo) navigateTo('teacherList', 'Manage Teachers');
 
         } catch (error: any) {
             console.error('Error inviting staff:', error);
@@ -113,9 +124,9 @@ const InviteStaffScreen: React.FC<InviteStaffScreenProps> = ({ handleBack, navig
         <div className="max-w-4xl mx-auto p-4 lg:p-6 space-y-6">
             <div className="flex items-center gap-4">
                 {handleBack && (
-                    <button onClick={handleBack} className="p-2 hover:bg-gray-100 rounded-full">
+                    <motion.button whileTap={{ scale: 0.9 }} onClick={handleBack} className="p-2 hover:bg-gray-100 rounded-full">
                         <ChevronLeft className="w-6 h-6 text-gray-600" />
-                    </button>
+                    </motion.button>
                 )}
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
@@ -193,11 +204,15 @@ const InviteStaffScreen: React.FC<InviteStaffScreenProps> = ({ handleBack, navig
                             Select Role *
                         </label>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {roleOptions.map((role) => (
-                                <label
+                            {roleOptions.map((role, i) => (
+                                <motion.label
                                     key={role.value}
+                                    initial={{ opacity: 0, y: 8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.2, delay: i * 0.04 }}
+                                    whileTap={{ scale: 0.98 }}
                                     className={`
-                                        flex items-start p-4 border-2 rounded-xl cursor-pointer transition-all
+                                        flex items-start p-4 border-2 rounded-xl cursor-pointer transition-colors
                                         ${invitationForm.role === role.value
                                             ? 'border-indigo-600 bg-indigo-50'
                                             : 'border-gray-100 hover:border-gray-200 bg-gray-50/50'
@@ -216,17 +231,19 @@ const InviteStaffScreen: React.FC<InviteStaffScreenProps> = ({ handleBack, navig
                                         <div className="font-bold text-gray-900 text-sm">{role.label}</div>
                                         <div className="text-xs text-gray-500 mt-1">{role.description}</div>
                                     </div>
-                                </label>
+                                </motion.label>
                             ))}
                         </div>
                     </div>
 
                     {/* Submit Button */}
                     <div className="pt-4">
-                        <button
+                        <motion.button
+                            whileHover={!isInviting ? { scale: 1.01 } : {}}
+                            whileTap={!isInviting ? { scale: 0.98 } : {}}
                             type="submit"
                             disabled={isInviting}
-                            className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
+                            className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
                         >
                             {isInviting ? (
                                 <>
@@ -239,7 +256,7 @@ const InviteStaffScreen: React.FC<InviteStaffScreenProps> = ({ handleBack, navig
                                     Send Staff Invitation
                                 </>
                             )}
-                        </button>
+                        </motion.button>
                     </div>
                 </form>
             </div>
@@ -253,11 +270,27 @@ const InviteStaffScreen: React.FC<InviteStaffScreenProps> = ({ handleBack, navig
                     <div>
                         <h4 className="font-bold text-amber-900">What happens next?</h4>
                         <p className="text-sm text-amber-800 mt-1">
-                            An invitation email will be sent to the address provided. Once they accept and create their account, they will be automatically linked to your school with the selected role.
+                            Their account is created immediately with the role you selected. You'll see their login username and a temporary password right after you submit — share those with them directly (no email is sent automatically yet).
                         </p>
                     </div>
                 </div>
             </div>
+
+            {credentials && (
+                <CredentialsModal
+                    isOpen={true}
+                    userName={credentials.userName || credentials.email}
+                    username={credentials.username}
+                    password={credentials.password}
+                    email={credentials.email}
+                    userType={credentials.userType}
+                    onClose={() => {
+                        setCredentials(null);
+                        if (handleBack) handleBack();
+                        else if (navigateTo) navigateTo('teacherList', 'Manage Teachers');
+                    }}
+                />
+            )}
         </div>
     );
 };

@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { getAIClient, AI_MODEL_NAME } from '../../lib/ai';
 import AIFeatureLock from '../shared/AIFeatureLock';
 import ReactMarkdown from 'react-markdown';
@@ -54,12 +55,6 @@ const StudyBuddy: React.FC = () => {
     const handleSendMessage = useCallback(async (text: string, imageFile?: File) => {
         if (!text && !imageFile) return;
 
-        const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
-        if (!apiKey) {
-            setMessages(prev => [...prev, { role: 'model', text: "⚠️ API Key missing. Please set VITE_GEMINI_API_KEY." }]);
-            return;
-        }
-
         setIsLoading(true);
         setInputText('');
 
@@ -75,7 +70,7 @@ const StudyBuddy: React.FC = () => {
         setMessages(prev => [...prev, userMessage, { role: 'model', text: '' }]);
 
         try {
-            const ai = getAIClient(apiKey);
+            const ai = getAIClient();
 
             // Build history from current state
             const history = await Promise.all(messages.map(async (msg) => {
@@ -154,7 +149,13 @@ const StudyBuddy: React.FC = () => {
             {/* Chat Area - Scrollable */}
             <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4 pb-24">
                 {messages.map((msg, index) => (
-                    <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <motion.div
+                        key={index}
+                        initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        transition={{ duration: 0.25, ease: 'easeOut' }}
+                        className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                    >
                         <div className={`max-w-xs md:max-w-md lg:max-w-lg px-3 py-2 shadow flex flex-col ${msg.role === 'user' ? 'bg-orange-200 text-gray-800 rounded-t-xl rounded-bl-xl' : 'bg-white text-gray-800 rounded-t-xl rounded-br-xl'}`}>
                             {msg.imageUrl && (
                                 <img src={msg.imageUrl} alt="User upload" className="rounded-lg mb-2 max-h-48" />
@@ -169,7 +170,7 @@ const StudyBuddy: React.FC = () => {
                                 )}
                             </div>
                         </div>
-                    </div>
+                    </motion.div>
                 ))}
             </div>
 
@@ -184,9 +185,9 @@ const StudyBuddy: React.FC = () => {
                         accept="image/*"
                         disabled={isLoading}
                     />
-                    <button type="button" onClick={handleCameraClick} disabled={isLoading} className="p-2 text-gray-500 hover:text-orange-500 disabled:opacity-50" aria-label="Upload image">
+                    <motion.button whileTap={{ scale: 0.9 }} type="button" onClick={handleCameraClick} disabled={isLoading} className="p-2 text-gray-500 hover:text-orange-500 disabled:opacity-50 transition-colors" aria-label="Upload image">
                         <CameraIcon className="h-6 w-6" />
-                    </button>
+                    </motion.button>
                     <input
                         type="text"
                         value={inputText}
@@ -195,9 +196,9 @@ const StudyBuddy: React.FC = () => {
                         className="flex-grow px-4 py-2 bg-white border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-orange-400 shadow-sm"
                         disabled={isLoading}
                     />
-                    <button type="submit" disabled={isLoading || !inputText} className={`px-4 py-2 rounded-full font-semibold text-white ${theme.mainBg} disabled:bg-orange-300 transition-colors shadow-md`}>
+                    <motion.button whileHover={{ scale: (isLoading || !inputText) ? 1 : 1.03 }} whileTap={{ scale: (isLoading || !inputText) ? 1 : 0.95 }} type="submit" disabled={isLoading || !inputText} className={`px-4 py-2 rounded-full font-semibold text-white ${theme.mainBg} disabled:bg-orange-300 transition-colors shadow-md`}>
                         Send
-                    </button>
+                    </motion.button>
                 </form>
             </div>
         </div>

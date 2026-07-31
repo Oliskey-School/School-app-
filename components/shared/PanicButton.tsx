@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useProfile } from '../../context/ProfileContext';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
@@ -9,24 +10,29 @@ interface PanicButtonProps {
     schoolId?: string;
 }
 
+const HOLD_DURATION_MS = 1200;
+
 const PanicButton: React.FC<PanicButtonProps> = ({ isFloating = true, schoolId }) => {
     const { profile } = useProfile();
     const [isActivating, setIsActivating] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
     const [location, setLocation] = useState('');
+    const [holdProgress, setHoldProgress] = useState(0);
+    const [sentAlert, setSentAlert] = useState<{ id?: string; time: string } | null>(null);
+    const holdIntervalRef = useRef<number | null>(null);
 
-    const getLocation = (): Promise<{ latitude: number, longitude: number }> => {
-        return new Promise((resolve, reject) => {
+    const getLocation = (): Promise<{ latitude: number, longitude: number } | null> => {
+        return new Promise((resolve) => {
             if ('geolocation' in navigator) {
                 navigator.geolocation.getCurrentPosition(
                     (position) => resolve({
                         latitude: position.coords.latitude,
                         longitude: position.coords.longitude
                     }),
-                    () => resolve({ latitude: 0, longitude: 0 })
+                    () => resolve(null)
                 );
             } else {
-                resolve({ latitude: 0, longitude: 0 });
+                resolve(null);
             }
         });
     };
@@ -37,14 +43,14 @@ const PanicButton: React.FC<PanicButtonProps> = ({ isFloating = true, schoolId }
 
             const coords = await getLocation();
 
-            const { data: alertData, error: alertError } = await (api as any).triggerPanicAlert({
+            const result = await (api as any).triggerPanicAlert({
                 schoolId: schoolId,
                 userId: profile.id,
                 type: 'Security Threat',
                 location: {
                     name: location || 'Unknown',
-                    lat: coords.latitude,
-                    lng: coords.longitude,
+                    lat: coords?.latitude ?? null,
+                    lng: coords?.longitude ?? null,
                     address: location || 'Unknown'
                 }
             });
@@ -52,16 +58,37 @@ const PanicButton: React.FC<PanicButtonProps> = ({ isFloating = true, schoolId }
             toast.success('🚨 EMERGENCY ALERT SENT! Help is on the way.');
             setShowConfirm(false);
             setLocation('');
-
-            // Could trigger real-time notifications here
-            // await sendEmergencyNotifications(alertData.id);
+            setSentAlert({ id: result?.data?.id, time: new Date().toLocaleTimeString() });
 
         } catch (error: any) {
             console.error('Error activating panic button:', error);
             toast.error('Failed to send alert. Please call emergency services directly.');
         } finally {
             setIsActivating(false);
+            setHoldProgress(0);
         }
+    };
+
+    const startHold = () => {
+        if (isActivating) return;
+        const startTime = Date.now();
+        holdIntervalRef.current = window.setInterval(() => {
+            const elapsed = Date.now() - startTime;
+            const pct = Math.min(100, (elapsed / HOLD_DURATION_MS) * 100);
+            setHoldProgress(pct);
+            if (pct >= 100) {
+                cancelHold();
+                handlePanicActivation();
+            }
+        }, 30);
+    };
+
+    const cancelHold = () => {
+        if (holdIntervalRef.current) {
+            clearInterval(holdIntervalRef.current);
+            holdIntervalRef.current = null;
+        }
+        setHoldProgress(0);
     };
 
     return (
@@ -79,9 +106,22 @@ const PanicButton: React.FC<PanicButtonProps> = ({ isFloating = true, schoolId }
             </button>
 
             {/* Confirmation Modal */}
+            <AnimatePresence>
             {showConfirm && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl p-6 max-w-md w-full">
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+                >
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.9, y: 10 }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                        className="bg-white rounded-xl p-6 max-w-md w-full"
+                    >
                         <div className="text-center">
                             <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100 mb-4">
                                 <ExclamationCircleIcon className="h-10 w-10 text-red-600" />
@@ -107,9 +147,13 @@ const PanicButton: React.FC<PanicButtonProps> = ({ isFloating = true, schoolId }
                                 />
                             </div>
 
+                            <p className="text-xs text-gray-400 mb-3">Press and hold the red button to confirm — this prevents sending an alert by accident.</p>
+
                             <div className="flex space-x-3">
-                                <button
+                                <motion.button
+                                    whileTap={{ scale: isActivating ? 1 : 0.96 }}
                                     onClick={() => {
+                                        cancelHold();
                                         setShowConfirm(false);
                                         setLocation('');
                                     }}
@@ -117,19 +161,49 @@ const PanicButton: React.FC<PanicButtonProps> = ({ isFloating = true, schoolId }
                                     disabled={isActivating}
                                 >
                                     Cancel
-                                </button>
+                                </motion.button>
                                 <button
-                                    onClick={handlePanicActivation}
+                                    onPointerDown={startHold}
+                                    onPointerUp={cancelHold}
+                                    onPointerLeave={cancelHold}
                                     disabled={isActivating}
-                                    className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-bold disabled:opacity-50"
+                                    className="relative flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-bold disabled:opacity-50 overflow-hidden select-none touch-none"
                                 >
-                                    {isActivating ? 'Sending...' : '🚨 SEND ALERT'}
+                                    <span
+                                        className="absolute inset-0 bg-red-800 origin-left"
+                                        style={{ transform: `scaleX(${holdProgress / 100})`, transition: holdProgress === 0 ? 'transform 0.15s ease-out' : 'none' }}
+                                    />
+                                    <span className="relative">
+                                        {isActivating ? 'Sending...' : 'HOLD TO SEND 🚨'}
+                                    </span>
                                 </button>
                             </div>
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
+
+            {/* Persistent post-send confirmation — a toast alone isn't reassuring enough mid-panic */}
+            <AnimatePresence>
+            {sentAlert && (
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 20 }}
+                    className="fixed inset-x-4 bottom-24 z-50 mx-auto max-w-sm bg-red-600 text-white rounded-xl shadow-2xl p-4 flex items-start gap-3"
+                >
+                    <ExclamationCircleIcon className="w-6 h-6 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                        <p className="font-bold">Alert Sent — Help Is On The Way</p>
+                        <p className="text-xs text-red-100 mt-0.5">
+                            Sent at {sentAlert.time}{sentAlert.id ? ` · Ref #${sentAlert.id.slice(0, 8)}` : ''}. Security and admin have been notified.
+                        </p>
+                    </div>
+                    <button onClick={() => setSentAlert(null)} className="text-red-100 hover:text-white font-bold text-sm">Close</button>
+                </motion.div>
+            )}
+            </AnimatePresence>
         </>
     );
 };

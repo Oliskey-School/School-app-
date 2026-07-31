@@ -1,6 +1,7 @@
 ﻿
 import React, { useState, useMemo, useEffect } from 'react';
-import { PlayIcon, Gamepad2 as GameControllerIcon, TrophyIcon, BriefcaseIcon, ChevronRightIcon, Search as SearchIcon, Sword, Mic2, Sparkles as SparklesIcon } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { PlayIcon, Gamepad2 as GameControllerIcon, TrophyIcon, BriefcaseIcon, ChevronRightIcon, Search as SearchIcon, Sword, Mic2, Sparkles as SparklesIcon, FileText } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { EducationalGame } from '../../../data/gamesData';
 import { Student, AIGame } from '../../../types';
@@ -57,7 +58,8 @@ const LevelAccordion: React.FC<{ level: string; games: EducationalGame[]; defaul
 
     return (
         <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
-            <button
+            <motion.button
+                whileTap={{ scale: 0.99 }}
                 onClick={() => setIsOpen(!isOpen)}
                 className="w-full flex justify-between items-center p-4 text-left hover:bg-gray-50 transition-colors"
                 aria-expanded={isOpen}
@@ -72,14 +74,27 @@ const LevelAccordion: React.FC<{ level: string; games: EducationalGame[]; defaul
                     <span className="text-xs font-bold text-gray-500 bg-gray-100 px-3 py-1 rounded-full">{games.length} Games</span>
                     <ChevronRightIcon className={`h-5 w-5 text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} />
                 </div>
-            </button>
-            {isOpen && (
-                <div className="p-4 bg-gray-50/50 border-t border-gray-100">
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            </motion.button>
+            <AnimatePresence initial={false}>
+                {isOpen && (
+                    <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 35 }}
+                        className="overflow-hidden"
+                    >
+                    <div className="p-4 bg-gray-50/50 border-t border-gray-100">
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                         {games.map((game, index) => {
                             return (
-                                <GameCard
+                                <motion.div
                                     key={index}
+                                    initial={{ opacity: 0, y: 8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.2, delay: Math.min(index, 10) * 0.03 }}
+                                >
+                                <GameCard
                                     game={game}
                                     onClick={() => {
                                         if (game.gameName?.startsWith('Class Battle')) navigateTo('classBattle', game.gameName, { student, gameId: (game as any).id, subject: game.subject });
@@ -106,14 +121,17 @@ const LevelAccordion: React.FC<{ level: string; games: EducationalGame[]; defaul
                                         else if (game.gameName === 'Simple Machine Scavenger Hunt') navigateTo('simpleMachineHunt', 'Scavenger Hunt');
                                         else if (game.gameName === 'Historical Hot Seat') navigateTo('historicalHotSeat', 'Historical Hot Seat');
                                         else if (game.gameName === 'Vocabulary Ninja') navigateTo('vocabularyNinja', 'Vocabulary Ninja');
-                                        else toast('Game coming soon!', { icon: 'ðŸš§' });
+                                        else toast('Game coming soon!', { icon: '🚧' });
                                     }}
                                 />
+                                </motion.div>
                             )
                         })}
+                        </div>
                     </div>
-                </div>
-            )}
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };
@@ -148,7 +166,12 @@ const LeaderboardSection: React.FC = () => {
             </h3>
             <div className="space-y-3">
                 {leaderboard.map((entry, i) => (
-                    <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 hover:bg-orange-50 transition-colors border border-transparent hover:border-orange-100">
+                    <motion.div
+                        key={i}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.25, delay: i * 0.06 }}
+                        className="flex items-center justify-between p-3 rounded-xl bg-gray-50 hover:bg-orange-50 transition-colors border border-transparent hover:border-orange-100">
                         <div className="flex items-center gap-3">
                             <span className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
                                 i === 0 ? 'bg-yellow-100 text-yellow-700' :
@@ -166,7 +189,7 @@ const LeaderboardSection: React.FC = () => {
                             <p className="text-lg font-black text-orange-600 leading-none">{entry.score}</p>
                             <p className="text-xs text-gray-400 font-bold uppercase mt-1">Points</p>
                         </div>
-                    </div>
+                    </motion.div>
                 ))}
             </div>
         </div>
@@ -175,16 +198,16 @@ const LeaderboardSection: React.FC = () => {
 
 /* FeaturedGameCard Component */
 const FeaturedGameCard: React.FC<{ title: string; description: string; icon: React.ReactNode; bgColor: string; onClick: () => void; }> = ({ title, description, icon, bgColor, onClick }) => (
-    <div className={`flex-shrink-0 w-72 md:w-80 h-48 ${bgColor} rounded-2xl p-5 flex flex-col justify-between text-white shadow-xl hover:shadow-2xl transition-all transform hover:-translate-y-1 cursor-pointer`}>
+    <motion.div whileHover={{ y: -4 }} className={`flex-shrink-0 w-72 md:w-80 h-48 ${bgColor} rounded-2xl p-5 flex flex-col justify-between text-white shadow-xl hover:shadow-2xl transition-shadow cursor-pointer`}>
         <div>
             <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mb-3 backdrop-blur-sm">{icon}</div>
             <h3 className="font-bold text-xl tracking-tight">{title}</h3>
             <p className="text-sm opacity-90 mt-1 font-medium text-blue-50/90">{description}</p>
         </div>
-        <button onClick={onClick} className="self-start bg-white text-gray-900 px-4 py-1.5 rounded-full text-xs font-bold hover:bg-blue-50 transition-colors shadow-sm">
+        <motion.button whileTap={{ scale: 0.95 }} onClick={onClick} className="self-start bg-white text-gray-900 px-4 py-1.5 rounded-full text-xs font-bold hover:bg-blue-50 transition-colors shadow-sm">
             Play Now
-        </button>
-    </div>
+        </motion.button>
+    </motion.div>
 );
 
 const GamesHubScreen: React.FC<GamesHubScreenProps> = ({ navigateTo, student }) => {
@@ -289,7 +312,7 @@ const GamesHubScreen: React.FC<GamesHubScreenProps> = ({ navigateTo, student }) 
         {
             title: 'Science Lab',
             description: 'Virtual experiments.',
-            icon: <div className="text-2xl font-bold text-white">ðŸ§ª</div>,
+            icon: <div className="text-2xl font-bold text-white">🧪</div>,
             bgColor: 'bg-teal-500 bg-gradient-to-br from-teal-500 to-green-600',
             action: () => navigateTo('physicsLab', 'Physics Lab')
         },
@@ -299,6 +322,13 @@ const GamesHubScreen: React.FC<GamesHubScreenProps> = ({ navigateTo, student }) 
             icon: <div className="text-2xl font-bold text-white">Abc</div>,
             bgColor: 'bg-yellow-400 bg-gradient-to-br from-yellow-400 to-orange-400',
             action: () => navigateTo('peekabooLetters', 'Peekaboo Letters')
+        },
+        {
+            title: 'Worksheets',
+            description: 'Printable practice sheets (external site).',
+            icon: <FileText className="w-7 h-7 text-white" />,
+            bgColor: 'bg-indigo-500 bg-gradient-to-br from-indigo-500 to-blue-600',
+            action: () => navigateTo('worksheets', 'Worksheets')
         },
     ];
 
@@ -310,15 +340,10 @@ const GamesHubScreen: React.FC<GamesHubScreenProps> = ({ navigateTo, student }) 
     const categoryTabs = ["All", "Math", "Geography", "Coding", "Logic"];
     const [activeCategory, setActiveCategory] = useState("All");
 
-    const filteredGames = useMemo(() => {
-        let allGames: EducationalGame[] = [];
-        Object.values(gamesByLevel).forEach(levelGames => {
-            allGames = [...allGames, ...levelGames];
-        });
-
-        if (activeCategory === "All") return allGames;
-        return allGames.filter(g => g.subject.includes(activeCategory) || (activeCategory === "Logic" && g.gameName.includes("Code")));
-    }, [activeCategory, gamesByLevel]);
+    const filterGamesByCategory = React.useCallback((games: EducationalGame[]) => {
+        if (activeCategory === "All") return games;
+        return games.filter(g => g.subject.includes(activeCategory) || (activeCategory === "Logic" && g.gameName.includes("Code")));
+    }, [activeCategory]);
 
     if (loading) {
         return (
@@ -371,30 +396,31 @@ const GamesHubScreen: React.FC<GamesHubScreenProps> = ({ navigateTo, student }) 
                         {/* Categories */}
                         <div className="flex space-x-2 overflow-x-auto py-2 scrollbar-hide no-scrollbar">
                             {categoryTabs.map(cat => (
-                                <button
+                                <motion.button
                                     key={cat}
+                                    whileTap={{ scale: 0.95 }}
                                     onClick={() => setActiveCategory(cat)}
-                                    className={`px-6 py-2.5 rounded-full text-sm font-bold transition-all whitespace-nowrap shadow-sm ${
-                                        activeCategory === cat 
-                                        ? 'bg-indigo-600 text-white shadow-indigo-200' 
+                                    className={`px-6 py-2.5 rounded-full text-sm font-bold transition-colors whitespace-nowrap shadow-sm ${
+                                        activeCategory === cat
+                                        ? 'bg-indigo-600 text-white shadow-indigo-200'
                                         : 'bg-white text-gray-600 hover:bg-gray-100'
                                     }`}
                                 >
                                     {cat}
-                                </button>
+                                </motion.button>
                             ))}
                         </div>
 
                         {/* Your Level Section */}
-                        {studentLevel && gamesByLevel[studentLevel] && activeCategory === "All" && (
+                        {studentLevel && gamesByLevel[studentLevel] && filterGamesByCategory(gamesByLevel[studentLevel]).length > 0 && (
                             <div className="space-y-4">
                                 <h2 className="text-xl font-black text-gray-900 px-2 flex items-center gap-2">
                                     <div className="w-2 h-8 bg-orange-500 rounded-full"></div>
                                     Just for Your Level
                                 </h2>
-                                <LevelAccordion 
-                                    level={studentLevel} 
-                                    games={gamesByLevel[studentLevel]} 
+                                <LevelAccordion
+                                    level={studentLevel}
+                                    games={filterGamesByCategory(gamesByLevel[studentLevel])}
                                     defaultOpen={true}
                                     navigateTo={navigateTo}
                                     student={student}
@@ -403,7 +429,7 @@ const GamesHubScreen: React.FC<GamesHubScreenProps> = ({ navigateTo, student }) 
                         )}
                     </div>
 
-                    <div className="lg:col-span-1">
+                    <div className="lg:col-span-1 lg:sticky lg:top-6 lg:self-start">
                         <LeaderboardSection />
                     </div>
                 </div>
@@ -413,10 +439,10 @@ const GamesHubScreen: React.FC<GamesHubScreenProps> = ({ navigateTo, student }) 
                     <h2 className="text-xl font-black text-gray-900 px-2">Browse All Levels</h2>
                     <div className="space-y-4">
                         {levels.filter(l => l !== studentLevel || activeCategory !== "All").map(level => (
-                            <LevelAccordion 
-                                key={level} 
-                                level={level} 
-                                games={gamesByLevel[level] || []}
+                            <LevelAccordion
+                                key={level}
+                                level={level}
+                                games={filterGamesByCategory(gamesByLevel[level] || [])}
                                 navigateTo={navigateTo}
                                 student={student}
                             />
@@ -434,7 +460,7 @@ const GamesHubScreen: React.FC<GamesHubScreenProps> = ({ navigateTo, student }) 
                         <div className="flex -space-x-4">
                             {[1, 2, 3].map(i => (
                                 <div key={i} className="w-14 h-14 rounded-2xl bg-white shadow-lg flex items-center justify-center text-2xl animate-bounce" style={{ animationDelay: `${i * 0.2}s` }}>
-                                    {['ðŸŽ', 'ðŸŽ²', 'ðŸ§©'][i-1]}
+                                    {['🎁', '🎲', '🧩'][i-1]}
                                 </div>
                             ))}
                         </div>

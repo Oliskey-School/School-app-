@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { useAutoSync } from '../hooks/useAutoSync';
 import { useAuth } from './AuthContext';
 
@@ -91,9 +91,9 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
     // Real-time synchronization for profile data
     useAutoSync(['users'], refreshProfile);
 
-    const updateProfile = async (updates: Partial<UserProfile>) => {
+    const updateProfile = useCallback(async (updates: Partial<UserProfile>) => {
         if (!profile?.id) return { error: 'No profile loaded' };
-        
+
         try {
             const { api } = await import('../lib/api');
 
@@ -114,10 +114,15 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
         } catch (error) {
             return { error };
         }
-    };
+    }, [profile?.id, refreshUser]);
+
+    const value = useMemo(
+        () => ({ profile, isLoading, refreshProfile, updateProfile, setProfile }),
+        [profile, isLoading, refreshProfile, updateProfile, setProfile]
+    );
 
     return (
-        <ProfileContext.Provider value={{ profile, isLoading, refreshProfile, updateProfile, setProfile }}>
+        <ProfileContext.Provider value={value}>
             {/* Remove the blocking loading screen as AuthProvider handles it */}
             {children}
         </ProfileContext.Provider>

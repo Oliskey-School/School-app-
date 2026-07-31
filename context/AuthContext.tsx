@@ -17,7 +17,7 @@ interface AuthContextType {
     signOut: () => Promise<void>;
     switchSchool: (schoolId: string) => Promise<void>;
     switchDemoRole: (roleKey: string) => Promise<void>;
-    signInWithGoogle: (email?: string, name?: string) => Promise<{ success: boolean } | void>;
+    signInWithGoogle: (credential?: string) => Promise<{ success: boolean } | void>;
     userProfile: any | null;
     refreshUser: () => Promise<void>;
     refreshCurrentSchool: () => Promise<void>;
@@ -379,15 +379,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
-    const signInWithGoogle = async (email?: string, name?: string) => {
-        if (!email) {
-            throw new Error('Email is required for Google Sign In');
+    const signInWithGoogle = async (credential?: string) => {
+        if (!credential) {
+            throw new Error('Google credential is required');
         }
 
         setLoading(true);
         try {
             const { api } = await import('../lib/api');
-            const { token, refreshToken, user: userData } = await api.googleLogin(email, name || 'Google User');
+            const { token, refreshToken, user: userData } = await api.googleLogin(credential);
 
             if (token && userData) {
                 // Determine dashboard type based on role

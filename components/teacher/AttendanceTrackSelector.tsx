@@ -7,6 +7,7 @@ import { api } from '../../lib/api';
 import { BookOpen, AlertCircle, Save, CheckCircle } from 'lucide-react';
 import { useProfile } from '../../context/ProfileContext';
 import { useAutoSync } from '../../hooks/useAutoSync';
+import ConfirmationModal from '../ui/ConfirmationModal';
 
 
 interface AttendanceTrackSelectorProps {
@@ -21,6 +22,7 @@ export default function AttendanceTrackSelector({
     onCurriculumChange
 }: AttendanceTrackSelectorProps) {
     const [selectedCurriculum, setSelectedCurriculum] = useState<'Nigerian' | 'British'>('Nigerian');
+    const [pendingCurriculumSwitch, setPendingCurriculumSwitch] = useState<'Nigerian' | 'British' | null>(null);
     const [students, setStudents] = useState<any[]>([]);
     const [attendance, setAttendance] = useState<{ [key: string]: 'Present' | 'Absent' | 'Late' }>({});
     const [loading, setLoading] = useState(false);
@@ -111,13 +113,19 @@ export default function AttendanceTrackSelector({
 
     const handleCurriculumSwitch = (curriculum: 'Nigerian' | 'British') => {
         if (Object.keys(attendance).some(key => attendance[key] !== 'Present')) {
-            if (!confirm('You have unsaved changes. Switching curriculum will discard them. Continue?')) {
-                return;
-            }
+            setPendingCurriculumSwitch(curriculum);
+            return;
         }
 
         setSelectedCurriculum(curriculum);
         onCurriculumChange?.(curriculum);
+    };
+
+    const confirmCurriculumSwitch = () => {
+        if (!pendingCurriculumSwitch) return;
+        setSelectedCurriculum(pendingCurriculumSwitch);
+        onCurriculumChange?.(pendingCurriculumSwitch);
+        setPendingCurriculumSwitch(null);
     };
 
     const handleAttendanceChange = (studentId: string, status: 'Present' | 'Absent' | 'Late') => {
@@ -171,6 +179,7 @@ export default function AttendanceTrackSelector({
     const lateCount = Object.values(attendance).filter(s => s === 'Late').length;
 
     return (
+        <>
         <div className="space-y-6">
             {/* Curriculum Selector */}
             <Card>
@@ -322,5 +331,15 @@ export default function AttendanceTrackSelector({
                 </CardContent>
             </Card>
         </div>
+        <ConfirmationModal
+            isOpen={!!pendingCurriculumSwitch}
+            onClose={() => setPendingCurriculumSwitch(null)}
+            onConfirm={confirmCurriculumSwitch}
+            title="Discard Unsaved Attendance?"
+            message="You have unsaved changes. Switching curriculum will discard them. Continue?"
+            confirmText="Switch Curriculum"
+            isDanger
+        />
+        </>
     );
 }

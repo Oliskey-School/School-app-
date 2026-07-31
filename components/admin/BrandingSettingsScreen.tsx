@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { SchoolLogoIcon } from '../../constants';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
@@ -59,7 +60,7 @@ const BrandingSettingsScreen: React.FC = () => {
 
     return (
         <div className="p-4 space-y-4 bg-gray-50">
-            <div className="bg-white p-4 rounded-xl shadow-sm">
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="bg-white p-4 rounded-xl shadow-sm">
                 <h3 className="font-bold text-gray-800 mb-3">School Logo</h3>
                 <div className="flex items-center space-x-4">
                     <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center border">
@@ -70,8 +71,8 @@ const BrandingSettingsScreen: React.FC = () => {
                         <input type="file" onChange={handleLogoChange} accept="image/*" className="hidden" />
                     </label>
                 </div>
-            </div>
-            <div className="bg-white p-4 rounded-xl shadow-sm">
+            </motion.div>
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.05 }} className="bg-white p-4 rounded-xl shadow-sm">
                 <h3 className="font-bold text-gray-800 mb-3">Primary Color Theme</h3>
                 <div className="flex items-center space-x-4">
                     <div className="relative">
@@ -79,14 +80,15 @@ const BrandingSettingsScreen: React.FC = () => {
                     </div>
                     <input type="text" value={primaryColor} onChange={e => setPrimaryColor(e.target.value)} className="p-2 border rounded-md font-mono text-sm" />
                 </div>
-            </div>
-            <button
+            </motion.div>
+            <motion.button
+                whileHover={!isLoading ? { scale: 1.01 } : {}} whileTap={!isLoading ? { scale: 0.98 } : {}}
                 onClick={handleSave}
                 disabled={isLoading}
                 className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-indigo-700 transition disabled:opacity-50"
             >
                 {isLoading ? 'Saving...' : 'Save Branding Settings'}
-            </button>
+            </motion.button>
         </div>
     );
 };

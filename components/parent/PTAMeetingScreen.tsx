@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { api } from '../../lib/api';
 import { PTAMeeting } from '../../types';
@@ -26,6 +27,7 @@ const PTAMeetingScreen: React.FC = () => {
                     agenda: m.agenda || [], // Ensure agenda is an array
                     isPast: m.is_past
                 });
+                setIsRegistered(!!m.is_registered);
             } else {
                 setMeeting(null);
             }
@@ -137,7 +139,13 @@ const PTAMeetingScreen: React.FC = () => {
                         <div className="flex-grow">
                             <ul className="space-y-4 relative before:absolute before:inset-y-0 before:left-[15px] before:w-0.5 before:bg-gray-100">
                                 {meeting.agenda.map((item, index) => (
-                                    <li key={index} className="relative pl-10">
+                                    <motion.li
+                                        key={index}
+                                        initial={{ opacity: 0, x: -10 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ duration: 0.2, delay: Math.min(index, 10) * 0.05 }}
+                                        className="relative pl-10"
+                                    >
                                         <div className="absolute left-0 top-1 w-8 h-8 rounded-full bg-white border-2 border-green-100 flex items-center justify-center text-xs font-bold text-green-600 shadow-sm z-10">
                                             {index + 1}
                                         </div>
@@ -150,7 +158,7 @@ const PTAMeetingScreen: React.FC = () => {
                                                 </p>
                                             )}
                                         </div>
-                                    </li>
+                                    </motion.li>
                                 ))}
                             </ul>
                         </div>
@@ -161,17 +169,18 @@ const PTAMeetingScreen: React.FC = () => {
             {/* Sticky Bottom Action */}
             <div className="p-4 bg-white border-t border-gray-200 z-10">
                 <div className="max-w-4xl mx-auto">
-                    <button
+                    <motion.button
+                        whileTap={{ scale: isRegistered ? 1 : 0.95 }}
                         onClick={handleRegister}
                         disabled={isRegistered || isRegistering}
-                        className={`w-full flex justify-center items-center space-x-3 py-4 px-6 font-bold text-lg rounded-xl shadow-lg transition-all transform active:scale-95 ${isRegistered
+                        className={`w-full flex justify-center items-center space-x-3 py-4 px-6 font-bold text-lg rounded-xl shadow-lg transition-shadow ${isRegistered
                                 ? 'bg-green-50 text-green-600 border border-green-200 shadow-none cursor-default'
                                 : 'text-white bg-gray-900 hover:bg-black hover:shadow-xl'
                             }`}
                     >
                         {isRegistered ? <CheckCircleIcon className="w-6 h-6" /> : null}
                         <span>{isRegistering ? 'Registering...' : isRegistered ? 'Registration Confirmed' : 'Register for Meeting'}</span>
-                    </button>
+                    </motion.button>
                     {isRegistered && (
                         <p className="text-center text-xs text-gray-400 mt-2">
                             A confirmation email has been sent to your registered address.

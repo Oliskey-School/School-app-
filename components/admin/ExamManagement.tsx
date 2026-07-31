@@ -1,7 +1,9 @@
 
 import { toast } from 'react-hot-toast';
 import React, { useState, useMemo, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { PlusIcon, EditIcon, TrashIcon, PublishIcon, EXAM_TYPE_COLORS } from '../../constants';
+import CenteredLoader from '../ui/CenteredLoader';
 import { useNavigate } from 'react-router-dom';
 import { Exam, Teacher } from '../../types';
 import { api } from '../../lib/api';
@@ -149,7 +151,7 @@ const ExamManagement: React.FC<ExamManagementProps> = ({ navigateTo, forceUpdate
     };
 
     if (loading && exams.length === 0) {
-        return <div className="p-8 text-center text-gray-500">Loading exams...</div>;
+        return <CenteredLoader message="Loading exams..." className="p-8" />;
     }
 
     return (
@@ -186,8 +188,8 @@ const ExamManagement: React.FC<ExamManagementProps> = ({ navigateTo, forceUpdate
 
             <main className="flex-grow p-4 space-y-3 overflow-y-auto pb-20">
                 <div className="space-y-3">
-                    {filteredExams.map(exam => (
-                        <div key={exam.id} className="bg-white rounded-xl shadow-sm p-4 space-y-3">
+                    {filteredExams.map((exam, ei) => (
+                        <motion.div key={exam.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(ei, 15) * 0.03 }} className="bg-white rounded-xl shadow-sm p-4 space-y-3">
                             <div className="flex justify-between items-start">
                                 <div>
                                     <p className="font-bold text-gray-800">{exam.subject}</p>
@@ -211,7 +213,7 @@ const ExamManagement: React.FC<ExamManagementProps> = ({ navigateTo, forceUpdate
                                 <button onClick={() => handleEdit(exam)} className="text-indigo-600 p-1"><EditIcon className="w-5 h-5" /></button>
                                 <button onClick={() => confirmDelete(exam.id)} className="text-red-600 p-1"><TrashIcon className="w-5 h-5" /></button>
                             </div>
-                        </div>
+                        </motion.div>
                     ))}
                 </div>
 
@@ -219,13 +221,15 @@ const ExamManagement: React.FC<ExamManagementProps> = ({ navigateTo, forceUpdate
             </main>
 
             <div className="fixed bottom-24 right-6 lg:bottom-12 lg:right-12 z-40 space-y-4 flex flex-col items-end">
-                <button
+                <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                     onClick={() => navigate('/external-exams')}
-                    className="flex items-center gap-2 px-4 py-3 bg-indigo-600 text-white rounded-2xl shadow-xl hover:bg-indigo-700 transition-all hover:scale-105 active:scale-95"
+                    className="flex items-center gap-2 px-4 py-3 bg-indigo-600 text-white rounded-2xl shadow-xl hover:bg-indigo-700 transition-all"
                 >
                     <PlusIcon className="h-5 w-5" />
                     <span className="text-sm font-bold">External Exams Page</span>
-                </button>
+                </motion.button>
             </div>
 
             <ConfirmationModal

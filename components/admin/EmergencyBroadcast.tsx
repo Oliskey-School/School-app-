@@ -1,5 +1,6 @@
 import { toast } from 'react-hot-toast';
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 
@@ -175,8 +176,9 @@ export function EmergencyBroadcast({ onClose }: EmergencyBroadcastProps) {
             </div>
 
             {/* Broadcast History Panel */}
+            <AnimatePresence>
             {showHistory && (
-                <div className="mb-6 bg-white border border-gray-200 rounded-xl overflow-hidden">
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mb-6 bg-white border border-gray-200 rounded-xl overflow-hidden">
                     <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
                         <h3 className="font-semibold text-gray-800">Recent Broadcasts</h3>
                     </div>
@@ -186,8 +188,8 @@ export function EmergencyBroadcast({ onClose }: EmergencyBroadcastProps) {
                         <div className="p-6 text-center text-gray-400">No broadcasts yet</div>
                     ) : (
                         <div className="divide-y divide-gray-100">
-                            {history.map((alert) => (
-                                <div key={alert.id} className="px-4 py-3 flex items-start gap-3">
+                            {history.map((alert, hi) => (
+                                <motion.div key={alert.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(hi, 10) * 0.03 }} className="px-4 py-3 flex items-start gap-3">
                                     <span className={`mt-0.5 text-xs font-bold px-2 py-0.5 rounded-full ${getSeverityBadge(alert.severity)}`}>
                                         {alert.severity.toUpperCase()}
                                     </span>
@@ -198,36 +200,41 @@ export function EmergencyBroadcast({ onClose }: EmergencyBroadcastProps) {
                                             {new Date(alert.sent_at).toLocaleString()} · to {alert.target_audiences?.join(', ')}
                                         </p>
                                     </div>
-                                </div>
+                                </motion.div>
                             ))}
                         </div>
                     )}
-                </div>
+                </motion.div>
             )}
+            </AnimatePresence>
 
             {/* Success Banner */}
+            <AnimatePresence>
             {success && (
-                <div className="bg-green-50 border border-green-600 rounded-lg p-4 mb-6 flex items-center gap-2">
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="bg-green-50 border border-green-600 rounded-lg p-4 mb-6 flex items-center gap-2 overflow-hidden">
                     <svg className="w-6 h-6 text-green-600 shrink-0" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                     </svg>
                     <p className="text-green-800 font-medium">Emergency broadcast sent and saved to database!</p>
-                </div>
+                </motion.div>
             )}
+            </AnimatePresence>
 
             {/* Quick Templates */}
             <div className="mb-6">
                 <h3 className="font-semibold text-gray-900 mb-3">Quick Templates</h3>
                 <div className="grid grid-cols-2 gap-3">
                     {templates.map((template, idx) => (
-                        <button
+                        <motion.button
                             key={idx}
+                            whileHover={{ scale: 1.01 }}
+                            whileTap={{ scale: 0.99 }}
                             onClick={() => handleTemplate(template)}
                             className="text-left p-4 border-2 border-gray-200 rounded-lg hover:border-red-400 hover:bg-red-50 transition"
                         >
                             <h4 className="font-medium text-gray-900">{template.title}</h4>
                             <p className="text-sm text-gray-600 line-clamp-2">{template.message}</p>
-                        </button>
+                        </motion.button>
                     ))}
                 </div>
             </div>
@@ -236,7 +243,9 @@ export function EmergencyBroadcast({ onClose }: EmergencyBroadcastProps) {
             <div className="mb-6">
                 <label className="block font-semibold text-gray-900 mb-3">Urgency Level</label>
                 <div className="flex gap-3">
-                    <button
+                    <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={() => setUrgency('high')}
                         className={`flex-1 p-4 border-2 rounded-lg transition ${urgency === 'high'
                             ? 'border-orange-500 bg-orange-50'
@@ -246,8 +255,10 @@ export function EmergencyBroadcast({ onClose }: EmergencyBroadcastProps) {
                         <div className="text-3xl mb-1">⚠️</div>
                         <div className="font-medium">High</div>
                         <div className="text-sm text-gray-600">Push + SMS</div>
-                    </button>
-                    <button
+                    </motion.button>
+                    <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={() => setUrgency('emergency')}
                         className={`flex-1 p-4 border-2 rounded-lg transition ${urgency === 'emergency'
                             ? 'border-red-600 bg-red-50'
@@ -257,7 +268,7 @@ export function EmergencyBroadcast({ onClose }: EmergencyBroadcastProps) {
                         <div className="text-3xl mb-1">🚨</div>
                         <div className="font-medium">Emergency</div>
                         <div className="text-sm text-gray-600">Push + SMS + Email</div>
-                    </button>
+                    </motion.button>
                 </div>
             </div>
 
@@ -266,8 +277,10 @@ export function EmergencyBroadcast({ onClose }: EmergencyBroadcastProps) {
                 <label className="block font-semibold text-gray-900 mb-3">Target Audience</label>
                 <div className="grid grid-cols-3 gap-3">
                     {audiences.map((audience) => (
-                        <button
+                        <motion.button
                             key={audience.id}
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
                             onClick={() => toggleAudience(audience.id)}
                             className={`p-4 border-2 rounded-lg transition ${targetAudience.includes(audience.id) || (audience.id !== 'all' && targetAudience.includes('all'))
                                 ? 'border-indigo-600 bg-indigo-50'
@@ -276,7 +289,7 @@ export function EmergencyBroadcast({ onClose }: EmergencyBroadcastProps) {
                         >
                             <div className="text-2xl mb-1">{audience.icon}</div>
                             <div className="font-medium text-sm">{audience.label}</div>
-                        </button>
+                        </motion.button>
                     ))}
                 </div>
             </div>
@@ -310,8 +323,9 @@ export function EmergencyBroadcast({ onClose }: EmergencyBroadcastProps) {
             </div>
 
             {/* Confirmation or Send Button */}
+            <AnimatePresence mode="wait">
             {confirming ? (
-                <div className="bg-orange-50 border border-orange-200 rounded-lg p-5 mb-4">
+                <motion.div key="confirm" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="bg-orange-50 border border-orange-200 rounded-lg p-5 mb-4">
                     <h4 className="font-bold text-orange-800 text-lg mb-2">⚠️ Confirm Broadcast?</h4>
                     <p className="text-orange-700 mb-4">
                         You are about to send a <strong className="uppercase">{urgency}</strong> alert to{' '}
@@ -319,22 +333,30 @@ export function EmergencyBroadcast({ onClose }: EmergencyBroadcastProps) {
                         This action cannot be undone.
                     </p>
                     <div className="flex gap-3">
-                        <button
+                        <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
                             onClick={handleCancel}
                             className="flex-1 py-3 px-4 bg-white border border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50"
                         >
                             Cancel
-                        </button>
-                        <button
+                        </motion.button>
+                        <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
                             onClick={handleConfirmSend}
                             className="flex-1 py-3 px-4 bg-orange-600 text-white font-bold rounded-lg hover:bg-orange-700 shadow-md"
                         >
                             CONFIRM &amp; SEND
-                        </button>
+                        </motion.button>
                     </div>
-                </div>
+                </motion.div>
             ) : (
-                <button
+                <motion.button
+                    key="send"
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    whileHover={!(sending || !title.trim() || !message.trim()) ? { scale: 1.01 } : {}}
+                    whileTap={!(sending || !title.trim() || !message.trim()) ? { scale: 0.98 } : {}}
                     onClick={handleInitiateSend}
                     disabled={sending || !title.trim() || !message.trim()}
                     className="w-full bg-red-600 text-white px-6 py-4 rounded-lg font-bold text-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
@@ -355,16 +377,19 @@ export function EmergencyBroadcast({ onClose }: EmergencyBroadcastProps) {
                             Send Emergency Broadcast
                         </>
                     )}
-                </button>
+                </motion.button>
             )}
+            </AnimatePresence>
 
             {onClose && !confirming && (
-                <button
+                <motion.button
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={onClose}
                     className="w-full mt-3 border border-gray-300 text-gray-700 px-6 py-3 rounded-lg font-medium hover:bg-gray-50 transition"
                 >
                     Cancel
-                </button>
+                </motion.button>
             )}
         </div>
     );

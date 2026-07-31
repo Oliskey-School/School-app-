@@ -102,11 +102,16 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
         </div>
     );
     if (children.length === 0) return (
-        <div className="flex flex-col items-center justify-center h-[60vh] p-6 text-center">
+        <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="flex flex-col items-center justify-center h-[60vh] p-6 text-center"
+        >
             <CircleUser className="w-20 h-20 text-gray-300 mb-4" />
             <h2 className="text-xl font-bold text-gray-700">No Children Linked</h2>
             <p className="text-gray-500 mt-2">We couldn't find any students linked to your parent account.<br/>If this is a mistake, please contact the school administration.</p>
-        </div>
+        </motion.div>
     );
 
     const child = children[activeChildIndex];
@@ -210,8 +215,9 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
                             { label: 'Notices', icon: Megaphone, color: 'text-purple-600', bg: 'bg-purple-50', view: 'noticeboard', title: 'Noticeboard' },
                             { label: 'Meet', icon: CalendarPlus, color: 'text-pink-600', bg: 'bg-pink-50', view: 'appointments', title: 'Book Appointment' }
                         ].map((item, i) => (
-                            <button 
-                                key={i} 
+                            <motion.button
+                                key={i}
+                                whileTap={{ scale: 0.92 }}
                                 onClick={() => navigateTo(item.view, item.title, item.view === 'busRoute' ? { studentId: child.id } : {})}
                                 className="flex flex-col items-center gap-2 group p-2 rounded-xl hover:bg-gray-50 transition-colors"
                             >
@@ -219,7 +225,7 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
                                     <item.icon className={`w-5 h-5 ${item.color}`} />
                                 </div>
                                 <span className="text-xs font-bold text-gray-500">{item.label}</span>
-                            </button>
+                            </motion.button>
                         ))}
                     </div>
                 </div>
@@ -232,12 +238,16 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
                 </div>
                 {/* Attendance Card */}
                 <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.25, delay: 0.05 }}
+                    whileHover={{ y: -2 }}
                     whileTap={{ scale: 0.98 }}
                     role="button"
                     tabIndex={0}
                     onClick={() => navigateTo('attendance', 'Attendance', { student: students[activeChildIndex], studentId: child.id })}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigateTo('attendance', 'Attendance', { student: students[activeChildIndex], studentId: child.id }); } }}
-                    className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    className="bg-white p-5 rounded-2xl shadow-sm hover:shadow-md transition-shadow border border-gray-100 flex items-center justify-between cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-300"
                 >
                     <div className="flex items-center gap-4">
                         <div className="bg-emerald-50 p-3 rounded-xl">
@@ -258,12 +268,16 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
 
                 {/* Assignments Card */}
                 <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.25, delay: 0.1 }}
+                    whileHover={{ y: -2 }}
                     whileTap={{ scale: 0.98 }}
                     role="button"
                     tabIndex={0}
                     onClick={() => navigateTo('childDetail', child.name, { student: students[activeChildIndex], initialTab: 'academic' })}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigateTo('childDetail', child.name, { student: students[activeChildIndex], initialTab: 'academic' }); } }}
-                    className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    className="bg-white p-5 rounded-2xl shadow-sm hover:shadow-md transition-shadow border border-gray-100 flex items-center justify-between cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-300"
                 >
                     <div className="flex items-center gap-4">
                         <div className="bg-blue-50 p-3 rounded-xl">
@@ -279,12 +293,16 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
 
                 {/* Fees Card */}
                 <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.25, delay: 0.15 }}
+                    whileHover={{ y: -2 }}
                     whileTap={{ scale: 0.98 }}
                     role="button"
                     tabIndex={0}
                     onClick={() => navigateTo('feeStatus', 'Fee Status')}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigateTo('feeStatus', 'Fee Status'); } }}
-                    className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    className="bg-white p-5 rounded-2xl shadow-sm hover:shadow-md transition-shadow border border-gray-100 flex items-center justify-between cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-300"
                 >
                     <div className="flex items-center gap-4">
                         <div className="bg-amber-50 p-3 rounded-xl">
@@ -304,7 +322,14 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
 
                 {/* Latest Result Card */}
                 {child.latest_result && (
-                    <motion.div whileTap={{ scale: 0.98 }} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
+                    <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.25, delay: 0.2 }}
+                        whileHover={{ y: -2 }}
+                        whileTap={{ scale: 0.98 }}
+                        className="bg-white p-5 rounded-2xl shadow-sm hover:shadow-md transition-shadow border border-gray-100 flex items-center justify-between"
+                    >
                         <div className="flex items-center gap-4">
                             <div className="bg-purple-50 p-3 rounded-xl">
                                 <BarChart3 className="w-6 h-6 text-purple-600" />
@@ -312,8 +337,10 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
                             <div>
                                 <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Latest Performance</p>
                                 <p className="text-gray-900 font-bold">
-                                    {child.latest_result.subject}: {child.latest_result.score}% 
-                                    <span className="ml-2 text-emerald-600 text-sm">↑</span>
+                                    {child.latest_result.subject}: {child.latest_result.score}%
+                                    <span className={`ml-2 text-sm ${child.latest_result.trend === 'down' ? 'text-red-500' : 'text-emerald-600'}`}>
+                                        {child.latest_result.trend === 'down' ? '↓' : '↑'}
+                                    </span>
                                 </p>
                             </div>
                         </div>
@@ -323,12 +350,16 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
 
                 {latestNotice && (
                     <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.25, delay: 0.25 }}
+                        whileHover={{ y: -2 }}
                         whileTap={{ scale: 0.98 }}
                         role="button"
                         tabIndex={0}
                         onClick={() => navigateTo('noticeboard', 'Noticeboard', {})}
                         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigateTo('noticeboard', 'Noticeboard', {}); } }}
-                        className="bg-gradient-to-r from-indigo-600 to-purple-700 p-5 rounded-2xl shadow-lg text-white flex items-center justify-between cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/60"
+                        className="bg-gradient-to-r from-indigo-600 to-purple-700 p-5 rounded-2xl shadow-lg hover:shadow-xl transition-shadow text-white flex items-center justify-between cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/60"
                     >
                         <div className="flex items-center gap-4">
                             <div className="bg-white/20 p-3 rounded-xl">

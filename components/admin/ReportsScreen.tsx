@@ -1,6 +1,7 @@
 
 
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { ChartBarIcon, TrophyIcon, TrendingUpIcon, SUBJECT_COLORS, gradeColors } from '../../constants';
 // import { mockSubjectAverages, mockTopStudents, mockAttendanceCorrelation } from '../../data';
 import { api } from '../../lib/api';
@@ -30,15 +31,20 @@ const SubjectGradesChart: React.FC<{ data: SubjectAverage[] }> = ({ data }) => {
   const maxValue = 100;
   return (
     <div className="space-y-2">
-      {data.map(item => {
+      {data.map((item, idx) => {
         const colorClass = SUBJECT_COLORS[item.subject] || 'bg-gray-200 text-gray-800';
         return (
           <div key={item.subject} className="flex items-center space-x-2">
             <div className="w-28 text-sm font-medium text-gray-600 truncate">{item.subject}</div>
             <div className="flex-grow bg-gray-200 rounded-full h-5">
-              <div className={`${colorClass} h-5 rounded-full flex items-center justify-end pr-2 text-xs font-bold`} style={{ width: `${(item.averageScore / maxValue) * 100}%` }}>
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${(item.averageScore / maxValue) * 100}%` }}
+                transition={{ duration: 0.5, delay: idx * 0.05, ease: 'easeOut' }}
+                className={`${colorClass} h-5 rounded-full flex items-center justify-end pr-2 text-xs font-bold`}
+              >
                 {item.averageScore}
-              </div>
+              </motion.div>
             </div>
           </div>
         )
@@ -50,8 +56,8 @@ const SubjectGradesChart: React.FC<{ data: SubjectAverage[] }> = ({ data }) => {
 const TopStudentsList: React.FC<{ students: TopStudent[] }> = ({ students }) => {
   return (
     <div className="space-y-3">
-      {students.map((student) => (
-        <div key={student.id} className="bg-gray-50 p-3 rounded-lg flex items-center space-x-3">
+      {students.map((student, si) => (
+        <motion.div key={student.id} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.2, delay: si * 0.05 }} className="bg-gray-50 p-3 rounded-lg flex items-center space-x-3">
           {student.avatarUrl ? (
             <img src={student.avatarUrl} alt={student.name} className="w-12 h-12 rounded-full object-cover" />
           ) : (
@@ -72,7 +78,7 @@ const TopStudentsList: React.FC<{ students: TopStudent[] }> = ({ students }) => 
             <p className="font-bold text-lg text-green-600">{student.averageScore}%</p>
             <p className="text-xs text-gray-500">Average</p>
           </div>
-        </div>
+        </motion.div>
       ))}
     </div>
   );
@@ -236,29 +242,29 @@ const ReportsScreen: React.FC<ReportsScreenProps> = ({ schoolId, currentBranchId
 
       {!loading && !error && (
         <>
-          <div className="bg-white rounded-2xl shadow-sm p-4">
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="bg-white rounded-2xl shadow-sm p-4">
             <div className="flex items-center space-x-3 mb-4">
               <div className="bg-blue-100 text-blue-500 p-2 rounded-lg"><ChartBarIcon /></div>
               <h3 className="font-bold text-gray-800">Average Grades by Subject</h3>
             </div>
             {subjectAverages.length > 0 ? <SubjectGradesChart data={subjectAverages} /> : <p className="text-gray-400 text-sm">No academic data available</p>}
-          </div>
+          </motion.div>
 
-          <div className="bg-white rounded-2xl shadow-sm p-4">
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.05 }} className="bg-white rounded-2xl shadow-sm p-4">
             <div className="flex items-center space-x-3 mb-4">
               <div className="bg-green-100 text-green-500 p-2 rounded-lg"><TrophyIcon /></div>
               <h3 className="font-bold text-gray-800">Top Performing Students</h3>
             </div>
             {topStudents.length > 0 ? <TopStudentsList students={topStudents} /> : <p className="text-gray-400 text-sm">No student data available</p>}
-          </div>
+          </motion.div>
 
-          <div className="bg-white rounded-2xl shadow-sm p-4">
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.1 }} className="bg-white rounded-2xl shadow-sm p-4">
             <div className="flex items-center space-x-3 mb-2">
               <div className="bg-blue-100 text-blue-500 p-2 rounded-lg"><TrendingUpIcon /></div>
               <h3 className="font-bold text-gray-800">Attendance-Performance Trend</h3>
             </div>
             {attendanceData.length > 0 ? <AttendanceCorrelationChart data={attendanceData} /> : <p className="text-gray-400 text-sm">No trend data available</p>}
-          </div>
+          </motion.div>
         </>
       )}
     </div>

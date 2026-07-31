@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { StudentAttendance, AttendanceStatus } from '../../types';
 import { api } from '../../lib/api';
@@ -153,15 +154,41 @@ const AttendanceScreen: React.FC<AttendanceScreenProps> = ({ studentId }) => {
 
     }, [studentData]);
 
-    if (loading) return <div className="p-8 text-center text-gray-500">Loading attendance data...</div>;
+    if (loading) {
+        return (
+            <div className="p-4 space-y-5 bg-gray-50 animate-pulse">
+                <div className="bg-white rounded-xl shadow-sm p-4 h-72" />
+                <div className="grid grid-cols-3 gap-3">
+                    {[0, 1, 2].map(i => <div key={i} className="bg-white p-3 rounded-xl shadow-sm h-16" />)}
+                </div>
+                <div className="bg-white rounded-xl shadow-sm p-4 h-48" />
+            </div>
+        );
+    }
 
     return (
         <div className="p-4 space-y-5 bg-gray-50">
-            <div className="bg-white rounded-xl shadow-sm p-4">
+            <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="bg-white rounded-xl shadow-sm p-4"
+            >
                 <div className="flex justify-between items-center mb-4">
-                    <button onClick={goToPreviousMonth} className="p-2 rounded-full hover:bg-gray-100" aria-label="Previous month"><ChevronLeftIcon className="h-5 w-5 text-gray-600" /></button>
-                    <h3 className="font-bold text-lg text-gray-800">{currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</h3>
-                    <button onClick={goToNextMonth} className="p-2 rounded-full hover:bg-gray-100" aria-label="Next month"><ChevronRightIcon className="h-5 w-5 text-gray-600" /></button>
+                    <motion.button whileTap={{ scale: 0.9 }} onClick={goToPreviousMonth} className="p-2 rounded-full hover:bg-gray-100 transition-colors" aria-label="Previous month"><ChevronLeftIcon className="h-5 w-5 text-gray-600" /></motion.button>
+                    <AnimatePresence mode="wait">
+                        <motion.h3
+                            key={currentDate.toISOString().slice(0, 7)}
+                            initial={{ opacity: 0, y: -4 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 4 }}
+                            transition={{ duration: 0.15 }}
+                            className="font-bold text-lg text-gray-800"
+                        >
+                            {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
+                        </motion.h3>
+                    </AnimatePresence>
+                    <motion.button whileTap={{ scale: 0.9 }} onClick={goToNextMonth} className="p-2 rounded-full hover:bg-gray-100 transition-colors" aria-label="Next month"><ChevronRightIcon className="h-5 w-5 text-gray-600" /></motion.button>
                 </div>
                 <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-gray-500 mb-2">
                     {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => <div key={`${day}-${index}`}>{day}</div>)}
@@ -174,21 +201,32 @@ const AttendanceScreen: React.FC<AttendanceScreenProps> = ({ studentId }) => {
                         const dateString = date.toISOString().split('T')[0];
                         const status = attendanceMap.get(dateString);
                         return (
-                            <div key={day} className={`w-9 h-9 flex items-center justify-center rounded-full text-sm font-semibold ${status ? attendanceColors[status] : 'bg-gray-100 text-gray-400'}`}>
+                            <motion.div
+                                key={day}
+                                initial={{ opacity: 0, scale: 0.8 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                transition={{ duration: 0.15, delay: Math.min(index, 20) * 0.008 }}
+                                className={`w-9 h-9 flex items-center justify-center rounded-full text-sm font-semibold ${status ? attendanceColors[status] : 'bg-gray-100 text-gray-400'}`}
+                            >
                                 {day}
-                            </div>
+                            </motion.div>
                         )
                     })}
                 </div>
-            </div>
+            </motion.div>
 
             <div className="grid grid-cols-3 gap-3 text-center">
-                <div className="bg-white p-3 rounded-xl shadow-sm"><p className="font-bold text-lg text-green-600">{monthlyStats.present}</p><p className="text-xs text-gray-500">Present</p></div>
-                <div className="bg-white p-3 rounded-xl shadow-sm"><p className="font-bold text-lg text-red-600">{monthlyStats.absent}</p><p className="text-xs text-gray-500">Absent</p></div>
-                <div className="bg-white p-3 rounded-xl shadow-sm"><p className="font-bold text-lg text-blue-600">{monthlyStats.late}</p><p className="text-xs text-gray-500">Late</p></div>
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: 0.05 }} className="bg-white p-3 rounded-xl shadow-sm hover:shadow-md transition-shadow"><p className="font-bold text-lg text-green-600">{monthlyStats.present}</p><p className="text-xs text-gray-500">Present</p></motion.div>
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: 0.1 }} className="bg-white p-3 rounded-xl shadow-sm hover:shadow-md transition-shadow"><p className="font-bold text-lg text-red-600">{monthlyStats.absent}</p><p className="text-xs text-gray-500">Absent</p></motion.div>
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: 0.15 }} className="bg-white p-3 rounded-xl shadow-sm hover:shadow-md transition-shadow"><p className="font-bold text-lg text-blue-600">{monthlyStats.late}</p><p className="text-xs text-gray-500">Late</p></motion.div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm p-4">
+            <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: 0.2 }}
+                className="bg-white rounded-xl shadow-sm p-4"
+            >
                 <div className="flex justify-between items-center mb-2">
                     <h3 className="font-bold text-gray-800">Term Attendance Trend</h3>
                     <div className="relative">
@@ -199,7 +237,7 @@ const AttendanceScreen: React.FC<AttendanceScreenProps> = ({ studentId }) => {
                     </div>
                 </div>
                 <SimpleLineChart data={termStats.trendData} color="#FF9800" />
-            </div>
+            </motion.div>
         </div>
     );
 };

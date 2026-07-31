@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { toast } from 'react-hot-toast';
 import { StudentAssignment, Submission } from '../../types';
@@ -155,7 +156,7 @@ const AssignmentSubmissionScreen: React.FC<AssignmentSubmissionScreenProps> = ({
       <form onSubmit={handleSubmit} className="flex-grow flex flex-col">
         <main className="flex-grow p-4 space-y-4 overflow-y-auto">
           {/* Assignment Details */}
-          <div className="bg-white p-4 rounded-xl shadow-sm">
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="bg-white p-4 rounded-xl shadow-sm">
             <div className="flex justify-between items-start mb-2">
               <h3 className="font-bold text-xl text-gray-800 pr-2 flex-1">{assignment.title}</h3>
               <span className={`px-2.5 py-1 text-xs font-semibold rounded-full flex-shrink-0 ${subjectColor}`}>
@@ -166,11 +167,11 @@ const AssignmentSubmissionScreen: React.FC<AssignmentSubmissionScreenProps> = ({
               <ClockIcon className="w-4 h-4 mr-1.5" />
               <span>Due: {new Date(assignment.dueDate).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>
             </div>
-          </div>
+          </motion.div>
 
           {/* Grade & Feedback Section */}
           {existingSubmission?.status === 'Graded' && (
-            <div className="bg-white p-5 rounded-xl shadow-sm border-2 border-green-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.1 }} className="bg-white p-5 rounded-xl shadow-sm border-2 border-green-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="flex items-center space-x-4">
                 <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center text-green-600">
                   <span className="text-2xl font-bold">{existingSubmission.grade}</span>
@@ -184,7 +185,7 @@ const AssignmentSubmissionScreen: React.FC<AssignmentSubmissionScreenProps> = ({
                 <p className="text-xs font-bold text-green-700 uppercase tracking-wider mb-1">Teacher's Feedback</p>
                 <p className="text-sm text-gray-700 italic">"{existingSubmission.feedback || 'No feedback provided.'}"</p>
               </div>
-            </div>
+            </motion.div>
           )}
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -207,10 +208,10 @@ const AssignmentSubmissionScreen: React.FC<AssignmentSubmissionScreenProps> = ({
               <h3 className="block text-md font-bold text-gray-700 mb-2">Attachments</h3>
               <input type="file" multiple ref={fileInputRef} onChange={handleFileChange} className="hidden" disabled={isSubmitted} />
               {!isSubmitted && (
-                <button type="button" onClick={handleAttachClick} className="w-full flex items-center justify-center space-x-2 px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:bg-gray-100 hover:border-orange-400 hover:text-orange-600 transition-colors">
+                <motion.button whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }} type="button" onClick={handleAttachClick} className="w-full flex items-center justify-center space-x-2 px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:bg-gray-100 hover:border-orange-400 hover:text-orange-600 transition-colors">
                   <PaperclipIcon className="h-5 w-5" />
                   <span className="font-semibold">Attach Files</span>
-                </button>
+                </motion.button>
               )}
 
               {(attachedFiles.length > 0 || isSubmitted) && (
@@ -247,18 +248,27 @@ const AssignmentSubmissionScreen: React.FC<AssignmentSubmissionScreenProps> = ({
                       );
                     });
                   })()}
-                  {attachedFiles.map((file, index) => (
-                    <div key={index} className="flex items-center p-2 bg-gray-50 rounded-lg">
-                      {getFileIcon(file.name)}
-                      <div className="ml-3 flex-grow overflow-hidden">
-                        <p className="text-sm font-medium text-gray-800 truncate">{file.name}</p>
-                        <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
-                      </div>
-                      <button type="button" onClick={() => handleRemoveFile(file)} className="ml-2 p-1 text-gray-400 hover:text-red-500" aria-label={`Remove ${file.name}`}>
-                        <XCircleIcon className="w-5 h-5" />
-                      </button>
-                    </div>
-                  ))}
+                  <AnimatePresence>
+                    {attachedFiles.map((file, index) => (
+                      <motion.div
+                        key={index}
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="flex items-center p-2 bg-gray-50 rounded-lg overflow-hidden"
+                      >
+                        {getFileIcon(file.name)}
+                        <div className="ml-3 flex-grow overflow-hidden">
+                          <p className="text-sm font-medium text-gray-800 truncate">{file.name}</p>
+                          <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
+                        </div>
+                        <button type="button" onClick={() => handleRemoveFile(file)} className="ml-2 p-1 text-gray-400 hover:text-red-500 transition-colors" aria-label={`Remove ${file.name}`}>
+                          <XCircleIcon className="w-5 h-5" />
+                        </button>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
                 </div>
               )}
             </div>
@@ -267,9 +277,15 @@ const AssignmentSubmissionScreen: React.FC<AssignmentSubmissionScreenProps> = ({
 
         {!isSubmitted && (
           <div className="p-4 mt-auto bg-white border-t border-gray-200">
-            <button type="submit" disabled={submitting} className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white bg-orange-500 hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:opacity-60 disabled:cursor-not-allowed">
+            <motion.button
+              whileHover={{ scale: submitting ? 1 : 1.01 }}
+              whileTap={{ scale: submitting ? 1 : 0.98 }}
+              type="submit"
+              disabled={submitting}
+              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white bg-orange-500 hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            >
               {submitting ? (attachedFiles.length > 0 ? 'Uploading & submitting…' : 'Submitting…') : 'Submit Assignment'}
-            </button>
+            </motion.button>
           </div>
         )}
       </form>

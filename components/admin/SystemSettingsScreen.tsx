@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { ShieldCheckIcon, CalendarIcon, DollarSignIcon, MegaphoneIcon, BriefcaseIcon, PaintBrushIcon, ChevronRightIcon, UserGroupIcon, UserIcon as ProfileIcon, ElearningIcon, ClockIcon, DocumentTextIcon } from '../../constants';
 import { UserPlus, Sparkles, CreditCard } from 'lucide-react';
 import TermBillingStatus from './TermBillingStatus';
@@ -34,9 +35,11 @@ const SystemSettingsScreen: React.FC<SystemSettingsScreenProps> = ({ navigateTo 
   return (
     <div className="p-4 space-y-3 bg-gray-50 pb-32 lg:pb-4">
       <TermBillingStatus navigateTo={navigateTo} />
-      {settingsCategories.map(cat => (
-        <button
+      {settingsCategories.map((cat, ci) => (
+        <motion.button
           key={cat.view}
+          initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(ci, 15) * 0.03 }}
+          whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
           onClick={() => navigateTo(cat.view, cat.title, {})}
           className="w-full bg-white rounded-xl shadow-sm p-4 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
         >
@@ -50,7 +53,7 @@ const SystemSettingsScreen: React.FC<SystemSettingsScreenProps> = ({ navigateTo 
             </div>
           </div>
           <ChevronRightIcon className="text-gray-400" />
-        </button>
+        </motion.button>
       ))}
     </div>
   );

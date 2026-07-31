@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
 import { Shield, Search, Filter, Download, AlertCircle, CheckCircle, Eye } from 'lucide-react';
+import CenteredLoader from '../ui/CenteredLoader';
 
 interface AuditLog {
     id: number;
@@ -139,46 +141,48 @@ const AuditTrailViewer: React.FC = () => {
     return (
         <div className="p-6 max-w-7xl mx-auto">
             {/* Header */}
-            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl p-6 text-white mb-6">
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl p-6 text-white mb-6">
                 <div className="flex justify-between items-center">
                     <div>
                         <h1 className="text-3xl font-bold mb-2">🔒 Audit Trail Viewer</h1>
                         <p className="text-purple-100">Comprehensive system activity and security monitoring</p>
                     </div>
-                    <button
+                    <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={exportAuditLog}
                         className="px-4 py-2 bg-white text-purple-600 rounded-lg hover:bg-purple-50 font-semibold flex items-center space-x-2"
                     >
                         <Download className="h-5 w-5" />
                         <span>Export CSV</span>
-                    </button>
+                    </motion.button>
                 </div>
-            </div>
+            </motion.div>
 
             {/* Stats */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <div className="bg-white rounded-xl shadow-sm p-4">
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="bg-white rounded-xl shadow-sm p-4">
                     <p className="text-sm text-gray-600">Total Events</p>
                     <p className="text-2xl font-bold text-gray-900">{filteredLogs.length}</p>
-                </div>
-                <div className="bg-white rounded-xl shadow-sm p-4">
+                </motion.div>
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.05 }} className="bg-white rounded-xl shadow-sm p-4">
                     <p className="text-sm text-gray-600">High Risk</p>
                     <p className="text-2xl font-bold text-orange-600">
                         {filteredLogs.filter(l => l.risk_level === 'High' || l.risk_level === 'Critical').length}
                     </p>
-                </div>
-                <div className="bg-white rounded-xl shadow-sm p-4">
+                </motion.div>
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.1 }} className="bg-white rounded-xl shadow-sm p-4">
                     <p className="text-sm text-gray-600">Failed Actions</p>
                     <p className="text-2xl font-bold text-red-600">
                         {filteredLogs.filter(l => l.status !== 'Success').length}
                     </p>
-                </div>
-                <div className="bg-white rounded-xl shadow-sm p-4">
+                </motion.div>
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.15 }} className="bg-white rounded-xl shadow-sm p-4">
                     <p className="text-sm text-gray-600">Sensitive Data</p>
                     <p className="text-2xl font-bold text-purple-600">
                         {filteredLogs.filter(l => l.is_sensitive).length}
                     </p>
-                </div>
+                </motion.div>
             </div>
 
             {/* Filters */}
@@ -249,9 +253,7 @@ const AuditTrailViewer: React.FC = () => {
             {/* Audit Log Table */}
             <div className="bg-white rounded-xl shadow-sm overflow-hidden">
                 {loading ? (
-                    <div className="flex justify-center py-12">
-                        <div className="w-10 h-10 border-4 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
-                    </div>
+                    <CenteredLoader className="py-12" />
                 ) : filteredLogs.length > 0 ? (
                     <div className="overflow-x-auto">
                         <table className="min-w-full divide-y divide-gray-200">
@@ -268,8 +270,8 @@ const AuditTrailViewer: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200">
-                                {filteredLogs.map(log => (
-                                    <tr key={log.id} className="hover:bg-gray-50">
+                                {filteredLogs.map((log, li) => (
+                                    <motion.tr key={log.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(li, 15) * 0.02 }} className="hover:bg-gray-50">
                                         <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">
                                             {new Date(log.performed_at).toLocaleString('en-GB')}
                                         </td>
@@ -307,7 +309,7 @@ const AuditTrailViewer: React.FC = () => {
                                                 <Eye className="h-5 w-5" />
                                             </button>
                                         </td>
-                                    </tr>
+                                    </motion.tr>
                                 ))}
                             </tbody>
                         </table>
@@ -321,18 +323,20 @@ const AuditTrailViewer: React.FC = () => {
             </div>
 
             {/* Details Modal */}
+            <AnimatePresence>
             {showDetailsModal && selectedLog && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} transition={{ type: 'spring', stiffness: 400, damping: 32 }} className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                         <div className="p-6">
                             <div className="flex justify-between items-center mb-4">
                                 <h2 className="text-2xl font-bold text-gray-900">Audit Log Details</h2>
-                                <button
+                                <motion.button
+                                    whileTap={{ scale: 0.9 }}
                                     onClick={() => setShowDetailsModal(false)}
                                     className="text-gray-400 hover:text-gray-600"
                                 >
                                     ✕
-                                </button>
+                                </motion.button>
                             </div>
 
                             <div className="space-y-4">
@@ -397,16 +401,19 @@ const AuditTrailViewer: React.FC = () => {
                                 )}
                             </div>
 
-                            <button
+                            <motion.button
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
                                 onClick={() => setShowDetailsModal(false)}
                                 className="mt-6 w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold"
                             >
                                 Close
-                            </button>
+                            </motion.button>
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
         </div>
     );
 };

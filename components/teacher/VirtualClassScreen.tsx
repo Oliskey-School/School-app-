@@ -15,6 +15,7 @@ import { useTeacherClasses } from '../../hooks/useTeacherClasses';
 import { getFormattedClassName } from '../../constants';
 import { parseClassName } from '../../utils/classUtils';
 import LiveClassRoom, { buildJitsiUrl } from '../video/LiveClassRoom';
+import ConfirmationModal from '../ui/ConfirmationModal';
 
 // --- Customized Icons for Premium Feel ---
 const XIcon = (props: React.SVGProps<SVGSVGElement>) => <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>;
@@ -142,6 +143,7 @@ const ClassSelectionScreen: React.FC<{
     const [refreshTrigger, setRefreshTrigger] = useState(0);
     const [pastSessions, setPastSessions] = useState<any[]>([]);
     const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [sessionToDelete, setSessionToDelete] = useState<{ id: string; isLive: boolean } | null>(null);
     const videoPreviewRef = useRef<HTMLVideoElement>(null);
 
     const { classes: rawClasses, loading: classesLoading } = useTeacherClasses();
@@ -181,7 +183,6 @@ const ClassSelectionScreen: React.FC<{
     }, [refreshTrigger]);
 
     const handleDeleteSession = async (id: string) => {
-        if (!window.confirm('Delete this session? Students will no longer see it.')) return;
         setDeletingId(id);
         try {
             await api.deleteVirtualClassSession(id);
@@ -211,6 +212,7 @@ const ClassSelectionScreen: React.FC<{
     }, [lobbyCameraOff]);
 
     return (
+        <>
         <div className="flex flex-col items-center justify-center min-h-[calc(100vh-64px)] bg-slate-50 p-4 md:p-8">
             <div className="w-full max-w-6xl space-y-6 md:space-y-8 animate-fade-in-up">
                 <div className="text-center space-y-2">
@@ -278,10 +280,11 @@ const ClassSelectionScreen: React.FC<{
                                                         </button>
                                                     )}
                                                     <button
-                                                        onClick={() => handleDeleteSession(s.id)}
+                                                        onClick={() => setSessionToDelete({ id: s.id, isLive })}
                                                         disabled={deletingId === s.id}
                                                         className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all disabled:opacity-50"
                                                         title="Delete session"
+                                                        aria-label="Delete session"
                                                     >
                                                         {deletingId === s.id
                                                             ? <div className="w-3.5 h-3.5 border-2 border-red-300 border-t-red-500 rounded-full animate-spin" />
@@ -345,6 +348,18 @@ const ClassSelectionScreen: React.FC<{
                 </div>
             </div>
         </div>
+        <ConfirmationModal
+            isOpen={!!sessionToDelete}
+            onClose={() => setSessionToDelete(null)}
+            onConfirm={() => { if (sessionToDelete) handleDeleteSession(sessionToDelete.id); }}
+            title={sessionToDelete?.isLive ? 'Delete Live Session' : 'Delete Session'}
+            message={sessionToDelete?.isLive
+                ? 'This class is still live. Deleting it now will remove it for all students immediately. Continue?'
+                : 'Delete this session? Students will no longer see it.'}
+            confirmText="Delete"
+            isDanger
+        />
+        </>
     );
 }
 
@@ -354,6 +369,7 @@ const VirtualClassScreen: React.FC = () => {
     // Backend session id for the live class — needed to mark it ended on the server
     // so students' "Join Live Class" button disappears when the teacher ends it.
     const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+    const [showEndClassConfirm, setShowEndClassConfirm] = useState(false);
     const [participants, setParticipants] = useState<any[]>([]);
     const [isMuted, setIsMuted] = useState(false);
     const [isCameraOff, setIsCameraOff] = useState(false);
@@ -462,7 +478,6 @@ const VirtualClassScreen: React.FC = () => {
     };
 
     const handleEndClass = async () => {
-        if (!window.confirm('End class for everyone?')) return;
         if (activeSessionId) {
             try { await api.endVirtualClassSession(activeSessionId); } catch (e) { console.error('Failed to end session', e); }
         }
@@ -477,130 +492,26 @@ const VirtualClassScreen: React.FC = () => {
     }
 
     return (
-        <LiveClassRoom
-            sessionId={activeSessionId}
-            displayName={user?.full_name || user?.name || 'Teacher'}
-            subject={activeSession.subject}
-            topic={activeSession.topic}
-            actionLabel="End Class"
-            onExit={handleEndClass}
-        />
+        <>
+            <LiveClassRoom
+                sessionId={activeSessionId}
+                displayName={user?.full_name || user?.name || 'Teacher'}
+                subject={activeSession.subject}
+                topic={activeSession.topic}
+                actionLabel="End Class"
+                onExit={() => setShowEndClassConfirm(true)}
+            />
+            <ConfirmationModal
+                isOpen={showEndClassConfirm}
+                onClose={() => setShowEndClassConfirm(false)}
+                onConfirm={handleEndClass}
+                title="End Class"
+                message="End class for everyone? All students will be disconnected."
+                confirmText="End Class"
+                isDanger
+            />
+        </>
     );
 };
-
-// --- Legacy mock live UI (no longer rendered; kept for reference only) ---
-const _UnusedLegacyLiveUI: React.FC<any> = ({
-    activeSession, activeSessionId, formatTime, elapsedTime, viewMode, setViewMode,
-    videoRef, isCameraOff, isMuted, setIsMuted, setIsCameraOff, participants,
-    isHandRaised, setIsHandRaised, showReactions, setShowReactions, isSidebarOpen,
-    setIsSidebarOpen, activeSidebarTab, setActiveSidebarTab, setActiveSession, setActiveSessionId,
-}) => {
-
-    return (
-        <div className="flex bg-slate-50 h-[calc(100vh-64px)] w-full overflow-hidden font-sans text-slate-900">
-            <div className="flex-1 flex flex-col h-full relative z-0 transition-all duration-300 ease-in-out overflow-hidden">
-                <div className="absolute top-4 left-0 right-0 z-20 flex justify-center pointer-events-none px-4">
-                    <div className="bg-white/90 backdrop-blur-xl border border-white/50 shadow-sm rounded-full px-4 py-2 flex items-center justify-between w-full max-w-3xl md:w-auto md:space-x-8 pointer-events-auto transition-all">
-                        <div className="flex items-center space-x-2 md:space-x-4 overflow-hidden">
-                            <div className="flex flex-col items-center leading-none">
-                                <span className="text-xs md:text-xs font-bold text-red-500 uppercase tracking-wide flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span> REC</span>
-                                <span className="text-xs md:text-xs font-mono text-slate-500 mt-0.5 w-[35px] text-center">{formatTime(elapsedTime)}</span>
-                            </div>
-                            <div className="h-6 w-px bg-slate-200 mx-1 md:mx-0 flex-shrink-0"></div>
-                            <div className="flex flex-col overflow-hidden">
-                                <div className="flex items-baseline space-x-2">
-                                    <h2 className="text-xs md:text-sm font-bold text-slate-800 truncate max-w-[100px] md:max-w-[160px]">{activeSession.classDetails.grade}</h2>
-                                    <span className="hidden sm:inline text-xs md:text-sm font-semibold text-indigo-600 truncate">{activeSession.subject}</span>
-                                </div>
-                                <span className="text-xs md:text-xs text-slate-500 truncate max-w-[140px] md:max-w-xs">{activeSession.topic || 'No topic set'}</span>
-                            </div>
-                        </div>
-                        <div className="text-xs md:text-xs font-medium text-slate-500 font-mono hidden sm:block flex-shrink-0 border-l border-slate-200 pl-4 ml-4">Ends in {parseInt(activeSession.duration) - Math.floor(elapsedTime / 60)}m</div>
-                    </div>
-                </div>
-                <div className="absolute top-4 right-4 z-20 hidden md:block">
-                    <button onClick={() => setViewMode(viewMode === 'grid' ? 'speaker' : 'grid')} className="p-2.5 bg-white hover:bg-slate-50 border border-slate-200 shadow-sm rounded-xl transition text-slate-600 hover:text-indigo-600">{viewMode === 'grid' ? <FullScreenIcon className="w-5 h-5" /> : <GridViewIcon className="w-5 h-5" />}</button>
-                </div>
-                <div onClick={() => isSidebarOpen && setIsSidebarOpen(false)} className="flex-1 w-full h-full flex flex-col items-center justify-center p-2 md:p-4 overflow-hidden relative">
-                    <div className="w-full h-full flex flex-col items-center pt-16 pb-20 overflow-hidden">
-                        {viewMode === 'speaker' ? (
-                            <div className="w-full max-w-6xl flex flex-col h-full justify-center items-center gap-2">
-                                <div className="w-full flex-1 min-h-0 flex justify-center items-center">
-                                    <div className="relative rounded-2xl md:rounded-3xl overflow-hidden bg-white shadow-xl border border-slate-100 w-full max-w-5xl h-full aspect-video md:aspect-auto object-contain">
-                                        <video ref={videoRef} autoPlay muted playsInline className={`w-full h-full object-cover ${isCameraOff ? 'hidden' : 'block'}`} />
-                                        {isCameraOff && (
-                                            <div className="absolute inset-0 flex items-center justify-center bg-slate-50">
-                                                <div className="w-20 h-20 md:w-32 md:h-32 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-3xl md:text-4xl font-bold text-white shadow-2xl">Y</div>
-                                            </div>
-                                        )}
-                                        <div className="absolute bottom-4 left-4 md:bottom-6 md:left-6"><div className="flex items-center space-x-2 bg-white/80 backdrop-blur-md px-3 py-1.5 md:px-4 md:py-2 rounded-xl shadow-lg border border-white/60"><AudioVisualizer /><span className="font-bold text-slate-800 text-xs md:text-sm">You (Host)</span></div></div>
-                                    </div>
-                                </div>
-                                <div className="relative w-full h-24 md:h-28 flex-shrink-0 group max-w-5xl">
-                                    <div className="flex space-x-2 overflow-x-auto pb-2 px-1 snap-x items-center h-full w-full no-scrollbar scrollbar-hide">
-                                        {participants.map(p => (<div key={p.id} className="snap-start flex-shrink-0 w-28 md:w-36 h-full"><ParticipantTile {...p} size="sm" /></div>))}
-                                    </div>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4 w-full max-w-7xl mx-auto h-full content-start">
-                                <div className="relative rounded-xl md:rounded-2xl overflow-hidden shadow-sm border-2 border-green-400 w-full aspect-video bg-white">
-                                    <video ref={videoRef} autoPlay muted playsInline className={`w-full h-full object-cover ${isCameraOff ? 'hidden' : 'block'}`} />
-                                    {isCameraOff && <div className="absolute inset-0 flex items-center justify-center bg-slate-100"><div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-indigo-600 flex items-center justify-center text-xl md:text-2xl font-bold text-white">Y</div></div>}
-                                    <div className="absolute bottom-2 left-2 md:bottom-3 md:left-3 bg-white/90 px-2 py-1 rounded text-xs md:text-xs backdrop-blur-sm font-bold text-slate-800 shadow-sm">You</div>
-                                </div>
-                                {participants.map(p => (<ParticipantTile key={p.id} {...p} size="sm" />))}
-                            </div>
-                        )}
-                    </div>
-                </div>
-                <div className="absolute bottom-6 left-0 right-0 z-30 flex flex-col items-center justify-end pointer-events-none px-4">
-                    <div className="bg-white/95 backdrop-blur-2xl border border-white/50 p-2 md:px-6 md:py-2.5 rounded-2xl flex items-center space-x-1 md:space-x-4 shadow-lg pointer-events-auto max-w-full overflow-x-auto no-scrollbar">
-                        <ControlBtn icon={<MicrophoneIcon />} label="Mute" active={isMuted} onClick={() => setIsMuted(!isMuted)} activeColor="bg-red-50 text-red-600 border border-red-100" inactiveColor="hover:bg-slate-50 text-slate-600" />
-                        <ControlBtn icon={<VideoIcon />} label="Video" active={isCameraOff} onClick={() => setIsCameraOff(!isCameraOff)} activeColor="bg-red-50 text-red-600 border border-red-100" inactiveColor="hover:bg-slate-50 text-slate-600" />
-                        <div className="w-px h-6 bg-slate-200 mx-1 hidden sm:block"></div>
-                        <ControlBtn icon={<ReactionIcon className="w-5 h-5" />} label="React" active={showReactions} onClick={() => setShowReactions(!showReactions)} activeColor="bg-orange-50 text-orange-600 border border-orange-100" inactiveColor="hover:bg-slate-50 text-slate-600" />
-                        <ControlBtn icon={<HandIcon className="w-5 h-5" />} label="Hand" active={isHandRaised} onClick={() => setIsHandRaised(!isHandRaised)} activeColor="bg-yellow-50 text-yellow-600 border border-yellow-200" inactiveColor="hover:bg-slate-50 text-slate-600" />
-                        <div className="w-px h-6 bg-slate-200 mx-1 hidden sm:block"></div>
-                        <ControlBtn icon={<UsersIcon />} label="People" active={isSidebarOpen && activeSidebarTab === 'participants'} onClick={() => { setIsSidebarOpen(true); setActiveSidebarTab('participants'); }} activeColor="bg-indigo-50 text-indigo-600 border border-indigo-100" inactiveColor="hover:bg-slate-50 text-slate-600" />
-                        <ControlBtn icon={<MessagesIcon />} label="Chat" active={isSidebarOpen && activeSidebarTab === 'chat'} onClick={() => { setIsSidebarOpen(true); setActiveSidebarTab('chat'); }} activeColor="bg-indigo-50 text-indigo-600 border border-indigo-100" inactiveColor="hover:bg-slate-50 text-slate-600" />
-                        <div className="pl-1 md:pl-4 md:border-l md:border-slate-200 ml-1 md:ml-4">
-                            <button onClick={async () => { if (window.confirm('End class?')) { if (activeSessionId) { try { await api.endVirtualClassSession(activeSessionId); } catch (e) { console.error('Failed to end session', e); } } setActiveSession(null); setActiveSessionId(null); } }} className="px-6 py-2.5 rounded-xl bg-red-600 text-white font-bold text-sm shadow-lg transition-transform hover:scale-105 active:scale-95 whitespace-nowrap">End Class</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div className={`fixed inset-y-0 right-0 z-50 w-full sm:w-80 bg-white shadow-2xl transform transition-transform duration-300 ease-out sm:border-l border-slate-200 lg:relative lg:shadow-none lg:z-0 lg:transform-none lg:transition-[width,opacity] lg:duration-300 lg:ease-in-out ${isSidebarOpen ? 'translate-x-0 lg:w-96 lg:opacity-100' : 'translate-x-full lg:w-0 lg:opacity-0 lg:overflow-hidden'}`}>
-                <div className="flex flex-col h-full bg-white/50 backdrop-blur-xl w-full">
-                    <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-white/80 shrink-0"><h3 className="font-bold text-lg text-slate-800 tracking-tight whitespace-nowrap">{activeSidebarTab === 'chat' ? 'Messages' : 'Participants'}</h3><button onClick={() => setIsSidebarOpen(false)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-red-500 transition border border-transparent hover:border-slate-200"><XIcon className="w-5 h-5" /></button></div>
-                    <div className="px-5 pt-4 shrink-0"><div className="flex p-1 bg-slate-100 rounded-xl"><button onClick={() => setActiveSidebarTab('chat')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all shadow-sm ${activeSidebarTab === 'chat' ? 'bg-white text-indigo-600 shadow-md' : 'text-slate-500'}`}>Chat</button><button onClick={() => setActiveSidebarTab('participants')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all shadow-sm ${activeSidebarTab === 'participants' ? 'bg-white text-indigo-600 shadow-md' : 'text-slate-500'}`}>People ({participants.length + 1})</button></div></div>
-                    <div className="flex-1 overflow-y-auto p-5 custom-scrollbar min-w-[320px]">
-                        {activeSidebarTab === 'chat' ? (
-                            <div className="space-y-6 pb-4"><div className="flex items-center space-x-4"><div className="h-px bg-slate-200 flex-1"></div><span className="text-xs font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">Today</span><div className="h-px bg-slate-200 flex-1"></div></div><ChatBubble name="Adebayo" message="Good morning!" time="10:24 AM" /></div>
-                        ) : (
-                            <div className="space-y-2">
-                                <div className="flex items-center justify-between p-3 rounded-xl bg-indigo-50/50 border border-indigo-100"><div className="flex items-center space-x-3"><div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center text-sm font-bold text-white shadow-md ring-2 ring-white">Y</div><div><p className="text-sm font-bold text-slate-800 whitespace-nowrap">You (Host)</p><div className="flex items-center space-x-1 mt-0.5"><span className="w-1.5 h-1.5 rounded-full bg-green-500"></span><p className="text-xs text-slate-500">Connected</p></div></div></div></div>
-                                <div className="h-px bg-slate-100 my-2"></div>
-                                {participants.map(p => (
-                                    <div key={p.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 cursor-pointer group transition border border-transparent hover:border-slate-100"><div className="flex items-center space-x-3"><div className="w-10 h-10 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-sm font-bold shadow-sm">{p.name.charAt(0)}</div><div><p className="text-sm font-semibold text-slate-700 whitespace-nowrap">{p.name}</p></div></div></div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const ControlBtn: React.FC<{ icon: React.ReactNode, label: string, active: boolean, onClick: () => void, activeColor?: string, inactiveColor?: string, notificationCount?: number }> = ({ icon, label, active, onClick, activeColor, inactiveColor, notificationCount }) => (
-    <div className="group relative flex flex-col items-center flex-shrink-0">
-        <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 text-white text-xs px-2 py-1 rounded shadow-lg pointer-events-none whitespace-nowrap hidden md:block z-50">{label}</div>
-        <button onClick={onClick} className={`p-2.5 md:p-3.5 rounded-xl transition-all duration-200 relative ${active ? activeColor : inactiveColor}`}>
-            <span className="w-5 h-5 md:w-6 md:h-6">{icon}</span>
-            {notificationCount && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-4 h-4 flex items-center justify-center rounded-full border-2 border-white shadow-sm font-bold">{notificationCount}</span>}
-        </button>
-    </div>
-);
 
 export default VirtualClassScreen;

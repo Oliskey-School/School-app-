@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import {
@@ -7,6 +8,7 @@ import {
     UserGroupIcon,
 } from '../../constants';
 import { useAuth } from '../../context/AuthContext';
+import CenteredLoader from '../ui/CenteredLoader';
 
 interface LeaveRequestData {
     id: string;
@@ -164,7 +166,8 @@ const LeaveApproval: React.FC<LeaveApprovalProps> = () => {
             {/* Filters */}
             <div className="flex space-x-2">
                 {(['all', 'pending', 'approved', 'rejected'] as const).map((f) => (
-                    <button
+                    <motion.button
+                        whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                         key={f}
                         onClick={() => setFilter(f)}
                         className={`px-4 py-2 rounded-lg font-medium transition-colors ${filter === f
@@ -173,7 +176,7 @@ const LeaveApproval: React.FC<LeaveApprovalProps> = () => {
                             }`}
                     >
                         {f.charAt(0).toUpperCase() + f.slice(1)}
-                    </button>
+                    </motion.button>
                 ))}
             </div>
 
@@ -184,16 +187,14 @@ const LeaveApproval: React.FC<LeaveApprovalProps> = () => {
                 </div>
                 <div className="divide-y divide-gray-200">
                     {loading ? (
-                        <div className="p-8 text-center">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
-                        </div>
+                        <CenteredLoader className="p-8" />
                     ) : requests.length === 0 ? (
                         <div className="p-8 text-center text-gray-500">
                             No {filter !== 'all' ? filter : ''} requests found
                         </div>
                     ) : (
-                        requests.map((request) => (
-                            <div key={request.id} className="p-6 hover:bg-gray-50">
+                        requests.map((request, ri) => (
+                            <motion.div key={request.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(ri, 15) * 0.03 }} className="p-6 hover:bg-gray-50">
                                 <div className="flex items-start justify-between">
                                     <div className="flex-1">
                                         <div className="flex items-center space-x-2 mb-2">
@@ -226,24 +227,26 @@ const LeaveApproval: React.FC<LeaveApprovalProps> = () => {
                                         </div>
                                     </div>
                                     {request.status === 'Pending' && (
-                                        <button
+                                        <motion.button
+                                            whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                                             onClick={() => setSelectedRequest(request)}
                                             className="ml-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium"
                                         >
                                             Review
-                                        </button>
+                                        </motion.button>
                                     )}
                                 </div>
-                            </div>
+                            </motion.div>
                         ))
                     )}
                 </div>
             </div>
 
             {/* Review Modal */}
+            <AnimatePresence>
             {selectedRequest && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} transition={{ type: 'spring', stiffness: 400, damping: 32 }} className="bg-white rounded-xl shadow-xl max-w-2xl w-full">
                         <div className="p-6">
                             <h3 className="text-xl font-bold text-gray-900 mb-4">Review Leave Request</h3>
 
@@ -296,23 +299,26 @@ const LeaveApproval: React.FC<LeaveApprovalProps> = () => {
                             </div>
 
                             <div className="flex space-x-3">
-                                <button
+                                <motion.button
+                                    whileHover={!processing ? { scale: 1.02 } : {}} whileTap={!processing ? { scale: 0.98 } : {}}
                                     onClick={handleApprove}
                                     disabled={processing}
                                     className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:bg-gray-400"
                                 >
                                     <CheckCircleIcon className="w-5 h-5" />
                                     <span>{processing ? 'Processing...' : 'Approve'}</span>
-                                </button>
-                                <button
+                                </motion.button>
+                                <motion.button
+                                    whileHover={!processing ? { scale: 1.02 } : {}} whileTap={!processing ? { scale: 0.98 } : {}}
                                     onClick={handleReject}
                                     disabled={processing}
                                     className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:bg-gray-400"
                                 >
                                     <XCircleIcon className="w-5 h-5" />
                                     <span>{processing ? 'Processing...' : 'Reject'}</span>
-                                </button>
-                                <button
+                                </motion.button>
+                                <motion.button
+                                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                                     onClick={() => {
                                         setSelectedRequest(null);
                                         setAdminComment('');
@@ -320,12 +326,13 @@ const LeaveApproval: React.FC<LeaveApprovalProps> = () => {
                                     className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
                                 >
                                     Cancel
-                                </button>
+                                </motion.button>
                             </div>
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
         </div>
     );
 };

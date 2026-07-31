@@ -1,9 +1,10 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { Phone, PhoneCall, Info } from 'lucide-react';
 
 const IVRLessonRecorder: React.FC = () => {
     return (
-        <div className="p-6 max-w-3xl mx-auto">
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="p-6 max-w-3xl mx-auto">
             <div className="flex items-center gap-3 mb-8">
                 <div className="p-3 bg-blue-100 rounded-xl">
                     <Phone className="w-7 h-7 text-blue-600" />
@@ -43,7 +44,7 @@ const IVRLessonRecorder: React.FC = () => {
                     Contact <span className="font-semibold text-blue-600">support@oliskey.com</span> to activate IVR phone lessons for your school.
                 </p>
             </div>
-        </div>
+        </motion.div>
     );
 };
 

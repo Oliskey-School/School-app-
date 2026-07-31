@@ -1,4 +1,5 @@
 ﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
@@ -564,9 +565,9 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
                 <div className="flex items-center gap-3">
-                    <button onClick={goBack} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:border-indigo-300 hover:text-indigo-700">
+                    <motion.button whileTap={{ scale: 0.95 }} onClick={goBack} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:border-indigo-300 hover:text-indigo-700">
                         <ArrowLeft className="h-4 w-4" /> Back
-                    </button>
+                    </motion.button>
                     <div className="flex items-center gap-2">
                         <div className="h-10 w-10 rounded-xl bg-indigo-100 flex items-center justify-center"><Calendar className="h-5 w-5 text-indigo-600" /></div>
                         <div>
@@ -576,17 +577,17 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
                     </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                    <button onClick={() => setEditingTimes(true)} className="inline-flex items-center gap-2 rounded-xl bg-amber-50 text-amber-700 px-3 py-2.5 text-sm font-semibold hover:bg-amber-100">
+                    <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => setEditingTimes(true)} className="inline-flex items-center gap-2 rounded-xl bg-amber-50 text-amber-700 px-3 py-2.5 text-sm font-semibold hover:bg-amber-100">
                         ⏱ Edit Times
-                    </button>
-                    <button onClick={autoGenerate} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-95">
+                    </motion.button>
+                    <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={autoGenerate} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-95">
                         <Sparkles className="h-4 w-4" /> <span className="whitespace-nowrap">Generate with AI</span>
-                    </button>
+                    </motion.button>
                     {/* NOTE: () => save() — passing `save` directly would hand the click
                         event to the overrideGrid param and silently save 0 periods. */}
-                    <button onClick={() => save()} disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:bg-slate-300">
+                    <motion.button whileHover={!saving ? { scale: 1.02 } : {}} whileTap={!saving ? { scale: 0.98 } : {}} onClick={() => save()} disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:bg-slate-300">
                         <Save className="h-4 w-4" /> {saving ? 'Saving…' : 'Save'}
-                    </button>
+                    </motion.button>
                 </div>
             </div>
 
@@ -595,27 +596,31 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
                 <div className="flex flex-nowrap overflow-x-auto max-w-full rounded-xl bg-slate-100 p-1">
                     {(availableLevels.length ? availableLevels : LEVELS.filter(l => l.key === 'senior')).map(l => (
                         <button key={l.key} onClick={() => setLevelKey(l.key)}
-                            className={`flex-none whitespace-nowrap px-3.5 py-1.5 rounded-lg text-sm font-semibold transition ${levelKey === l.key ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500'}`}>
-                            {l.label}
+                            className={`relative flex-none whitespace-nowrap px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-colors ${levelKey === l.key ? 'text-indigo-700' : 'text-slate-500'}`}>
+                            {levelKey === l.key && <motion.div layoutId="deskBuilderLevelTab" className="absolute inset-0 bg-white rounded-lg shadow-sm" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />}
+                            <span className="relative">{l.label}</span>
                         </button>
                     ))}
                 </div>
                 <div className="flex flex-nowrap overflow-x-auto rounded-xl bg-slate-100 p-1">
                     {DAYS.map(({ d, label }) => (
                         <button key={d} onClick={() => setDay(d)}
-                            className={`flex-none px-3.5 py-1.5 rounded-lg text-sm font-semibold transition ${day === d ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500'}`}>
-                            {label}
+                            className={`relative flex-none px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-colors ${day === d ? 'text-indigo-700' : 'text-slate-500'}`}>
+                            {day === d && <motion.div layoutId="deskBuilderDayTab" className="absolute inset-0 bg-white rounded-lg shadow-sm" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />}
+                            <span className="relative">{label}</span>
                         </button>
                     ))}
                 </div>
             </div>
 
+            <AnimatePresence>
             {conflicts.size > 0 && (
-                <div className="mb-4 flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700">
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mb-4 flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700 overflow-hidden">
                     <AlertTriangle className="h-4 w-4 flex-none" />
                     A teacher is double-booked in the highlighted periods. You can still save, but they can't be in two classes at once.
-                </div>
+                </motion.div>
             )}
+            </AnimatePresence>
 
             <div className="flex flex-col lg:flex-row gap-4">
                 {/* Subject palette */}

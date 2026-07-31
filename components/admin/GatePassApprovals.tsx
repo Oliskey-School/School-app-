@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { CheckCircle2, XCircle, ClipboardCheck } from 'lucide-react';
+import CenteredLoader from '../ui/CenteredLoader';
 
 const GatePassApprovals = () => {
     const [pending, setPending] = useState<any[]>([]);
@@ -42,32 +44,34 @@ const GatePassApprovals = () => {
             </div>
 
             {loading ? (
-                <div className="text-center py-12 text-gray-500">Loading...</div>
+                <CenteredLoader className="py-12" />
             ) : pending.length === 0 ? (
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
+                <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.25 }} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
                     <ClipboardCheck className="w-12 h-12 text-green-300 mx-auto mb-4" />
                     <h3 className="font-bold text-lg text-gray-900">All clear</h3>
                     <p className="text-gray-500 mt-1">No pending gate pass requests.</p>
-                </div>
+                </motion.div>
             ) : (
                 <div className="space-y-3">
-                    {pending.map(d => (
-                        <div key={d.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+                    <AnimatePresence>
+                    {pending.map((d, di) => (
+                        <motion.div key={d.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2, delay: Math.min(di, 10) * 0.04 }} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
                             <p className="font-bold text-gray-900">{d.student_name}</p>
                             <p className="text-sm text-gray-500">Pickup: {d.pickup_person_name || 'Unspecified'}</p>
                             {d.reason && <p className="text-sm text-gray-600 mt-1 italic">"{d.reason}"</p>}
                             <div className="flex gap-2 mt-3">
-                                <button disabled={actingId === d.id} onClick={() => handleDecision(d.id, true)}
+                                <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.96 }} disabled={actingId === d.id} onClick={() => handleDecision(d.id, true)}
                                     className="flex items-center gap-1.5 bg-green-600 text-white text-sm font-semibold px-3 py-1.5 rounded-lg disabled:opacity-60">
                                     <CheckCircle2 className="w-4 h-4" /> Approve
-                                </button>
-                                <button disabled={actingId === d.id} onClick={() => handleDecision(d.id, false)}
+                                </motion.button>
+                                <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.96 }} disabled={actingId === d.id} onClick={() => handleDecision(d.id, false)}
                                     className="flex items-center gap-1.5 bg-red-50 text-red-600 text-sm font-semibold px-3 py-1.5 rounded-lg disabled:opacity-60">
                                     <XCircle className="w-4 h-4" /> Deny
-                                </button>
+                                </motion.button>
                             </div>
-                        </div>
+                        </motion.div>
                     ))}
+                    </AnimatePresence>
                 </div>
             )}
         </div>

@@ -1,7 +1,9 @@
 import { toast } from 'react-hot-toast';
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { api } from '../../../lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
+import CenteredLoader from '../../ui/CenteredLoader';
 import {
     DollarSign,
     TrendingUp,
@@ -227,13 +229,14 @@ export const PaymentDashboard: React.FC<PaymentDashboardProps> = ({ navigateTo }
                     <h1 className="text-3xl font-bold text-gray-900">Payment Dashboard</h1>
                     <p className="text-gray-600 mt-1">Track and manage all payment transactions</p>
                 </div>
-                <button
+                <motion.button
+                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                     onClick={exportToCSV}
                     className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
                 >
                     <Download className="w-4 h-4 mr-2" />
                     Export CSV
-                </button>
+                </motion.button>
             </div>
 
             {/* Stats Cards */}
@@ -308,9 +311,7 @@ export const PaymentDashboard: React.FC<PaymentDashboardProps> = ({ navigateTo }
                 </CardHeader>
                 <CardContent>
                     {loading ? (
-                        <div className="flex justify-center items-center py-12">
-                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-                        </div>
+                        <CenteredLoader className="py-12" />
                     ) : filteredPayments.length === 0 ? (
                         <div className="text-center py-12 text-gray-500">
                             No payments found
@@ -330,8 +331,8 @@ export const PaymentDashboard: React.FC<PaymentDashboardProps> = ({ navigateTo }
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                    {filteredPayments.map((payment) => (
-                                        <tr key={payment.id} className="hover:bg-gray-50">
+                                    {filteredPayments.map((payment, pi) => (
+                                        <motion.tr key={payment.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(pi, 15) * 0.02 }} className="hover:bg-gray-50">
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="font-medium text-gray-900">{payment.school_name}</div>
                                             </td>
@@ -363,15 +364,16 @@ export const PaymentDashboard: React.FC<PaymentDashboardProps> = ({ navigateTo }
                                                 {formatDate(payment.created_at)}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                                <button
+                                                <motion.button
+                                                    whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                                                     onClick={() => handleGenerateInvoice(payment)}
                                                     className="flex items-center gap-1 px-3 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors"
                                                 >
                                                     <FileText className="w-4 h-4" />
                                                     Invoice
-                                                </button>
+                                                </motion.button>
                                             </td>
-                                        </tr>
+                                        </motion.tr>
                                     ))}
                                 </tbody>
                             </table>

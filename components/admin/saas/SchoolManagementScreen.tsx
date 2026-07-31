@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useSaaS } from '../../../contexts/SaaSContext';
 import { SaaSSchool } from '../../../types';
 import { exportToCSV, exportToPDF, paginate, formatDate } from '../../../lib/exportUtils';
@@ -173,27 +174,30 @@ const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigat
                     <p className="text-gray-500">Manage {schools.length} school(s) - {filteredSchools.length} shown</p>
                 </div>
                 <div className="flex gap-2">
-                    <button
+                    <motion.button
+                        whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                         onClick={refreshSchools}
                         className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
                     >
                         <RefreshCw className="w-4 h-4" />
                         Refresh
-                    </button>
-                    <button
+                    </motion.button>
+                    <motion.button
+                        whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                         onClick={handleExportCSV}
                         className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                     >
                         <FileText className="w-4 h-4" />
                         CSV
-                    </button>
-                    <button
+                    </motion.button>
+                    <motion.button
+                        whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                         onClick={handleExportPDF}
                         className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
                     >
                         <Download className="w-4 h-4" />
                         PDF
-                    </button>
+                    </motion.button>
                 </div>
             </div>
 
@@ -251,33 +255,44 @@ const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigat
             </div>
 
             {/* Bulk Actions */}
-            {selectedSchools.size > 0 && (
-                <div className="mb-4 p-4 bg-indigo-50 border border-indigo-200 rounded-lg flex items-center justify-between">
-                    <span className="text-indigo-800 font-medium">
-                        {selectedSchools.size} school(s) selected
-                    </span>
-                    <div className="flex gap-2">
-                        <button
-                            onClick={() => handleBulkAction('activate')}
-                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                        >
-                            Activate
-                        </button>
-                        <button
-                            onClick={() => handleBulkAction('suspend')}
-                            className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
-                        >
-                            Suspend
-                        </button>
-                        <button
-                            onClick={() => handleBulkAction('delete')}
-                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                        >
-                            Delete
-                        </button>
-                    </div>
-                </div>
-            )}
+            <AnimatePresence>
+                {selectedSchools.size > 0 && (
+                    <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="mb-4 p-4 bg-indigo-50 border border-indigo-200 rounded-lg flex items-center justify-between overflow-hidden"
+                    >
+                        <span className="text-indigo-800 font-medium">
+                            {selectedSchools.size} school(s) selected
+                        </span>
+                        <div className="flex gap-2">
+                            <motion.button
+                                whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                                onClick={() => handleBulkAction('activate')}
+                                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                            >
+                                Activate
+                            </motion.button>
+                            <motion.button
+                                whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                                onClick={() => handleBulkAction('suspend')}
+                                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+                            >
+                                Suspend
+                            </motion.button>
+                            <motion.button
+                                whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                                onClick={() => handleBulkAction('delete')}
+                                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                            >
+                                Delete
+                            </motion.button>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             {/* Table */}
             <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
@@ -301,8 +316,14 @@ const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigat
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                        {paginatedData.items.map((school: SaaSSchool) => (
-                            <tr key={school.id} className="hover:bg-gray-50 transition">
+                        {paginatedData.items.map((school: SaaSSchool, index: number) => (
+                            <motion.tr
+                                key={school.id}
+                                initial={{ opacity: 0, y: 6 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.15, delay: Math.min(index, 12) * 0.02 }}
+                                className="hover:bg-gray-50 transition"
+                            >
                                 <td className="px-6 py-4">
                                     <button onClick={() => toggleSchoolSelection(school.id)}>
                                         {selectedSchools.has(school.id) ? (
@@ -354,33 +375,36 @@ const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigat
                                 </td>
                                 <td className="px-6 py-4 text-right">
                                     <div className="flex justify-end gap-2">
-                                        <button
+                                        <motion.button
+                                            whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                                             onClick={() => viewSchoolDetails(school)}
                                             className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
                                             title="View Details"
                                         >
                                             <Eye className="w-5 h-5" />
-                                        </button>
+                                        </motion.button>
                                         {school.status === 'suspended' ? (
-                                            <button
+                                            <motion.button
+                                                whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                                                 onClick={() => handleStatusChange(school.id, 'active')}
                                                 className="p-2 text-green-600 hover:bg-green-50 rounded-lg"
                                                 title="Reactivate School"
                                             >
                                                 <Shield className="w-5 h-5" />
-                                            </button>
+                                            </motion.button>
                                         ) : (
-                                            <button
+                                            <motion.button
+                                                whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                                                 onClick={() => handleStatusChange(school.id, 'suspended')}
                                                 className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
                                                 title="Suspend School"
                                             >
                                                 <ShieldOff className="w-5 h-5" />
-                                            </button>
+                                            </motion.button>
                                         )}
                                     </div>
                                 </td>
-                            </tr>
+                            </motion.tr>
                         ))}
                         {paginatedData.items.length === 0 && (
                             <tr>
@@ -422,17 +446,31 @@ const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigat
             )}
 
             {/* Detail Modal */}
-            {showDetailModal && selectedSchool && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <AnimatePresence>
+                {showDetailModal && selectedSchool && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.15 }}
+                        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+                    >
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                        className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+                    >
                         <div className="flex justify-between items-start mb-4">
                             <h2 className="text-2xl font-bold text-gray-900">{selectedSchool.name}</h2>
-                            <button
+                            <motion.button
+                                whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                                 onClick={() => setShowDetailModal(false)}
                                 className="p-2 hover:bg-gray-100 rounded-lg"
                             >
                                 <X className="w-5 h-5" />
-                            </button>
+                            </motion.button>
                         </div>
                         <div className="space-y-4">
                             <div className="grid grid-cols-2 gap-4">
@@ -466,9 +504,10 @@ const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigat
                                 )}
                             </div>
                         </div>
-                    </div>
-                </div>
-            )}
+                    </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };

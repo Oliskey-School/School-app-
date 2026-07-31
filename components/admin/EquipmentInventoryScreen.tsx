@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import {
@@ -16,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { useAuth } from '../../context/AuthContext';
+import CenteredLoader from '../ui/CenteredLoader';
 
 interface Equipment {
     id: string;
@@ -159,13 +161,14 @@ const EquipmentInventoryScreen = () => {
                     <h1 className="text-2xl font-bold text-gray-900 font-outfit">Equipment Inventory</h1>
                     <p className="text-gray-500">Track school assets, maintenance schedules, and serial numbers.</p>
                 </div>
-                <button
+                <motion.button
+                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                     onClick={() => setIsAdding(true)}
                     className="flex items-center space-x-2 bg-indigo-600 text-white px-5 py-2.5 rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 font-bold"
                 >
                     <PlusIcon className="w-5 h-5" />
                     <span>Log Asset</span>
-                </button>
+                </motion.button>
             </div>
 
             <div className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 flex flex-col md:flex-row gap-4">
@@ -193,7 +196,7 @@ const EquipmentInventoryScreen = () => {
             </div>
 
             {loading ? (
-                <div className="text-center py-12 text-gray-500">Accessing inventory...</div>
+                <CenteredLoader message="Accessing inventory..." className="py-12" />
             ) : (
                 <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
                     <table className="w-full text-left border-collapse">
@@ -207,8 +210,8 @@ const EquipmentInventoryScreen = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
-                            {filtered.map(item => (
-                                <tr key={item.id} className="hover:bg-gray-50/30 transition-colors group">
+                            {filtered.map((item, ii) => (
+                                <motion.tr key={item.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(ii, 15) * 0.02 }} className="hover:bg-gray-50/30 transition-colors group">
                                     <td className="px-6 py-5">
                                         <div className="flex items-center space-x-4">
                                             <div className="p-3 bg-gray-100 rounded-xl group-hover:bg-white transition-colors">
@@ -260,16 +263,17 @@ const EquipmentInventoryScreen = () => {
                                             </button>
                                         </div>
                                     </td>
-                                </tr>
+                                </motion.tr>
                             ))}
                         </tbody>
                     </table>
                 </div>
             )}
 
+            <AnimatePresence>
             {isAdding && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-                    <div className="bg-white rounded-[2rem] p-8 max-w-lg w-full space-y-8 shadow-2xl scale-in-center">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                    <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} transition={{ type: 'spring', stiffness: 400, damping: 32 }} className="bg-white rounded-[2rem] p-8 max-w-lg w-full space-y-8 shadow-2xl">
                         <div>
                             <h2 className="text-2xl font-bold text-gray-900 font-outfit">Add Asset Record</h2>
                             <p className="text-sm text-gray-500">Log equipment for compliance and insurance tracking.</p>
@@ -347,22 +351,25 @@ const EquipmentInventoryScreen = () => {
                         </div>
 
                         <div className="flex space-x-4">
-                            <button
+                            <motion.button
+                                whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                                 onClick={() => setIsAdding(false)}
-                                className="flex-grow py-4 px-6 border border-gray-100 rounded-2xl text-gray-600 font-bold hover:bg-gray-50 transition-all active:scale-95"
+                                className="flex-grow py-4 px-6 border border-gray-100 rounded-2xl text-gray-600 font-bold hover:bg-gray-50 transition-all"
                             >
                                 Cancel
-                            </button>
-                            <button
+                            </motion.button>
+                            <motion.button
+                                whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                                 onClick={handleAdd}
-                                className="flex-grow py-4 px-6 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 active:scale-95"
+                                className="flex-grow py-4 px-6 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100"
                             >
                                 Confirm Record
-                            </button>
+                            </motion.button>
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
         </div>
     );
 };

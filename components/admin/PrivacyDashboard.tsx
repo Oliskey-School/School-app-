@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { Shield, ShieldAlert, FileText, Trash2, Download, CheckCircle, AlertTriangle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
@@ -83,15 +84,18 @@ const PrivacyDashboard: React.FC = () => {
                     <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium capitalize transition ${activeTab === tab ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                        className={`relative px-4 py-2 rounded-lg text-sm font-medium capitalize transition-colors ${activeTab === tab ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
                     >
-                        {tab}
+                        {activeTab === tab && (
+                            <motion.div layoutId="privacyTab" className="absolute inset-0 bg-white shadow-sm rounded-lg" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />
+                        )}
+                        <span className="relative">{tab}</span>
                     </button>
                 ))}
             </div>
 
             {activeTab === 'overview' && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="col-span-1 md:col-span-2 space-y-6">
                         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                             <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
@@ -142,11 +146,11 @@ const PrivacyDashboard: React.FC = () => {
                             <button className="w-full py-2 border rounded-xl font-bold text-sm hover:bg-gray-50">Download (.xlsx)</button>
                         </div>
                     </div>
-                </div>
+                </motion.div>
             )}
 
             {activeTab === 'dsar' && (
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                     <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
                         <h2 className="font-bold">Active Data Subject Requests</h2>
                         <button className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold">+ Log New Request</button>
@@ -188,11 +192,11 @@ const PrivacyDashboard: React.FC = () => {
                             })}
                         </tbody>
                     </table>
-                </div>
+                </motion.div>
             )}
 
             {activeTab === 'retention' && (
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-6">
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-6">
                     <div className="flex items-center gap-3">
                         <Trash2 className="w-6 h-6 text-red-500" />
                         <h2 className="text-lg font-bold">Data Retention Schedules</h2>
@@ -206,7 +210,7 @@ const PrivacyDashboard: React.FC = () => {
                                 <span className="text-indigo-600 text-sm font-bold">7 Years</span>
                             </div>
                             <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
-                                <div className="bg-indigo-600 h-full w-[80%]"></div>
+                                <motion.div initial={{ width: 0 }} animate={{ width: '80%' }} transition={{ duration: 0.6, ease: 'easeOut' }} className="bg-indigo-600 h-full" />
                             </div>
                         </div>
                         <div className="p-4 border rounded-xl space-y-2">
@@ -215,11 +219,11 @@ const PrivacyDashboard: React.FC = () => {
                                 <span className="text-indigo-600 text-sm font-bold">3 Years</span>
                             </div>
                             <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
-                                <div className="bg-green-500 h-full w-[40%]"></div>
+                                <motion.div initial={{ width: 0 }} animate={{ width: '40%' }} transition={{ duration: 0.6, delay: 0.1, ease: 'easeOut' }} className="bg-green-500 h-full" />
                             </div>
                         </div>
                     </div>
-                </div>
+                </motion.div>
             )}
         </div>
     );

@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { api } from '../../lib/api';
 import { fetchCurricula, fetchSubjects } from '../../lib/database';
 import { Curriculum, Subject } from '../../types';
@@ -141,9 +142,14 @@ const CurriculumSettingsScreen: React.FC<{
                                     ))}
                                 </div>
                             ) : (
-                                templates.map(temp => (
-                                    <button
+                                templates.map((temp, ti) => (
+                                    <motion.button
                                         key={temp.id}
+                                        initial={{ opacity: 0, y: 8 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ duration: 0.2, delay: ti * 0.05 }}
+                                        whileHover={{ scale: 1.01 }}
+                                        whileTap={{ scale: 0.99 }}
                                         onClick={() => setSelectedTemplate(temp)}
                                         className={`w-full text-left p-5 rounded-2xl border transition-all duration-300 group ${selectedTemplate?.id === temp.id
                                             ? 'bg-indigo-50 border-indigo-200 shadow-md ring-1 ring-indigo-200'
@@ -170,7 +176,7 @@ const CurriculumSettingsScreen: React.FC<{
                                                 </div>
                                             )}
                                         </div>
-                                    </button>
+                                    </motion.button>
                                 ))
                             )}
                         </div>
@@ -249,11 +255,14 @@ const CurriculumSettingsScreen: React.FC<{
                                         </div>
                                     ) : (
                                         subjects.map((subject, idx) => (
-                                            <button
+                                            <motion.button
                                                 key={subject.id}
+                                                initial={{ opacity: 0, y: 8 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                transition={{ duration: 0.2, delay: Math.min(idx, 20) * 0.03 }}
+                                                whileHover={{ y: -2 }}
                                                 onClick={() => setSelectedSubject(subject)}
-                                                className="group text-left bg-white rounded-2xl p-5 border border-gray-100 hover:border-indigo-300 transition-all duration-300 hover:shadow-lg hover:shadow-indigo-900/5 animate-scale-in"
-                                                style={{ animationDelay: `${idx * 50}ms` }}
+                                                className="group text-left bg-white rounded-2xl p-5 border border-gray-100 hover:border-indigo-300 transition-all duration-300 hover:shadow-lg hover:shadow-indigo-900/5"
                                             >
                                                 <div className="flex items-start gap-4">
                                                     <div className={`p-3 rounded-2xl shadow-sm ${subject.category === 'Core'
@@ -284,7 +293,7 @@ const CurriculumSettingsScreen: React.FC<{
                                                         </div>
                                                     </div>
                                                 </div>
-                                            </button>
+                                            </motion.button>
                                         ))
                                     )}
                                 </div>
@@ -350,7 +359,9 @@ const SubjectDetailView: React.FC<SubjectDetailViewProps> = ({
                             <p className="text-gray-500 font-medium">{subject.gradeLevel} • {subject.category}</p>
                         </div>
                     </div>
-                    <button
+                    <motion.button
+                        whileHover={!isSyncing ? { scale: 1.02 } : {}}
+                        whileTap={!isSyncing ? { scale: 0.98 } : {}}
                         onClick={onSync}
                         disabled={isSyncing}
                         className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all disabled:opacity-50"
@@ -361,7 +372,7 @@ const SubjectDetailView: React.FC<SubjectDetailViewProps> = ({
                             <GlobeIcon className="w-5 h-5" />
                         )}
                         Sync Curriculum
-                    </button>
+                    </motion.button>
                 </div>
 
                 <div className="mt-12">

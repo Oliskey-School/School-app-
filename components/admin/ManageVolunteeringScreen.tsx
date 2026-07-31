@@ -1,9 +1,11 @@
 import { toast } from 'react-hot-toast';
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { api } from '../../lib/api';
 import { TrashIcon, PlusIcon, CheckCircleIcon, XCircleIcon, ClockIcon, CalendarIcon } from '../../constants';
 import ConfirmationModal from '../ui/ConfirmationModal';
 import { useAuth } from '../../context/AuthContext';
+import CenteredLoader from '../ui/CenteredLoader';
 
 const ManageVolunteeringScreen: React.FC = () => {
     const { currentSchool } = useAuth();
@@ -167,13 +169,14 @@ const ManageVolunteeringScreen: React.FC = () => {
                                     onChange={e => setNewItem({ ...newItem, description: e.target.value })}
                                 />
                             </div>
-                            <button
+                            <motion.button
+                                whileHover={!isSubmitting ? { scale: 1.01 } : {}} whileTap={!isSubmitting ? { scale: 0.98 } : {}}
                                 type="submit"
                                 disabled={isSubmitting}
-                                className="w-full py-3 bg-teal-600 text-white font-bold rounded-xl hover:bg-teal-700 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-teal-200"
+                                className="w-full py-3 bg-teal-600 text-white font-bold rounded-xl hover:bg-teal-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-teal-200"
                             >
                                 {isSubmitting ? 'Posting...' : 'Post Opportunity'}
-                            </button>
+                            </motion.button>
                         </form>
                     </div>
                 </div>
@@ -188,17 +191,15 @@ const ManageVolunteeringScreen: React.FC = () => {
                             Active Opportunities
                         </h2>
                         {loading ? (
-                            <div className="flex justify-center items-center py-12">
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
-                            </div>
+                            <CenteredLoader className="py-12" />
                         ) : upcomingOpps.length === 0 ? (
                             <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 text-center text-gray-400">
                                 <p>No volunteering opportunities listed.</p>
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {upcomingOpps.map(opp => (
-                                    <div key={opp.id} className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-all">
+                                {upcomingOpps.map((opp, oi) => (
+                                    <motion.div key={opp.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(oi, 15) * 0.03 }} className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-all">
                                         <div>
                                             <div className="flex justify-between items-start mb-2">
                                                 <div className="bg-teal-50 text-teal-700 text-xs font-bold px-2 py-1 rounded upercase tracking-wide">
@@ -226,7 +227,7 @@ const ManageVolunteeringScreen: React.FC = () => {
                                                 Delete
                                             </button>
                                         </div>
-                                    </div>
+                                    </motion.div>
                                 ))}
                             </div>
                         )}

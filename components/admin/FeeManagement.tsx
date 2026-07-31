@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
 import { toast } from 'react-hot-toast';
@@ -180,13 +181,15 @@ const FeeManagement: React.FC<any> = (props) => {
           <h1 className="text-2xl font-bold text-gray-900">Fee Management</h1>
           <p className="text-gray-500">Track and assign student fees</p>
         </div>
-        <button
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
           onClick={() => (props as any).navigateTo('assignFee', 'Assign New Fee')}
           className="flex items-center space-x-2 bg-indigo-600 text-white px-4 py-2 rounded-xl hover:bg-indigo-700 transition"
         >
           <Plus className="w-5 h-5" />
           <span>Assign Fee</span>
-        </button>
+        </motion.button>
       </div>
 
       {/* Search and Filters */}
@@ -201,35 +204,37 @@ const FeeManagement: React.FC<any> = (props) => {
             className="w-full pl-12 pr-4 py-3 bg-white border border-gray-100 rounded-2xl shadow-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all placeholder:text-gray-400"
           />
         </div>
-        <button
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
           onClick={loadData}
           className="px-6 py-3 bg-white border border-gray-100 text-gray-600 rounded-2xl shadow-sm hover:bg-gray-50 flex items-center justify-center gap-2 font-medium transition-all"
         >
           <Filter className="w-5 h-5" />
           <span>Refresh</span>
-        </button>
+        </motion.button>
       </div>
 
       {/* Stats Overview */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
           <p className="text-sm text-gray-500">Total Expected</p>
           <p className="text-xl lg:text-2xl font-bold text-gray-900">
             {new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(filteredFees.reduce((a, b) => a + b.amount, 0))}
           </p>
-        </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-green-100">
+        </motion.div>
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.05 }} className="bg-white p-4 rounded-xl shadow-sm border border-green-100">
           <p className="text-sm text-green-600">Total Collected</p>
           <p className="text-xl lg:text-2xl font-bold text-green-700">
             {new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(filteredFees.reduce((a, b) => a + (b.paidAmount || 0), 0))}
           </p>
-        </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-red-100 sm:col-span-2 lg:col-span-1">
+        </motion.div>
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.1 }} className="bg-white p-4 rounded-xl shadow-sm border border-red-100 sm:col-span-2 lg:col-span-1">
           <p className="text-sm text-red-600">Outstanding</p>
           <p className="text-xl lg:text-2xl font-bold text-red-700">
             {new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(filteredFees.reduce((a, b) => a + (b.amount - (b.paidAmount || 0)), 0))}
           </p>
-        </div>
+        </motion.div>
       </div>
 
       {/* Fees Table */}
@@ -252,10 +257,10 @@ const FeeManagement: React.FC<any> = (props) => {
                 <tr><td colSpan={7} className="p-8 text-center text-gray-500">Loading fees...</td></tr>
               ) : filteredFees.length === 0 ? (
                 <tr><td colSpan={7} className="p-8 text-center text-gray-500">No fees found matching your search.</td></tr>
-              ) : filteredFees.map(fee => {
+              ) : filteredFees.map((fee, fi) => {
                 const student = students.find(s => s.id === fee.studentId);
                 return (
-                  <tr key={fee.id} className="hover:bg-gray-50 transition">
+                  <motion.tr key={fee.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(fi, 15) * 0.02 }} className="hover:bg-gray-50 transition">
                     <td className="px-6 py-4">
                       <div className="font-medium text-gray-900">{student?.name || `ID: ${student?.school_generated_id || 'Pending'}`}</div>
                       <div className="text-xs text-gray-500">{getFormattedClassName(student?.grade, student?.section)}</div>
@@ -348,7 +353,7 @@ const FeeManagement: React.FC<any> = (props) => {
                         </button>
                       </div>
                     </td>
-                  </tr>
+                  </motion.tr>
                 );
               })}
             </tbody>
@@ -396,10 +401,10 @@ const FeeManagement: React.FC<any> = (props) => {
                 ) : recentTransactions.length === 0 ? (
                   <tr><td colSpan={5} className="p-8 text-center text-gray-500">No transactions found</td></tr>
                 ) : (
-                  recentTransactions.map(tx => {
+                  recentTransactions.map((tx, txi) => {
                     const student = students.find(s => s.id === tx.studentId);
                     return (
-                      <tr key={tx.id} className="hover:bg-gray-50">
+                      <motion.tr key={tx.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(txi, 15) * 0.02 }} className="hover:bg-gray-50">
                         <td className="px-6 py-4">
                           <div className="font-medium text-gray-900">{student?.name || 'N/A'}</div>
                         </td>
@@ -419,7 +424,7 @@ const FeeManagement: React.FC<any> = (props) => {
                             <Trash2 className="w-5 h-5" />
                           </button>
                         </td>
-                      </tr>
+                      </motion.tr>
                     );
                   })
                 )}

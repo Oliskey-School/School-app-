@@ -1,29 +1,25 @@
 ﻿
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-hot-toast';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Plus, ChevronRight, CircleAlert } from 'lucide-react';
 import {
   SearchIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  ExclamationCircleIcon,
-  PlusIcon,
   gradeColors,
-  ClockIcon,
-  ChevronRightIcon,
-  getFormattedClassName,
   FilterIcon,
-  ViewGridIcon
+  ViewGridIcon,
+  getFormattedClassName
 } from '../../constants';
 import CenteredLoader from '../ui/CenteredLoader';
 import LoadingState from '../ui/LoadingState';
-import { Student, AttendanceStatus } from '../../types';
+import { Student } from '../../types';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useProfile } from '../../context/ProfileContext';
 import { useAutoSync } from '../../hooks/useAutoSync';
+import { motion, AnimatePresence } from 'framer-motion';
 
 type StudentStatus = 'Active' | 'Withdrawn' | 'Pending';
 const ALL_STATUSES: StudentStatus[] = ['Active', 'Withdrawn', 'Pending'];
@@ -34,43 +30,76 @@ const STATUS_STYLES: Record<StudentStatus, string> = {
   Pending: 'bg-yellow-100 text-yellow-700',
 };
 
-const AttendanceStatusIndicator: React.FC<{ status: AttendanceStatus }> = ({ status }) => {
-  switch (status) {
-    case 'Present':
-      return <CheckCircleIcon className="text-green-500" />;
-    case 'Absent':
-      return <XCircleIcon className="text-red-500" />;
-    case 'Leave':
-      return <ExclamationCircleIcon className="text-orange-500" />;
-    case 'Late':
-      return <ClockIcon className="text-blue-500" />;
-    default:
-      return null;
-  }
-};
-
 const StudentRow: React.FC<{
   student: any;
   onSelect: (student: Student) => void;
   onStatusChange: (student: any, newStatus: StudentStatus) => void;
 }> = ({ student, onSelect, onStatusChange }) => {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ top?: number; bottom?: number; right: number; openUpward: boolean } | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const currentStatus: StudentStatus = (student.status as StudentStatus) || 'Active';
   const otherStatuses = ALL_STATUSES.filter(s => s !== currentStatus);
 
+  // The row lives inside accordions that use overflow-hidden for their
+  // collapse/expand height animation, which clips any absolutely-positioned
+  // dropdown that tries to render outside their bounds (visible on the last
+  // row of a section). Portaling the menu to document.body and positioning
+  // it with fixed viewport coordinates — flipping upward when there isn't
+  // room below — sidesteps that clipping entirely.
+  const toggleMenu = () => {
+    if (!menuOpen && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      const estimatedMenuHeight = 40 + otherStatuses.length * 34;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const openUpward = spaceBelow < estimatedMenuHeight + 16;
+      setMenuPos({
+        top: openUpward ? undefined : rect.bottom + 8,
+        bottom: openUpward ? window.innerHeight - rect.top + 8 : undefined,
+        right: window.innerWidth - rect.right,
+        openUpward,
+      });
+    }
+    setMenuOpen(v => !v);
+  };
+
+  // Keep the menu from drifting away from its trigger while open — simplest
+  // correct behavior is to close it on scroll, same as most native dropdowns.
+  React.useEffect(() => {
+    if (!menuOpen) return;
+    const close = () => setMenuOpen(false);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => {
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+    };
+  }, [menuOpen]);
+
   return (
-    <div className="w-full text-left bg-white rounded-lg p-2 flex items-center justify-between transition-all hover:bg-gray-100 ring-1 ring-gray-100 relative">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      whileHover={{ y: -1 }}
+      className="w-full text-left bg-white rounded-lg p-2 flex items-center justify-between transition-shadow duration-200 hover:bg-gray-50 hover:shadow-md ring-1 ring-gray-100 relative"
+      layout
+    >
       <button
         onClick={() => onSelect(student)}
         className="flex items-center space-x-3 flex-grow min-w-0"
         aria-label={`View profile for ${student.name}`}
       >
-        <img
-          src={student.avatarUrl || student.avatar_url || `https://ui-avatars.com/api/?name=${student.name}`}
-          alt={student.name}
-          className="w-10 h-10 rounded-full object-cover"
-          loading="lazy"
-        />
+        <motion.div
+          whileTap={{ scale: 0.95 }}
+          className="w-10 h-10 rounded-full object-cover flex-shrink-0 overflow-hidden bg-gray-100"
+        >
+          <img
+            src={student.avatarUrl || student.avatar_url || `https://ui-avatars.com/api/?name=${student.name}`}
+            alt={student.name}
+            className="w-full h-full"
+            loading="lazy"
+          />
+        </motion.div>
         <div className="flex-grow min-w-0 text-left">
           <p className="font-bold text-sm text-gray-800 truncate">{student.name || student.full_name}</p>
           <p className="text-xs text-gray-500">
@@ -84,45 +113,71 @@ const StudentRow: React.FC<{
         </div>
       </button>
 
-      <div className="flex items-center gap-2 px-2 flex-shrink-0">
-        <AttendanceStatusIndicator status={student.attendanceStatus} />
-        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${STATUS_STYLES[currentStatus] ?? 'bg-gray-100 text-gray-600'}`}>
+      <div className="flex items-center gap-1.5 px-2 flex-shrink-0">
+        <motion.span
+          key={currentStatus}
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.2 }}
+          className={`text-xs font-semibold px-2 py-0.5 rounded-full ${STATUS_STYLES[currentStatus] ?? 'bg-gray-100 text-gray-600'}`}
+        >
           {currentStatus}
-        </span>
+        </motion.span>
         <div className="relative">
-          {menuOpen && (
-            <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-          )}
-          <button
-            onClick={(e) => { e.stopPropagation(); setMenuOpen(v => !v); }}
+          <motion.button
+            ref={triggerRef}
+            onClick={(e) => { e.stopPropagation(); toggleMenu(); }}
+            whileTap={{ scale: 0.9 }}
+            whileHover={{ scale: 1.1 }}
             className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-gray-200 text-gray-400 transition-colors"
             aria-label="Change student status"
           >
             <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${menuOpen ? 'rotate-180' : ''}`} />
-          </button>
-          {menuOpen && (
-            <div className="absolute right-0 top-8 z-50 bg-white rounded-xl shadow-lg border border-gray-100 py-1.5 min-w-[150px]">
-              <p className="text-[9px] text-gray-400 px-3 pb-1.5 font-semibold uppercase tracking-widest">Change status</p>
-              {otherStatuses.map(s => (
-                <button
-                  key={s}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setMenuOpen(false);
-                    onStatusChange(student, s);
-                  }}
-                  className={`w-full text-left px-3 py-1.5 text-xs font-medium hover:bg-gray-50 transition-colors ${
-                    s === 'Active' ? 'text-green-700' : s === 'Withdrawn' ? 'text-red-600' : 'text-yellow-700'
-                  }`}
-                >
-                  Mark as {s}
-                </button>
-              ))}
-            </div>
+          </motion.button>
+          {menuOpen && menuPos && createPortal(
+            <AnimatePresence>
+              <motion.div
+                key="backdrop"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-40"
+                onClick={() => setMenuOpen(false)}
+              />
+              <motion.div
+                key="menu"
+                initial={{ opacity: 0, y: menuPos.openUpward ? 10 : -10, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: menuPos.openUpward ? 10 : -10, scale: 0.96 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                style={{ position: 'fixed', top: menuPos.top, bottom: menuPos.bottom, right: menuPos.right }}
+                className="z-50 bg-white rounded-xl shadow-lg border border-gray-100 py-1.5 min-w-[150px]"
+              >
+                <p className="text-[9px] text-gray-400 px-3 pb-1.5 font-semibold uppercase tracking-widest">Change status</p>
+                {otherStatuses.map(s => (
+                  <motion.button
+                    key={s}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMenuOpen(false);
+                      onStatusChange(student, s);
+                    }}
+                    whileTap={{ scale: 0.98 }}
+                    whileHover={{ x: 2 }}
+                    className={`w-full text-left px-3 py-1.5 text-xs font-medium hover:bg-gray-50 transition-colors ${
+                      s === 'Active' ? 'text-green-700' : s === 'Withdrawn' ? 'text-red-600' : 'text-yellow-700'
+                    }`}
+                  >
+                    Mark as {s}
+                  </motion.button>
+                ))}
+              </motion.div>
+            </AnimatePresence>,
+            document.body
           )}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 
@@ -130,23 +185,34 @@ const StageAccordion: React.FC<{ title: string; count: number; children: React.R
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-      <button
+    <div className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden">
+      <motion.button
         onClick={() => setIsOpen(!isOpen)}
+        whileTap={{ scale: 0.99 }}
         className="w-full flex justify-between items-center p-4 text-left"
         aria-expanded={isOpen}
       >
         <h3 className="font-bold text-lg text-gray-800">{title}</h3>
         <div className="flex items-center space-x-2">
           <span className="text-sm font-semibold text-gray-700 bg-gray-100 px-2.5 py-1 rounded-full">{count} Students</span>
-          <ChevronRightIcon className={`h-5 w-5 text-gray-500 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} />
+          <ChevronRight className={`h-5 w-5 text-gray-500 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} />
         </div>
-      </button>
-      {isOpen && (
-        <div className="px-4 pb-4 pt-0 space-y-2">
-          {children}
-        </div>
-      )}
+      </motion.button>
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 35 }}
+            className="overflow-hidden"
+          >
+            <div className="px-4 pb-4 pt-0 space-y-2">
+              {children}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
@@ -155,22 +221,33 @@ const SubStageAccordion: React.FC<{ title: string; count: number; children: Reac
   const [isOpen, setIsOpen] = useState(defaultOpen);
   return (
     <div className="bg-gray-50 rounded-xl overflow-hidden">
-      <button
+      <motion.button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex justify-between items-center p-3 text-left hover:bg-gray-100"
+        whileTap={{ scale: 0.99 }}
+        className="w-full flex justify-between items-center p-3 text-left hover:bg-gray-100 transition-colors"
         aria-expanded={isOpen}
       >
         <h4 className="font-semibold text-gray-700">{title}</h4>
         <div className="flex items-center space-x-2">
           <span className="text-xs font-medium text-gray-600 bg-gray-200 px-2 py-0.5 rounded-full">{count}</span>
-          <ChevronRightIcon className={`h-5 w-5 text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} />
+          <ChevronRight className={`h-5 w-5 text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} />
         </div>
-      </button>
-      {isOpen && (
-        <div className="p-2 space-y-2">
-          {children}
-        </div>
-      )}
+      </motion.button>
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 35 }}
+            className="overflow-hidden"
+          >
+            <div className="p-2 space-y-2">
+              {children}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
@@ -180,22 +257,33 @@ const ClassAccordion: React.FC<{ title: string; count: number; children: React.R
 
   return (
     <div className="bg-white rounded-xl overflow-hidden border">
-      <button
+      <motion.button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex justify-between items-center p-3 text-left hover:bg-gray-100"
+        whileTap={{ scale: 0.99 }}
+        className="w-full flex justify-between items-center p-3 text-left hover:bg-gray-100 transition-colors"
         aria-expanded={isOpen}
       >
         <h4 className="font-semibold text-sm text-gray-600">{title}</h4>
         <div className="flex items-center space-x-2">
           <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">{count}</span>
-          <ChevronRightIcon className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} />
+          <ChevronRight className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} />
         </div>
-      </button>
-      {isOpen && (
-        <div className="p-2 space-y-2">
-          {children}
-        </div>
-      )}
+      </motion.button>
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 35 }}
+            className="overflow-hidden"
+          >
+            <div className="p-2 space-y-2">
+              {children}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
@@ -214,6 +302,7 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
   const [pendingStatusChange, setPendingStatusChange] = useState<{ student: any; status: StudentStatus } | null>(null);
   const [withdrawalReason, setWithdrawalReason] = useState('');
   const [isChangingStatus, setIsChangingStatus] = useState(false);
+  const [showBottomBar, setShowBottomBar] = useState(true);
 
   const { user } = useAuth();
   const { profile } = useProfile();
@@ -385,7 +474,7 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
       return (
         <div className="flex flex-col items-center justify-center p-8 bg-white rounded-2xl shadow-sm border border-red-100 text-center m-2">
           <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center mb-4">
-            <ExclamationCircleIcon className="w-6 h-6 text-red-500" />
+            <CircleAlert className="w-6 h-6 text-red-500" />
           </div>
           <h3 className="font-bold text-gray-900 mb-1">Failed to Load Students</h3>
           <p className="text-sm text-gray-500 mb-4">{String(fetchError)}</p>
@@ -500,23 +589,26 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
         {!filter && (
           <>
             <div className="flex space-x-2">
-              <button
+              <motion.button
+                whileTap={{ scale: 0.97 }}
                 onClick={() => setViewMode('stage')}
                 className={`flex-1 py-1.5 text-sm font-medium rounded-lg transition-colors ${viewMode === 'stage' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-gray-200' : 'text-gray-500 hover:bg-gray-200'}`}
               >
                 By Stage
-              </button>
-              <button
+              </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.97 }}
                 onClick={() => setViewMode('class')}
                 className={`flex-1 py-1.5 text-sm font-medium rounded-lg transition-colors ${viewMode === 'class' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-gray-200' : 'text-gray-500 hover:bg-gray-200'}`}
               >
                 By Class
-              </button>
+              </motion.button>
             </div>
             <div className="flex space-x-2 overflow-x-auto pb-0.5">
               {(['All', 'Active', 'Withdrawn', 'Pending'] as const).map(s => (
-                <button
+                <motion.button
                   key={s}
+                  whileTap={{ scale: 0.95 }}
                   onClick={() => setStatusFilter(s)}
                   className={`flex-shrink-0 px-3 py-1 text-xs font-medium rounded-full transition-colors ${
                     statusFilter === s
@@ -528,55 +620,71 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
                   }`}
                 >
                   {s}
-                </button>
+                </motion.button>
               ))}
             </div>
           </>
         )}
       </div>
 
-      <main className="flex-grow px-4 pb-24 space-y-4 overflow-y-auto">
+      <main className="flex-grow px-4 pb-32 space-y-4 overflow-y-auto">
         {renderContent()}
       </main>
 
       <div className="fixed bottom-24 right-6 lg:bottom-12 lg:right-12 z-40">
-        <button onClick={() => navigateTo('addStudent', 'Add New Student', {})} className="bg-indigo-600 text-white p-4 rounded-full shadow-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" aria-label="Add new student"><PlusIcon className="h-6 w-6" /></button>
+        <motion.button whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }} onClick={() => navigateTo('addStudent', 'Add New Student', {})} className="bg-indigo-600 text-white p-4 rounded-full shadow-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" aria-label="Add new student"><Plus className="h-6 w-6" /></motion.button>
       </div>
 
       {/* Withdrawal reason modal */}
-      {pendingStatusChange?.status === 'Withdrawn' && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
-            <h3 className="font-bold text-gray-900 text-lg mb-1">Withdraw Student</h3>
-            <p className="text-sm text-gray-500 mb-4">
-              Please provide a reason for withdrawing <strong className="text-gray-700">{pendingStatusChange.student.name}</strong>.
-            </p>
-            <textarea
-              value={withdrawalReason}
-              onChange={e => setWithdrawalReason(e.target.value)}
-              placeholder="Reason for withdrawal (e.g. relocated, transferred, financial)..."
-              className="w-full border border-gray-200 rounded-xl p-3 text-sm resize-none h-24 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              autoFocus
-            />
-            <div className="flex gap-3 mt-4">
-              <button
-                onClick={() => { setPendingStatusChange(null); setWithdrawalReason(''); }}
-                disabled={isChangingStatus}
-                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => applyStatusChange(pendingStatusChange.student, 'Withdrawn', withdrawalReason)}
-                disabled={!withdrawalReason.trim() || isChangingStatus}
-                className="flex-1 py-2.5 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {isChangingStatus ? 'Saving…' : 'Confirm Withdrawal'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {pendingStatusChange?.status === 'Withdrawn' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+              className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm"
+            >
+              <h3 className="font-bold text-gray-900 text-lg mb-1">Withdraw Student</h3>
+              <p className="text-sm text-gray-500 mb-4">
+                Please provide a reason for withdrawing <strong className="text-gray-700">{pendingStatusChange.student.name}</strong>.
+              </p>
+              <textarea
+                value={withdrawalReason}
+                onChange={e => setWithdrawalReason(e.target.value)}
+                placeholder="Reason for withdrawal (e.g. relocated, transferred, financial)..."
+                className="w-full border border-gray-200 rounded-xl p-3 text-sm resize-none h-24 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                autoFocus
+              />
+              <div className="flex gap-3 mt-4">
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => { setPendingStatusChange(null); setWithdrawalReason(''); }}
+                  disabled={isChangingStatus}
+                  className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => applyStatusChange(pendingStatusChange.student, 'Withdrawn', withdrawalReason)}
+                  disabled={!withdrawalReason.trim() || isChangingStatus}
+                  className="flex-1 py-2.5 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {isChangingStatus ? 'Saving…' : 'Confirm Withdrawal'}
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

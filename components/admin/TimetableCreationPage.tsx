@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { getAIClient, SchemaType as Type } from '../../lib/ai';
 import { SparklesIcon, XCircleIcon, ClockIcon, UserGroupIcon, ExclamationCircleIcon, CheckCircleIcon, CalendarIcon } from '../../constants';
@@ -142,7 +143,7 @@ const TimetableCreationPage: React.FC<TimetableCreationPageProps> = ({ isOpen, o
 
         setIsGenerating(true);
         try {
-            const ai = getAIClient(import.meta.env.VITE_GEMINI_API_KEY || '');
+            const ai = getAIClient();
             const classList = selectedClasses.join(', ');
 
             const prompt = `
@@ -407,33 +408,40 @@ const TimetableCreationPage: React.FC<TimetableCreationPageProps> = ({ isOpen, o
 
             {/* STICKY FOOTER */}
             <div className="px-6 py-4 bg-white border-t border-gray-200 z-20 flex justify-end gap-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] flex-shrink-0">
-                <button
+                <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={onClose}
                     className="px-6 py-2.5 rounded-xl font-bold text-gray-600 hover:bg-gray-100 transition-colors"
                 >
                     Cancel
-                </button>
-                <button
+                </motion.button>
+                <motion.button
+                    whileHover={selectedClasses.length > 0 ? { scale: 1.02 } : {}}
+                    whileTap={selectedClasses.length > 0 ? { scale: 0.98 } : {}}
                     onClick={handleGenerate}
                     disabled={selectedClasses.length === 0}
-                    className="px-8 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 hover:shadow-xl transition-all transform active:scale-95 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-8 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 hover:shadow-xl transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     <SparklesIcon className="w-5 h-5" />
                     Generate Timetable
-                </button>
+                </motion.button>
             </div>
         </div>
     );
 
     if (isModal) {
-        if (!isOpen) return null;
         return (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
-                <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" onClick={onClose} />
-                <div className="relative w-full max-w-6xl h-[90vh] bg-white rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-scale-in">
-                    {content}
+            <AnimatePresence>
+            {isOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" onClick={onClose} />
+                    <motion.div initial={{ opacity: 0, scale: 0.96, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96, y: 10 }} transition={{ type: 'spring', stiffness: 380, damping: 32 }} className="relative w-full max-w-6xl h-[90vh] bg-white rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+                        {content}
+                    </motion.div>
                 </div>
-            </div>
+            )}
+            </AnimatePresence>
         );
     }
 

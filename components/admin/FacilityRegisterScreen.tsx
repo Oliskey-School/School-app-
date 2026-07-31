@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
@@ -14,6 +15,7 @@ import {
     RefreshCw
 } from 'lucide-react';
 import { useAutoSync } from '../../hooks/useAutoSync';
+import CenteredLoader from '../ui/CenteredLoader';
 
 interface Facility {
     id: string;
@@ -144,13 +146,14 @@ const FacilityRegisterScreen = () => {
                     <h1 className="text-2xl font-bold text-gray-900 font-outfit">Infrastructure Register</h1>
                     <p className="text-gray-500">Manage school physical spaces and compliance records.</p>
                 </div>
-                <button
+                <motion.button
+                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                     onClick={() => setIsAdding(true)}
                     className="flex items-center space-x-2 bg-indigo-600 text-white px-4 py-2 rounded-xl hover:bg-indigo-700 transition-colors shadow-sm font-semibold"
                 >
                     <PlusIcon className="w-5 h-5" />
                     <span>Add Facility</span>
-                </button>
+                </motion.button>
             </div>
 
             <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row gap-4">
@@ -182,11 +185,11 @@ const FacilityRegisterScreen = () => {
             </div>
 
             {loading ? (
-                <div className="text-center py-12 text-gray-500">Loading facilities...</div>
+                <CenteredLoader message="Loading facilities..." className="py-12" />
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredFacilities.map(facility => (
-                        <div key={facility.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4 hover:shadow-md transition-shadow">
+                    {filteredFacilities.map((facility, fi) => (
+                        <motion.div key={facility.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(fi, 15) * 0.03 }} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4 hover:shadow-md transition-shadow">
                             <div className="flex justify-between items-start">
                                 <div className={`p-3 rounded-2xl ${facility.type === 'Laboratory' ? 'bg-purple-50 text-purple-600' :
                                     facility.type === 'Sick bay' ? 'bg-red-50 text-red-600' :
@@ -231,14 +234,15 @@ const FacilityRegisterScreen = () => {
                                     Last Inspected: {new Date(facility.last_inspected_at).toLocaleDateString()}
                                 </span>
                             </div>
-                        </div>
+                        </motion.div>
                     ))}
                 </div>
             )}
 
+            <AnimatePresence>
             {(isAdding || isEditing) && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-                    <div className="bg-white rounded-3xl p-6 max-w-md w-full space-y-6 shadow-2xl animate-in zoom-in-95 duration-200">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+                    <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} transition={{ type: 'spring', stiffness: 400, damping: 32 }} className="bg-white rounded-3xl p-6 max-w-md w-full space-y-6 shadow-2xl">
                         <h2 className="text-xl font-bold text-gray-900 font-outfit">
                             {isEditing ? 'Edit Facility' : 'Add New Facility'}
                         </h2>
@@ -323,7 +327,8 @@ const FacilityRegisterScreen = () => {
                             </div>
                         </div>
                         <div className="flex space-x-3">
-                            <button
+                            <motion.button
+                                whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                                 onClick={() => {
                                     setIsAdding(false);
                                     setIsEditing(false);
@@ -332,17 +337,19 @@ const FacilityRegisterScreen = () => {
                                 className="flex-grow py-3 px-4 border border-gray-200 rounded-2xl text-gray-600 font-bold hover:bg-gray-50 transition-colors"
                             >
                                 Cancel
-                            </button>
-                            <button
+                            </motion.button>
+                            <motion.button
+                                whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                                 onClick={isEditing ? handleUpdate : handleAdd}
                                 className="flex-grow py-3 px-4 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200"
                             >
                                 {isEditing ? 'Save Changes' : 'Create'}
-                            </button>
+                            </motion.button>
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
         </div>
     );
 };

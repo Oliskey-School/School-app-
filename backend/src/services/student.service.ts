@@ -1,7 +1,7 @@
 import prisma from '../config/database';
 import { NotificationService } from './notification.service';
 import { IdGeneratorService } from './idGenerator.service';
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import { Role } from '@prisma/client';
 import { SocketService } from './socket.service';
@@ -626,7 +626,7 @@ export class StudentService {
                 academic_performance: true,
                 behavior_notes: true,
                 report_cards: true,
-                enrollments: true, // Added to support edit mode
+                enrollments: { include: { class: true } }, // Added to support edit mode
                 parents: {
                     include: {
                         parent: true
@@ -637,8 +637,12 @@ export class StudentService {
 
         if (student) {
             const primaryParent = student.parents?.[0]?.parent;
+            // The real class name ("JSS 1") the admin typed, not a raw "Grade N"
+            // guess — same class the student is actually enrolled in.
+            const primaryEnrollment = student.enrollments?.find((e: any) => e.is_primary) || student.enrollments?.[0];
             return {
                 ...student,
+                class_name: primaryEnrollment?.class?.name ?? (student as any).class_name,
                 parentName: primaryParent?.full_name,
                 parentEmail: primaryParent?.email,
                 parentPhone: primaryParent?.phone,
@@ -795,7 +799,8 @@ export class StudentService {
             where: { user_id: userId, school_id: schoolId },
             include: {
                 user: true,
-                parents: { include: { parent: true } }
+                parents: { include: { parent: true } },
+                enrollments: { include: { class: true } }
             }
         });
 
@@ -854,8 +859,10 @@ export class StudentService {
 
         if (student) {
             const primaryParent = student.parents?.[0]?.parent;
+            const primaryEnrollment = (student as any).enrollments?.find((e: any) => e.is_primary) || (student as any).enrollments?.[0];
             return {
                 ...student,
+                class_name: primaryEnrollment?.class?.name ?? (student as any).class_name,
                 parentName: primaryParent?.full_name,
                 parentEmail: primaryParent?.email,
                 parentPhone: primaryParent?.phone,
@@ -1144,10 +1151,18 @@ export class StudentService {
     }
 
     static async getStudentStats(schoolId: string, studentId: string) {
-        const [attendance, submissions, records, achievements] = await Promise.all([
+        const [attendance, submissions, latestReportCard, achievements] = await Promise.all([
             prisma.attendance.findMany({ where: { student_id: studentId, school_id: schoolId } }),
             prisma.assignmentSubmission.count({ where: { student_id: studentId, school_id: schoolId } }),
-            prisma.academicPerformance.findMany({ where: { student_id: studentId, school_id: schoolId } }),
+            // AcademicPerformance rows are raw, in-progress scores a teacher is still
+            // entering/moderating — never officially released. The dashboard's
+            // "Average" stat must agree with the Results screen (which only shows
+            // published report cards), so it sources from the same published
+            // ReportCard.average_score instead of averaging unpublished raw scores.
+            prisma.reportCard.findFirst({
+                where: { student_id: studentId, school_id: schoolId, is_published: true, deleted_at: null },
+                orderBy: { created_at: 'desc' },
+            }),
             prisma.achievement.count({ where: { student_id: studentId, school_id: schoolId } })
         ]);
 
@@ -1155,8 +1170,8 @@ export class StudentService {
         const presentDays = attendance.filter(a => a.status === 'Present' || a.status === 'Late').length;
         const attendanceRate = totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : 0;
 
-        const averageScore = records.length > 0 
-            ? Math.round(records.reduce((acc, r) => acc + r.score, 0) / records.length) 
+        const averageScore = latestReportCard?.average_score != null
+            ? Math.round(Number(latestReportCard.average_score))
             : 0;
 
         return {
@@ -1206,21 +1221,27 @@ export class StudentService {
 
             console.log('   [2/5] Running dashboard queries parallelly (timetable, assignments, quizzes, stats, notifications)...');
             const [timetable, assignments, quizzes, stats, notifications] = await Promise.all([
-                // Today's Timetable (from all sections student is in)
+                // Today's Timetable (from all sections student is in). Only PUBLISHED,
+                // non-deleted rows — matching every other Timetable consumer in the
+                // codebase (lessonAttendance/substitute/insight/timetable services).
+                // Without this, an admin's Draft (unpublished) or soft-deleted period
+                // would leak straight onto the student's "Today's Schedule" widget.
                 prisma.timetable.findMany({
-                    where: { 
+                    where: {
                         school_id: schoolId,
                         day_of_week: dayOfWeek,
+                        status: 'Published',
+                        deleted_at: null,
                         OR: [
                             { class_id: { in: classIds } },
                             { class_name: { in: classNames } }
                         ]
                     },
-                    include: { 
+                    include: {
                         teacher: { select: { full_name: true } }
                     },
                     orderBy: { start_time: 'asc' }
-                }),
+                } as any),
                 // Pending Assignments
                 prisma.assignment.findMany({
                     where: {

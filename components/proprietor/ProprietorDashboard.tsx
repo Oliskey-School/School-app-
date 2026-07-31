@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import Header from '../ui/Header';
 import { useProfile } from '../../context/ProfileContext';
 import { useAuth } from '../../context/AuthContext';
+import { api } from '../../lib/api';
 import {
     ChartBarIcon,
     DollarSignIcon,
@@ -40,27 +41,37 @@ const ProprietorDashboard: React.FC<ProprietorDashboardProps> = ({ onLogout, set
     const { user } = useAuth();
     const [currentView, setCurrentView] = useState<'overview' | 'finance' | 'compliance' | 'academic' | 'stem' | 'people'>('overview');
 
-    // Kept for overview stats
+    // feesCollected/pendingFees/totalStudents/totalTeachers come from live dashboard data.
+    // There is no expense-tracking feature anywhere in the app, so expenses/net profit
+    // are not shown here rather than fabricated.
     const [stats, setStats] = useState({
-        totalRevenue: 15500000,
-        totalExpenses: 8200000,
-        netProfit: 7300000,
-        totalStudents: 450,
-        totalTeachers: 32,
-        pendingFees: 3200000
+        feesCollected: 0,
+        pendingFees: 0,
+        totalStudents: 0,
+        totalTeachers: 0
     });
+    const [statsLoading, setStatsLoading] = useState(true);
 
     useEffect(() => {
         setIsHomePage(true);
-        // TODO: Fetch actual stats from database
-        setStats({
-            totalRevenue: 15500000,
-            totalExpenses: 8200000,
-            netProfit: 7300000,
-            totalStudents: 450,
-            totalTeachers: 32,
-            pendingFees: 3200000
-        });
+        let cancelled = false;
+        (async () => {
+            try {
+                const data = await api.getDashboardStats();
+                if (cancelled) return;
+                setStats({
+                    feesCollected: data?.fees?.paid || 0,
+                    pendingFees: (data?.fees?.overdue || 0) + (data?.fees?.unpaid || 0),
+                    totalStudents: data?.totalStudents || 0,
+                    totalTeachers: data?.totalTeachers || 0
+                });
+            } catch (error) {
+                console.error('[ProprietorDashboard] Failed to load dashboard stats:', error);
+            } finally {
+                if (!cancelled) setStatsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
     }, [setIsHomePage]);
 
     const StatCard: React.FC<{
@@ -116,27 +127,18 @@ const ProprietorDashboard: React.FC<ProprietorDashboardProps> = ({ onLogout, set
                     {/* Financial Stats */}
                     <div>
                         <h3 className="text-lg font-bold text-gray-900 mb-4">Financial Overview</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <StatCard
-                                title="Total Revenue"
-                                value={formatCurrency(stats.totalRevenue)}
+                                title="Fees Collected"
+                                value={statsLoading ? '—' : formatCurrency(stats.feesCollected)}
                                 icon={<DollarSignIcon />}
                                 color="bg-green-500"
-                                trend="+12% from last month"
                             />
                             <StatCard
-                                title="Total Expenses"
-                                value={formatCurrency(stats.totalExpenses)}
-                                icon={<DocumentTextIcon />}
-                                color="bg-red-500"
-                                trend="+5% from last month"
-                            />
-                            <StatCard
-                                title="Net Profit"
-                                value={formatCurrency(stats.netProfit)}
-                                icon={<TrendingUpIcon />}
-                                color="bg-purple-500"
-                                trend="+18% from last month"
+                                title="Pending Fees"
+                                value={statsLoading ? '—' : formatCurrency(stats.pendingFees)}
+                                icon={<ExclamationCircleIcon />}
+                                color="bg-yellow-500"
                             />
                         </div>
                     </div>
@@ -144,31 +146,23 @@ const ProprietorDashboard: React.FC<ProprietorDashboardProps> = ({ onLogout, set
                     {/* School Stats */}
                     <div>
                         <h3 className="text-lg font-bold text-gray-900 mb-4">School Statistics</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="cursor-pointer" onClick={() => handleNavClick('people')}>
                                 <StatCard
                                     title="Total Students"
-                                    value={stats.totalStudents}
+                                    value={statsLoading ? '—' : stats.totalStudents}
                                     icon={<UserGroupIcon />}
                                     color="bg-indigo-500"
-                                    trend="+8 new this month"
                                 />
                             </div>
                             <div className="cursor-pointer" onClick={() => handleNavClick('people')}>
                                 <StatCard
                                     title="Teaching Staff"
-                                    value={stats.totalTeachers}
+                                    value={statsLoading ? '—' : stats.totalTeachers}
                                     icon={<UserGroupIcon />}
                                     color="bg-blue-500"
-                                    trend="2 new hires"
                                 />
                             </div>
-                            <StatCard
-                                title="Pending Fees"
-                                value={formatCurrency(stats.pendingFees)}
-                                icon={<ExclamationCircleIcon />}
-                                color="bg-yellow-500"
-                            />
                         </div>
                     </div>
 

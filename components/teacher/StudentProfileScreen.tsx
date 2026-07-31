@@ -4,6 +4,7 @@ import { Student, BehaviorNote } from '../../types';
 import { DocumentTextIcon, BookOpenIcon, ClipboardListIcon, CheckCircleIcon, PlusIcon, SUBJECT_COLORS, ReportIcon, TrashIcon } from '../../constants';
 import { fetchBehaviorNotes, createBehaviorNote, deleteBehaviorNote, fetchAcademicPerformance } from '../../lib/database';
 import { useAuth } from '../../context/AuthContext';
+import ConfirmationModal from '../ui/ConfirmationModal';
 
 interface StudentProfileScreenProps {
     student: Student;
@@ -34,6 +35,7 @@ const StudentProfileScreen: React.FC<StudentProfileScreenProps> = ({ student: ra
     const [newNoteType, setNewNoteType] = useState<'Positive' | 'Negative'>('Positive');
     const [isAddingNote, setIsAddingNote] = useState(false);
     const [loadingNotes, setLoadingNotes] = useState(true);
+    const [noteToDelete, setNoteToDelete] = useState<string | null>(null);
 
     useEffect(() => {
         if (!student?.id) return;
@@ -100,8 +102,6 @@ const StudentProfileScreen: React.FC<StudentProfileScreenProps> = ({ student: ra
     };
 
     const handleDeleteNote = async (id: string) => {
-        if (!window.confirm('Are you sure you want to delete this note?')) return;
-        
         try {
             const success = await deleteBehaviorNote(id);
             if (success) {
@@ -212,7 +212,7 @@ const StudentProfileScreen: React.FC<StudentProfileScreenProps> = ({ student: ra
                 </div>
 
                 {/* Behavioral Notes */}
-                <div className="lg:col-span-1 bg-white p-4 rounded-xl shadow-sm">
+                <div className="lg:col-span-1 bg-white p-4 rounded-xl shadow-sm lg:sticky lg:top-6 lg:self-start">
                     <div className="flex justify-between items-center mb-3">
                         <div className="flex items-center space-x-2">
                             <ClipboardListIcon className="h-5 w-5 text-purple-600" />
@@ -266,10 +266,11 @@ const StudentProfileScreen: React.FC<StudentProfileScreenProps> = ({ student: ra
                                             </div>
                                             <div className="flex items-center space-x-2 flex-shrink-0 ml-2">
                                                 <p className="text-xs text-gray-500 font-medium">{new Date(note.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
-                                                <button 
-                                                    onClick={() => handleDeleteNote(note.id)}
+                                                <button
+                                                    onClick={() => setNoteToDelete(note.id)}
                                                     className="p-1 hover:bg-gray-200 rounded-full transition-colors text-gray-400 hover:text-red-500"
                                                     title="Delete note"
+                                                    aria-label="Delete note"
                                                 >
                                                     <TrashIcon className="h-4 w-4" />
                                                 </button>
@@ -286,6 +287,15 @@ const StudentProfileScreen: React.FC<StudentProfileScreenProps> = ({ student: ra
                     </div>
                 </div>
             </div>
+            <ConfirmationModal
+                isOpen={!!noteToDelete}
+                onClose={() => setNoteToDelete(null)}
+                onConfirm={() => { if (noteToDelete) handleDeleteNote(noteToDelete); }}
+                title="Delete Note"
+                message="Are you sure you want to delete this note? This cannot be undone."
+                confirmText="Delete"
+                isDanger
+            />
         </div>
     );
 };

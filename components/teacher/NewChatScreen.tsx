@@ -136,7 +136,6 @@ const NewChatScreen: React.FC<NewChatScreenProps> = ({ navigateTo }) => {
 
     const [contacts, setContacts] = useState<Record<string, Contact[]>>({});
     const [loading, setLoading] = useState(true);
-    const [startingChat, setStartingChat] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTab, setActiveTab] = useState<string>('');
 
@@ -199,14 +198,12 @@ const NewChatScreen: React.FC<NewChatScreenProps> = ({ navigateTo }) => {
     };
 
     const handleDirectChat = (contact: Contact) => {
-        setStartingChat(contact.userId);
         navigateTo('chat', contact.name, {
             targetUserId: contact.userId,
             targetUserName: contact.name,
             targetUserAvatar: contact.avatarUrl || null,
             schoolId: resolvedSchoolId
         });
-        setStartingChat(null);
     };
 
     const handleCreateGroup = async (groupName: string) => {
@@ -353,7 +350,6 @@ const NewChatScreen: React.FC<NewChatScreenProps> = ({ navigateTo }) => {
                         <ContactRow
                             key={c.userId}
                             contact={c}
-                            loading={startingChat === c.userId}
                             selectable={groupMode}
                             selected={isSelected(c)}
                             onSelect={() => handleDirectChat(c)}

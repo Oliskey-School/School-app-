@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { StoreProduct, StoreOrder } from '../../types';
 import { ShoppingCartIcon, ReceiptIcon } from '../../constants';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
+import CenteredLoader from '../ui/CenteredLoader';
 
 // Backend endpoints for /api/store are not yet implemented. This screen attempts
 // to fetch them so the moment they exist, real data flows through. Until then we
@@ -10,8 +12,8 @@ import { toast } from 'react-hot-toast';
 
 const formatter = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 0 });
 
-const ProductCard: React.FC<{ product: StoreProduct }> = ({ product }) => (
-    <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200">
+const ProductCard: React.FC<{ product: StoreProduct; index: number }> = ({ product, index }) => (
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(index, 15) * 0.03 }} className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200">
         {product.imageUrl && <img src={product.imageUrl} alt={product.name} className="w-full h-32 object-cover" />}
         <div className="p-4">
             <h4 className="font-bold text-gray-800 truncate">{product.name}</h4>
@@ -23,10 +25,10 @@ const ProductCard: React.FC<{ product: StoreProduct }> = ({ product }) => (
                 </p>
             </div>
         </div>
-    </div>
+    </motion.div>
 );
 
-const OrderRow: React.FC<{ order: StoreOrder }> = ({ order }) => {
+const OrderRow: React.FC<{ order: StoreOrder; index: number }> = ({ order, index }) => {
     const statusStyles: Record<string, string> = {
         Pending: 'bg-amber-100 text-amber-800',
         Shipped: 'bg-sky-100 text-sky-800',
@@ -34,7 +36,7 @@ const OrderRow: React.FC<{ order: StoreOrder }> = ({ order }) => {
     };
 
     return (
-        <div className="bg-white p-4 rounded-xl shadow-sm">
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(index, 15) * 0.03 }} className="bg-white p-4 rounded-xl shadow-sm">
             <div className="flex justify-between items-start">
                 <div>
                     <p className="font-bold text-gray-800">{order.customerName}</p>
@@ -52,7 +54,7 @@ const OrderRow: React.FC<{ order: StoreOrder }> = ({ order }) => {
                 </ul>
                 <p className="text-right font-bold text-gray-800 mt-2">Total: {formatter.format(order.totalAmount)}</p>
             </div>
-        </div>
+        </motion.div>
     );
 };
 
@@ -100,17 +102,23 @@ const OnlineStoreScreen: React.FC = () => {
                 <div className="flex space-x-1 bg-gray-200 p-1 rounded-lg">
                     <button
                         onClick={() => setActiveTab('products')}
-                        className={`w-1/2 py-2 text-sm font-semibold rounded-md flex items-center justify-center space-x-2 transition-colors ${activeTab === 'products' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-600'}`}
+                        className={`relative w-1/2 py-2 text-sm font-semibold rounded-md flex items-center justify-center space-x-2 transition-colors ${activeTab === 'products' ? 'text-indigo-600' : 'text-gray-600'}`}
                     >
-                        <ShoppingCartIcon className="h-5 w-5" />
-                        <span>Products</span>
+                        {activeTab === 'products' && (
+                            <motion.div layoutId="storeTab" className="absolute inset-0 bg-white rounded-md shadow-sm" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />
+                        )}
+                        <ShoppingCartIcon className="h-5 w-5 relative" />
+                        <span className="relative">Products</span>
                     </button>
                     <button
                         onClick={() => setActiveTab('orders')}
-                        className={`w-1/2 py-2 text-sm font-semibold rounded-md flex items-center justify-center space-x-2 transition-colors ${activeTab === 'orders' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-600'}`}
+                        className={`relative w-1/2 py-2 text-sm font-semibold rounded-md flex items-center justify-center space-x-2 transition-colors ${activeTab === 'orders' ? 'text-indigo-600' : 'text-gray-600'}`}
                     >
-                        <ReceiptIcon className="h-5 w-5" />
-                        <span>Orders</span>
+                        {activeTab === 'orders' && (
+                            <motion.div layoutId="storeTab" className="absolute inset-0 bg-white rounded-md shadow-sm" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />
+                        )}
+                        <ReceiptIcon className="h-5 w-5 relative" />
+                        <span className="relative">Orders</span>
                     </button>
                 </div>
             </div>
@@ -121,13 +129,13 @@ const OnlineStoreScreen: React.FC = () => {
                         Online Store backend is not yet available. Products and orders will appear here once the server-side endpoints (<code>/api/store/products</code>, <code>/api/store/orders</code>) are implemented.
                     </div>
                 )}
-                {loading && !unavailable && <p className="text-sm text-gray-500">Loading…</p>}
+                {loading && !unavailable && <CenteredLoader className="py-8" />}
                 {!loading && activeTab === 'products' && (
                     products.length === 0 ? (
                         <p className="text-sm text-gray-500 text-center py-8">No products listed.</p>
                     ) : (
                         <div className="grid grid-cols-2 gap-4">
-                            {products.map(product => <ProductCard key={product.id} product={product} />)}
+                            {products.map((product, pi) => <ProductCard key={product.id} product={product} index={pi} />)}
                         </div>
                     )
                 )}
@@ -136,7 +144,7 @@ const OnlineStoreScreen: React.FC = () => {
                         <p className="text-sm text-gray-500 text-center py-8">No orders yet.</p>
                     ) : (
                         <div className="space-y-3">
-                            {orders.map(order => <OrderRow key={order.id} order={order} />)}
+                            {orders.map((order, oi) => <OrderRow key={order.id} order={order} index={oi} />)}
                         </div>
                     )
                 )}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 
@@ -57,14 +58,21 @@ const DiscreetReporting: React.FC = () => {
                 </div>
 
                 {!showForm ? (
-                    <button
+                    <motion.button
+                        whileHover={{ scale: 1.01 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={() => setShowForm(true)}
                         className="w-full px-4 py-3 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors font-bold"
                     >
                         Request Support
-                    </button>
+                    </motion.button>
                 ) : (
-                    <form onSubmit={handleSubmit} className="space-y-4">
+                    <motion.form
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        transition={{ duration: 0.25 }}
+                        onSubmit={handleSubmit}
+                        className="space-y-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 What do you need? *
@@ -97,21 +105,24 @@ const DiscreetReporting: React.FC = () => {
                         </div>
 
                         <div className="flex space-x-3">
-                            <button
+                            <motion.button
+                                whileTap={{ scale: 0.97 }}
                                 type="button"
                                 onClick={() => setShowForm(false)}
-                                className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium"
+                                className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium transition-colors"
                             >
                                 Cancel
-                            </button>
-                            <button
+                            </motion.button>
+                            <motion.button
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.97 }}
                                 type="submit"
-                                className="flex-1 px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 font-medium"
+                                className="flex-1 px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 font-medium transition-colors"
                             >
                                 Submit Request
-                            </button>
+                            </motion.button>
                         </div>
-                    </form>
+                    </motion.form>
                 )}
             </div>
         </div>

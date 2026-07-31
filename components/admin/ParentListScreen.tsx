@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { SearchIcon, MailIcon, PhoneIcon, PlusIcon, StudentsIcon } from '../../constants';
 import { Parent } from '../../types';
 import { fetchParents } from '../../services/parentService';
@@ -8,6 +9,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useProfile } from '../../context/ProfileContext';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { toast } from 'react-hot-toast';
+import CenteredLoader from '../ui/CenteredLoader';
 
 interface ParentListScreenProps {
   navigateTo: (view: string, title: string, props?: any) => void;
@@ -15,8 +17,16 @@ interface ParentListScreenProps {
   schoolId?: string; // Added prop
 }
 
-const ParentCard: React.FC<{ parent: Parent, onSelect: (parent: Parent) => void }> = ({ parent, onSelect }) => (
-  <button onClick={() => onSelect(parent)} className="w-full bg-white rounded-xl shadow-sm p-4 flex flex-col space-y-3 text-left hover:shadow-md hover:ring-2 hover:ring-sky-200 transition-all">
+const ParentCard: React.FC<{ parent: Parent, onSelect: (parent: Parent) => void, index: number }> = ({ parent, onSelect, index }) => (
+  <motion.button
+    initial={{ opacity: 0, y: 10 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.2, delay: Math.min(index, 12) * 0.04 }}
+    whileHover={{ y: -3 }}
+    whileTap={{ scale: 0.98 }}
+    onClick={() => onSelect(parent)}
+    className="w-full bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow p-4 flex flex-col space-y-3 text-left hover:ring-2 hover:ring-sky-200"
+  >
     <div className="flex items-center space-x-4">
       <img
         src={parent.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${parent.name}`}
@@ -44,7 +54,7 @@ const ParentCard: React.FC<{ parent: Parent, onSelect: (parent: Parent) => void 
         </a>
       )}
     </div>
-  </button>
+  </motion.button>
 );
 
 const ParentListScreen: React.FC<ParentListScreenProps> = ({ navigateTo, currentBranchId, schoolId: propSchoolId }) => {
@@ -112,12 +122,7 @@ const ParentListScreen: React.FC<ParentListScreenProps> = ({ navigateTo, current
   };
 
   if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full gap-4">
-        <div className="animate-spin rounded-full h-10 w-10 border-4 border-sky-500 border-t-transparent"></div>
-        <p className="text-gray-500 animate-pulse">Loading parent records...</p>
-      </div>
-    );
+    return <CenteredLoader message="Loading parent records..." className="h-full" />;
   }
 
   return (
@@ -131,18 +136,18 @@ const ParentListScreen: React.FC<ParentListScreenProps> = ({ navigateTo, current
       <main className="flex-grow p-4 pb-24 overflow-y-auto">
         {filteredParents.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {filteredParents.map(parent => <ParentCard key={parent.id} parent={parent} onSelect={handleSelectParent} />)}
+            {filteredParents.map((parent, i) => <ParentCard key={parent.id} parent={parent} onSelect={handleSelectParent} index={i} />)}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center py-20 text-center bg-white rounded-3xl border border-dashed border-gray-200">
+          <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.25 }} className="flex flex-col items-center justify-center py-20 text-center bg-white rounded-3xl border border-dashed border-gray-200">
             <StudentsIcon className="w-12 h-12 text-gray-300 mb-4" />
             <h3 className="text-lg font-bold text-gray-900 mb-1">No Parents Found</h3>
             <p className="text-gray-500 text-sm">Try adjusting your search, or add a new parent using the button below.</p>
-          </div>
+          </motion.div>
         )}
       </main>
       <div className="fixed bottom-24 right-6 lg:bottom-12 lg:right-12 z-40">
-        <button onClick={() => navigateTo('addParent', 'Add New Parent', {})} className="bg-amber-500 text-white p-4 rounded-full shadow-lg hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500" aria-label="Add new parent"><PlusIcon className="h-6 w-6" /></button>
+        <motion.button whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }} onClick={() => navigateTo('addParent', 'Add New Parent', {})} className="bg-amber-500 text-white p-4 rounded-full shadow-lg hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500" aria-label="Add new parent"><PlusIcon className="h-6 w-6" /></motion.button>
       </div>
     </div>
   );

@@ -322,10 +322,10 @@ const VirtualScienceLabGame: React.FC<VirtualScienceLabGameProps> = ({ onBack })
 
                             {/* Graduation marks */}
                             <div className="absolute right-0 top-10 bottom-10 w-8 border-l border-white/30 flex flex-col justify-between py-2 text-xs text-white/50 font-mono text-right pr-1">
-                                <span>200ml â€”</span>
-                                <span>150ml â€”</span>
-                                <span>100ml â€”</span>
-                                <span>50ml â€”</span>
+                                <span>200ml —</span>
+                                <span>150ml —</span>
+                                <span>100ml —</span>
+                                <span>50ml —</span>
                             </div>
                         </div>
 

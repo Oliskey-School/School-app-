@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useProfile } from '../../context/ProfileContext';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { Calendar, Clock, Video, MapPin, CheckCircle, XCircle } from 'lucide-react';
+import { buildJitsiUrl } from '../video/LiveClassRoom';
 
 interface TeacherAvailability {
     id: number;
@@ -107,8 +109,13 @@ const ConferenceScheduling: React.FC = () => {
         }
 
         try {
+            // A real, working Jitsi room — deterministic from this booking's own details,
+            // same approach VirtualClassroom uses, not a fabricated Google Meet URL.
             const meetingLink = selectedSlot.conference_type === 'Virtual'
-                ? `https://meet.google.com/${Math.random().toString(36).substring(7)}`
+                ? buildJitsiUrl(
+                    `conf-${selectedSlot.teacher_id}-${studentId}-${selectedSlot.date}-${selectedSlot.time_start}`.replace(/[^a-zA-Z0-9-]/g, ''),
+                    profile?.full_name || 'Parent'
+                )
                 : null;
 
             await api.scheduleConference({
@@ -170,7 +177,8 @@ const ConferenceScheduling: React.FC = () => {
 
             {/* Tabs */}
             <div className="flex space-x-2 mb-6">
-                <button
+                <motion.button
+                    whileTap={{ scale: 0.96 }}
                     onClick={() => setActiveTab('book')}
                     className={`px-6 py-3 rounded-lg font-semibold transition-colors ${activeTab === 'book'
                             ? 'bg-indigo-600 text-white'
@@ -178,8 +186,9 @@ const ConferenceScheduling: React.FC = () => {
                         }`}
                 >
                     Book Conference
-                </button>
-                <button
+                </motion.button>
+                <motion.button
+                    whileTap={{ scale: 0.96 }}
                     onClick={() => setActiveTab('my-conferences')}
                     className={`px-6 py-3 rounded-lg font-semibold transition-colors ${activeTab === 'my-conferences'
                             ? 'bg-indigo-600 text-white'
@@ -187,7 +196,7 @@ const ConferenceScheduling: React.FC = () => {
                         }`}
                 >
                     My Conferences ({myConferences.length})
-                </button>
+                </motion.button>
             </div>
 
             {/* Available Slots */}
@@ -202,8 +211,14 @@ const ConferenceScheduling: React.FC = () => {
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {availability.map(slot => (
-                                <div key={slot.id} className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow p-6">
+                            {availability.map((slot, i) => (
+                                <motion.div
+                                    key={slot.id}
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.25, delay: Math.min(i, 10) * 0.05 }}
+                                    className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow p-6"
+                                >
                                     <div className="mb-4">
                                         <h3 className="text-lg font-bold text-gray-900">{slot.teachers?.name}</h3>
                                         <p className="text-sm text-gray-600">{slot.teachers?.subject}</p>
@@ -230,7 +245,9 @@ const ConferenceScheduling: React.FC = () => {
                                         )}
                                     </div>
 
-                                    <button
+                                    <motion.button
+                                        whileHover={{ scale: 1.02 }}
+                                        whileTap={{ scale: 0.97 }}
                                         onClick={() => {
                                             setSelectedSlot(slot);
                                             setShowBookModal(true);
@@ -238,8 +255,8 @@ const ConferenceScheduling: React.FC = () => {
                                         className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-semibold transition-colors"
                                     >
                                         Book This Slot
-                                    </button>
-                                </div>
+                                    </motion.button>
+                                </motion.div>
                             ))}
                         </div>
                     )}
@@ -256,8 +273,14 @@ const ConferenceScheduling: React.FC = () => {
                             <p className="text-sm">Book a conference to get started</p>
                         </div>
                     ) : (
-                        myConferences.map(conf => (
-                            <div key={conf.id} className="bg-white rounded-xl shadow-sm p-6">
+                        myConferences.map((conf, i) => (
+                            <motion.div
+                                key={conf.id}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.25, delay: Math.min(i, 10) * 0.05 }}
+                                className="bg-white rounded-xl shadow-sm p-6"
+                            >
                                 <div className="flex items-start justify-between mb-4">
                                     <div>
                                         <h3 className="text-xl font-bold text-gray-900">{conf.teachers.name}</h3>
@@ -307,16 +330,29 @@ const ConferenceScheduling: React.FC = () => {
                                         <p className="text-sm text-gray-600">{conf.teacher_notes}</p>
                                     </div>
                                 )}
-                            </div>
+                            </motion.div>
                         ))
                     )}
                 </div>
             )}
 
             {/* Booking Modal */}
+            <AnimatePresence>
             {showBookModal && selectedSlot && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl max-w-md w-full p-6">
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+                >
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                        className="bg-white rounded-xl max-w-md w-full p-6"
+                    >
                         <h2 className="text-2xl font-bold text-gray-900 mb-4">Book Conference</h2>
 
                         <div className="mb-4">
@@ -356,7 +392,8 @@ const ConferenceScheduling: React.FC = () => {
                         </div>
 
                         <div className="flex space-x-3">
-                            <button
+                            <motion.button
+                                whileTap={{ scale: 0.96 }}
                                 onClick={() => {
                                     setShowBookModal(false);
                                     setNotes('');
@@ -364,17 +401,20 @@ const ConferenceScheduling: React.FC = () => {
                                 className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-semibold"
                             >
                                 Cancel
-                            </button>
-                            <button
+                            </motion.button>
+                            <motion.button
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.96 }}
                                 onClick={handleBookConference}
                                 className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-semibold"
                             >
                                 Confirm Booking
-                            </button>
+                            </motion.button>
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
         </div>
     );
 };

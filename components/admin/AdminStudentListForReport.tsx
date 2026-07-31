@@ -1,9 +1,11 @@
 
 import React, { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 import { Student } from '../../types';
 import { fetchStudentsByClass } from '../../lib/database';
 import { ChevronRightIcon, UserIcon, getFormattedClassName } from '../../constants';
 import { toast } from 'react-hot-toast';
+import CenteredLoader from '../ui/CenteredLoader';
 
 interface AdminStudentListForReportProps {
   classInfo: { grade: number; section: string; department?: string; };
@@ -38,12 +40,7 @@ const AdminStudentListForReport: React.FC<AdminStudentListForReportProps> = ({ c
   }
 
   if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center h-64 space-y-4">
-        <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-gray-500 font-medium animate-pulse">Loading class roster...</p>
-      </div>
-    );
+    return <CenteredLoader message="Loading class roster..." className="h-64" />;
   }
 
   return (
@@ -60,11 +57,14 @@ const AdminStudentListForReport: React.FC<AdminStudentListForReportProps> = ({ c
 
       <main className="flex-grow p-4 space-y-3 overflow-y-auto">
         {students?.map((student, index) => (
-          <button
+          <motion.button
             key={student?.id || index}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2, delay: Math.min(index, 20) * 0.03 }}
+            whileHover={{ x: 4 }}
             onClick={() => navigateTo('adminSelectTermForReport', `Select Term for ${student?.name || 'Student'}`, { student })}
-            className="w-full bg-white rounded-2xl p-4 flex items-center space-x-4 transition-all duration-200 hover:shadow-lg hover:translate-x-1 hover:bg-indigo-50/30 border border-transparent hover:border-indigo-100 group animate-slide-in-up"
-            style={{ animationDelay: `${index * 50}ms` }}
+            className="w-full bg-white rounded-2xl p-4 flex items-center space-x-4 transition-colors duration-200 hover:shadow-lg hover:bg-indigo-50/30 border border-transparent hover:border-indigo-100 group"
             aria-label={`View report for ${student?.name || 'Student'}`}
           >
             <div className="relative">
@@ -90,7 +90,7 @@ const AdminStudentListForReport: React.FC<AdminStudentListForReportProps> = ({ c
             <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
               <ChevronRightIcon className="w-4 h-4 text-gray-400 group-hover:text-indigo-600 transition-colors" />
             </div>
-          </button>
+          </motion.button>
         ))}
 
         {students.length === 0 && (

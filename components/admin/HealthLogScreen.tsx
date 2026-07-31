@@ -1,4 +1,5 @@
 ﻿import React, { useState, useMemo, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { HealthLogEntry, Student } from '../../types';
 import { SearchIcon, PlusIcon, XCircleIcon, HeartIcon, ClockIcon, CalendarIcon, FilterIcon, RefreshIcon, CheckCircleIcon, ExclamationCircleIcon, TrendingUpIcon, TrashIcon } from '../../constants';
 // import { getFormattedClassName } from '../../constants'; // unused or keep if needed
@@ -250,16 +251,17 @@ const HealthLogScreen: React.FC<HealthLogProps> = ({ schoolId, currentUserId }) 
     // --- RENDER FORM VIEW ---
     if (view === 'add') {
         return (
-            <div className="flex flex-col h-full bg-gray-50/50 relative animate-fade-in">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }} className="flex flex-col h-full bg-gray-50/50 relative">
                 <div className="bg-white border-b border-gray-100 flex-shrink-0 z-10 sticky top-0">
                     <div className="p-4 md:px-8 md:py-5 max-w-3xl mx-auto w-full flex items-center justify-between">
                         <div className="flex items-center gap-4">
-                            <button
+                            <motion.button
+                                whileTap={{ scale: 0.9 }}
                                 onClick={() => setView('list')}
                                 className="p-2 hover:bg-gray-100 rounded-xl transition-colors text-gray-500"
                             >
                                 <XCircleIcon className="w-6 h-6" />
-                            </button>
+                            </motion.button>
                             <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                                 <div className="p-2 bg-rose-100 text-rose-600 rounded-xl">
                                     <HeartIcon className="w-5 h-5" />
@@ -271,7 +273,7 @@ const HealthLogScreen: React.FC<HealthLogProps> = ({ schoolId, currentUserId }) 
                 </div>
 
                 <main className="flex-grow p-4 md:px-8 md:py-8 w-full max-w-3xl mx-auto">
-                    <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
                         <form onSubmit={handleAddEntry} className="p-6 md:p-8 space-y-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="relative">
@@ -404,25 +406,29 @@ const HealthLogScreen: React.FC<HealthLogProps> = ({ schoolId, currentUserId }) 
                             </div>
 
                             <div className="pt-4 flex flex-col md:flex-row gap-4">
-                                <button
+                                <motion.button
+                                    whileHover={{ scale: 1.01 }}
+                                    whileTap={{ scale: 0.98 }}
                                     type="button"
                                     onClick={() => setView('list')}
-                                    className="flex-1 py-4 px-6 border border-gray-200 text-gray-600 font-bold rounded-2xl hover:bg-gray-50 transition-all active:scale-[0.98]"
+                                    className="flex-1 py-4 px-6 border border-gray-200 text-gray-600 font-bold rounded-2xl hover:bg-gray-50 transition-all"
                                 >
                                     Cancel & Return
-                                </button>
-                                <button
+                                </motion.button>
+                                <motion.button
+                                    whileHover={{ scale: 1.01 }}
+                                    whileTap={{ scale: 0.98 }}
                                     type="submit"
-                                    className="flex-[2] py-4 px-6 bg-rose-600 text-white font-bold rounded-2xl hover:bg-rose-700 shadow-xl shadow-rose-200 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                                    className="flex-[2] py-4 px-6 bg-rose-600 text-white font-bold rounded-2xl hover:bg-rose-700 shadow-xl shadow-rose-200 transition-all flex items-center justify-center gap-2"
                                 >
                                     <PlusIcon className="w-5 h-5" />
                                     Save Health Record
-                                </button>
+                                </motion.button>
                             </div>
                         </form>
-                    </div>
+                    </motion.div>
                 </main>
-            </div>
+            </motion.div>
         );
     }
 
@@ -462,13 +468,15 @@ const HealthLogScreen: React.FC<HealthLogProps> = ({ schoolId, currentUserId }) 
                                 </div>
                             </div>
 
-                            <button
+                            <motion.button
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.95 }}
                                 onClick={() => setView('add')}
-                                className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl shadow-lg shadow-rose-200 transition-all flex items-center gap-2 whitespace-nowrap transform active:scale-95"
+                                className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl shadow-lg shadow-rose-200 transition-all flex items-center gap-2 whitespace-nowrap"
                             >
                                 <PlusIcon className="w-5 h-5" />
                                 <span className="font-bold text-sm">New Entry</span>
-                            </button>
+                            </motion.button>
                         </div>
                     </div>
 
@@ -480,12 +488,13 @@ const HealthLogScreen: React.FC<HealthLogProps> = ({ schoolId, currentUserId }) 
                                 <button
                                     key={filter}
                                     onClick={() => setTimeFilter(filter)}
-                                    className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-all capitalize whitespace-nowrap ${timeFilter === filter
-                                        ? 'bg-white text-gray-800 shadow-sm ring-1 ring-black/5'
+                                    className={`relative px-4 py-1.5 text-sm font-bold rounded-lg transition-colors capitalize whitespace-nowrap ${timeFilter === filter
+                                        ? 'text-gray-800'
                                         : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'
                                         }`}
                                 >
-                                    {filter === 'all' ? 'All History' : filter}
+                                    {timeFilter === filter && <motion.div layoutId="healthLogFilterTab" className="absolute inset-0 bg-white rounded-lg shadow-sm ring-1 ring-black/5" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />}
+                                    <span className="relative">{filter === 'all' ? 'All History' : filter}</span>
                                 </button>
                             ))}
                         </div>
@@ -512,10 +521,10 @@ const HealthLogScreen: React.FC<HealthLogProps> = ({ schoolId, currentUserId }) 
 
                 {filteredLogs.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                        {filteredLogs.map(log => {
+                        {filteredLogs.map((log, li) => {
                             const ailmentStyle = getAilmentColor(log.reason);
                             return (
-                                <div key={log.id} className="bg-white rounded-2xl p-5 shadow-[0_2px_12px_-4px_rgba(0,0,0,0.05)] hover:shadow-[0_8px_25px_-5px_rgba(0,0,0,0.08)] border border-gray-100 transition-all duration-300 flex flex-col h-full group animate-scale-in">
+                                <motion.div key={log.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(li, 15) * 0.03 }} className="bg-white rounded-2xl p-5 shadow-[0_2px_12px_-4px_rgba(0,0,0,0.05)] hover:shadow-[0_8px_25px_-5px_rgba(0,0,0,0.08)] border border-gray-100 transition-shadow duration-300 flex flex-col h-full group">
 
                                     {/* Header: User & Time */}
                                     <div className="flex items-start justify-between mb-4">
@@ -563,24 +572,25 @@ const HealthLogScreen: React.FC<HealthLogProps> = ({ schoolId, currentUserId }) 
                                             </div>
                                         )}
                                     </div>
-                                </div>
+                                </motion.div>
                             );
                         })}
                     </div>
                 ) : (
-                    <div className="flex flex-col items-center justify-center h-[50vh] text-center p-8 animate-fade-in">
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center h-[50vh] text-center p-8">
                         <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-6">
                             <HeartIcon className="w-10 h-10 text-gray-400" />
                         </div>
                         <h3 className="text-xl font-bold text-gray-800 mb-2">No Health Records</h3>
                         <p className="text-gray-500">No health logs match your current search or filter.</p>
-                        <button
+                        <motion.button
+                            whileHover={{ scale: 1.03 }}
                             onClick={() => { setSearchTerm(''); setTimeFilter('all'); }}
                             className="mt-6 font-bold text-rose-600 hover:text-rose-700"
                         >
                             Clear Filters
-                        </button>
-                    </div>
+                        </motion.button>
+                    </motion.div>
                 )}
             </main>
 

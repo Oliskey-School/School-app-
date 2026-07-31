@@ -35,7 +35,8 @@ const TeacherExamManagement: React.FC<TeacherExamManagementProps> = ({ navigateT
                 id: e.id,
                 subject: e.subject,
                 className: e.class_name,
-                type: e.type,
+                classId: e.class_id,
+                type: e.exam_type,
                 date: e.date,
                 isPublished: e.is_published,
                 teacherId: e.teacher_id
@@ -98,6 +99,7 @@ const TeacherExamManagement: React.FC<TeacherExamManagementProps> = ({ navigateT
                     date: examData.date,
                     time: examData.time,
                     class_name: examData.className,
+                    class_id: examData.classId || null,
                     subject: examData.subject,
                     updated_at: new Date().toISOString()
                 };
@@ -123,6 +125,7 @@ const TeacherExamManagement: React.FC<TeacherExamManagementProps> = ({ navigateT
                     date: examData.date,
                     time: examData.time,
                     class_name: examData.className,
+                    class_id: examData.classId || null,
                     subject: examData.subject,
                     is_published: false,
                     teacher_id: teacherId,
@@ -184,8 +187,8 @@ const TeacherExamManagement: React.FC<TeacherExamManagementProps> = ({ navigateT
                                     <div className="flex space-x-2">
                                         {!exam.isPublished && (
                                             <>
-                                                <button onClick={() => handleEdit(exam)} className="text-indigo-600 p-1 hover:bg-gray-100 rounded-md"><EditIcon className="w-5 h-5" /></button>
-                                                <button onClick={() => handleDeleteClick(exam)} className="text-red-600 p-1 hover:bg-gray-100 rounded-md"><TrashIcon className="w-5 h-5" /></button>
+                                                <button onClick={() => handleEdit(exam)} className="text-indigo-600 p-1 hover:bg-gray-100 rounded-md" aria-label={`Edit ${exam.subject} exam`}><EditIcon className="w-5 h-5" /></button>
+                                                <button onClick={() => handleDeleteClick(exam)} className="text-red-600 p-1 hover:bg-gray-100 rounded-md" aria-label={`Delete ${exam.subject} exam`}><TrashIcon className="w-5 h-5" /></button>
                                             </>
                                         )}
                                     </div>
@@ -202,6 +205,7 @@ const TeacherExamManagement: React.FC<TeacherExamManagementProps> = ({ navigateT
                 <button
                     onClick={handleAddNew}
                     className="p-4 bg-indigo-600 text-white rounded-full shadow-xl hover:bg-indigo-700 transition-all hover:scale-110 active:scale-95"
+                    aria-label="Add new exam"
                 >
                     <PlusIcon className="h-6 w-6" />
                 </button>

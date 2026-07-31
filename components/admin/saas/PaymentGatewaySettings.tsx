@@ -1,4 +1,5 @@
 ﻿import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Globe, Shield, CheckCircle, XCircle, AlertCircle, Save, ExternalLink } from 'lucide-react';
 import { toast } from 'react-hot-toast';
@@ -30,6 +31,7 @@ const PaymentGatewaySettings: React.FC<GatewaySettingsProps> = ({ navigateTo }) 
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Paystack Card */}
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
                 <Card className={settings.paystackEnabled ? 'ring-2 ring-indigo-400' : 'ring-1 ring-gray-200'}>
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <CardTitle className="text-xl font-bold flex items-center gap-2">
@@ -61,8 +63,10 @@ const PaymentGatewaySettings: React.FC<GatewaySettingsProps> = ({ navigateTo }) 
                         </div>
                     </CardContent>
                 </Card>
+                </motion.div>
 
                 {/* Flutterwave Card */}
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.05 }}>
                 <Card className={settings.flutterwaveEnabled ? 'ring-2 ring-orange-400' : 'ring-1 ring-gray-200'}>
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <CardTitle className="text-xl font-bold flex items-center gap-2">
@@ -94,8 +98,10 @@ const PaymentGatewaySettings: React.FC<GatewaySettingsProps> = ({ navigateTo }) 
                         </div>
                     </CardContent>
                 </Card>
+                </motion.div>
             </div>
 
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.1 }}>
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-indigo-900">
@@ -140,26 +146,30 @@ const PaymentGatewaySettings: React.FC<GatewaySettingsProps> = ({ navigateTo }) 
                             <h5 className="text-sm font-bold text-amber-900">Sandbox / Test Mode</h5>
                             <p className="text-xs text-amber-700">Test mode is currently enabled. Payments will use test keys and no real money will be charged.</p>
                         </div>
-                        <button
+                        <motion.button
+                            whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                             onClick={() => setSettings({ ...settings, testMode: !settings.testMode })}
                             className={`px-4 py-1.5 rounded-lg font-bold text-xs transition ${settings.testMode ? 'bg-amber-600 text-white' : 'bg-gray-200 text-gray-600'}`}
                         >
                             {settings.testMode ? 'DISABLE TEST MODE' : 'ENABLE TEST MODE'}
-                        </button>
+                        </motion.button>
                     </div>
 
                     <div className="pt-4 border-t border-gray-100 flex justify-end">
-                        <button
+                        <motion.button
+                            whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                             onClick={handleSave}
                             className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition shadow-lg shadow-indigo-200"
                         >
                             <Save className="w-5 h-5" /> Save Configuration
-                        </button>
+                        </motion.button>
                     </div>
                 </CardContent>
             </Card>
+            </motion.div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.15 }}>
                 <Card className="bg-slate-900 text-white border-none">
                     <CardHeader>
                         <CardTitle className="text-sm font-bold flex items-center gap-2">
@@ -180,6 +190,7 @@ const PaymentGatewaySettings: React.FC<GatewaySettingsProps> = ({ navigateTo }) 
                         </div>
                     </CardContent>
                 </Card>
+                </motion.div>
             </div>
         </div>
     );

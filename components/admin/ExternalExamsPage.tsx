@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeftIcon } from '../../constants';
 import { ExamCandidateRegistration, ExamCandidateRegistrationHandle } from './ExamCandidateRegistration';
@@ -39,7 +40,9 @@ const ExternalExamsPage: React.FC = () => {
                     </div>
                     
                     <div className="flex items-center gap-3">
-                        <button
+                        <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
                             id="header-export-csv"
                             onClick={() => registrationRef.current?.handleExport()}
                             className="flex items-center bg-[#F3F4F6] text-[#374151] px-5 py-2.5 rounded-xl font-bold text-sm border border-gray-200 hover:bg-gray-200 transition-all shadow-sm group"
@@ -48,23 +51,25 @@ const ExternalExamsPage: React.FC = () => {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                             </svg>
                             Export CSV
-                        </button>
-                        <button
+                        </motion.button>
+                        <motion.button
+                            whileHover={selectedCount > 0 && !isRegistering ? { scale: 1.02 } : {}}
+                            whileTap={selectedCount > 0 && !isRegistering ? { scale: 0.98 } : {}}
                             id="header-register-selected"
                             onClick={() => registrationRef.current?.handleBulkRegister()}
                             disabled={selectedCount === 0 || isRegistering}
-                            className="flex items-center bg-[#5850EC] text-white px-6 py-2.5 rounded-xl font-extrabold text-sm shadow-lg shadow-indigo-100 ring-2 ring-indigo-50 hover:bg-[#4338CA] transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:scale-100 disabled:shadow-none"
+                            className="flex items-center bg-[#5850EC] text-white px-6 py-2.5 rounded-xl font-extrabold text-sm shadow-lg shadow-indigo-100 ring-2 ring-indigo-50 hover:bg-[#4338CA] transition-all disabled:opacity-50 disabled:shadow-none"
                         >
                             <svg className="w-5 h-5 mr-2 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                             </svg>
                             {isRegistering ? 'Registering...' : `Register Selected (${selectedCount})`}
-                        </button>
+                        </motion.button>
                     </div>
                 </div>
 
                 {/* Main Content Card Wrapper */}
-                <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 overflow-hidden min-h-[70vh]">
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="bg-white rounded-[32px] shadow-sm border border-gray-100 overflow-hidden min-h-[70vh]">
                     <ExamCandidateRegistration 
                         ref={registrationRef}
                         onSelectionChange={setSelectedCount}
@@ -73,7 +78,7 @@ const ExternalExamsPage: React.FC = () => {
                             setRegistering: setIsRegistering
                         }}
                     />
-                </div>
+                </motion.div>
             </main>
         </div>
     );

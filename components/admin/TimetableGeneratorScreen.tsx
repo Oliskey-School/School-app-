@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
@@ -265,13 +266,15 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ sch
                         </div>
                     </div>
 
-                    <button
+                    <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={() => handleOpenPage()}
                         className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg hover:shadow-indigo-200 transition-all flex items-center gap-2"
                     >
                         <PlusIcon className="w-5 h-5" />
                         Create Global Timetable
-                    </button>
+                    </motion.button>
                 </div>
 
                 {/* DASHBOARD GRID */}
@@ -296,11 +299,14 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ sch
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                            {classes.map(cls => {
+                            {classes.map((cls, ci) => {
                                 const status = timetableStatuses[cls.name];
                                 return (
-                                    <div
+                                    <motion.div
                                         key={cls.id}
+                                        initial={{ opacity: 0, y: 8 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ duration: 0.2, delay: Math.min(ci, 20) * 0.03 }}
                                         className={`p-5 rounded-2xl border transition-all duration-300 group flex flex-col justify-between h-full min-h-[160px] ${status
                                             ? 'border-indigo-100 bg-white shadow-sm hover:shadow-md'
                                             : 'border-gray-100 bg-gray-50 hover:bg-white hover:border-indigo-100 hover:shadow-sm'
@@ -362,7 +368,7 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ sch
                                                 </button>
                                             )}
                                         </div>
-                                    </div>
+                                    </motion.div>
                                 );
                             })}
                         </div>
@@ -370,11 +376,13 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ sch
                 </div>
             </main>
 
+            <AnimatePresence>
             {isLoadingExisting && (
-                <div className="absolute inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center z-50">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center z-50">
                     <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-600 border-t-transparent"></div>
-                </div>
+                </motion.div>
             )}
+            </AnimatePresence>
         </div>
     );
 };

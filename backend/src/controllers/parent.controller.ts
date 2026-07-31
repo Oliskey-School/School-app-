@@ -35,7 +35,28 @@ export const getParents = async (req: AuthRequest, res: Response) => {
 
 export const getParentsByClassId = async (req: AuthRequest, res: Response) => {
     try {
-        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can list parents by class' });
+        if (!isAdmin(req)) {
+            // Teachers legitimately need this (e.g. to notify parents when
+            // publishing an assignment for their own class) — but only for a
+            // class they are actually assigned to teach, never any class in
+            // the school. Without this, every teacher-triggered "notify
+            // parents" call 403s and the notification silently never sends.
+            if ((req.user.role || '').toLowerCase() !== 'teacher') {
+                return res.status(403).json({ message: 'Only admins can list parents by class' });
+            }
+            const teacher = await prisma.teacher.findUnique({ where: { user_id: req.user.id }, select: { id: true } });
+            const assigned = teacher && await prisma.classTeacher.findFirst({
+                where: {
+                    school_id: req.user.school_id,
+                    teacher_id: teacher.id,
+                    class_id: req.params.classId as string,
+                    status: 'active',
+                    deleted_at: null,
+                },
+                select: { id: true }
+            });
+            if (!assigned) return res.status(403).json({ message: 'You are not assigned to this class' });
+        }
         const branchId = getEffectiveBranchId(req.user, (req.query.branch_id || req.query.branchId) as string);
         const result = await ParentService.getParentsByClassId((req.user.school_id as string), branchId, (req.params.classId as string));
 
@@ -46,7 +67,10 @@ export const getParentsByClassId = async (req: AuthRequest, res: Response) => {
 };
 
 export const createParent = async (req: AuthRequest, res: Response) => {
-    console.log('📡 [ParentController] createParent called with body:', JSON.stringify(req.body));
+    // Log only non-sensitive shape info, never the raw body — it carries a
+    // student/parent's name, email and phone, and would silently start
+    // leaking credentials too if a password field is ever added to this payload.
+    console.log('📡 [ParentController] createParent called', { schoolId: req.user?.school_id, hasEmail: !!req.body?.email });
     try {
         if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can create parent accounts' });
         const branchId = getEffectiveBranchId(req.user, req.body?.branch_id);
@@ -145,7 +169,7 @@ export const linkChild = async (req: AuthRequest, res: Response) => {
     try {
         if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can link a child to a parent' });
         const { parentId, studentId } = req.body;
-        console.log('📡 [ParentController] linkChild called with:', { parentId, studentId, body: req.body });
+        console.log('📡 [ParentController] linkChild called with:', { parentId, studentId });
 
         if (!parentId || !studentId) {
             return res.status(400).json({ message: 'parentId and studentId are required' });
@@ -180,7 +204,7 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
         const branchId = getEffectiveBranchId(req.user, req.body?.branch_id);
         const schoolId = req.user.school_id;
         
-        console.log('📅 [ParentController] createAppointment body:', JSON.stringify(req.body));
+        console.log('📅 [ParentController] createAppointment called', { schoolId, branchId });
         
         const {
             starts_at, date, title, description, reason,
@@ -325,7 +349,7 @@ export const recordPayment = async (req: AuthRequest, res: Response) => {
 export const getPTAMeetings = async (req: AuthRequest, res: Response) => {
     try {
         const branchId = req.user.branch_id || (req.query.branchId as string);
-        const result = await ParentService.getPTAMeetings(req.user.school_id, branchId);
+        const result = await ParentService.getPTAMeetings(req.user.school_id, branchId, req.user.id);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });

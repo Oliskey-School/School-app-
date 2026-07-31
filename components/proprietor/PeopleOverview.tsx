@@ -18,9 +18,9 @@ export const PeopleOverview: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'students' | 'staff' | 'parents' | 'admins'>('students');
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState({
-        students: { total: 0, active: 0, new: 0, attendance: '0%' },
-        staff: { total: 0, teaching: 0, nonTeaching: 0, presence: '0%' },
-        parents: { total: 0, pta: 0, appUsers: 0, debtFree: '0%' },
+        students: { total: 0, active: 0, new: 0, attendance: 'N/A' },
+        staff: { total: 0, teaching: 0, nonTeaching: 0, presence: 'N/A' },
+        parents: { total: 0, pta: 0, appUsers: 0, feesCollected: 'N/A' },
         admins: { total: 0, role: 'System Administrators', lastActive: 'N/A' }
     });
 
@@ -32,34 +32,13 @@ export const PeopleOverview: React.FC = () => {
         try {
             setLoading(true);
 
-            // Fetch Students
-            const { data: students, error: studentsError } = await api
-                .from('students')
-                .select('id, status, created_at');
-
-            if (studentsError) throw studentsError;
-
-            // Fetch Teachers
-            const { data: teachers, error: teachersError } = await api
-                .from('teachers')
-                .select('id, is_teaching_staff');
-
-            if (teachersError) throw teachersError;
-
-            // Fetch Parents
-            const { data: parents, error: parentsError } = await api
-                .from('parents')
-                .select('id, created_at');
-
-            if (parentsError) throw parentsError;
-
-            // Fetch Admins (users with role 'admin')
-            const { data: admins, error: adminsError } = await api
-                .from('users')
-                .select('id, role, last_sign_in_at')
-                .eq('role', 'admin');
-
-            if (adminsError) throw adminsError;
+            const [students, teachers, parents, admins, dashboardStats] = await Promise.all([
+                api.getStudents(),
+                api.getTeachers(),
+                api.getParents(),
+                api.getUsers(undefined, undefined, 'admin'),
+                api.getDashboardStats(),
+            ]);
 
             // Calculate stats
             const now = new Date();
@@ -71,30 +50,36 @@ export const PeopleOverview: React.FC = () => {
             const teachingStaff = teachers?.filter(t => t.is_teaching_staff !== false) || [];
             const nonTeachingStaff = teachers?.filter(t => t.is_teaching_staff === false) || [];
 
+            const feesTotal = dashboardStats?.fees?.total || 0;
+            const feesCollected = feesTotal > 0
+                ? `${Math.round((dashboardStats.fees.paid / feesTotal) * 100)}%`
+                : 'N/A';
+
             setStats({
                 students: {
                     total: students?.length || 0,
                     active: activeStudents.length,
                     new: newStudents.length,
-                    attendance: '94%' // TODO: Calculate from attendance table
+                    // School-wide attendance rate; no per-role breakdown is tracked.
+                    attendance: dashboardStats?.attendancePercentage ? `${dashboardStats.attendancePercentage}%` : 'N/A'
                 },
                 staff: {
                     total: teachers?.length || 0,
                     teaching: teachingStaff.length,
                     nonTeaching: nonTeachingStaff.length,
-                    presence: '100%' // TODO: Calculate from attendance table
+                    // Staff-specific attendance/presence isn't tracked in the current schema.
+                    presence: 'N/A'
                 },
                 parents: {
                     total: parents?.length || 0,
                     pta: Math.floor((parents?.length || 0) * 0.8), // Estimate
                     appUsers: Math.floor((parents?.length || 0) * 0.65), // Estimate
-                    debtFree: '80%' // TODO: Calculate from fees table
+                    feesCollected
                 },
                 admins: {
                     total: admins?.length || 0,
                     role: 'System Administrators',
-                    lastActive: admins?.[0]?.last_sign_in_at ?
-                        new Date(admins[0].last_sign_in_at).toLocaleString() : 'N/A'
+                    lastActive: 'N/A' // Not tracked in current schema
                 }
             });
 
@@ -157,7 +142,7 @@ export const PeopleOverview: React.FC = () => {
                                 <div>
                                     <p className="text-xs font-medium text-slate-500">Parents</p>
                                     <h3 className="text-2xl font-bold text-slate-900 mt-1">{stats.parents.total}</h3>
-                                    <p className="text-xs text-orange-600 mt-1">{stats.parents.debtFree} Debt Free</p>
+                                    <p className="text-xs text-orange-600 mt-1">{stats.parents.feesCollected} Fees Collected</p>
                                 </div>
                                 <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
                                     <Users className="w-5 h-5 text-orange-600" />

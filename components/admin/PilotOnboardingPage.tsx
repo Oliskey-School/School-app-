@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Rocket, School, BookOpen, Users, DollarSign, CheckCircle2, ChevronRight, ChevronLeft, Layout, Building2, ShieldCheck } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
+import CenteredLoader from '../ui/CenteredLoader';
 
 const PilotOnboardingPage = ({ onComplete }: { onComplete: () => void }) => {
     const { currentSchool } = useAuth();
@@ -242,11 +244,7 @@ const PilotOnboardingPage = ({ onComplete }: { onComplete: () => void }) => {
     };
 
     if (fetchLoading) {
-        return (
-            <div className="flex items-center justify-center h-64">
-                <div className="animate-spin w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full" />
-            </div>
-        );
+        return <CenteredLoader className="h-64" />;
     }
 
     return (
@@ -264,35 +262,46 @@ const PilotOnboardingPage = ({ onComplete }: { onComplete: () => void }) => {
             {/* Progress Bar */}
             <div className="flex gap-2 h-1.5 px-4">
                 {[...Array(totalSteps)].map((_, i) => (
-                    <div
-                        key={i}
-                        className={`flex-1 rounded-full transition-all duration-500 ${i + 1 <= step ? 'bg-indigo-600' : 'bg-gray-100'}`}
-                    />
+                    <div key={i} className="flex-1 rounded-full bg-gray-100 overflow-hidden">
+                        <motion.div
+                            initial={false}
+                            animate={{ scaleX: i + 1 <= step ? 1 : 0 }}
+                            style={{ originX: 0 }}
+                            transition={{ duration: 0.4, ease: 'easeOut' }}
+                            className="h-full bg-indigo-600 rounded-full"
+                        />
+                    </div>
                 ))}
             </div>
 
             <div className="bg-white rounded-3xl shadow-xl shadow-indigo-100/50 border border-gray-100 p-8 min-h-[400px] flex flex-col justify-between">
-                <div>
-                    {renderStep()}
+                <div className="overflow-hidden">
+                    <AnimatePresence mode="wait">
+                        <motion.div key={step} initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }} transition={{ duration: 0.2 }}>
+                            {renderStep()}
+                        </motion.div>
+                    </AnimatePresence>
                 </div>
 
                 <div className="flex justify-between items-center mt-8 pt-6 border-t border-gray-100">
-                    <button
+                    <motion.button
+                        whileHover={step !== 1 && !loading ? { x: -2 } : {}}
                         onClick={prevStep}
                         disabled={step === 1 || loading}
                         className="flex items-center gap-2 text-gray-500 font-bold hover:text-gray-900 transition disabled:opacity-0"
                     >
                         <ChevronLeft className="w-5 h-5" />
                         Back
-                    </button>
-                    <button
+                    </motion.button>
+                    <motion.button
+                        whileHover={!loading ? { scale: 1.02 } : {}} whileTap={!loading ? { scale: 0.97 } : {}}
                         onClick={handleNext}
                         disabled={loading}
-                        className="flex items-center gap-2 bg-gray-900 text-white px-8 py-3 rounded-2xl font-black hover:bg-black transition hover:translate-x-1 active:scale-95 shadow-lg shadow-gray-200 disabled:opacity-50"
+                        className="flex items-center gap-2 bg-gray-900 text-white px-8 py-3 rounded-2xl font-black hover:bg-black transition shadow-lg shadow-gray-200 disabled:opacity-50"
                     >
                         {loading ? 'Saving...' : (step === totalSteps ? 'Launch Hub' : 'Next Step')}
                         {!loading && <ChevronRight className="w-5 h-5" />}
-                    </button>
+                    </motion.button>
                 </div>
             </div>
             </div>

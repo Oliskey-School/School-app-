@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useProfile } from '../../context/ProfileContext';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
@@ -172,17 +173,26 @@ const ReferralSystem: React.FC = () => {
 
             {/* Submit Button */}
             {!showForm && (
-                <button
+                <motion.button
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={() => setShowForm(true)}
                     className="w-full px-6 py-4 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-bold text-lg mb-6 transition-colors"
                 >
                     + Submit New Referral
-                </button>
+                </motion.button>
             )}
 
             {/* Referral Form */}
+            <AnimatePresence>
             {showForm && (
-                <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <motion.div
+                    initial={{ opacity: 0, y: -10, height: 0 }}
+                    animate={{ opacity: 1, y: 0, height: 'auto' }}
+                    exit={{ opacity: 0, y: -10, height: 0 }}
+                    transition={{ duration: 0.25 }}
+                    className="bg-white rounded-xl shadow-lg p-6 mb-6 overflow-hidden"
+                >
                     <h2 className="text-2xl font-bold text-gray-900 mb-4">New Referral Request</h2>
 
                     <div className="space-y-4 mb-6">
@@ -257,7 +267,8 @@ const ReferralSystem: React.FC = () => {
                     </div>
 
                     <div className="flex space-x-3">
-                        <button
+                        <motion.button
+                            whileTap={{ scale: 0.96 }}
                             onClick={() => {
                                 setShowForm(false);
                                 resetForm();
@@ -265,16 +276,19 @@ const ReferralSystem: React.FC = () => {
                             className="flex-1 px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-semibold"
                         >
                             Cancel
-                        </button>
-                        <button
+                        </motion.button>
+                        <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.96 }}
                             onClick={handleSubmitReferral}
                             className="flex-1 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-semibold"
                         >
                             Submit Referral
-                        </button>
+                        </motion.button>
                     </div>
-                </div>
+                </motion.div>
             )}
+            </AnimatePresence>
 
             {/* My Referrals */}
             <div>
@@ -288,8 +302,14 @@ const ReferralSystem: React.FC = () => {
                     </div>
                 ) : (
                     <div className="space-y-4">
-                        {referrals.map(referral => (
-                            <div key={referral.id} className="bg-white rounded-xl shadow-sm p-6">
+                        {referrals.map((referral, i) => (
+                            <motion.div
+                                key={referral.id}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.25, delay: Math.min(i, 10) * 0.05 }}
+                                className="bg-white rounded-xl shadow-sm p-6"
+                            >
                                 <div className="flex items-start justify-between mb-4">
                                     <div className="flex-1">
                                         <div className="flex items-center space-x-2 mb-2">
@@ -327,7 +347,7 @@ const ReferralSystem: React.FC = () => {
                                 <div className="mt-3 text-xs text-gray-500">
                                     Submitted: {new Date(referral.created_at).toLocaleDateString()}
                                 </div>
-                            </div>
+                            </motion.div>
                         ))}
                     </div>
                 )}

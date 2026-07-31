@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { 
+import { motion } from 'framer-motion';
+import {
   BusVehicleIcon as Bus, 
   MapPinIcon as MapPin, 
   PhoneIcon as Phone, 
@@ -10,16 +11,6 @@ import {
 } from '../../constants';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
-
-const DEMO_BUS = {
-  name: 'Bus A-05',
-  routeName: 'Main Estate Route',
-  driverName: 'Mr. Adeyemi Bakare',
-  driverPhone: '+234 801 234 5678',
-  plateNumber: 'LND-452-KJ',
-  capacity: 50,
-  status: 'active',
-};
 
 interface BusRouteScreenProps {
   schoolId?: string;
@@ -33,22 +24,23 @@ const BusRouteScreen: React.FC<BusRouteScreenProps> = ({ schoolId: propSchoolId,
 
   const [busData, setBusData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     const fetchBusData = async () => {
+      if (!studentId) {
+        setLoading(false);
+        return;
+      }
       try {
         setLoading(true);
-        // In a real app, we'd fetch actual bus data
-        // const data = await api.getStudentBusRoute(studentId);
-        // setBusData(data);
-        
-        // Use demo data for now
-        setTimeout(() => {
-          setBusData(DEMO_BUS);
-          setLoading(false);
-        }, 1000);
+        setError(false);
+        const data = await api.getStudentBusRoute(studentId);
+        setBusData(data);
       } catch (err) {
         console.error("Error fetching bus data:", err);
+        setError(true);
+      } finally {
         setLoading(false);
       }
     };
@@ -64,9 +56,29 @@ const BusRouteScreen: React.FC<BusRouteScreenProps> = ({ schoolId: propSchoolId,
     );
   }
 
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 text-center">
+        <AlertCircle className="h-10 w-10 text-amber-500 mb-3" />
+        <p className="font-bold text-gray-800">Couldn't load bus information</p>
+        <p className="text-sm text-gray-500 mt-1">Please try again later.</p>
+      </div>
+    );
+  }
+
+  if (!busData) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 text-center">
+        <Bus className="h-10 w-10 text-gray-300 mb-3" />
+        <p className="font-bold text-gray-800">No Bus Assigned</p>
+        <p className="text-sm text-gray-500 mt-1">This student isn't currently assigned to a school bus route.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 space-y-6">
-      <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="p-6 bg-gradient-to-br from-green-600 to-green-700 text-white">
           <div className="flex items-center justify-between">
             <div>
@@ -101,40 +113,48 @@ const BusRouteScreen: React.FC<BusRouteScreenProps> = ({ schoolId: propSchoolId,
               </div>
             </div>
 
-            <div className="flex items-center gap-4 p-4 border border-gray-100 rounded-2xl">
-              <div className="bg-orange-50 p-2 rounded-xl text-orange-600">
-                <Clock className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-gray-500 uppercase tracking-tighter">Est. Arrival</p>
-                <p className="font-bold text-gray-800">07:45 AM</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-4 border border-gray-100 rounded-2xl">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden">
-                  <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(busData?.driverName)}&background=random`} alt="Driver" />
+            {busData?.routeName && (
+              <div className="flex items-center gap-4 p-4 border border-gray-100 rounded-2xl">
+                <div className="bg-orange-50 p-2 rounded-xl text-orange-600">
+                  <Clock className="h-5 w-5" />
                 </div>
                 <div>
-                  <p className="font-bold text-gray-800">{busData?.driverName}</p>
-                  <p className="text-xs text-gray-500">Professional Driver</p>
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-tighter">Route</p>
+                  <p className="font-bold text-gray-800">{busData.routeName}</p>
                 </div>
               </div>
-              <a 
-                href={`tel:${busData?.driverPhone}`}
-                className="bg-green-600 text-white p-3 rounded-full hover:bg-green-700 transition-colors shadow-lg shadow-green-100"
-              >
-                <Phone className="h-5 w-5" />
-              </a>
-            </div>
+            )}
           </div>
-        </div>
-      </div>
 
-      <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-start gap-4">
+          {busData?.driverName && busData.driverName !== 'N/A' && (
+            <div className="p-4 border border-gray-100 rounded-2xl">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden">
+                    <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(busData.driverName)}&background=random`} alt="Driver" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-gray-800">{busData.driverName}</p>
+                    <p className="text-xs text-gray-500">Professional Driver</p>
+                  </div>
+                </div>
+                {busData?.driverPhone && (
+                  <motion.a
+                    whileHover={{ scale: 1.08 }}
+                    whileTap={{ scale: 0.92 }}
+                    href={`tel:${busData.driverPhone}`}
+                    className="bg-green-600 text-white p-3 rounded-full hover:bg-green-700 transition-colors shadow-lg shadow-green-100"
+                  >
+                    <Phone className="h-5 w-5" />
+                  </motion.a>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </motion.div>
+
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.1 }} className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-start gap-4">
         <AlertCircle className="h-6 w-6 text-amber-600 flex-shrink-0" />
         <div>
           <h4 className="font-bold text-amber-800">Safety Policy</h4>
@@ -142,7 +162,7 @@ const BusRouteScreen: React.FC<BusRouteScreenProps> = ({ schoolId: propSchoolId,
             Always wait for the bus at the designated stop 5 minutes early. Students must remain seated while the bus is in motion.
           </p>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 };

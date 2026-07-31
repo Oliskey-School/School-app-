@@ -1,7 +1,79 @@
 import prisma from '../config/database';
 import { SocketService } from './socket.service';
+import { EmailService } from './email.service';
 
 export class FeeService {
+    // Parents linked to a student who have a real email on file.
+    private static async getNotifiableParents(schoolId: string, studentId: string) {
+        const links = await prisma.parentChild.findMany({
+            where: { student_id: studentId, school_id: schoolId },
+            include: { parent: true }
+        });
+        return links.map(l => l.parent).filter(p => !!p.email);
+    }
+
+    /**
+     * Emails every parent linked to the fee's student that a new fee was assigned.
+     * Best-effort — a failed email must never block fee creation.
+     */
+    static async notifyFeeAssignment(schoolId: string, feeId: string) {
+        const fee = await prisma.studentFee.findFirst({
+            where: { id: feeId, school_id: schoolId },
+            include: { student: true }
+        });
+        if (!fee) return;
+
+        const parents = await this.getNotifiableParents(schoolId, fee.student_id);
+        await Promise.all(parents.map(parent =>
+            EmailService.sendFeeAssignmentEmail({
+                email: parent.email!,
+                parentName: parent.full_name,
+                studentName: fee.student.full_name,
+                feeTitle: fee.title,
+                amount: fee.amount,
+                dueDate: fee.due_date.toLocaleDateString(),
+                description: null
+            })
+        ));
+    }
+
+    /**
+     * Emails every parent linked to the payment's student that a payment was received.
+     * Looked up by payment reference (always set before the gateway popup opens).
+     * Best-effort — a failed email must never block payment recording.
+     */
+    static async notifyPaymentConfirmation(schoolId: string, reference: string) {
+        const payment = await prisma.payment.findFirst({
+            where: { reference, school_id: schoolId },
+        });
+        if (!payment || !payment.student_id) return;
+
+        const student = await prisma.student.findFirst({
+            where: { id: payment.student_id, school_id: schoolId }
+        });
+        if (!student) return;
+
+        const fee = payment.fee_id
+            ? await prisma.studentFee.findFirst({ where: { id: payment.fee_id, school_id: schoolId } })
+            : null;
+
+        const balance = fee ? Math.max(0, fee.amount - fee.paid_amount) : 0;
+
+        const parents = await this.getNotifiableParents(schoolId, student.id);
+        await Promise.all(parents.map(parent =>
+            EmailService.sendPaymentConfirmationEmail({
+                email: parent.email!,
+                parentName: parent.full_name,
+                studentName: student.full_name,
+                feeTitle: fee?.title || 'School Fee',
+                amountPaid: payment.amount,
+                transactionReference: payment.reference || reference,
+                paymentDate: payment.payment_date.toLocaleDateString(),
+                balance
+            })
+        ));
+    }
+
     static async createFee(schoolId: string, branchId: string | undefined, data: any) {
         const fee = await (prisma.studentFee.create as any)({
             data: {

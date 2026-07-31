@@ -5,7 +5,7 @@ import { socketService } from '../../../lib/socketService';
 import { api } from '../../../lib/api';
 
 /**
- * Class Battle â€” live multiplayer quiz.
+ * Class Battle — live multiplayer quiz.
  * A student hosts a battle for their class+subject, classmates join with a code,
  * and everyone answers the same questions at the same time with a live scoreboard.
  */
@@ -157,15 +157,15 @@ const ClassBattleScreen: React.FC<ClassBattleScreenProps> = ({ student, studentI
     };
 
     const copyCode = async () => {
-        try { await navigator.clipboard.writeText(code); toast.success('Code copied â€” share it with your class!'); }
-        catch { toast(code, { icon: 'ðŸ“‹' }); }
+        try { await navigator.clipboard.writeText(code); toast.success('Code copied — share it with your class!'); }
+        catch { toast(code, { icon: '📋' }); }
     };
 
     const shareCode = async () => {
-        const text = `Join my Class Battle! Open the school app â†’ Games â†’ Class Battle â†’ Join, and enter code ${code}. Let's learn together! ðŸŽ®`;
+        const text = `Join my Class Battle! Open the school app → Games → Class Battle → Join, and enter code ${code}. Let's learn together! 🎮`;
         try {
             if ((navigator as any).share) await (navigator as any).share({ title: 'Class Battle', text });
-            else { await navigator.clipboard.writeText(text); toast.success('Invite copied â€” paste it to your class group!'); }
+            else { await navigator.clipboard.writeText(text); toast.success('Invite copied — paste it to your class group!'); }
         } catch { /* user cancelled */ }
     };
 
@@ -200,7 +200,7 @@ const ClassBattleScreen: React.FC<ClassBattleScreenProps> = ({ student, studentI
                             <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center"><Zap className="w-6 h-6" /></div>
                             <div>
                                 <h3 className="font-black text-lg">Play Solo</h3>
-                                <p className="text-sm text-emerald-50/90 mt-0.5">Practice on your own â€” answer the questions and beat your best score.</p>
+                                <p className="text-sm text-emerald-50/90 mt-0.5">Practice on your own — answer the questions and beat your best score.</p>
                             </div>
                         </button>
                         <p className="text-center text-xs font-bold uppercase tracking-widest text-gray-400">or play together</p>
@@ -309,7 +309,7 @@ const ClassBattleScreen: React.FC<ClassBattleScreenProps> = ({ student, studentI
                                 <Zap className="w-6 h-6" /> Start Battle
                             </button>
                         ) : (
-                            <div className="text-center text-gray-500 font-bold py-3 flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Waiting for the host to startâ€¦</div>
+                            <div className="text-center text-gray-500 font-bold py-3 flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Waiting for the host to start…</div>
                         )}
                     </>
                 )}
@@ -352,7 +352,7 @@ const ClassBattleScreen: React.FC<ClassBattleScreenProps> = ({ student, studentI
                         </div>
 
                         {phase === 'question' && picked !== null && (
-                            <p className="text-center text-gray-500 font-bold text-sm flex items-center justify-center gap-2"><Check className="w-4 h-4 text-green-500" /> Answer locked â€” waiting for othersâ€¦</p>
+                            <p className="text-center text-gray-500 font-bold text-sm flex items-center justify-center gap-2"><Check className="w-4 h-4 text-green-500" /> Answer locked — waiting for others…</p>
                         )}
 
                         {reveal && (
@@ -383,14 +383,14 @@ const ClassBattleScreen: React.FC<ClassBattleScreenProps> = ({ student, studentI
                 {/* ENDED */}
                 {phase === 'ended' && (
                     <>
-                        <Header title="Battle Over!" sub="Great game â€” well played" />
+                        <Header title="Battle Over!" sub="Great game — well played" />
                         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
                             <div className="flex items-end justify-center gap-3 mb-6">
                                 {[1, 0, 2].map(rank => {
                                     const p = final[rank];
                                     if (!p) return <div key={rank} className="w-20" />;
                                     const heights = ['h-24', 'h-32', 'h-20'];
-                                    const medals = ['ðŸ¥ˆ', 'ðŸ¥‡', 'ðŸ¥‰'];
+                                    const medals = ['🥈', '🥇', '🥉'];
                                     return (
                                         <div key={rank} className="flex flex-col items-center">
                                             <div className="text-3xl mb-1">{medals[rank]}</div>

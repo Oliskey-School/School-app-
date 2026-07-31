@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { createPortal } from 'react-dom';
 import {
     Printer as PrinterIcon,
@@ -237,28 +238,34 @@ const ReportCardPreview: React.FC<ReportCardPreviewProps> = ({ student, schoolId
                     </div>
 
                     <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-                        <button
+                        <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
                             onClick={fetchMergedData}
                             aria-label="Reload report"
                             className="p-2.5 sm:p-3 bg-gray-50 text-gray-500 rounded-2xl hover:bg-gray-100 transition-all border border-gray-200 group"
                         >
                             <RefreshIcon className={`w-5 h-5 group-hover:rotate-180 transition-transform duration-700 ${isLoading ? 'animate-spin' : ''}`} />
-                        </button>
-                        <button
+                        </motion.button>
+                        <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.95 }}
                             onClick={handlePrint}
                             aria-label="Generate PDF"
-                            className="flex items-center gap-2 sm:gap-3 px-3 sm:px-6 py-2.5 sm:py-3 bg-indigo-600 text-white rounded-2xl shadow-xl shadow-indigo-200 hover:bg-indigo-700 active:scale-95 transition-all group"
+                            className="flex items-center gap-2 sm:gap-3 px-3 sm:px-6 py-2.5 sm:py-3 bg-indigo-600 text-white rounded-2xl shadow-xl shadow-indigo-200 hover:bg-indigo-700 transition-all group"
                         >
                             <PrinterIcon className="w-5 h-5 group-hover:scale-110 transition-transform" />
                             <span className="hidden sm:inline text-sm font-black uppercase tracking-widest">Generate PDF</span>
-                        </button>
-                        <button
+                        </motion.button>
+                        <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
                             onClick={onClose}
                             aria-label="Close preview"
                             className="p-2.5 sm:p-3 bg-white border border-gray-200 text-gray-500 rounded-2xl hover:text-gray-900 hover:bg-gray-50 transition-all flex-shrink-0"
                         >
                             <XIcon className="w-6 h-6" />
-                        </button>
+                        </motion.button>
                     </div>
                 </div>
 

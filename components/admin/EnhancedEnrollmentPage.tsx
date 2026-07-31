@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -163,19 +164,29 @@ export default function EnhancedEnrollmentPage({
                     <div className="flex items-center gap-2 mt-4">
                         {[1, 2, 3, 4].map((s) => (
                             <div key={s} className="flex items-center gap-2">
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${s < step ? 'bg-green-500 text-white' :
+                                <motion.div
+                                    initial={false}
+                                    animate={{ scale: s === step ? 1.1 : 1 }}
+                                    transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${s < step ? 'bg-green-500 text-white' :
                                     s === step ? 'bg-primary text-white' :
                                         'bg-gray-200 text-gray-600'
                                     }`}>
                                     {s < step ? <CheckCircle className="h-4 w-4" /> : s}
-                                </div>
-                                {s < 4 && <div className={`h-1 w-12 ${s < step ? 'bg-green-500' : 'bg-gray-200'}`} />}
+                                </motion.div>
+                                {s < 4 && (
+                                    <div className="h-1 w-12 bg-gray-200 rounded-full overflow-hidden">
+                                        <motion.div initial={false} animate={{ scaleX: s < step ? 1 : 0 }} style={{ originX: 0 }} transition={{ duration: 0.3 }} className="h-full bg-green-500" />
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>
                 </CardHeader>
 
                 <CardContent className="space-y-6">
+                    <AnimatePresence mode="wait">
+                    <motion.div key={step} initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }} transition={{ duration: 0.2 }}>
                     {/* Step 1: Basic Details */}
                     {step === 1 && (
                         <div className="space-y-4">
@@ -507,26 +518,34 @@ export default function EnhancedEnrollmentPage({
                             </div>
                         </div>
                     )}
+                    </motion.div>
+                    </AnimatePresence>
 
                     {/* Navigation Buttons */}
                     <div className="flex justify-between pt-6 border-t">
                         {step > 1 && (
-                            <Button onClick={handleBack} variant="outline">
-                                <ChevronLeft className="h-4 w-4 mr-1" />
-                                Back
-                            </Button>
+                            <motion.div whileHover={{ x: -2 }}>
+                                <Button onClick={handleBack} variant="outline">
+                                    <ChevronLeft className="h-4 w-4 mr-1" />
+                                    Back
+                                </Button>
+                            </motion.div>
                         )}
 
                         {step < 4 ? (
-                            <Button onClick={handleNext} className="ml-auto">
-                                Next
-                                <ChevronRight className="h-4 w-4 ml-1" />
-                            </Button>
+                            <motion.div whileHover={{ x: 2 }} className="ml-auto">
+                                <Button onClick={handleNext}>
+                                    Next
+                                    <ChevronRight className="h-4 w-4 ml-1" />
+                                </Button>
+                            </motion.div>
                         ) : (
-                            <Button onClick={handleSubmit} disabled={loading} className="ml-auto">
-                                {loading ? 'Enrolling...' : 'Complete Enrollment'}
-                                <CheckCircle className="h-4 w-4 ml-1" />
-                            </Button>
+                            <motion.div whileHover={!loading ? { scale: 1.02 } : {}} whileTap={!loading ? { scale: 0.98 } : {}} className="ml-auto">
+                                <Button onClick={handleSubmit} disabled={loading}>
+                                    {loading ? 'Enrolling...' : 'Complete Enrollment'}
+                                    <CheckCircle className="h-4 w-4 ml-1" />
+                                </Button>
+                            </motion.div>
                         )}
                     </div>
                 </CardContent>

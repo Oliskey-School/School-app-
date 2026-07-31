@@ -1,5 +1,6 @@
 
 import React, { lazy, Suspense, useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { SaaSProvider, useSaaS } from '../../contexts/SaaSContext';
 import { api } from '../../lib/api';
@@ -240,7 +241,11 @@ const SuperAdminDashboardContent: React.FC<SuperAdminDashboardProps> = ({ onLogo
                             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
                         </div>
                     }>
-                        {renderContent()}
+                        <AnimatePresence mode="wait">
+                            <motion.div key={activeScreen} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+                                {renderContent()}
+                            </motion.div>
+                        </AnimatePresence>
                     </Suspense>
                 </main>
             </div>
@@ -250,16 +255,17 @@ const SuperAdminDashboardContent: React.FC<SuperAdminDashboardProps> = ({ onLogo
 
 // Sub-components
 const NavItem = ({ icon: Icon, label, isActive, onClick }: any) => (
-    <button
+    <motion.button
+        whileHover={{ x: 2 }}
         onClick={onClick}
-        className={`w-full flex items-center px-4 py-3 rounded-lg transition-all duration-200 group ${isActive
+        className={`w-full flex items-center px-4 py-3 rounded-lg transition-colors duration-200 group ${isActive
             ? 'bg-purple-600 text-white shadow-md shadow-purple-900/20'
             : 'text-slate-400 hover:bg-slate-800 hover:text-white'
             }`}
     >
         <Icon className={`w-5 h-5 mr-3 transition-colors ${isActive ? 'text-white' : 'text-slate-500 group-hover:text-white'}`} />
         <span className="font-medium">{label}</span>
-    </button>
+    </motion.button>
 );
 
 const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = (props) => {

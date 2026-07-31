@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
-import { PlusIcon, TrashIcon, SaveIcon, CheckCircleIcon, XCircleIcon, ClockIcon } from '../../constants';
+import { PlusIcon, TrashIcon, SaveIcon, CheckCircleIcon, XCircleIcon, ClockIcon, getFormattedClassName } from '../../constants';
 import { Question, QuestionOption } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { useTeacherClasses } from '../../hooks/useTeacherClasses';
@@ -291,7 +291,7 @@ const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose, teacherI
                                 <option value="">{classesLoading ? 'Loading classes...' : 'Select a Class'}</option>
                                 {teacherClasses.map((c: any) => (
                                     <option key={c.id} value={c.id}>
-                                        {`Grade ${c.grade} ${c.section || ''}`}
+                                        {getFormattedClassName(c.grade, c.section)}
                                     </option>
                                 ))}
                             </select>
@@ -344,7 +344,7 @@ const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose, teacherI
                     {questions.map((q, index) => (
                         <div key={q.id} className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 relative group transition-all hover:shadow-md">
                             <div className="absolute top-4 right-4">
-                                <button onClick={() => removeQuestion(Number(q.id))} className="text-gray-400 hover:text-red-500">
+                                <button onClick={() => removeQuestion(Number(q.id))} className="text-gray-400 hover:text-red-500" aria-label={`Remove question ${index + 1}`}>
                                     <TrashIcon className="w-5 h-5" />
                                 </button>
                             </div>
@@ -369,6 +369,8 @@ const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose, teacherI
                                                         className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${opt.isCorrect ? 'border-green-500 bg-green-50' : 'border-gray-300'
                                                             }`}
                                                         title="Mark as correct answer"
+                                                        aria-label={opt.isCorrect ? 'Correct answer' : 'Mark as correct answer'}
+                                                        aria-pressed={opt.isCorrect}
                                                     >
                                                         {opt.isCorrect && <div className="w-3 h-3 bg-green-500 rounded-full" />}
                                                     </button>
@@ -381,7 +383,7 @@ const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose, teacherI
                                                     />
                                                 </div>
                                             ))}
-                                            <p className="text-xs text-gray-400 italic mt-2 ml-9">Select the radio button to mark the correct answer.</p>
+                                            <p className="text-xs text-gray-400 italic mt-2 ml-9">Click the circle next to an option to mark it as the correct answer.</p>
                                         </div>
                                     )}
 

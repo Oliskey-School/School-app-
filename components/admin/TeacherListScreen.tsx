@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { SearchIcon, PlusIcon, FilterIcon, UsersIcon, AcademicCapIcon, ClipboardListIcon } from '../../constants';
 import { useAuth } from '../../context/AuthContext';
 import { useProfile } from '../../context/ProfileContext';
@@ -25,18 +26,23 @@ interface TeacherListScreenProps {
     schoolId: string;
 }
 
-const TeacherCard: React.FC<{ teacher: Teacher; onSelect: (teacher: Teacher) => void }> = ({ teacher, onSelect }) => {
+const TeacherCard: React.FC<{ teacher: Teacher; onSelect: (teacher: Teacher) => void; index: number }> = ({ teacher, onSelect, index }) => {
     return (
-        <button
+        <motion.button
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, delay: Math.min(index, 12) * 0.04 }}
+            whileHover={{ y: -3 }}
+            whileTap={{ scale: 0.98 }}
             onClick={() => onSelect(teacher)}
-            className="w-full bg-white rounded-2xl shadow-sm p-5 border border-gray-50 flex items-center gap-4 text-left hover:shadow-md transition-all relative group"
+            className="w-full bg-white rounded-2xl shadow-sm p-5 border border-gray-50 flex items-center gap-4 text-left hover:shadow-md transition-shadow relative group"
         >
             {/* Avatar */}
             <div className="relative flex-shrink-0">
                 <img
                     src={teacher.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(teacher.name)}&background=random`}
                     alt={teacher.name}
-                    className="w-16 h-16 rounded-full object-cover ring-2 ring-gray-50 bg-gray-100"
+                    className="w-16 h-16 rounded-full object-cover ring-2 ring-gray-50 bg-gray-100 transition-transform duration-300 group-hover:scale-105"
                     onError={(e) => {
                         (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(teacher.name)}&background=random`;
                     }}
@@ -64,7 +70,7 @@ const TeacherCard: React.FC<{ teacher: Teacher; onSelect: (teacher: Teacher) => 
                     {teacher.status}
                 </span>
             </div>
-        </button>
+        </motion.button>
     );
 };
 
@@ -157,23 +163,36 @@ const TeacherListScreen: React.FC<TeacherListScreenProps> = ({ navigateTo, curre
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+            >
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Teacher Management</h1>
                     <p className="text-sm text-gray-500">Manage and oversee school faculty.</p>
                 </div>
-                <button
+                <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.97 }}
                     onClick={() => navigateTo('AddTeacherScreen', 'Add New Teacher')}
-                    className="inline-flex items-center justify-center px-4 py-2.5 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-all shadow-sm shadow-blue-200 gap-2"
+                    className="inline-flex items-center justify-center px-4 py-2.5 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors shadow-sm shadow-blue-200 gap-2"
                 >
                     <PlusIcon className="h-5 w-5" />
                     <span>Add Teacher</span>
-                </button>
-            </div>
+                </motion.button>
+            </motion.div>
 
             {/* Stats Overview */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-50 flex items-center gap-4">
+                <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.25, delay: 0.05 }}
+                    whileHover={{ y: -2 }}
+                    className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-md transition-shadow border border-gray-50 flex items-center gap-4"
+                >
                     <div className="p-3 bg-blue-50 rounded-xl">
                         <UsersIcon className="h-6 w-6 text-blue-600" />
                     </div>
@@ -181,8 +200,14 @@ const TeacherListScreen: React.FC<TeacherListScreenProps> = ({ navigateTo, curre
                         <p className="text-sm text-gray-500">Total Teachers</p>
                         <p className="text-xl font-bold text-gray-900">{teachers.length}</p>
                     </div>
-                </div>
-                <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-50 flex items-center gap-4">
+                </motion.div>
+                <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.25, delay: 0.1 }}
+                    whileHover={{ y: -2 }}
+                    className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-md transition-shadow border border-gray-50 flex items-center gap-4"
+                >
                     <div className="p-3 bg-green-50 rounded-xl">
                         <AcademicCapIcon className="h-6 w-6 text-green-600" />
                     </div>
@@ -190,8 +215,14 @@ const TeacherListScreen: React.FC<TeacherListScreenProps> = ({ navigateTo, curre
                         <p className="text-sm text-gray-500">Active Faculty</p>
                         <p className="text-xl font-bold text-gray-900">{teachers.filter(t => t.status === 'Active').length}</p>
                     </div>
-                </div>
-                <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-50 flex items-center gap-4">
+                </motion.div>
+                <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.25, delay: 0.15 }}
+                    whileHover={{ y: -2 }}
+                    className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-md transition-shadow border border-gray-50 flex items-center gap-4"
+                >
                     <div className="p-3 bg-purple-50 rounded-xl">
                         <ClipboardListIcon className="h-6 w-6 text-purple-600" />
                     </div>
@@ -199,11 +230,16 @@ const TeacherListScreen: React.FC<TeacherListScreenProps> = ({ navigateTo, curre
                         <p className="text-sm text-gray-500">Departments</p>
                         <p className="text-xl font-bold text-gray-900">{[...new Set(teachers.map(t => t.department).filter(Boolean))].length || '0'}</p>
                     </div>
-                </div>
+                </motion.div>
             </div>
 
             {/* Filters */}
-            <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-50 flex flex-col md:flex-row gap-4">
+            <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25, delay: 0.2 }}
+                className="bg-white p-4 rounded-2xl shadow-sm border border-gray-50 flex flex-col md:flex-row gap-4"
+            >
                 <div className="relative flex-1">
                     <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                     <input
@@ -236,7 +272,7 @@ const TeacherListScreen: React.FC<TeacherListScreenProps> = ({ navigateTo, curre
                         <option value="Inactive">Inactive</option>
                     </select>
                 </div>
-            </div>
+            </motion.div>
 
             {/* List */}
             {loading ? (
@@ -246,20 +282,21 @@ const TeacherListScreen: React.FC<TeacherListScreenProps> = ({ navigateTo, curre
                 </div>
             ) : filteredTeachers.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                    {filteredTeachers.map(teacher => (
+                    {filteredTeachers.map((teacher, i) => (
                         <TeacherCard
                             key={teacher.id}
                             teacher={teacher}
+                            index={i}
                             onSelect={(t) => navigateTo('TeacherDetailAdminView', t.name, { teacher: t })}
                         />
                     ))}
                 </div>
             ) : (
-                <div className="bg-white rounded-3xl p-12 text-center border border-dashed border-gray-200">
+                <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.25 }} className="bg-white rounded-3xl p-12 text-center border border-dashed border-gray-200">
                     <UsersIcon className="h-12 w-12 text-gray-300 mx-auto mb-4" />
                     <h3 className="text-lg font-bold text-gray-900 mb-1">No Teachers Found</h3>
                     <p className="text-gray-500">Try adjusting your search or filters to find what you're looking for.</p>
-                </div>
+                </motion.div>
             )}
         </div>
     );

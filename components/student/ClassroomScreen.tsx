@@ -1,11 +1,38 @@
 ﻿import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAutoSync } from '../../hooks/useAutoSync';
-import { Student, Teacher, Notice } from '../../types';
+import { Student, Teacher } from '../../types';
 import { api } from '../../lib/api';
-import { SUBJECT_COLORS, BookOpenIcon, ClipboardListIcon, MegaphoneIcon, UsersIcon, ClockIcon, GlobeIcon, ChevronRightIcon } from '../../constants';
+import { SUBJECT_COLORS, BookOpenIcon, ClipboardListIcon, UsersIcon, ClockIcon, GlobeIcon, ChevronRightIcon } from '../../constants';
 import { useAuth } from '../../context/AuthContext';
 import { useProfile } from '../../context/ProfileContext';
 import { toast } from 'react-hot-toast';
+
+// SUBJECT_COLORS entries are "bg-X-100 text-X-800 border-X-200" — deriving a
+// header/ring shade by string-replacing the bg class at runtime builds a class
+// name Tailwind's compiler can't see statically, so it gets purged in
+// production. This static map covers every color SUBJECT_COLORS actually uses.
+const SUBJECT_ACCENT_MAP: Record<string, { header: string; ring: string }> = {
+  blue: { header: 'bg-blue-600', ring: 'ring-blue-400' },
+  indigo: { header: 'bg-indigo-600', ring: 'ring-indigo-400' },
+  green: { header: 'bg-green-600', ring: 'ring-green-400' },
+  emerald: { header: 'bg-emerald-600', ring: 'ring-emerald-400' },
+  purple: { header: 'bg-purple-600', ring: 'ring-purple-400' },
+  orange: { header: 'bg-orange-600', ring: 'ring-orange-400' },
+  yellow: { header: 'bg-yellow-600', ring: 'ring-yellow-400' },
+  red: { header: 'bg-red-600', ring: 'ring-red-400' },
+  cyan: { header: 'bg-cyan-600', ring: 'ring-cyan-400' },
+  pink: { header: 'bg-pink-600', ring: 'ring-pink-400' },
+  gray: { header: 'bg-gray-600', ring: 'ring-gray-400' },
+  violet: { header: 'bg-violet-600', ring: 'ring-violet-400' },
+  teal: { header: 'bg-teal-600', ring: 'ring-teal-400' },
+  amber: { header: 'bg-amber-600', ring: 'ring-amber-400' },
+  lime: { header: 'bg-lime-600', ring: 'ring-lime-400' },
+  rose: { header: 'bg-rose-600', ring: 'ring-rose-400' },
+  slate: { header: 'bg-slate-600', ring: 'ring-slate-400' },
+  zinc: { header: 'bg-zinc-600', ring: 'ring-zinc-400' },
+  sky: { header: 'bg-sky-600', ring: 'ring-sky-400' },
+};
 
 interface ClassroomScreenProps {
   subjectName: string;
@@ -18,7 +45,6 @@ const ClassroomScreen: React.FC<ClassroomScreenProps> = ({ subjectName, navigate
   const [student, setStudent] = useState<Student | null>(null);
   const [teacher, setTeacher] = useState<Teacher | null>(null);
   const [classmates, setClassmates] = useState<Student[]>([]);
-  const [announcements, setAnnouncements] = useState<Notice[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'curriculum' | 'classmates' | 'notes'>('overview');
   const [lessonNotes, setLessonNotes] = useState<any[]>([]);
@@ -100,7 +126,9 @@ const ClassroomScreen: React.FC<ClassroomScreenProps> = ({ subjectName, navigate
 
   const colorClass = SUBJECT_COLORS[subjectName] || 'bg-gray-200 text-gray-800';
   const [bgColor, textColor] = colorClass.split(' ');
-  const ringColor = bgColor.replace('bg-', 'ring-').replace('-100', '-300').replace('-200', '-300').replace('-300', '-400').replace('-400', '-500').replace('-500', '-600');
+  const colorName = bgColor.match(/^bg-(\w+)-\d+$/)?.[1] || 'gray';
+  const accent = SUBJECT_ACCENT_MAP[colorName] || SUBJECT_ACCENT_MAP.gray;
+  const ringColor = accent.ring;
 
   const quickActions = [
     { label: 'Assignments', icon: <ClipboardListIcon className="h-6 w-6" />, action: () => navigateTo('assignments', `${subjectName} Assignments`, { studentId: student?.id, subjectFilter: subjectName }) },
@@ -113,7 +141,7 @@ const ClassroomScreen: React.FC<ClassroomScreenProps> = ({ subjectName, navigate
     <div className="flex flex-col h-full bg-gray-50">
       <main className="flex-grow p-4 overflow-y-auto space-y-4">
         {/* Subject Header */}
-        <div className={`p-6 rounded-3xl text-white shadow-xl ${bgColor.replace('-200', '-600').replace('-100', '-600')} relative overflow-hidden`}>
+        <div className={`p-6 rounded-3xl text-white shadow-xl ${accent.header} relative overflow-hidden`}>
           <div className="relative z-10">
             <div className="flex items-center gap-2 mb-2">
               <span className="bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest">
@@ -143,18 +171,28 @@ const ClassroomScreen: React.FC<ClassroomScreenProps> = ({ subjectName, navigate
             { id: 'classmates', label: 'Classmates', icon: <UsersIcon className="w-4 h-4" /> },
             { id: 'notes', label: 'Notes', icon: <ClipboardListIcon className="w-4 h-4" /> },
           ].map(tab => (
-            <button
+            <motion.button
               key={tab.id}
+              whileTap={{ scale: 0.96 }}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-xs transition-all ${
-                activeTab === tab.id 
-                ? 'bg-white text-gray-900 shadow-sm' 
+              className={`relative flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-xs transition-colors ${
+                activeTab === tab.id
+                ? 'text-gray-900'
                 : 'text-gray-500 hover:bg-white/50'
               }`}
             >
-              {tab.icon}
-              {tab.label}
-            </button>
+              {activeTab === tab.id && (
+                <motion.div
+                  layoutId="classroomTabHighlight"
+                  className="absolute inset-0 bg-white rounded-xl shadow-sm"
+                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                />
+              )}
+              <span className="relative flex items-center gap-2">
+                {tab.icon}
+                {tab.label}
+              </span>
+            </motion.button>
           ))}
         </div>
 
@@ -163,49 +201,25 @@ const ClassroomScreen: React.FC<ClassroomScreenProps> = ({ subjectName, navigate
             <div className="lg:col-span-2 space-y-5">
               {/* Quick Actions */}
               <div className="grid grid-cols-2 gap-4">
-                {quickActions.map(item => (
-                  <button key={item.label} onClick={item.action} className={`bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col items-center justify-center space-y-3 hover:ring-2 ${ringColor} transition-all`}>
+                {quickActions.map((item, i) => (
+                  <motion.button
+                    key={item.label}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.25, delay: i * 0.06 }}
+                    whileHover={{ y: -2 }}
+                    whileTap={{ scale: 0.97 }}
+                    onClick={item.action}
+                    className={`bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col items-center justify-center space-y-3 hover:ring-2 hover:shadow-md ${ringColor} transition-shadow`}
+                  >
                     <div className={textColor}>{item.icon}</div>
                     <span className={`font-black ${textColor} text-center text-sm uppercase tracking-tight`}>{item.label}</span>
-                  </button>
+                  </motion.button>
                 ))}
-              </div>
-
-              {/* Latest Announcements */}
-              <div className="bg-white rounded-[2rem] p-6 border border-gray-100 shadow-sm">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center space-x-2">
-                    <MegaphoneIcon className={`h-5 w-5 ${textColor}`} />
-                    <h3 className="font-black text-lg text-gray-800 uppercase tracking-tighter">Subject Board</h3>
-                  </div>
-                  <span className="text-xs font-black text-gray-400 bg-gray-50 px-2 py-1 rounded-md uppercase">Latest Updates</span>
-                </div>
-                
-                {announcements.length > 0 ? (
-                  <div className="space-y-4">
-                    {announcements.map(notice => (
-                      <div key={notice.id} className="p-4 rounded-2xl bg-gray-50 border border-orange-200 hover:bg-orange-50/50 transition-colors">
-                        <h4 className="font-bold text-gray-900 leading-tight">{notice.title}</h4>
-                        <p className="text-sm text-gray-600 mt-2 line-clamp-2">{notice.content}</p>
-                        <div className="mt-3 flex items-center text-xs font-black text-gray-400 uppercase tracking-widest gap-2">
-                          <ClockIcon className="w-3 h-3" />
-                          {new Date(notice.timestamp || (notice as any).created_at || '').toLocaleDateString()}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="py-10 text-center">
-                    <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-3">
-                      <MegaphoneIcon className="w-8 h-8 text-gray-200" />
-                    </div>
-                    <p className="text-gray-400 font-bold">No new announcements for this subject.</p>
-                  </div>
-                )}
               </div>
             </div>
 
-            <div className="lg:col-span-1">
+            <div className="lg:col-span-1 lg:sticky lg:top-6 lg:self-start">
               {/* Top Classmates Preview */}
               <div className="bg-white rounded-[2rem] p-6 border border-gray-100 shadow-sm h-full">
                 <div className="flex items-center justify-between mb-6">
@@ -223,7 +237,6 @@ const ClassroomScreen: React.FC<ClassroomScreenProps> = ({ subjectName, navigate
                       <div className="flex items-center space-x-3">
                         <div className="relative">
                           <img src={c.avatarUrl || `https://ui-avatars.com/api/?name=${c.name}`} alt={c.name} className="w-10 h-10 rounded-2xl object-cover ring-2 ring-transparent group-hover:ring-orange-200 transition-all" />
-                          <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
                         </div>
                         <p className="text-sm font-bold text-gray-700 group-hover:text-gray-900">{c.name}</p>
                       </div>
@@ -260,16 +273,18 @@ const ClassroomScreen: React.FC<ClassroomScreenProps> = ({ subjectName, navigate
 
               <div className="grid grid-cols-3 gap-3">
                 {[1, 2, 3].map(t => (
-                  <button
+                  <motion.button
                     key={t}
+                    whileHover={{ y: -1 }}
+                    whileTap={{ scale: 0.96 }}
                     onClick={() => setSelectedTerm(t)}
-                    className={`py-4 rounded-2xl border-2 transition-all font-black uppercase text-xs tracking-widest ${selectedTerm === t
+                    className={`py-4 rounded-2xl border-2 transition-colors font-black uppercase text-xs tracking-widest ${selectedTerm === t
                       ? 'border-orange-500 bg-orange-50 text-orange-600 shadow-md shadow-orange-100'
                       : 'border-gray-50 bg-gray-50 text-gray-400 hover:bg-white hover:border-orange-200 hover:text-gray-600'
                       }`}
                   >
                     Term {t}
-                  </button>
+                  </motion.button>
                 ))}
               </div>
             </div>
@@ -294,7 +309,13 @@ const ClassroomScreen: React.FC<ClassroomScreenProps> = ({ subjectName, navigate
               ) : (
                 <div className="space-y-4 px-2">
                   {topics.map((topic, idx) => (
-                    <div key={topic.id} className="bg-white rounded-[2rem] p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+                    <motion.div
+                      key={topic.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.25, delay: Math.min(idx, 10) * 0.05 }}
+                      className="bg-white rounded-[2rem] p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group"
+                    >
                       <div className="absolute top-0 left-0 w-1.5 h-full bg-orange-500 group-hover:w-2 transition-all"></div>
                       <div className="flex items-start gap-5">
                         <div className="w-12 h-12 bg-orange-50 rounded-2xl flex-shrink-0 flex items-center justify-center text-orange-600 font-black text-lg border border-orange-100">
@@ -309,7 +330,7 @@ const ClassroomScreen: React.FC<ClassroomScreenProps> = ({ subjectName, navigate
                           <p className="text-sm text-gray-500 leading-relaxed font-medium">{topic.content}</p>
                         </div>
                       </div>
-                    </div>
+                    </motion.div>
                   ))}
                 </div>
               )}
@@ -332,15 +353,20 @@ const ClassroomScreen: React.FC<ClassroomScreenProps> = ({ subjectName, navigate
             </div>
             
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-6">
-              {classmates.length > 0 ? classmates.map(c => (
-                <div key={c.id} className="flex flex-col items-center p-4 rounded-3xl hover:bg-gray-50 transition-colors group">
+              {classmates.length > 0 ? classmates.map((c, i) => (
+                <motion.div
+                  key={c.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.25, delay: Math.min(i, 12) * 0.04 }}
+                  className="flex flex-col items-center p-4 rounded-3xl hover:bg-gray-50 transition-colors group"
+                >
                   <div className="relative mb-3">
                     <img src={c.avatarUrl || `https://ui-avatars.com/api/?name=${c.name}`} alt={c.name} className="w-20 h-20 rounded-[2rem] object-cover ring-4 ring-transparent group-hover:ring-indigo-100 transition-all shadow-md" />
-                    <div className="absolute bottom-0 right-0 w-5 h-5 bg-green-500 border-4 border-white rounded-full"></div>
                   </div>
                   <p className="text-sm font-black text-gray-800 text-center leading-tight">{c.name}</p>
                   <span className="text-xs font-black text-indigo-500 uppercase tracking-tighter mt-1">{c.section || 'A'} Stream</span>
-                </div>
+                </motion.div>
               )) : (
                 <div className="col-span-full py-10 text-center">
                   <p className="text-gray-400 font-bold italic">Gathering your peers...</p>
@@ -375,8 +401,13 @@ const ClassroomScreen: React.FC<ClassroomScreenProps> = ({ subjectName, navigate
                 <p className="text-sm text-gray-400 mt-1">Your teacher hasn't uploaded any approved notes for this subject.</p>
               </div>
             ) : (
-              lessonNotes.map(note => (
-                <div key={note.id} className="bg-white rounded-[2rem] p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+              lessonNotes.map((note, i) => (
+                <motion.div
+                  key={note.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.25, delay: Math.min(i, 10) * 0.05 }}
+                  className="bg-white rounded-[2rem] p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
                   <div className="absolute top-0 left-0 w-1.5 h-full bg-violet-500 group-hover:w-2 transition-all" />
                   <div className="flex items-start gap-4">
                     <div className="w-12 h-12 bg-violet-50 rounded-2xl flex-shrink-0 flex items-center justify-center text-violet-600 font-black text-lg border border-violet-100">
@@ -409,7 +440,7 @@ const ClassroomScreen: React.FC<ClassroomScreenProps> = ({ subjectName, navigate
                       )}
                     </div>
                   </div>
-                </div>
+                </motion.div>
               ))
             )}
           </div>

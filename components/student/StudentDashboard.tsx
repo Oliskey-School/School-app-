@@ -1,5 +1,6 @@
 ﻿
 import React, { useState, useMemo, useEffect, useRef, lazy, Suspense, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { lazyWithRetry } from '../../lib/lazyRetry';
 import { api } from '../../lib/api';
@@ -91,6 +92,7 @@ const HistoricalHotSeatGame = lazyWithRetry(() => import('./games/HistoricalHotS
 const VocabularyNinjaGame = lazyWithRetry(() => import('./games/VocabularyNinjaGame'));
 const SchoolUtilitiesScreen = lazyWithRetry(() => import('../parent/SchoolUtilitiesScreen'));
 const GamePlayerScreen = lazyWithRetry(() => import('../shared/GamePlayerScreen'));
+const WorksheetsEmbedScreen = lazyWithRetry(() => import('./WorksheetsEmbedScreen'));
 const StudentCBTListScreen = lazyWithRetry(() => import('./cbt/StudentCBTListScreen'));
 const StudentCBTPlayerScreen = lazyWithRetry(() => import('./cbt/StudentCBTPlayerScreen'));
 const StudentChangePasswordScreen = lazyWithRetry(() => import('./StudentChangePasswordScreen'));
@@ -130,6 +132,7 @@ const TodayFocus: React.FC<{
                 subject: hw.subject || 'General',
                 dueDate: dueDate.toLocaleDateString(),
                 timeRemaining: daysLeft > 0 ? `${daysLeft}d` : 'Today',
+                daysLeft,
                 type: 'assignment' as const,
                 onClick: () => navigateTo('assignmentSubmission', 'Submit Assignment', { assignment: hw }),
                 totalCount: assignments.length + quizzes.length
@@ -147,6 +150,7 @@ const TodayFocus: React.FC<{
                 subject: quiz.subject_id || 'General',
                 dueDate: dueDate.toLocaleDateString(),
                 timeRemaining: daysLeft > 0 ? `${daysLeft}d` : 'Soon',
+                daysLeft,
                 type: 'quiz' as const,
                 onClick: () => navigateTo('quizPlayer', quiz.title, { 
                     [quiz.is_cbt ? 'cbtExamId' : 'quizId']: quiz.id, 
@@ -192,13 +196,13 @@ const TodayFocus: React.FC<{
 
             {/* Compact Schedule Preview */}
             {schedule.length > 0 && (
-                <div className="bg-white p-4 rounded-2xl shadow-sm">
+                <div className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-md transition-shadow duration-200">
                     <div className="flex justify-between items-center mb-3">
                         <h4 className="text-sm font-semibold text-gray-600">Today's Schedule</h4>
                         {schedule.length > 3 && (
                             <button
                                 onClick={() => navigateTo('timetable', 'Timetable Dashboard')}
-                                className="text-xs font-bold text-indigo-600 hover:text-indigo-800"
+                                className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors px-2 py-1 -mr-2 rounded-lg"
                             >
                                 See More
                             </button>
@@ -206,7 +210,13 @@ const TodayFocus: React.FC<{
                     </div>
                     <div className="space-y-3">
                         {schedule.slice(0, 3).map((entry, i) => (
-                            <div key={i} className="flex items-center gap-3">
+                            <motion.div
+                                key={i}
+                                initial={{ opacity: 0, x: -8 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ duration: 0.25, delay: i * 0.06 }}
+                                className="flex items-center gap-3"
+                            >
                                 <span className="text-xs font-bold text-gray-500 w-12">{entry.start_time || entry.startTime}</span>
                                 <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${SUBJECT_COLORS[entry.subject] || 'bg-indigo-400'}`} />
                                 <div className="flex-1 overflow-hidden">
@@ -215,7 +225,7 @@ const TodayFocus: React.FC<{
                                         {entry.class_name} â€¢ {entry.teacher_name || 'Assigned'}
                                     </p>
                                 </div>
-                            </div>
+                            </motion.div>
                         ))}
                         {schedule.length === 0 && <p className="text-xs text-gray-400 text-center italic">No classes scheduled for today.</p>}
                     </div>
@@ -366,51 +376,76 @@ const Overview: React.FC<{
                     <div>
                         <h3 className="text-lg font-bold text-gray-800 mb-2 px-1">AI Tools</h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {aiTools.map(tool => (
-                                <button key={tool.label} onClick={tool.action} className={`p-4 rounded-2xl shadow-lg text-white bg-gradient-to-r ${tool.color} transition-transform active:scale-[0.98]`}>
+                            {aiTools.map((tool, i) => (
+                                <motion.button
+                                    key={tool.label}
+                                    initial={{ opacity: 0, y: 12 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.3, delay: i * 0.06 }}
+                                    whileHover={{ y: -3, boxShadow: '0 12px 24px -8px rgba(0,0,0,0.25)' }}
+                                    whileTap={{ scale: 0.97 }}
+                                    onClick={tool.action}
+                                    className={`p-4 rounded-2xl shadow-lg text-white bg-gradient-to-r ${tool.color}`}
+                                >
                                     <SparklesIcon className="h-6 w-6 mb-2" />
                                     <h4 className="font-bold text-left">{tool.label}</h4>
                                     <p className="text-xs opacity-90 text-left">{tool.description}</p>
-                                </button>
+                                </motion.button>
                             ))}
                         </div>
                     </div>
                 </div>
                 {/* Sidebar */}
-                <div className="lg:col-span-1 space-y-6">
+                <div className="lg:col-span-1 space-y-6 lg:sticky lg:top-6 lg:self-start">
                     <div>
                         <h3 className="text-lg font-bold text-gray-800 mb-2 px-1">Quick Actions</h3>
-                        {liveClass && (
-                            <button
-                                onClick={() => navigateTo('liveClass', 'Virtual Classroom', { userRole: 'student', userId: student.id, displayName: student.name })}
-                                style={{ animation: 'liveClassGlow 1.8s ease-in-out infinite' }}
-                                className="w-full mb-3 flex items-center gap-3 p-4 rounded-2xl text-white bg-gradient-to-r from-red-500 to-rose-600 active:scale-[0.98] transition-transform"
-                            >
-                                <style>{`@keyframes liveClassGlow { 0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.45); } 50% { box-shadow: 0 0 18px 4px rgba(239,68,68,0.65); } }`}</style>
-                                <span className="relative flex-shrink-0">
-                                    <span className="absolute inline-flex h-full w-full rounded-full bg-white opacity-30 animate-ping"></span>
-                                    <span className="relative flex items-center justify-center w-10 h-10 rounded-full bg-white/20">
-                                        <VideoIcon className="w-6 h-6" />
+                        <AnimatePresence>
+                            {liveClass && (
+                                <motion.button
+                                    initial={{ opacity: 0, scale: 0.96, height: 0, marginBottom: 0 }}
+                                    animate={{ opacity: 1, scale: 1, height: 'auto', marginBottom: 12 }}
+                                    exit={{ opacity: 0, scale: 0.96, height: 0, marginBottom: 0 }}
+                                    transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                                    whileTap={{ scale: 0.98 }}
+                                    onClick={() => navigateTo('liveClass', 'Virtual Classroom', { userRole: 'student', userId: student.id, displayName: student.name })}
+                                    style={{ animation: 'liveClassGlow 1.8s ease-in-out infinite' }}
+                                    className="w-full flex items-center gap-3 p-4 rounded-2xl text-white bg-gradient-to-r from-red-500 to-rose-600 overflow-hidden"
+                                >
+                                    <style>{`@keyframes liveClassGlow { 0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.45); } 50% { box-shadow: 0 0 18px 4px rgba(239,68,68,0.65); } }`}</style>
+                                    <span className="relative flex-shrink-0">
+                                        <span className="absolute inline-flex h-full w-full rounded-full bg-white opacity-30 animate-ping"></span>
+                                        <span className="relative flex items-center justify-center w-10 h-10 rounded-full bg-white/20">
+                                            <VideoIcon className="w-6 h-6" />
+                                        </span>
                                     </span>
-                                </span>
-                                <span className="flex-1 text-left">
-                                    <span className="flex items-center gap-2 font-bold leading-tight">
-                                        <span className="w-2 h-2 rounded-full bg-white animate-pulse"></span>
-                                        Join Live Class
+                                    <span className="flex-1 text-left">
+                                        <span className="flex items-center gap-2 font-bold leading-tight">
+                                            <span className="w-2 h-2 rounded-full bg-white animate-pulse"></span>
+                                            Join Live Class
+                                        </span>
+                                        <span className="block text-xs opacity-90 truncate">
+                                            {liveClass.subject || liveClass.title || 'Class is live now'}
+                                        </span>
                                     </span>
-                                    <span className="block text-xs opacity-90 truncate">
-                                        {liveClass.subject || liveClass.title || 'Class is live now'}
-                                    </span>
-                                </span>
-                                <ChevronRightIcon className="w-5 h-5 opacity-90" />
-                            </button>
-                        )}
+                                    <ChevronRightIcon className="w-5 h-5 opacity-90" />
+                                </motion.button>
+                            )}
+                        </AnimatePresence>
                         <div className="grid grid-cols-3 gap-3 text-center">
-                            {quickAccessItems.map(item => (
-                                <button key={item.label} onClick={item.action} className="bg-white p-3 rounded-2xl shadow-sm flex flex-col items-center justify-center space-y-2 hover:bg-orange-100 transition-colors">
+                            {quickAccessItems.map((item, i) => (
+                                <motion.button
+                                    key={item.label}
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.25, delay: i * 0.05 }}
+                                    whileHover={{ y: -2, backgroundColor: 'rgb(255 237 213)' }}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={item.action}
+                                    className="bg-white p-3 rounded-2xl shadow-sm flex flex-col items-center justify-center space-y-2"
+                                >
                                     <div className={theme.iconColor}>{React.cloneElement(item.icon, { className: 'h-7 w-7' })}</div>
                                     <span className={`font-semibold ${theme.textColor} text-center text-xs`}>{item.label}</span>
-                                </button>
+                                </motion.button>
                             ))}
                         </div>
                     </div>
@@ -745,6 +780,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
         quizzes: QuizzesScreen,
         quizPlayer: QuizPlayerScreen,
         gamesHub: GamesHubScreen,
+        worksheets: WorksheetsEmbedScreen,
         classBattle: ClassBattleScreen,
         mathSprintLobby: MathSprintLobbyScreen,
         mathSprintGame: MathSprintGameScreen,
@@ -774,7 +810,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
         simpleMachineHunt: SimpleMachineScavengerHuntGame,
         historicalHotSeat: HistoricalHotSeatGame,
         vocabularyNinja: VocabularyNinjaGame,
-        schoolUtilities: SchoolUtilitiesScreen,
+        schoolUtilities: (props: any) => <SchoolUtilitiesScreen {...props} role="student" />,
         cbtList: StudentCBTListScreen,
         cbtPlayer: StudentCBTPlayerScreen,
         changePassword: StudentChangePasswordScreen,
@@ -784,7 +820,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
     useEffect(() => {
         window.STUDENT_NAVIGATE = navigateTo;
         window.STUDENT_COMPONENTS = Object.keys(viewComponents);
-        console.log('ðŸ›¡ï¸ [StudentDashboard] Audit triggers exposed to window.');
+    console.log('🛡️ [StudentDashboard] Audit triggers exposed to window.');
         return () => {
             // @ts-ignore - for cleanup
             delete window.STUDENT_NAVIGATE;
@@ -804,7 +840,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
             <div className="flex flex-col items-center justify-center h-full p-6 text-center bg-gray-50">
                 <div className="bg-white p-8 rounded-2xl shadow-lg max-w-md w-full">
                     <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <span className="text-3xl">ðŸŽ“</span>
+                        <span className="text-3xl">🎓</span>
                     </div>
                     <h2 className="text-2xl font-bold text-gray-800 mb-2">Student Profile Not Found</h2>
                     <p className="text-gray-600 mb-6">
@@ -830,48 +866,65 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
     const currentNavigation = viewStack[viewStack.length - 1] || { view: 'overview', title: 'Student Dashboard' };
     const ComponentToRender = viewComponents[currentNavigation.view as keyof typeof viewComponents];
 
-    const isFullScreen = ['messages', 'newChat', 'chat', 'classBattle', 'mathSprintGame', 'geoGuesserGame', 'codeChallengeGame', 'gamePlayer', 'peekabooLetters', 'mathBattleArena', 'cbtExamGame', 'cbtPlayer', 'countingShapesTap', 'simonSays', 'alphabetFishing', 'beanBagToss', 'redLightGreenLight', 'spellingSparkle', 'vocabularyAdventure', 'virtualScienceLab', 'debateDash', 'geometryJeopardy', 'sharkTank', 'physicsLab', 'stockMarket', 'cbtExamGame', 'vocabularyPictionary', 'simpleMachineHunt', 'historicalHotSeat'].includes(currentNavigation.view);
+    const isFullScreen = ['messages', 'newChat', 'chat', 'classBattle', 'mathSprintGame', 'geoGuesserGame', 'codeChallengeGame', 'gamePlayer', 'peekabooLetters', 'mathBattleArena', 'cbtExamGame', 'cbtPlayer', 'countingShapesTap', 'simonSays', 'alphabetFishing', 'beanBagToss', 'redLightGreenLight', 'spellingSparkle', 'vocabularyAdventure', 'virtualScienceLab', 'debateDash', 'geometryJeopardy', 'sharkTank', 'physicsLab', 'stockMarket', 'cbtExamGame', 'vocabularyPictionary', 'simpleMachineHunt', 'historicalHotSeat', 'worksheets'].includes(currentNavigation.view);
     // messages/newChat keep the nav so users can switch tabs; chat and games go fully immersive
     const hideBottomNav = isFullScreen && currentNavigation.view !== 'messages' && currentNavigation.view !== 'newChat';
 
     return (
         <GamificationProvider studentId={student?.id}>
-            {reminderBanner && (
-                <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] w-[92%] max-w-md animate-fade-in">
-                    <div className="flex items-start gap-3 rounded-2xl bg-white shadow-2xl ring-1 ring-orange-200 px-4 py-3">
-                        <div className="mt-0.5 flex-shrink-0 w-9 h-9 rounded-full bg-orange-100 flex items-center justify-center">
-                            <BellIcon className="w-5 h-5 text-orange-600" />
+            <AnimatePresence>
+                {reminderBanner && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -16, scale: 0.96 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -12, scale: 0.97, transition: { duration: 0.2 } }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                        className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] w-[92%] max-w-md"
+                    >
+                        <div className="flex items-start gap-3 rounded-2xl bg-white shadow-2xl ring-1 ring-orange-200 px-4 py-3">
+                            <div className="mt-0.5 flex-shrink-0 w-9 h-9 rounded-full bg-orange-100 flex items-center justify-center">
+                                <BellIcon className="w-5 h-5 text-orange-600" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="font-bold text-gray-900 text-sm truncate">{reminderBanner.title}</p>
+                                <p className="text-gray-600 text-sm">{reminderBanner.message}</p>
+                            </div>
+                            <button onClick={() => setReminderBanner(null)} className="flex-shrink-0 w-8 h-8 -mr-1 -mt-1 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors text-lg leading-none" aria-label="Dismiss">Ã—</button>
                         </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="font-bold text-gray-900 text-sm truncate">{reminderBanner.title}</p>
-                            <p className="text-gray-600 text-sm">{reminderBanner.message}</p>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+            <AnimatePresence>
+                {unreadMsgCount > 0 && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -16, scale: 0.96 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -12, scale: 0.97, transition: { duration: 0.2 } }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                        className="fixed top-4 left-1/2 -translate-x-1/2 z-[99] w-[92%] max-w-md"
+                        style={{ top: reminderBanner ? '5rem' : '1rem' }}
+                    >
+                        <div className="flex items-center gap-3 rounded-2xl bg-white shadow-2xl ring-1 ring-blue-200 px-4 py-3">
+                            <div className="flex-shrink-0 w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center">
+                                <MegaphoneIcon className="w-5 h-5 text-blue-600" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="font-bold text-gray-900 text-sm">
+                                    {unreadMsgCount === 1 ? '1 unread message' : `${unreadMsgCount} unread messages`}
+                                </p>
+                                <p className="text-gray-500 text-xs">You received messages while you were away</p>
+                            </div>
+                            <button
+                                onClick={() => { setUnreadMsgCount(0); navigateTo('messages', 'Messages'); }}
+                                className="flex-shrink-0 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-xl transition-colors"
+                            >
+                                View
+                            </button>
+                            <button onClick={() => setUnreadMsgCount(0)} className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors text-lg leading-none" aria-label="Dismiss">Ã—</button>
                         </div>
-                        <button onClick={() => setReminderBanner(null)} className="text-gray-400 hover:text-gray-600 text-lg leading-none px-1" aria-label="Dismiss">Ã—</button>
-                    </div>
-                </div>
-            )}
-            {unreadMsgCount > 0 && (
-                <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[99] w-[92%] max-w-md animate-fade-in" style={{ top: reminderBanner ? '5rem' : '1rem' }}>
-                    <div className="flex items-center gap-3 rounded-2xl bg-white shadow-2xl ring-1 ring-blue-200 px-4 py-3">
-                        <div className="flex-shrink-0 w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center">
-                            <MegaphoneIcon className="w-5 h-5 text-blue-600" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="font-bold text-gray-900 text-sm">
-                                {unreadMsgCount === 1 ? '1 unread message' : `${unreadMsgCount} unread messages`}
-                            </p>
-                            <p className="text-gray-500 text-xs">You received messages while you were away</p>
-                        </div>
-                        <button
-                            onClick={() => { setUnreadMsgCount(0); navigateTo('messages', 'Messages'); }}
-                            className="flex-shrink-0 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-xl transition-colors"
-                        >
-                            View
-                        </button>
-                        <button onClick={() => setUnreadMsgCount(0)} className="text-gray-400 hover:text-gray-600 text-lg leading-none" aria-label="Dismiss">Ã—</button>
-                    </div>
-                </div>
-            )}
+                    </motion.div>
+                )}
+            </AnimatePresence>
             <DashboardLayout
                 title={currentNavigation.title}
                 onBack={viewStack.length > 1 ? handleBack : undefined}

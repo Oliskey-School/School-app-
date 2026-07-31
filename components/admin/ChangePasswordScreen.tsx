@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import { LockIcon } from '../../constants';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
@@ -55,16 +56,16 @@ const ChangePasswordScreen: React.FC = () => {
         <div className="flex flex-col h-full bg-gray-50">
             <form onSubmit={handleSubmit} className="flex-grow flex flex-col">
                 <main className="flex-grow p-4 overflow-y-auto">
-                    <div className="bg-white p-4 rounded-xl shadow-sm space-y-4">
+                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="bg-white p-4 rounded-xl shadow-sm space-y-4">
                         <PasswordInput id="currentPassword" label="Current Password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} />
                         <PasswordInput id="newPassword" label="New Password" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
                         <PasswordInput id="confirmPassword" label="Confirm New Password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} />
-                    </div>
+                    </motion.div>
                 </main>
                 <div className="p-4 mt-auto bg-gray-50 border-t border-gray-200">
-                    <button type="submit" disabled={loading} className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white bg-sky-500 hover:bg-sky-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                    <motion.button whileHover={!loading ? { scale: 1.01 } : {}} whileTap={!loading ? { scale: 0.98 } : {}} type="submit" disabled={loading} className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white bg-sky-500 hover:bg-sky-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}>
                         {loading ? 'Updating...' : 'Update Password'}
-                    </button>
+                    </motion.button>
                 </div>
             </form>
         </div>

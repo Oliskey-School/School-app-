@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { api } from '../../lib/api';
 import {
     DocumentTextIcon,
@@ -12,6 +13,7 @@ import { formatCurrency } from '../../lib/payroll';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
 import { useAutoSync } from '../../hooks/useAutoSync';
+import CenteredLoader from '../ui/CenteredLoader';
 
 interface PayrollStats {
     totalTeachers: number;
@@ -197,8 +199,9 @@ const PayrollDashboard: React.FC<PayrollDashboardProps> = ({ navigateTo }) => {
         icon: React.ReactElement;
         color: string;
         trend?: string;
-    }> = ({ title, value, icon, color, trend }) => (
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+        index?: number;
+    }> = ({ title, value, icon, color, trend, index = 0 }) => (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: index * 0.05 }} className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
             <div className="flex items-start justify-between">
                 <div className="flex-1">
                     <p className="text-sm text-gray-600 font-medium">{title}</p>
@@ -211,7 +214,7 @@ const PayrollDashboard: React.FC<PayrollDashboardProps> = ({ navigateTo }) => {
                     {React.cloneElement(icon, { className: 'w-6 h-6 text-white' })}
                 </div>
             </div>
-        </div>
+        </motion.div>
     );
 
     const getStatusColor = (status: string) => {
@@ -230,11 +233,7 @@ const PayrollDashboard: React.FC<PayrollDashboardProps> = ({ navigateTo }) => {
     };
 
     if (loading) {
-        return (
-            <div className="flex items-center justify-center h-full">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-            </div>
-        );
+        return <CenteredLoader className="h-full" />;
     }
 
     return (
@@ -252,6 +251,7 @@ const PayrollDashboard: React.FC<PayrollDashboardProps> = ({ navigateTo }) => {
                 {/* Stats Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <StatCard
+                        index={0}
                         title="Total Teachers"
                         value={stats.totalTeachers}
                         icon={<AnalyticsIcon />}
@@ -259,6 +259,7 @@ const PayrollDashboard: React.FC<PayrollDashboardProps> = ({ navigateTo }) => {
                         trend="With active salaries"
                     />
                     <StatCard
+                        index={1}
                         title="Monthly Payroll"
                         value={formatCurrency(stats.totalPayroll)}
                         icon={<DocumentTextIcon />}
@@ -266,6 +267,7 @@ const PayrollDashboard: React.FC<PayrollDashboardProps> = ({ navigateTo }) => {
                         trend="Total monthly obligation"
                     />
                     <StatCard
+                        index={2}
                         title="Pending Approvals"
                         value={stats.pendingApprovals}
                         icon={<ClockIcon />}
@@ -273,6 +275,7 @@ const PayrollDashboard: React.FC<PayrollDashboardProps> = ({ navigateTo }) => {
                         trend="Payslips awaiting review"
                     />
                     <StatCard
+                        index={3}
                         title="Paid This Month"
                         value={formatCurrency(stats.paidThisMonth)}
                         icon={<CheckCircleIcon />}
@@ -283,7 +286,7 @@ const PayrollDashboard: React.FC<PayrollDashboardProps> = ({ navigateTo }) => {
 
                 {/* Arrears Alert */}
                 {stats.outstandingArrears > 0 && (
-                    <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 flex items-start space-x-3">
+                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="bg-orange-50 border border-orange-200 rounded-xl p-4 flex items-start space-x-3">
                         <ExclamationCircleIcon className="w-6 h-6 text-orange-600 flex-shrink-0 mt-0.5" />
                         <div className="flex-1">
                             <h4 className="font-semibold text-orange-900">Outstanding Arrears</h4>
@@ -291,36 +294,44 @@ const PayrollDashboard: React.FC<PayrollDashboardProps> = ({ navigateTo }) => {
                                 {formatCurrency(stats.outstandingArrears)} in unpaid arrears requires attention
                             </p>
                         </div>
-                        <button
+                        <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
                             onClick={() => navigateTo?.('arrearsTracker', 'Arrears Tracker')}
                             className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium">
                             View Arrears
-                        </button>
-                    </div>
+                        </motion.button>
+                    </motion.div>
                 )}
 
                 {/* Quick Actions */}
                 <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
                     <h3 className="text-lg font-bold text-gray-900 mb-4">Quick Actions</h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <button
+                        <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
                             onClick={() => navigateTo?.('payslipGenerator', 'Payslip Generator')}
                             className="flex items-center justify-center space-x-2 px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium">
                             <DocumentTextIcon className="w-5 h-5" />
                             <span>Generate Payslips</span>
-                        </button>
-                        <button
+                        </motion.button>
+                        <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
                             onClick={() => navigateTo?.('payslipGenerator', 'Payslip Generator')}
                             className="flex items-center justify-center space-x-2 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium">
                             <CheckCircleIcon className="w-5 h-5" />
                             <span>Approve Payslips</span>
-                        </button>
-                        <button
+                        </motion.button>
+                        <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
                             onClick={() => navigateTo?.('paymentHistory', 'Payment History')}
                             className="flex items-center justify-center space-x-2 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium">
                             <ChartBarIcon className="w-5 h-5" />
                             <span>View Reports</span>
-                        </button>
+                        </motion.button>
                     </div>
                 </div>
 
@@ -355,8 +366,8 @@ const PayrollDashboard: React.FC<PayrollDashboardProps> = ({ navigateTo }) => {
                                         </td>
                                     </tr>
                                 ) : (
-                                    recentPayslips.map((payslip) => (
-                                        <tr key={payslip.id} className="hover:bg-gray-50 cursor-pointer">
+                                    recentPayslips.map((payslip, pi) => (
+                                        <motion.tr key={payslip.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(pi, 10) * 0.03 }} className="hover:bg-gray-50 cursor-pointer">
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="text-sm font-medium text-gray-900">
                                                     {payslip.teacher_name}
@@ -382,7 +393,7 @@ const PayrollDashboard: React.FC<PayrollDashboardProps> = ({ navigateTo }) => {
                                                     {payslip.status}
                                                 </span>
                                             </td>
-                                        </tr>
+                                        </motion.tr>
                                     ))
                                 )}
                             </tbody>

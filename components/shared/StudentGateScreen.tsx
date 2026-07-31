@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { LogOut, ShieldCheck, ShieldAlert, CheckCircle2, Clock } from 'lucide-react';
@@ -117,13 +118,13 @@ const StudentGateScreen = () => {
                 )}
 
                 {selectedStudentId && (
-                    <>
+                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-3 overflow-hidden">
                         <div className="flex gap-2">
                             {(['EndOfDay', 'EarlyDismissal'] as const).map(t => (
-                                <button key={t} onClick={() => setType(t)}
+                                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} key={t} onClick={() => setType(t)}
                                     className={`px-3 py-1.5 rounded-lg text-sm font-semibold ${type === t ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-500'}`}>
                                     {t === 'EndOfDay' ? 'Routine Pickup' : 'Early Dismissal'}
-                                </button>
+                                </motion.button>
                             ))}
                         </div>
 
@@ -142,10 +143,10 @@ const StudentGateScreen = () => {
                                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400" />
                         )}
 
-                        <button onClick={handleSubmit} disabled={submitting} className="bg-indigo-600 text-white text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60">
+                        <motion.button whileHover={!submitting ? { scale: 1.02 } : {}} whileTap={!submitting ? { scale: 0.98 } : {}} onClick={handleSubmit} disabled={submitting} className="bg-indigo-600 text-white text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60">
                             {submitting ? 'Submitting...' : type === 'EarlyDismissal' ? 'Request Gate Pass' : 'Log Departure'}
-                        </button>
-                    </>
+                        </motion.button>
+                    </motion.div>
                 )}
             </div>
 
@@ -155,8 +156,8 @@ const StudentGateScreen = () => {
                     <p className="text-sm text-gray-400">No departures logged yet.</p>
                 ) : (
                     <div className="space-y-2">
-                        {log.map(d => (
-                            <div key={d.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex items-center justify-between gap-3">
+                        {log.map((d, di) => (
+                            <motion.div key={d.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(di, 15) * 0.03 }} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex items-center justify-between gap-3">
                                 <div className="flex items-center gap-2">
                                     {d.is_authorized ? <ShieldCheck className="w-4 h-4 text-green-500 flex-shrink-0" /> : <ShieldAlert className="w-4 h-4 text-amber-500 flex-shrink-0" />}
                                     <div>
@@ -172,7 +173,7 @@ const StudentGateScreen = () => {
                                         </button>
                                     )}
                                 </div>
-                            </div>
+                            </motion.div>
                         ))}
                     </div>
                 )}

@@ -4,6 +4,7 @@
  */
 
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import { createPaymentPlan } from '../../lib/payment-plans';
 import { Calendar, DollarSign, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
@@ -80,20 +81,21 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
     }
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-2xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: 'spring', stiffness: 400, damping: 32 }} className="bg-white rounded-2xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
                 {/* Header */}
                 <div className="flex justify-between items-center mb-6">
                     <div>
                         <h2 className="text-2xl font-bold text-gray-900">Create Payment Plan</h2>
                         <p className="text-gray-600 text-sm">Set up installment payments for this fee</p>
                     </div>
-                    <button
+                    <motion.button
+                        whileTap={{ scale: 0.9 }}
                         onClick={onClose}
                         className="text-gray-400 hover:text-gray-600 transition"
                     >
                         <X className="w-6 h-6" />
-                    </button>
+                    </motion.button>
                 </div>
 
                 {/* Total Amount */}
@@ -113,16 +115,18 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
                         </label>
                         <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
                             {[2, 3, 4, 6, 9, 12].map(count => (
-                                <button
+                                <motion.button
                                     key={count}
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
                                     onClick={() => setInstallmentCount(count)}
-                                    className={`px-4 py-3 rounded-lg font-medium transition ${installmentCount === count
+                                    className={`px-4 py-3 rounded-lg font-medium transition-colors ${installmentCount === count
                                         ? 'bg-indigo-600 text-white'
                                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                         }`}
                                 >
                                     {count}
-                                </button>
+                                </motion.button>
                             ))}
                         </div>
                     </div>
@@ -133,33 +137,39 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
                             Payment Frequency
                         </label>
                         <div className="grid grid-cols-3 gap-3">
-                            <button
+                            <motion.button
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
                                 onClick={() => setFrequency('weekly')}
-                                className={`px-4 py-3 rounded-lg font-medium transition ${frequency === 'weekly'
+                                className={`px-4 py-3 rounded-lg font-medium transition-colors ${frequency === 'weekly'
                                     ? 'bg-indigo-600 text-white'
                                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                     }`}
                             >
                                 Weekly
-                            </button>
-                            <button
+                            </motion.button>
+                            <motion.button
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
                                 onClick={() => setFrequency('monthly')}
-                                className={`px-4 py-3 rounded-lg font-medium transition ${frequency === 'monthly'
+                                className={`px-4 py-3 rounded-lg font-medium transition-colors ${frequency === 'monthly'
                                     ? 'bg-indigo-600 text-white'
                                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                     }`}
                             >
                                 Monthly
-                            </button>
-                            <button
+                            </motion.button>
+                            <motion.button
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
                                 onClick={() => setFrequency('termly')}
-                                className={`px-4 py-3 rounded-lg font-medium transition ${frequency === 'termly'
+                                className={`px-4 py-3 rounded-lg font-medium transition-colors ${frequency === 'termly'
                                     ? 'bg-indigo-600 text-white'
                                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                     }`}
                             >
                                 Termly
-                            </button>
+                            </motion.button>
                         </div>
                     </div>
 
@@ -211,22 +221,26 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
 
                 {/* Actions */}
                 <div className="flex gap-3 mt-6">
-                    <button
+                    <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={onClose}
                         className="flex-1 px-6 py-3 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition"
                     >
                         Cancel
-                    </button>
-                    <button
+                    </motion.button>
+                    <motion.button
+                        whileHover={!creating ? { scale: 1.02 } : {}}
+                        whileTap={!creating ? { scale: 0.98 } : {}}
                         onClick={handleCreate}
                         disabled={creating}
                         className="flex-1 px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 disabled:opacity-50 transition"
                     >
                         {creating ? 'Creating...' : 'Create Payment Plan'}
-                    </button>
+                    </motion.button>
                 </div>
-            </div>
-        </div>
+            </motion.div>
+        </motion.div>
     );
 };
 

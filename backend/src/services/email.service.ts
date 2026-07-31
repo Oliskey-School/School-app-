@@ -260,6 +260,111 @@ export class EmailService {
     }
 
     /**
+     * Notifies a parent that a new fee has been assigned to their child.
+     */
+    static async sendFeeAssignmentEmail(params: {
+        email: string;
+        parentName: string;
+        studentName: string;
+        feeTitle: string;
+        amount: number;
+        dueDate: string;
+        description?: string | null;
+    }): Promise<void> {
+        try {
+            const transport = await initTransporter();
+            const portalUrl = process.env.APP_URL || 'https://app.oliskey.com';
+
+            await transport.sendMail({
+                from: '"Oliskey School Management" <no-reply@oliskey.com>',
+                to: params.email,
+                subject: `💰 New Fee Assigned - ${params.feeTitle}`,
+                html: `
+                    <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px;">
+                        <div style="text-align: center; margin-bottom: 24px;">
+                            <h1 style="color: #4f46e5; font-size: 24px; margin: 0;">Oliskey</h1>
+                        </div>
+                        <h2 style="color: #1f2937;">Hello ${params.parentName},</h2>
+                        <p style="color: #4b5563; line-height: 1.6;">
+                            A new fee has been assigned to your child <strong>${params.studentName}</strong>.
+                        </p>
+                        <div style="margin: 24px 0; padding: 20px; background-color: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
+                            <table style="width: 100%; border-collapse: collapse;">
+                                <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Fee:</td><td style="padding: 8px 0; color: #1f2937; font-size: 14px; font-weight: bold; text-align: right;">${params.feeTitle}</td></tr>
+                                <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Amount:</td><td style="padding: 8px 0; color: #1f2937; font-size: 14px; font-weight: bold; text-align: right;">₦${params.amount.toLocaleString()}</td></tr>
+                                <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Due Date:</td><td style="padding: 8px 0; color: #1f2937; font-size: 14px; font-weight: bold; text-align: right;">${params.dueDate}</td></tr>
+                            </table>
+                            ${params.description ? `<p style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e7eb; color: #4b5563;">${params.description}</p>` : ''}
+                        </div>
+                        <div style="margin: 24px 0;">
+                            <a href="${portalUrl}" style="display: inline-block; padding: 12px 24px; background-color: #4f46e5; color: white; text-decoration: none; border-radius: 8px; font-weight: bold;">View &amp; Pay Fee</a>
+                        </div>
+                        <p style="color: #9ca3af; font-size: 12px;">If you have any questions about this fee, please contact the school administration.</p>
+                    </div>
+                `
+            });
+            console.log(`✅ Fee assignment email sent to: ${params.email}`);
+        } catch (error) {
+            // Non-fatal — a failed notification email must not block fee assignment.
+            console.error('Fee assignment email sending failed:', error);
+        }
+    }
+
+    /**
+     * Confirms to a parent that a payment was received.
+     */
+    static async sendPaymentConfirmationEmail(params: {
+        email: string;
+        parentName: string;
+        studentName: string;
+        feeTitle: string;
+        amountPaid: number;
+        transactionReference: string;
+        paymentDate: string;
+        balance: number;
+    }): Promise<void> {
+        try {
+            const transport = await initTransporter();
+            const portalUrl = process.env.APP_URL || 'https://app.oliskey.com';
+
+            await transport.sendMail({
+                from: '"Oliskey School Management" <no-reply@oliskey.com>',
+                to: params.email,
+                subject: `✅ Payment Received - ${params.feeTitle}`,
+                html: `
+                    <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px;">
+                        <div style="text-align: center; margin-bottom: 24px;">
+                            <h1 style="color: #4f46e5; font-size: 24px; margin: 0;">Oliskey</h1>
+                        </div>
+                        <h2 style="color: #1f2937;">Hello ${params.parentName},</h2>
+                        <div style="margin: 16px 0; padding: 14px; background-color: #d1fae5; border-left: 4px solid #10b981; border-radius: 6px; color: #065f46;">
+                            ✅ Your payment has been successfully received and processed!
+                        </div>
+                        <div style="margin: 24px 0; padding: 20px; background-color: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
+                            <table style="width: 100%; border-collapse: collapse;">
+                                <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Student:</td><td style="padding: 8px 0; color: #1f2937; font-size: 14px; font-weight: bold; text-align: right;">${params.studentName}</td></tr>
+                                <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Fee:</td><td style="padding: 8px 0; color: #1f2937; font-size: 14px; font-weight: bold; text-align: right;">${params.feeTitle}</td></tr>
+                                <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Amount Paid:</td><td style="padding: 8px 0; color: #1f2937; font-size: 14px; font-weight: bold; text-align: right;">₦${params.amountPaid.toLocaleString()}</td></tr>
+                                <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Transaction Ref:</td><td style="padding: 8px 0; color: #1f2937; font-size: 14px; font-weight: bold; text-align: right;">${params.transactionReference}</td></tr>
+                                <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Payment Date:</td><td style="padding: 8px 0; color: #1f2937; font-size: 14px; font-weight: bold; text-align: right;">${params.paymentDate}</td></tr>
+                                <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Remaining Balance:</td><td style="padding: 8px 0; color: #1f2937; font-size: 14px; font-weight: bold; text-align: right;">₦${params.balance.toLocaleString()}</td></tr>
+                            </table>
+                        </div>
+                        <div style="margin: 24px 0;">
+                            <a href="${portalUrl}" style="display: inline-block; padding: 12px 24px; background-color: #4f46e5; color: white; text-decoration: none; border-radius: 8px; font-weight: bold;">Download Receipt</a>
+                        </div>
+                        <p style="color: #9ca3af; font-size: 12px;">Thank you for your prompt payment!</p>
+                    </div>
+                `
+            });
+            console.log(`✅ Payment confirmation email sent to: ${params.email}`);
+        } catch (error) {
+            // Non-fatal — a failed notification email must not block payment recording.
+            console.error('Payment confirmation email sending failed:', error);
+        }
+    }
+
+    /**
      * Sends login credentials to a new user (parent, teacher, etc.)
      */
     static async sendCredentialsEmail(

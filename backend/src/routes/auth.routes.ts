@@ -3,7 +3,7 @@ import * as AuthController from '../controllers/auth.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { requireRole } from '../middleware/tenant.middleware';
 import { validateRequest } from '../middleware/security.middleware';
-import { loginLimiter, signupLimiter, passwordResetLimiter, demoLoginLimiter } from '../middleware/rateLimiters';
+import { loginLimiter, signupLimiter, passwordResetLimiter, demoLoginLimiter, otpLimiter } from '../middleware/rateLimiters';
 import { z } from 'zod';
 
 // Roles allowed to manage other users (create, reset password, force change)
@@ -42,12 +42,12 @@ router.post('/2fa/disable', authenticate, AuthController.disable2FA);
 router.post('/google-login', AuthController.googleLogin);
 router.post('/refresh', AuthController.refresh);
 router.post('/create-user', authenticate, requireRole(ADMIN_ROLES), AuthController.createUser);
-router.post('/resend-verification', AuthController.resendVerification);
+router.post('/resend-verification', otpLimiter, AuthController.resendVerification);
 // Identity-mutating endpoints: must be authenticated and act on the caller's own
 // account only (userId is derived from the verified JWT, never the request body).
 router.post('/confirm-email', authenticate, AuthController.confirmEmail);
 // verify-email stays public: it is bound to a signed, single-use token+code (pre-login flow).
-router.post('/verify-email', AuthController.verifyEmail);
+router.post('/verify-email', otpLimiter, AuthController.verifyEmail);
 router.post('/update-email', authenticate, AuthController.updateEmail);
 router.post('/verify-email-change', authenticate, AuthController.verifyEmailChange);
 router.post('/update-username', authenticate, AuthController.updateUsername);

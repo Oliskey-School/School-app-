@@ -2,8 +2,32 @@
 // These replace the @/components/ui/* imports that don't exist in this project
 
 import React from 'react';
+import { MotionButton, MotionCard, MotionCardHeader, MotionCardTitle, MotionCardContent, MotionInput, MotionSelect, MotionBadge, MotionTabs, MotionTabsList, MotionTabsTrigger, MotionTabsContent, MotionList, MotionListItem, MotionModal, MotionDrawer, MotionBottomSheet } from './motion-ui';
+import type { MotionButtonProps } from './motion-ui';
 
-// Card Components
+// Re-export motion components
+export type { MotionButtonProps } from './motion-ui';
+export { 
+  MotionButton as Button, 
+  MotionCard, 
+  MotionCardHeader, 
+  MotionCardTitle, 
+  MotionCardContent, 
+  MotionInput, 
+  MotionSelect, 
+  MotionBadge, 
+  MotionTabs, 
+  MotionTabsList, 
+  MotionTabsTrigger, 
+  MotionTabsContent, 
+  MotionList, 
+  MotionListItem, 
+  MotionModal, 
+  MotionDrawer, 
+  MotionBottomSheet 
+} from './motion-ui';
+
+// Card Components (legacy - use MotionCard for animations)
 export const Card = ({
     children,
     className = '',
@@ -42,49 +66,8 @@ export const CardContent = ({ children, className = '' }: { children: React.Reac
     </div>
 );
 
-// Button Component
-export const Button = ({
-    children,
-    onClick,
-    disabled = false,
-    variant = 'default',
-    size = 'default',
-    className = '',
-    ...props
-}: {
-    children: React.ReactNode;
-    onClick?: () => void;
-    disabled?: boolean;
-    variant?: 'default' | 'outline' | 'link';
-    size?: 'default' | 'sm' | 'lg';
-    className?: string;
-    [key: string]: any;
-}) => {
-    const baseClasses = 'inline-flex items-center justify-center rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50';
-
-    const variantClasses = {
-        default: 'bg-indigo-600 text-white hover:bg-indigo-700',
-        outline: 'border border-gray-300 bg-white hover:bg-gray-50',
-        link: 'underline-offset-4 hover:underline text-indigo-600',
-    };
-
-    const sizeClasses = {
-        default: 'h-10 px-4 py-2',
-        sm: 'h-9 px-3 text-sm',
-        lg: 'h-11 px-8',
-    };
-
-    return (
-        <button
-            className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
-            onClick={onClick}
-            disabled={disabled}
-            {...props}
-        >
-            {children}
-        </button>
-    );
-};
+// Button Component (legacy type - use MotionButtonProps for new code)
+type ButtonProps = MotionButtonProps;
 
 // Input Component
 export const Input = ({
@@ -143,7 +126,7 @@ export const Badge = ({
     );
 };
 
-// Tabs Components
+// Tabs Components (legacy)
 export const Tabs = ({
     children,
     defaultValue,
@@ -159,7 +142,6 @@ export const Tabs = ({
         <div className={className} data-active-tab={activeTab}>
             {React.Children.map(children, (child) => {
                 if (React.isValidElement(child)) {
-                    // unexpected side effect: if child is a DOM element (type is string), react warns about custom props
                     if (typeof child.type === 'string') {
                         return child;
                     }
@@ -256,8 +238,6 @@ export const useToast = () => {
         variant?: 'default' | 'destructive';
     }) => {
         // In production, this would trigger a real toast library
-        // For now, we keep it silent or minimal as per polishing requirements
-        // console.log(`[Toast ${variant}] ${title}`); 
     };
 
     return { toast };

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { api } from '../../lib/api';
 import { useAutoSync } from '../../hooks/useAutoSync';
+import CenteredLoader from '../ui/CenteredLoader';
 import {
     FileText, CheckCircle, Upload,
     ChevronRight, ChevronLeft, Building2, AlertCircle,
@@ -316,13 +318,13 @@ export default function ComplianceOnboardingPage({
                     <div className="flex items-center gap-2 mt-4">
                         {[1, 2, 3, 4].map((s) => (
                             <div key={s} className="flex items-center gap-2">
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${s < step ? 'bg-green-500 text-white' :
+                                <motion.div layout transition={{ type: 'spring', stiffness: 400, damping: 30 }} className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${s < step ? 'bg-green-500 text-white' :
                                     s === step ? 'bg-primary text-white' :
                                         'bg-gray-200 text-gray-600'
                                     }`}>
                                     {s < step ? <CheckCircle className="h-4 w-4" /> : s}
-                                </div>
-                                {s < 4 && <div className={`h-1 w-12 ${s < step ? 'bg-green-500' : 'bg-gray-200'}`} />}
+                                </motion.div>
+                                {s < 4 && <div className={`h-1 w-12 transition-colors duration-300 ${s < step ? 'bg-green-500' : 'bg-gray-200'}`} />}
                             </div>
                         ))}
                     </div>
@@ -330,15 +332,13 @@ export default function ComplianceOnboardingPage({
 
                 <CardContent className="space-y-6">
                     {fetching && (
-                        <div className="flex items-center justify-center p-8">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                            <span className="ml-2">Loading existing documents...</span>
-                        </div>
+                        <CenteredLoader message="Loading existing documents..." className="p-8" />
                     )}
 
+                    <AnimatePresence mode="wait">
                     {/* Step 1: Legal Documents */}
                     {step === 1 && (
-                        <div className="space-y-4">
+                        <motion.div key="step1" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.2 }} className="space-y-4">
                             <h3 className="text-lg font-semibold flex items-center gap-2">
                                 <FileText className="h-5 w-5" />
                                 Legal Documents
@@ -395,12 +395,12 @@ export default function ComplianceOnboardingPage({
                                     />
                                 </div>
                             </div>
-                        </div>
+                        </motion.div>
                     )}
 
                     {/* Step 2: Safety Certificates */}
                     {step === 2 && (
-                        <div className="space-y-4">
+                        <motion.div key="step2" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.2 }} className="space-y-4">
                             <h3 className="text-lg font-semibold flex items-center gap-2">
                                 <Flame className="h-5 w-5 text-orange-600" />
                                 Safety & Health Certificates
@@ -457,12 +457,12 @@ export default function ComplianceOnboardingPage({
                                     />
                                 </div>
                             </div>
-                        </div>
+                        </motion.div>
                     )}
 
                     {/* Step 3: Insurance & Building */}
                     {step === 3 && (
-                        <div className="space-y-4">
+                        <motion.div key="step3" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.2 }} className="space-y-4">
                             <h3 className="text-lg font-semibold flex items-center gap-2">
                                 <Building2 className="h-5 w-5" />
                                 Insurance & Building Approval
@@ -519,12 +519,12 @@ export default function ComplianceOnboardingPage({
                                     />
                                 </div>
                             </div>
-                        </div>
+                        </motion.div>
                     )}
 
                     {/* Step 4: Curriculum Declaration */}
                     {step === 4 && (
-                        <div className="space-y-4">
+                        <motion.div key="step4" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.2 }} className="space-y-4">
                             <h3 className="text-lg font-semibold flex items-center gap-2">
                                 <CheckCircle className="h-5 w-5 text-green-600" />
                                 Curriculum Declaration
@@ -573,8 +573,9 @@ export default function ComplianceOnboardingPage({
                                     <p>✓ Curriculum: {formData.curriculumType || 'Not selected'}</p>
                                 </div>
                             </div>
-                        </div>
+                        </motion.div>
                     )}
+                    </AnimatePresence>
 
                     {/* Navigation Buttons */}
                     <div className="flex justify-between pt-6 border-t">

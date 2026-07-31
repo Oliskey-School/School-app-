@@ -2,6 +2,7 @@
 
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { CheckCircleIcon, XCircleIcon } from '../../constants';
 import DonutChart from '../ui/DonutChart';
@@ -26,16 +27,18 @@ const AttendanceStatusButtons = ({ status, onStatusChange }: { status: Attendanc
     return (
         <div className="flex items-center space-x-1">
             {statusOptions.map(option => (
-                <button
+                <motion.button
                     key={option}
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.92 }}
                     onClick={() => onStatusChange(option)}
-                    className={`w-8 h-8 rounded-lg text-xs font-bold transition-all transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-1 ${status === option
+                    className={`w-8 h-8 rounded-lg text-xs font-bold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 ${status === option
                         ? statusStyles[option].button
                         : 'bg-gray-200 text-gray-600'
                         }`}
                 >
                     {statusStyles[option].text}
-                </button>
+                </motion.button>
             ))}
         </div>
     );
@@ -275,20 +278,24 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                    <button
+                    <motion.button
+                        whileHover={{ y: -1 }}
+                        whileTap={{ scale: 0.97 }}
                         onClick={() => handleMarkAll('Present')}
                         className="flex justify-center items-center space-x-2 py-2 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white bg-green-500 hover:bg-green-600 focus:outline-none"
                     >
                         <CheckCircleIcon className="w-5 h-5" />
                         <span>Mark All Present</span>
-                    </button>
-                    <button
+                    </motion.button>
+                    <motion.button
+                        whileHover={{ y: -1 }}
+                        whileTap={{ scale: 0.97 }}
                         onClick={() => handleMarkAll('Absent')}
                         className="flex justify-center items-center space-x-2 py-2 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white bg-red-500 hover:bg-red-600 focus:outline-none"
                     >
                         <XCircleIcon className="w-5 h-5" />
                         <span>Mark All Absent</span>
-                    </button>
+                    </motion.button>
                 </div>
             </div>
 
@@ -298,8 +305,8 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
                     <CenteredLoader message="Loading attendance data..." className="py-12" />
                 ) : (
                     <ul className="divide-y divide-gray-200">
-                        {students.map(student => (
-                            <li key={student.id} className="p-4 flex items-center justify-between bg-white hover:bg-gray-50">
+                        {students.map((student, i) => (
+                            <motion.li key={student.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(i, 15) * 0.02 }} className="p-4 flex items-center justify-between bg-white hover:bg-gray-50">
                                 <div className="flex items-center space-x-4">
                                     {student.avatarUrl ? (
                                         <img src={student.avatarUrl} alt={student.name} className="w-10 h-10 rounded-full object-cover bg-gray-200" />
@@ -314,7 +321,7 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
                                     </div>
                                 </div>
                                 <AttendanceStatusButtons status={student.attendanceStatus} onStatusChange={(newStatus) => handleStatusChange(student.id, newStatus)} />
-                            </li>
+                            </motion.li>
                         ))}
                         {students.length === 0 && (
                             <div className="text-center py-10 bg-white">
@@ -327,12 +334,14 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
 
             {/* Footer */}
             <div className="p-4 bg-white border-t border-gray-200">
-                <button
+                <motion.button
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={submitAttendance}
                     className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
                 >
                     Save Attendance for {selectedDate}
-                </button>
+                </motion.button>
             </div>
         </div>
     );

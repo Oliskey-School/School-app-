@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import { Beaker, ShieldCheck, FileSearch, Play, CheckCircle, AlertCircle, RefreshCw, Zap } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
@@ -88,44 +89,40 @@ const ValidationConsole: React.FC = () => {
                     </h1>
                     <p className="text-gray-500 mt-1">Simulate cross-curriculum scenarios and Ministry audits.</p>
                 </div>
-                <button
+                <motion.button
+                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                     onClick={runAll}
                     className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold hover:bg-indigo-700 transition shadow-lg shadow-indigo-100"
                 >
                     <Zap className="w-4 h-4" />
                     Run Full Audit
-                </button>
+                </motion.button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
-                    <p className="text-emerald-700 font-bold text-lg">98.4%</p>
-                    <p className="text-xs text-emerald-600 uppercase tracking-wider font-bold">Data Integrity</p>
-                </div>
-                <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
-                    <p className="text-blue-700 font-bold text-lg">100%</p>
-                    <p className="text-xs text-blue-600 uppercase tracking-wider font-bold">Isolation Strength</p>
-                </div>
-                <div className="bg-purple-50 p-4 rounded-xl border border-purple-100">
-                    <p className="text-purple-700 font-bold text-lg">Active</p>
-                    <p className="text-xs text-purple-600 uppercase tracking-wider font-bold">Audit Monitoring</p>
-                </div>
-                <div className="bg-amber-50 p-4 rounded-xl border border-amber-100">
-                    <p className="text-amber-700 font-bold text-lg">MoE Ready</p>
-                    <p className="text-xs text-amber-600 uppercase tracking-wider font-bold">Certification Status</p>
-                </div>
+                {[
+                    { bg: 'bg-emerald-50 border-emerald-100', text: 'text-emerald-700', label: 'text-emerald-600', value: '98.4%', caption: 'Data Integrity' },
+                    { bg: 'bg-blue-50 border-blue-100', text: 'text-blue-700', label: 'text-blue-600', value: '100%', caption: 'Isolation Strength' },
+                    { bg: 'bg-purple-50 border-purple-100', text: 'text-purple-700', label: 'text-purple-600', value: 'Active', caption: 'Audit Monitoring' },
+                    { bg: 'bg-amber-50 border-amber-100', text: 'text-amber-700', label: 'text-amber-600', value: 'MoE Ready', caption: 'Certification Status' },
+                ].map((s, si) => (
+                    <motion.div key={s.caption} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: si * 0.03 }} className={`${s.bg} p-4 rounded-xl border`}>
+                        <p className={`${s.text} font-bold text-lg`}>{s.value}</p>
+                        <p className={`text-xs ${s.label} uppercase tracking-wider font-bold`}>{s.caption}</p>
+                    </motion.div>
+                ))}
             </div>
 
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="p-4 bg-gray-50 border-b border-gray-100 flex justify-between items-center font-bold text-gray-700 text-sm italic">
                     <span className="flex items-center gap-2"><FileSearch className="w-4 h-4" /> Validation Scenarios</span>
-                    <button onClick={setResultsToPending} className="text-indigo-600 hover:underline flex items-center gap-1 text-xs">
+                    <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={setResultsToPending} className="text-indigo-600 hover:underline flex items-center gap-1 text-xs">
                         <RefreshCw className="w-3 h-3" /> Reset
-                    </button>
+                    </motion.button>
                 </div>
                 <div className="divide-y divide-gray-100">
-                    {testResults.map(test => (
-                        <div key={test.id} className="p-5 flex justify-between items-center hover:bg-gray-50 transition group">
+                    {testResults.map((test, ti) => (
+                        <motion.div key={test.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(ti, 15) * 0.02 }} className="p-5 flex justify-between items-center hover:bg-gray-50 transition group">
                             <div className="flex items-center gap-4">
                                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${test.status === 'pass' ? 'bg-emerald-100 text-emerald-600' :
                                         test.status === 'fail' ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-400'
@@ -138,7 +135,9 @@ const ValidationConsole: React.FC = () => {
                                     <p className="text-xs text-gray-400 font-mono uppercase">{test.id}</p>
                                 </div>
                             </div>
-                            <button
+                            <motion.button
+                                whileHover={runningTest === null && test.status !== 'pass' ? { scale: 1.03 } : {}}
+                                whileTap={runningTest === null && test.status !== 'pass' ? { scale: 0.97 } : {}}
                                 onClick={() => runScenario(test.id)}
                                 disabled={runningTest !== null || test.status === 'pass'}
                                 className={`px-4 py-2 rounded-lg text-sm font-bold transition ${test.status === 'pass'
@@ -147,8 +146,8 @@ const ValidationConsole: React.FC = () => {
                                     }`}
                             >
                                 {test.status === 'pass' ? 'Passed' : runningTest === test.id ? 'Running...' : 'Execute Test'}
-                            </button>
-                        </div>
+                            </motion.button>
+                        </motion.div>
                     ))}
                 </div>
             </div>
@@ -161,12 +160,12 @@ const ValidationConsole: React.FC = () => {
                     It demonstrates how our "Unified Governance" prevents data leakage while maintaining absolute transparency.
                 </p>
                 <div className="flex gap-3">
-                    <button className="bg-white text-indigo-900 px-6 py-2 rounded-xl font-bold hover:bg-indigo-50 transition">
+                    <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="bg-white text-indigo-900 px-6 py-2 rounded-xl font-bold hover:bg-indigo-50 transition">
                         Enter Simulation Mode
-                    </button>
-                    <button className="bg-indigo-800 text-indigo-100 px-6 py-2 rounded-xl font-bold hover:bg-indigo-700 transition">
+                    </motion.button>
+                    <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="bg-indigo-800 text-indigo-100 px-6 py-2 rounded-xl font-bold hover:bg-indigo-700 transition">
                         Export Audit Proof (.pdf)
-                    </button>
+                    </motion.button>
                 </div>
             </div>
         </div>

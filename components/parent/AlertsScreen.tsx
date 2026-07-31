@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
@@ -103,14 +104,19 @@ const AlertsScreen: React.FC<AlertsScreenProps> = ({ navigateTo }) => {
     <div className="flex flex-col h-full bg-gray-100">
       <main className="flex-grow p-4 space-y-3 overflow-y-auto pb-24">
         {notifications.length > 0 ? (
-          notifications.map(notification => {
+          notifications.map((notification, i) => {
             const config = NOTIFICATION_CATEGORY_CONFIG[notification.category] || NOTIFICATION_CATEGORY_CONFIG['System'];
             const Icon = config.icon;
             return (
-              <button
+              <motion.button
                 key={notification.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25, delay: Math.min(i, 10) * 0.05 }}
+                whileHover={{ y: -2 }}
+                whileTap={{ scale: 0.99 }}
                 onClick={() => handleNotificationClick(notification)}
-                className={`w-full text-left bg-white rounded-xl shadow-sm p-4 flex items-start space-x-4 relative transition-all hover:shadow-md hover:ring-2 hover:ring-green-200 ${notification.isRead ? 'opacity-70' : ''}`}
+                className={`w-full text-left bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow p-4 flex items-start space-x-4 relative hover:ring-2 hover:ring-green-200 ${notification.isRead ? 'opacity-70' : ''}`}
               >
                 {!notification.isRead && (
                   <div className="absolute top-3 right-3 h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse"></div>
@@ -127,13 +133,13 @@ const AlertsScreen: React.FC<AlertsScreenProps> = ({ navigateTo }) => {
                   </div>
                   <p className={`text-sm mt-1 ${notification.isRead ? 'text-gray-600' : 'text-gray-800'}`}>{notification.summary}</p>
                 </div>
-              </button>
+              </motion.button>
             )
           })
         ) : (
-          <div className="text-center py-10 bg-white rounded-2xl border border-dashed border-gray-200">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }} className="text-center py-10 bg-white rounded-2xl border border-dashed border-gray-200">
             <p className="text-gray-500">No new notifications.</p>
-          </div>
+          </motion.div>
         )}
       </main>
     </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { CheckCircleIcon, CalendarIcon, AlertTriangleIcon } from '../../constants';
@@ -122,7 +122,7 @@ const TeacherSelfAttendance: React.FC<TeacherSelfAttendanceProps> = ({ navigateT
     return (
         <div className="p-4 space-y-6">
             {/* Header / Intro */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
                 <div className="flex items-center justify-between mb-4">
                     <div>
                         <h2 className="text-xl font-bold text-gray-800">Today's Attendance</h2>
@@ -130,13 +130,15 @@ const TeacherSelfAttendance: React.FC<TeacherSelfAttendanceProps> = ({ navigateT
                             {currentTime.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
                         </p>
                     </div>
-                    <button
+                    <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
                         onClick={() => navigateTo('attendanceHistory', 'Attendance History', {})}
-                        className="w-12 h-12 bg-purple-100 rounded-2xl flex items-center justify-center hover:bg-purple-200 transition-colors active:scale-95"
+                        className="w-12 h-12 bg-purple-100 rounded-2xl flex items-center justify-center hover:bg-purple-200 transition-colors"
                         title="View Attendance History"
                     >
                         <CalendarIcon className="h-6 w-6 text-purple-600" />
-                    </button>
+                    </motion.button>
                 </div>
 
                 {todayStatus ? (
@@ -172,10 +174,12 @@ const TeacherSelfAttendance: React.FC<TeacherSelfAttendanceProps> = ({ navigateT
                                 </span>
                             </div>
                         ) : (
-                            <button
+                            <motion.button
+                                whileHover={!submitting ? { scale: 1.01 } : {}}
+                                whileTap={!submitting ? { scale: 0.97 } : {}}
                                 onClick={handleCheckIn}
                                 disabled={submitting}
-                                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-100 transition-all active:scale-95 disabled:opacity-70 flex items-center justify-center gap-2"
+                                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-100 transition-colors disabled:opacity-70 flex items-center justify-center gap-2"
                             >
                                 {submitting ? (
                                     <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -183,14 +187,16 @@ const TeacherSelfAttendance: React.FC<TeacherSelfAttendanceProps> = ({ navigateT
                                     <CheckCircleIcon className="h-5 w-5" />
                                 )}
                                 {submitting ? 'Processing...' : 'Mark Attendance (Check Out)'}
-                            </button>
+                            </motion.button>
                         )}
                     </div>
                 ) : (
-                    <button
+                    <motion.button
+                        whileHover={!submitting ? { scale: 1.01 } : {}}
+                        whileTap={!submitting ? { scale: 0.97 } : {}}
                         onClick={handleCheckIn}
                         disabled={submitting}
-                        className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-purple-100 transition-all active:scale-95 disabled:opacity-70 disabled:active:scale-100 flex items-center justify-center gap-2"
+                        className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-purple-100 transition-colors disabled:opacity-70 flex items-center justify-center gap-2"
                     >
                         {submitting ? (
                             <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -198,9 +204,9 @@ const TeacherSelfAttendance: React.FC<TeacherSelfAttendanceProps> = ({ navigateT
                             <CheckCircleIcon className="h-5 w-5" />
                         )}
                         {submitting ? 'Processing...' : 'Mark Attendance (Check In)'}
-                    </button>
+                    </motion.button>
                 )}
-            </div>
+            </motion.div>
 
             {/* Attendance History */}
             <div className="space-y-4">
@@ -212,8 +218,8 @@ const TeacherSelfAttendance: React.FC<TeacherSelfAttendanceProps> = ({ navigateT
                             <p className="text-gray-500">No attendance records yet.</p>
                         </div>
                     ) : (
-                        attendanceHistory.map((record) => (
-                            <div key={record.id} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex items-center justify-between">
+                        attendanceHistory.map((record, i) => (
+                            <motion.div key={record.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(i, 12) * 0.03 }} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex items-center justify-between">
                                 <div className="flex items-center gap-4">
                                     <div className="text-center bg-gray-50 rounded-lg p-2 min-w-[50px]">
                                         <p className="text-xs font-bold text-gray-400 uppercase">
@@ -232,7 +238,7 @@ const TeacherSelfAttendance: React.FC<TeacherSelfAttendanceProps> = ({ navigateT
                                     {(record.approval_status || 'Pending').charAt(0).toUpperCase() + (record.approval_status || 'Pending').slice(1)}
                                 </span>
 
-                            </div>
+                            </motion.div>
                         ))
                     )}
                 </div>

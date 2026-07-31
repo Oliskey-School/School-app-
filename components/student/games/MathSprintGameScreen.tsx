@@ -155,7 +155,7 @@ const MathSprintGameScreen: React.FC<MathSprintGameScreenProps> = ({ navigateTo,
                 <p className="text-lg text-indigo-100 mb-8 max-w-md">Race against the clock! Solve as many problems as possible in 60 seconds.</p>
 
                 <div className="bg-white/10 p-4 rounded-xl mb-8 backdrop-blur-sm">
-                    <p className="font-semibold text-yellow-300">ðŸ”¥ Streak Bonus</p>
+                    <p className="font-semibold text-yellow-300">🔥 Streak Bonus</p>
                     <p className="text-sm">Get answers right in a row to multiply your score!</p>
                 </div>
 
@@ -214,10 +214,22 @@ const MathSprintGameScreen: React.FC<MathSprintGameScreenProps> = ({ navigateTo,
                     </div>
                 </div>
 
-                <button onClick={() => setGameState('start')} className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition backdrop-blur-md active:scale-95">
+                <button onClick={() => setGameState('paused')} className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition backdrop-blur-md active:scale-95">
                     <PauseIcon className="w-5 h-5" />
                 </button>
             </div>
+
+            {gameState === 'paused' && (
+                <div className="absolute inset-0 z-20 bg-slate-900/90 backdrop-blur-md flex flex-col items-center justify-center gap-6">
+                    <h2 className="text-3xl font-black">Paused</h2>
+                    <div className="flex gap-3">
+                        <button onClick={() => navigateTo('gamesHub', 'Games Hub')} className="px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 font-bold transition">Exit</button>
+                        <button onClick={() => setGameState('playing')} className="px-8 py-3 rounded-xl bg-green-500 hover:bg-green-600 text-white font-bold shadow-lg transition transform hover:scale-105 flex items-center gap-2">
+                            <PlayIcon className="w-5 h-5" /> Resume
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* Main Game Area - Using Flex-1 to fill space evenly */}
             <div className="flex-1 flex flex-col items-center justify-evenly p-4 z-10 w-full max-w-2xl mx-auto">
@@ -226,7 +238,7 @@ const MathSprintGameScreen: React.FC<MathSprintGameScreenProps> = ({ navigateTo,
                 <div className="h-8 flex items-center justify-center">
                     {streak > 2 && (
                         <div className="text-orange-400 font-bold animate-bounce tracking-widest uppercase text-sm lg:text-base border border-orange-500/30 px-3 py-1 rounded-full bg-orange-500/10">
-                            {streak} Streak! ðŸ”¥
+                            {streak} Streak! 🔥
                         </div>
                     )}
                 </div>

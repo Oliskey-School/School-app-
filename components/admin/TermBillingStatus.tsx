@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { CreditCard, CheckCircle, Clock } from 'lucide-react';
 import { usePlanStatus } from '../../lib/hooks/usePlanStatus';
 import TrialBanner from '../ui/TrialBanner';
@@ -19,7 +20,7 @@ const TermBillingStatus: React.FC<TermBillingStatusProps> = ({ navigateTo }) => 
     return (
         <div className="space-y-2 mb-1">
             <TrialBanner onUpgradeClick={() => navigateTo('upgrade', 'Billing & Plan')} />
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex items-center gap-4">
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex items-center gap-4">
                 <div className="p-3 rounded-lg bg-green-100 text-green-600 flex-shrink-0">
                     <CreditCard className="h-6 w-6" />
                 </div>
@@ -37,13 +38,14 @@ const TermBillingStatus: React.FC<TermBillingStatusProps> = ({ navigateTo }) => 
                         </p>
                     )}
                 </div>
-                <button
+                <motion.button
+                    whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                     onClick={() => navigateTo('upgrade', 'Billing & Plan')}
                     className="text-xs font-semibold text-green-600 hover:text-green-700 flex-shrink-0"
                 >
                     Manage →
-                </button>
-            </div>
+                </motion.button>
+            </motion.div>
         </div>
     );
 };

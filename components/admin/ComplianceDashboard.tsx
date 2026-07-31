@@ -1,8 +1,10 @@
 ﻿import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
 import { useAutoSync } from '../../hooks/useAutoSync';
+import CenteredLoader from '../ui/CenteredLoader';
 import {
     ShieldCheck,
     AlertTriangle,
@@ -74,18 +76,13 @@ const ComplianceDashboard = () => {
     };
 
     if (loading) {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
-                <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-                <p className="text-gray-400 font-medium animate-pulse">Calculating compliance scores...</p>
-            </div>
-        );
+        return <CenteredLoader message="Calculating compliance scores..." className="min-h-[400px]" />;
     }
 
     const overallScore = metrics ? Math.round((metrics.facilities_score + metrics.equipment_score + metrics.safety_score + metrics.safeguarding_score) / 4) : 0;
 
     return (
-        <div className="p-6 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
+        <div className="p-6 max-w-7xl mx-auto space-y-8">
             <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <h1 className="text-3xl font-extrabold text-gray-900 font-outfit">Compliance Dashboard</h1>
@@ -108,7 +105,7 @@ const ComplianceDashboard = () => {
                     { label: 'Safety Logs', score: metrics?.safety_score || 0, icon: <Activity />, desc: 'Emergency drills' },
                     { label: 'Safeguarding', score: metrics?.safeguarding_score || 0, icon: <Lock />, desc: 'Policy compliance' },
                 ].map((stat, idx) => (
-                    <div key={idx} className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 space-y-4 hover:shadow-xl hover:shadow-indigo-50/50 transition-all group">
+                    <motion.div key={idx} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: idx * 0.05 }} className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 space-y-4 hover:shadow-xl hover:shadow-indigo-50/50 transition-shadow group">
                         <div className="flex justify-between items-center">
                             <div className={`p-3 rounded-2xl ${getStatusColor(stat.score)}`}>
                                 {stat.icon}
@@ -120,12 +117,14 @@ const ComplianceDashboard = () => {
                             <p className="text-xs text-gray-400">{stat.desc}</p>
                         </div>
                         <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
-                            <div
-                                className={`h-full transition-all duration-1000 ${getProgressBarColor(stat.score)}`}
-                                style={{ width: `${stat.score}%` }}
+                            <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: `${stat.score}%` }}
+                                transition={{ duration: 0.8, delay: idx * 0.1, ease: 'easeOut' }}
+                                className={`h-full ${getProgressBarColor(stat.score)}`}
                             />
                         </div>
-                    </div>
+                    </motion.div>
                 ))}
             </div>
 
@@ -145,7 +144,7 @@ const ComplianceDashboard = () => {
                             { item: 'Missing Safeguarding Policy v2', dept: 'Admin', priority: 'Critical', date: 'Today' },
                             { item: 'Laboratory Ventilation Repair', dept: 'Facilities', priority: 'Medium', date: '2 weeks ago' },
                         ].map((gap, i) => (
-                            <div key={i} className="p-6 flex items-center justify-between hover:bg-gray-50/50 transition-colors">
+                            <motion.div key={i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.2, delay: i * 0.05 }} className="p-6 flex items-center justify-between hover:bg-gray-50/50 transition-colors">
                                 <div className="flex items-center space-x-4">
                                     <div className={`w-2 h-12 rounded-full ${gap.priority === 'Critical' ? 'bg-red-500' : gap.priority === 'High' ? 'bg-amber-500' : 'bg-blue-500'}`} />
                                     <div>
@@ -153,14 +152,14 @@ const ComplianceDashboard = () => {
                                         <p className="text-xs text-gray-400">{gap.dept} • Reported {gap.date}</p>
                                     </div>
                                 </div>
-                                <button className="px-4 py-2 text-indigo-600 font-bold text-sm bg-indigo-50 rounded-xl hover:bg-indigo-100 transition-all">Fix Now</button>
-                            </div>
+                                <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="px-4 py-2 text-indigo-600 font-bold text-sm bg-indigo-50 rounded-xl hover:bg-indigo-100 transition-all">Fix Now</motion.button>
+                            </motion.div>
                         ))}
                     </div>
                 </div>
 
                 {/* Compliance Trend */}
-                <div className="bg-indigo-900 rounded-[2.5rem] p-8 text-white space-y-6 shadow-2xl shadow-indigo-200">
+                <div className="bg-indigo-900 rounded-[2.5rem] p-8 text-white space-y-6 shadow-2xl shadow-indigo-200 lg:sticky lg:top-6 lg:self-start">
                     <div className="flex justify-between items-center">
                         <h2 className="font-bold text-indigo-100 uppercase tracking-widest text-xs">Monthly Trend</h2>
                         <TrendingUp className="w-5 h-5 text-emerald-400" />
@@ -172,15 +171,17 @@ const ComplianceDashboard = () => {
                     <div className="flex items-end justify-between h-32 pt-4">
                         {[40, 65, 55, 80, 75, 92].map((h, i) => (
                             <div key={i} className="w-4 bg-indigo-400/30 rounded-t-lg relative group">
-                                <div
-                                    className="absolute bottom-0 w-full bg-indigo-300 rounded-t-lg transition-all duration-1000 group-hover:bg-emerald-400"
-                                    style={{ height: `${h}%` }}
+                                <motion.div
+                                    initial={{ height: 0 }}
+                                    animate={{ height: `${h}%` }}
+                                    transition={{ duration: 0.6, delay: i * 0.08, ease: 'easeOut' }}
+                                    className="absolute bottom-0 w-full bg-indigo-300 rounded-t-lg group-hover:bg-emerald-400 transition-colors"
                                 />
                             </div>
                         ))}
                     </div>
                     <div className="pt-4 border-t border-indigo-800/50">
-                        <button className="w-full py-3 bg-white/10 hover:bg-white/20 rounded-2xl font-bold transition-all text-sm">Download Performance Audit</button>
+                        <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="w-full py-3 bg-white/10 hover:bg-white/20 rounded-2xl font-bold transition-all text-sm">Download Performance Audit</motion.button>
                     </div>
                 </div>
             </div>

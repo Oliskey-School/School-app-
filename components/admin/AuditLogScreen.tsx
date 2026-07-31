@@ -1,9 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { useAuth } from '../../context/AuthContext';
+import CenteredLoader from '../ui/CenteredLoader';
 import {
   LoginIcon,
   LogoutIcon,
@@ -83,7 +85,7 @@ const AuditLogScreen: React.FC = () => {
     return 'update';
   };
 
-  if (loading) return <div className="p-8 text-center text-gray-500">Loading audit trail...</div>;
+  if (loading) return <CenteredLoader message="Loading audit trail..." className="p-8" />;
 
   return (
     <div className="flex flex-col h-full bg-gray-100">
@@ -94,8 +96,8 @@ const AuditLogScreen: React.FC = () => {
 
           <ul className="space-y-6">
             {logs.length === 0 && <p className="text-center py-12 text-gray-400">No logs found. Audit system active.</p>}
-            {logs.map((log) => (
-              <li key={log.id} className="relative flex items-start space-x-4">
+            {logs.map((log, li) => (
+              <motion.li key={log.id} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.2, delay: Math.min(li, 15) * 0.03 }} className="relative flex items-start space-x-4">
                 {/* Icon Circle */}
                 <div className="z-10 flex-shrink-0 w-14 h-14 bg-white rounded-full flex items-center justify-center border-4 border-gray-100 shadow-sm">
                   {actionIcons[mapActionToType(log.action || log.action_type)]}
@@ -112,7 +114,7 @@ const AuditLogScreen: React.FC = () => {
                   </p>
                   <p className="text-xs text-gray-400 mt-1">{formatDistanceToNow(log.created_at || log.performed_at || new Date().toISOString())}</p>
                 </div>
-              </li>
+              </motion.li>
             ))}
           </ul>
         </div>

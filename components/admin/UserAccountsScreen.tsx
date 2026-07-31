@@ -1,11 +1,13 @@
 import { toast } from 'react-hot-toast';
 import React, { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { SearchIcon, UserIcon, RefreshIcon } from '../../constants';
 
 // Import ConfirmationModal assuming it is accessible in ../ui/ConfirmationModal
 import ConfirmationModal from '../ui/ConfirmationModal';
+import CenteredLoader from '../ui/CenteredLoader';
 
 interface AuthAccount {
     id: string;
@@ -141,12 +143,7 @@ const UserAccountsScreen: React.FC = () => {
         ),
         [accounts, searchTerm]);
 
-    if (loading) return (
-        <div className="flex flex-col items-center justify-center h-full gap-4">
-            <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-gray-500 animate-pulse">Loading user accounts...</p>
-        </div>
-    );
+    if (loading) return <CenteredLoader message="Loading user accounts..." className="h-full" />;
 
     return (
         <div className="flex flex-col h-full bg-gray-50">
@@ -184,8 +181,8 @@ const UserAccountsScreen: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
-                                {filteredAccounts.map(account => (
-                                    <tr key={account.id} className="hover:bg-gray-50">
+                                {filteredAccounts.map((account, i) => (
+                                    <motion.tr key={account.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2, delay: Math.min(i, 15) * 0.02 }} className="hover:bg-gray-50">
                                         {/* ... (keep other cells same) */}
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex items-center">
@@ -262,7 +259,7 @@ const UserAccountsScreen: React.FC = () => {
                                                 Delete
                                             </button>
                                         </td>
-                                    </tr>
+                                    </motion.tr>
                                 ))}
                             </tbody>
                         </table>
@@ -270,8 +267,8 @@ const UserAccountsScreen: React.FC = () => {
 
                     {/* Mobile Card View */}
                     <div className="md:hidden space-y-4 p-4 bg-gray-50">
-                        {filteredAccounts.map(account => (
-                            <div key={account.id} className="bg-white rounded-xl shadow-sm p-4 space-y-3 border border-gray-100">
+                        {filteredAccounts.map((account, i) => (
+                            <motion.div key={account.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(i, 15) * 0.03 }} className="bg-white rounded-xl shadow-sm p-4 space-y-3 border border-gray-100">
                                 {/* ... (keep content same) */}
                                 <div className="flex items-start justify-between">
                                     <div className="flex items-center space-x-3">
@@ -343,17 +340,17 @@ const UserAccountsScreen: React.FC = () => {
                                         Reset Pass
                                     </button>
                                 </div>
-                            </div>
+                            </motion.div>
                         ))}
                     </div>
                     {filteredAccounts.length === 0 && (
-                        <div className="flex flex-col items-center justify-center py-16 text-center">
+                        <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.25 }} className="flex flex-col items-center justify-center py-16 text-center">
                             <div className="p-4 bg-gray-100 rounded-full mb-4">
                                 <UserIcon className="h-10 w-10 text-gray-400" />
                             </div>
                             <h3 className="text-base font-bold text-gray-700 mb-1">No Accounts Found</h3>
                             <p className="text-sm text-gray-500">Try adjusting your search to find what you are looking for.</p>
-                        </div>
+                        </motion.div>
                     )}
                 </div>
                 {/* Note on Passwords */}

@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { getPaymentPlan, Installment, PaymentPlan } from '../../lib/payment-plans';
 import { CheckCircle, Clock, AlertCircle } from 'lucide-react';
@@ -96,10 +97,12 @@ export const InstallmentSchedule: React.FC<InstallmentScheduleProps> = ({ feeId,
                         <span>{paidCount} of {installments.length} paid</span>
                         <span>{Math.round(progress)}%</span>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div
-                            className="bg-gradient-to-r from-indigo-600 to-purple-600 h-2 rounded-full transition-all"
-                            style={{ width: `${progress}%` }}
+                    <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                        <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: `${progress}%` }}
+                            transition={{ duration: 0.6, ease: 'easeOut' }}
+                            className="bg-gradient-to-r from-indigo-600 to-purple-600 h-2 rounded-full"
                         />
                     </div>
                 </div>
@@ -108,14 +111,17 @@ export const InstallmentSchedule: React.FC<InstallmentScheduleProps> = ({ feeId,
             {/* Installments List */}
             <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
                 <div className="divide-y divide-gray-100">
-                    {installments.map((installment) => {
+                    {installments.map((installment, i) => {
                         const isPayable = installment.status === 'pending' || installment.status === 'partial' || installment.status === 'overdue';
                         const balance = installment.amount - installment.paidAmount;
 
                         return (
-                            <div
+                            <motion.div
                                 key={installment.id}
-                                className="p-4 hover:bg-gray-50 transition"
+                                initial={{ opacity: 0, y: 8 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.2, delay: Math.min(i, 10) * 0.04 }}
+                                className="p-4 hover:bg-gray-50 transition-colors"
                             >
                                 <div className="flex items-start justify-between">
                                     <div className="flex items-start gap-3 flex-1">
@@ -162,15 +168,17 @@ export const InstallmentSchedule: React.FC<InstallmentScheduleProps> = ({ feeId,
 
                                     {/* Pay Button */}
                                     {isPayable && (
-                                        <button
+                                        <motion.button
+                                            whileHover={{ scale: 1.03 }}
+                                            whileTap={{ scale: 0.96 }}
                                             onClick={() => onPayInstallment(installment)}
-                                            className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition"
+                                            className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
                                         >
                                             Pay Now
-                                        </button>
+                                        </motion.button>
                                     )}
                                 </div>
-                            </div>
+                            </motion.div>
                         );
                     })}
                 </div>

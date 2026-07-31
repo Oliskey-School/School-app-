@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { CameraIcon, UserIcon, MailIcon, PhoneIcon, StudentsIcon } from '../../constants';
 
 import { toast } from 'react-hot-toast';
@@ -7,7 +8,6 @@ import { Formik, Form, Field, ErrorMessage, FormikHelpers } from 'formik';
 import { Parent } from '../../types';
 import { api } from '../../lib/api';
 import { createUserAccount, sendVerificationEmail, checkEmailExists } from '../../lib/auth';
-import { sendWelcomeEmail } from '../../lib/emailService';
 import CredentialsModal from '../ui/CredentialsModal';
 import { useProfile } from '../../context/ProfileContext';
 import { useAuth } from '../../context/AuthContext';
@@ -234,10 +234,10 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
                             <div className="w-28 h-28 rounded-full bg-gray-200 flex items-center justify-center">
                                 {avatar ? <img src={avatar} alt="Parent" className="w-full h-full rounded-full object-cover" /> : <UserIcon className="w-12 h-12 text-gray-400" />}
                             </div>
-                            <label htmlFor="photo-upload" className="absolute bottom-0 right-0 bg-blue-600 p-2 rounded-full border-2 border-white cursor-pointer hover:bg-blue-700">
+                            <motion.label whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.92 }} htmlFor="photo-upload" className="absolute bottom-0 right-0 bg-blue-600 p-2 rounded-full border-2 border-white cursor-pointer hover:bg-blue-700">
                                 <CameraIcon className="text-white h-4 w-4" />
                                 <input id="photo-upload" type="file" className="sr-only" accept="image/*" onChange={handleImageChange} />
-                            </label>
+                            </motion.label>
                         </div>
                     </div>
                     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-6">
@@ -338,13 +338,15 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
                     </div>
                 </main>
                 <div className="p-4 mt-auto bg-gray-50">
-                    <button
+                    <motion.button
+                        whileHover={!isLoading ? { scale: 1.01 } : {}}
+                        whileTap={!isLoading ? { scale: 0.98 } : {}}
                         type="submit"
                         disabled={isLoading}
                         className={`w-full flex justify-center py-3 px-4 rounded-lg text-white ${isLoading ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'} transition-colors`}
                     >
                         {isLoading ? 'Saving...' : (parentToEdit ? 'Update Parent' : 'Save Parent')}
-                    </button>
+                    </motion.button>
                 </div>
             </form>
 

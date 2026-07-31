@@ -1,5 +1,5 @@
 import prisma from '../config/database';
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcrypt';
 import { EmailService } from './email.service';
 import { IdGeneratorService } from './idGenerator.service';
 import { Role } from '../../generated/prisma-client';
@@ -812,6 +812,12 @@ export class ParentService {
             }
 
             let classId = enrollment?.class_id;
+            // The class's actual name (e.g. "JSS 1", as typed by the admin when the
+            // class was created) — resolved below whenever we can find the class, so
+            // the parent-facing overview shows the real class name instead of a raw
+            // "<grade><section>" code (e.g. "7A") that means nothing outside the
+            // admin's own numbering scheme.
+            let className: string | undefined;
 
             if (!classId) {
                 const fallbackClass = await prisma.class.findFirst({
@@ -822,9 +828,16 @@ export class ParentService {
                         // student actually has one, otherwise Prisma rejects section: null.
                         ...(student.section ? { section: student.section } : {})
                     },
-                    select: { id: true }
+                    select: { id: true, name: true }
                 });
                 classId = fallbackClass?.id;
+                className = fallbackClass?.name;
+            } else {
+                const enrolledClass = await prisma.class.findUnique({
+                    where: { id: classId },
+                    select: { name: true }
+                });
+                className = enrolledClass?.name;
             }
 
             let assignmentsDueCount = 0;
@@ -865,7 +878,7 @@ export class ParentService {
             return {
                 id: student.id,
                 name: student.full_name,
-                grade: `${student.grade}${student.section || ''}`,
+                grade: className || `${student.grade}${student.section || ''}`,
                 school_name: student.school.name,
                 attendance: {
                     status: attendance?.status || 'not_marked',
@@ -945,8 +958,8 @@ export class ParentService {
     // SUPPLEMENTARY FEATURES (Phase 2)
     // ==========================================
 
-    static async getPTAMeetings(schoolId: string, branchId: string | undefined) {
-        return await prisma.pTAMeeting.findMany({
+    static async getPTAMeetings(schoolId: string, branchId: string | undefined, parentUserId?: string) {
+        const meetings = await prisma.pTAMeeting.findMany({
             where: {
                 school_id: schoolId,
                 branch_id: branchId && branchId !== 'all' ? branchId : undefined,
@@ -954,6 +967,25 @@ export class ParentService {
             },
             orderBy: { date: 'asc' }
         });
+
+        if (!parentUserId || meetings.length === 0) {
+            return meetings.map(m => ({ ...m, is_registered: false }));
+        }
+
+        try {
+            const parent = await (prisma as any).parent.findFirst({ where: { user_id: parentUserId } });
+            if (!parent) return meetings.map(m => ({ ...m, is_registered: false }));
+
+            const attendeeRows = await (prisma as any).ptaMeetingAttendee.findMany({
+                where: { parent_id: parent.id, meeting_id: { in: meetings.map(m => m.id) } },
+                select: { meeting_id: true }
+            });
+            const registeredIds = new Set(attendeeRows.map((a: any) => a.meeting_id));
+            return meetings.map(m => ({ ...m, is_registered: registeredIds.has(m.id) }));
+        } catch {
+            // ptaMeetingAttendee table not yet provisioned — degrade to unregistered.
+            return meetings.map(m => ({ ...m, is_registered: false }));
+        }
     }
 
     static async getLearningResources(schoolId: string, branchId: string | undefined) {

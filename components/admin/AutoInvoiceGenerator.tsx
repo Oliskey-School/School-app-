@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
 import {
@@ -152,31 +153,31 @@ const AutoInvoiceGenerator = () => {
                     <h1 className="text-3xl font-bold text-gray-900 font-outfit">Auto Invoice Generator</h1>
                     <p className="text-sm text-gray-500 mt-1">Automatically generate and send fee invoices with QR-coded receipts.</p>
                 </div>
-                <button onClick={() => setShowModal(true)}
+                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => setShowModal(true)}
                     className="flex items-center space-x-2 bg-indigo-600 text-white px-5 py-2.5 rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 font-bold">
                     <PlusIcon className="w-5 h-5" />
                     <span>Generate New Invoice</span>
-                </button>
+                </motion.button>
             </header>
 
             {/* Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
                     <div className="p-3 rounded-2xl bg-indigo-50 text-indigo-600"><FileText className="w-6 h-6" /></div>
                     <div><p className="text-2xl font-bold text-gray-900">{totalGenerated}</p><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Generated</p></div>
-                </div>
-                <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
+                </motion.div>
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.05 }} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
                     <div className="p-3 rounded-2xl bg-amber-50 text-amber-600"><Send className="w-6 h-6" /></div>
                     <div><p className="text-2xl font-bold text-gray-900">{totalSent}</p><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Sent</p></div>
-                </div>
-                <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
+                </motion.div>
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.1 }} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
                     <div className="p-3 rounded-2xl bg-emerald-50 text-emerald-600"><CheckCircle2 className="w-6 h-6" /></div>
                     <div><p className="text-2xl font-bold text-gray-900">{totalPaid}</p><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Paid</p></div>
-                </div>
-                <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
+                </motion.div>
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.15 }} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
                     <div className="p-3 rounded-2xl bg-red-50 text-red-600"><Clock className="w-6 h-6" /></div>
                     <div><p className="text-2xl font-bold text-gray-900">{totalOverdue}</p><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Overdue</p></div>
-                </div>
+                </motion.div>
             </div>
 
             {/* Search */}
@@ -205,8 +206,8 @@ const AutoInvoiceGenerator = () => {
                             <tr>
                                 <td colSpan={7} className="px-6 py-20 text-center"><RefreshCw className="w-8 h-8 text-indigo-500 animate-spin mx-auto" /></td>
                             </tr>
-                        ) : filteredInvoices.map(inv => (
-                            <tr key={inv.id} className="hover:bg-gray-50/30 transition-colors">
+                        ) : filteredInvoices.map((inv, ii) => (
+                            <motion.tr key={inv.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(ii, 15) * 0.02 }} className="hover:bg-gray-50/30 transition-colors">
                                 <td className="px-6 py-4 font-bold text-indigo-600 text-sm">{inv.invoice_number}</td>
                                 <td className="px-6 py-4"><div><span className="font-bold text-gray-800 text-sm">{inv.student_name}</span></div><span className="text-xs text-gray-400">{inv.class_name} • {inv.parent_name}</span></td>
                                 <td className="px-6 py-4 text-sm text-gray-600">{inv.fee_description}</td>
@@ -225,7 +226,7 @@ const AutoInvoiceGenerator = () => {
                                         )}
                                     </div>
                                 </td>
-                            </tr>
+                            </motion.tr>
                         ))}
                         {!loading && filteredInvoices.length === 0 && (
                             <tr>
@@ -237,9 +238,10 @@ const AutoInvoiceGenerator = () => {
             </div>
 
             {/* Generate Invoice Modal */}
+            <AnimatePresence>
             {showModal && (
-                <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowModal(false)}>
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8" onClick={e => e.stopPropagation()}>
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowModal(false)}>
+                    <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} transition={{ type: 'spring', stiffness: 400, damping: 32 }} className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8" onClick={e => e.stopPropagation()}>
                         <h2 className="text-2xl font-bold text-gray-900 mb-6">Generate Invoice</h2>
 
                         <div className="space-y-5">
@@ -299,23 +301,28 @@ const AutoInvoiceGenerator = () => {
                         </div>
 
                         <div className="flex gap-3 mt-8">
-                            <button
+                            <motion.button
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
                                 onClick={() => setShowModal(false)}
                                 className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 font-bold hover:bg-gray-50 transition-all"
                             >
                                 Cancel
-                            </button>
-                            <button
+                            </motion.button>
+                            <motion.button
+                                whileHover={!isGenerating ? { scale: 1.02 } : {}}
+                                whileTap={!isGenerating ? { scale: 0.98 } : {}}
                                 onClick={handleGenerateInvoice}
                                 disabled={isGenerating}
                                 className="flex-1 py-3 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
                             >
                                 {isGenerating ? <><RefreshCw className="w-4 h-4 animate-spin" /><span>Generating...</span></> : 'Generate'}
-                            </button>
+                            </motion.button>
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
         </div>
     );
 };

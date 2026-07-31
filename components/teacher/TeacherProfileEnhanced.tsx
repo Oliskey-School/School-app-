@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +9,7 @@ import { api } from '../../lib/api';
 import TeacherCurriculumBadges from '../shared/TeacherCurriculumBadges';
 import { User, FileText, BookOpen, CheckCircle, Upload, AlertCircle } from 'lucide-react';
 import { useAutoSync } from '../../hooks/useAutoSync';
+import CenteredLoader from '../ui/CenteredLoader';
 
 interface TeacherProfileProps {
     teacherId: string;
@@ -85,7 +87,7 @@ export default function TeacherProfileEnhanced({ teacherId }: TeacherProfileProp
     };
 
     if (loading || !teacher) {
-        return <div className="p-6">Loading teacher profile...</div>;
+        return <CenteredLoader message="Loading teacher profile..." className="p-6" />;
     }
 
     const hasNigerianQualification = !!teacher.trcn_certificate;
@@ -187,6 +189,7 @@ export default function TeacherProfileEnhanced({ teacherId }: TeacherProfileProp
                     </p>
 
                     <div className="grid grid-cols-3 gap-3">
+                        <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                         <Card
                             className={`cursor-pointer transition-all ${displayEligibility === 'Nigerian' ? 'border-green-500 border-2 bg-green-50' : 'hover:border-gray-400'
                                 }`}
@@ -197,7 +200,9 @@ export default function TeacherProfileEnhanced({ teacherId }: TeacherProfileProp
                                 <p className="text-xs text-gray-600 mt-1">WAEC/NECO</p>
                             </CardContent>
                         </Card>
+                        </motion.div>
 
+                        <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                         <Card
                             className={`cursor-pointer transition-all ${displayEligibility === 'British' ? 'border-blue-500 border-2 bg-blue-50' : 'hover:border-gray-400'
                                 }`}
@@ -208,7 +213,9 @@ export default function TeacherProfileEnhanced({ teacherId }: TeacherProfileProp
                                 <p className="text-xs text-gray-600 mt-1">Cambridge/Edexcel</p>
                             </CardContent>
                         </Card>
+                        </motion.div>
 
+                        <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                         <Card
                             className={`cursor-pointer transition-all ${displayEligibility === 'Both' ? 'border-purple-500 border-2 bg-purple-50' : 'hover:border-gray-400'
                                 }`}
@@ -219,6 +226,7 @@ export default function TeacherProfileEnhanced({ teacherId }: TeacherProfileProp
                                 <p className="text-xs text-gray-600 mt-1">Dual Qualified</p>
                             </CardContent>
                         </Card>
+                        </motion.div>
                     </div>
                 </CardContent>
             </Card>

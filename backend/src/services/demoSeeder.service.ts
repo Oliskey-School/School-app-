@@ -1,5 +1,5 @@
 import prisma from '../config/database';
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
 import path from 'path';
 import fs from 'fs';

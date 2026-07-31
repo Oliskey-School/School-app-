@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { HeartIcon, PhoneIcon, BookOpenIcon, ExclamationCircleIcon } from '../../constants';
@@ -90,8 +91,14 @@ const MentalHealthResources: React.FC<MentalHealthResourcesProps> = ({ schoolId 
                     <h3 className="text-lg font-bold text-red-900">Crisis Helplines - Available 24/7</h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {helplines.map((helpline) => (
-                        <div key={helpline.id} className="bg-white rounded-lg p-4 border border-red-200">
+                    {helplines.map((helpline, i) => (
+                        <motion.div
+                            key={helpline.id}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.25, delay: Math.min(i, 10) * 0.05 }}
+                            className="bg-white rounded-lg p-4 border border-red-200"
+                        >
                             <p className="font-bold text-gray-900">{helpline.organization_name}</p>
                             <p className="text-sm text-gray-600 mb-2">{helpline.helpline_type}</p>
                             <a
@@ -105,14 +112,15 @@ const MentalHealthResources: React.FC<MentalHealthResourcesProps> = ({ schoolId 
                                 )}
                             </a>
                             <p className="text-xs text-gray-500 mt-1">{helpline.availability}</p>
-                        </div>
+                        </motion.div>
                     ))}
                 </div>
             </div>
 
             {/* Resource Filters */}
             <div className="flex flex-wrap gap-2">
-                <button
+                <motion.button
+                    whileTap={{ scale: 0.95 }}
                     onClick={() => setFilter('all')}
                     className={`px-4 py-2 rounded-lg font-medium transition-colors ${filter === 'all'
                         ? 'bg-indigo-600 text-white'
@@ -120,10 +128,11 @@ const MentalHealthResources: React.FC<MentalHealthResourcesProps> = ({ schoolId 
                         }`}
                 >
                     All Resources
-                </button>
+                </motion.button>
                 {categories.map((cat) => (
-                    <button
+                    <motion.button
                         key={cat}
+                        whileTap={{ scale: 0.95 }}
                         onClick={() => setFilter(cat)}
                         className={`px-4 py-2 rounded-lg font-medium transition-colors ${filter === cat
                             ? 'bg-indigo-600 text-white'
@@ -131,7 +140,7 @@ const MentalHealthResources: React.FC<MentalHealthResourcesProps> = ({ schoolId 
                             }`}
                     >
                         {cat}
-                    </button>
+                    </motion.button>
                 ))}
             </div>
 
@@ -147,9 +156,13 @@ const MentalHealthResources: React.FC<MentalHealthResourcesProps> = ({ schoolId 
                         <p>No resources found</p>
                     </div>
                 ) : (
-                    filteredResources.map((resource) => (
-                        <div
+                    filteredResources.map((resource, i) => (
+                        <motion.div
                             key={resource.id}
+                            initial={{ opacity: 0, y: 12 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.25, delay: Math.min(i, 10) * 0.05 }}
+                            whileHover={{ y: -2 }}
                             className={`bg-white rounded-xl shadow-sm border p-6 hover:shadow-md transition-shadow cursor-pointer ${resource.is_crisis_resource ? 'border-red-500 border-2' : 'border-gray-100'
                                 }`}
                             onClick={() => handleResourceClick(resource)}
@@ -169,20 +182,25 @@ const MentalHealthResources: React.FC<MentalHealthResourcesProps> = ({ schoolId 
                             <button className="text-sm text-indigo-600 hover:text-indigo-700 font-medium">
                                 Access Resource →
                             </button>
-                        </div>
+                        </motion.div>
                     ))
                 )}
             </div>
 
             {/* Encouragement Box */}
-            <div className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-xl p-6 text-center">
+            <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-xl p-6 text-center"
+            >
                 <HeartIcon className="w-12 h-12 text-purple-600 mx-auto mb-3" />
                 <h3 className="text-lg font-bold text-gray-900 mb-2">You're Not Alone</h3>
                 <p className="text-gray-700">
                     Taking care of your mental health is important. If you're struggling, please reach out.
                     Help is available, and it's okay to ask for support.
                 </p>
-            </div>
+            </motion.div>
         </div>
     );
 };

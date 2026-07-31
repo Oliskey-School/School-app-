@@ -468,10 +468,10 @@ export const RESOURCE_TYPE_CONFIG = {
   Slides: { icon: FileDocIcon, color: 'text-yellow-500 bg-yellow-50' },
 };
 
-export const ACTIVITY_CATEGORY_CONFIG: { [key: string]: { bg: string, color: string, dot: string } } = {
-  Club: { bg: 'bg-purple-100', color: 'text-purple-800', dot: 'bg-purple-500' },
-  Sport: { bg: 'bg-orange-100', color: 'text-orange-800', dot: 'bg-orange-500' },
-  Cultural: { bg: 'bg-teal-100', color: 'text-teal-800', dot: 'bg-teal-500' },
+export const ACTIVITY_CATEGORY_CONFIG: { [key: string]: { bg: string, color: string, dot: string, border: string } } = {
+  Club: { bg: 'bg-purple-100', color: 'text-purple-800', dot: 'bg-purple-500', border: 'border-purple-800' },
+  Sport: { bg: 'bg-orange-100', color: 'text-orange-800', dot: 'bg-orange-500', border: 'border-orange-800' },
+  Cultural: { bg: 'bg-teal-100', color: 'text-teal-800', dot: 'bg-teal-500', border: 'border-teal-800' },
 };
 
 export const NOTIFICATION_CATEGORY_CONFIG: { [key: string]: { bg: string, color: string, icon: any } } = {

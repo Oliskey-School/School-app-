@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { motion } from 'framer-motion';
 import {
     Edit,
     FileText,
@@ -80,16 +81,18 @@ const AdminActionsScreen: React.FC<AdminActionsScreenProps> = ({ navigateTo }) =
                         <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3 ml-1">{section.title}</h3>
                         <div className="grid grid-cols-2 gap-3">
                             {section.items.map((item, i) => (
-                                <button
+                                <motion.button
                                     key={i}
+                                    initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(i, 15) * 0.03 }}
+                                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
                                     onClick={item.onClick}
-                                    className="flex flex-col items-center justify-center gap-2 p-4 bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all active:scale-95"
+                                    className="flex flex-col items-center justify-center gap-2 p-4 bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all"
                                 >
                                     <div className={`p-3 rounded-full ${item.bg}`}>
                                         {item.icon}
                                     </div>
                                     <span className="text-sm font-semibold text-gray-700">{item.label}</span>
-                                </button>
+                                </motion.button>
                             ))}
                         </div>
                     </div>

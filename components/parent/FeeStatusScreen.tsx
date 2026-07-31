@@ -1,5 +1,6 @@
 ﻿
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { api } from '../../lib/api';
 import { DEFAULT_AVATAR } from '../../lib/avatar';
 import { Fee } from '../../types';
@@ -14,6 +15,15 @@ import { generateReceipt } from '../../lib/receipt-generator';
 import { toast } from 'react-hot-toast';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { CreditCard, Download, Clock, CheckCircle, AlertCircle, Users, Wallet, Receipt, ArrowRight, ShieldCheck, Smartphone, ExternalLink, Activity } from 'lucide-react';
+
+// Tailwind can't see runtime-interpolated classes (e.g. `border-${color}-500`) and
+// purges them from the production build, so the gateway cards need a fully-static
+// per-color class map instead of string interpolation.
+const GATEWAY_COLOR_CLASSES: Record<string, { activeBorder: string; activeBg: string; activeShadow: string; activeIconBg: string; activeText: string; dot: string }> = {
+    indigo: { activeBorder: 'border-indigo-500', activeBg: 'bg-indigo-50/50', activeShadow: 'shadow-xl shadow-indigo-100/50', activeIconBg: 'bg-indigo-500', activeText: 'text-indigo-900', dot: 'bg-indigo-500' },
+    orange: { activeBorder: 'border-orange-500', activeBg: 'bg-orange-50/50', activeShadow: 'shadow-xl shadow-orange-100/50', activeIconBg: 'bg-orange-500', activeText: 'text-orange-900', dot: 'bg-orange-500' },
+    green: { activeBorder: 'border-green-500', activeBg: 'bg-green-50/50', activeShadow: 'shadow-xl shadow-green-100/50', activeIconBg: 'bg-green-500', activeText: 'text-green-900', dot: 'bg-green-500' },
+};
 
 interface FeeStatusScreenProps {
     parentId?: string | null;
@@ -204,8 +214,12 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, currentUser
     // --- New Sub-components for Premium Look ---
 
     const PremiumStatCard = ({ title, amount, subtitle, icon: Icon, gradient, delay }: { title: string, amount: number, subtitle: string, icon: any, gradient: string, delay: string }) => (
-        <div 
-            className={`relative overflow-hidden p-5 rounded-xl shadow border border-gray-100 bg-gradient-to-br ${gradient} text-white`}
+        <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: parseFloat(delay) / 1000 }}
+            whileHover={{ y: -3 }}
+            className={`relative overflow-hidden p-5 rounded-xl shadow hover:shadow-lg transition-shadow border border-gray-100 bg-gradient-to-br ${gradient} text-white`}
         >
             <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-2xl" />
             <div className="relative flex justify-between items-start">
@@ -220,30 +234,35 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, currentUser
                     <Icon className="w-6 h-6 text-white" />
                 </div>
             </div>
-        </div>
+        </motion.div>
     );
 
-    const GatewayCard = ({ id, label, description, icon: Icon, active, color, onClick }: any) => (
-        <button
-            onClick={onClick}
-            className={`relative flex flex-col items-center justify-center gap-3 p-5 rounded-3xl border-2 transition-all duration-300 active:scale-95 group
-                ${active 
-                    ? `border-${color}-500 bg-${color}-50/50 shadow-xl shadow-${color}-100/50 scale-[1.02]` 
-                    : 'border-gray-100 bg-white hover:border-gray-300 hover:shadow-lg'}`}
-        >
-            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-inner
-                ${active ? `bg-${color}-500 text-white rotate-[10deg]` : 'bg-gray-50 text-gray-400 group-hover:bg-gray-100'}`}>
-                <Icon className="w-7 h-7" />
-            </div>
-            <div className="text-center">
-                <span className={`font-bold text-sm block ${active ? `text-${color}-900` : 'text-gray-700'}`}>{label}</span>
-                <span className="text-xs font-medium text-gray-500 uppercase tracking-tighter">{description}</span>
-            </div>
-            {active && (
-                <div className={`absolute top-2 right-2 w-2 h-2 rounded-full bg-${color}-500`} />
-            )}
-        </button>
-    );
+    const GatewayCard = ({ id, label, description, icon: Icon, active, color, onClick }: any) => {
+        const c = GATEWAY_COLOR_CLASSES[color] || GATEWAY_COLOR_CLASSES.indigo;
+        return (
+            <motion.button
+                whileHover={{ scale: active ? 1.02 : 1.01 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={onClick}
+                className={`relative flex flex-col items-center justify-center gap-3 p-5 rounded-3xl border-2 transition-all duration-300 group
+                    ${active
+                        ? `${c.activeBorder} ${c.activeBg} ${c.activeShadow} scale-[1.02]`
+                        : 'border-gray-100 bg-white hover:border-gray-300 hover:shadow-lg'}`}
+            >
+                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-inner
+                    ${active ? `${c.activeIconBg} text-white rotate-[10deg]` : 'bg-gray-50 text-gray-400 group-hover:bg-gray-100'}`}>
+                    <Icon className="w-7 h-7" />
+                </div>
+                <div className="text-center">
+                    <span className={`font-bold text-sm block ${active ? c.activeText : 'text-gray-700'}`}>{label}</span>
+                    <span className="text-xs font-medium text-gray-500 uppercase tracking-tighter">{description}</span>
+                </div>
+                {active && (
+                    <motion.div layoutId="gatewayActiveDot" className={`absolute top-2 right-2 w-2 h-2 rounded-full ${c.dot}`} />
+                )}
+            </motion.button>
+        );
+    };
 
     return (
         <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6 bg-gray-50 md:rounded-[40px] shadow-sm min-h-screen border-x border-b border-gray-100">
@@ -260,17 +279,18 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, currentUser
                 {students.length > 0 && (
                     <div className="flex p-1.5 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-x-auto scrollbar-hide shrink-0">
                         {students.map(s => (
-                            <button
+                            <motion.button
                                 key={s.id}
+                                whileTap={{ scale: 0.95 }}
                                 onClick={() => setSelectedStudent(s)}
                                 className={`flex items-center space-x-2.5 px-4 py-2 rounded-xl transition-all duration-300 font-bold text-sm whitespace-nowrap
-                                    ${selectedStudent?.id === s.id 
-                                        ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-200 scale-[1.05]' 
+                                    ${selectedStudent?.id === s.id
+                                        ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-200 scale-[1.05]'
                                         : 'text-gray-500 hover:text-indigo-600 hover:bg-indigo-50/50'}`}
                             >
                                 <img src={s.avatar_url || DEFAULT_AVATAR} className="w-6 h-6 rounded-full border-2 border-white/50" alt={s.name || 'Student'} />
                                 <span>{(s?.name || s?.full_name || 'Student').toString().split(' ')[0]}</span>
-                            </button>
+                            </motion.button>
                         ))}
                     </div>
                 )}
@@ -315,17 +335,28 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, currentUser
                     </div>
 
                     {fees.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[40px] shadow-sm border border-gray-100 animate-pulse">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.97 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ duration: 0.3 }}
+                            className="flex flex-col items-center justify-center py-20 bg-white rounded-[40px] shadow-sm border border-gray-100"
+                        >
                             <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mb-4">
                                 <CheckCircle className="w-10 h-10 text-green-500" />
                             </div>
                             <h3 className="text-xl font-bold text-gray-800">Clear & Current</h3>
-                            <p className="text-gray-500 mt-2 font-medium">All financial obligations for {selectedStudent?.name} are fulfilled!</p>
-                        </div>
+                            <p className="text-gray-500 mt-2 font-medium">All financial obligations for {selectedStudent?.name || selectedStudent?.full_name || 'this student'} are fulfilled!</p>
+                        </motion.div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {fees.map(fee => (
-                                <div key={fee.id} className="relative group">
+                            {fees.map((fee, i) => (
+                                <motion.div
+                                    key={fee.id}
+                                    initial={{ opacity: 0, y: 12 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.25, delay: Math.min(i, 10) * 0.05 }}
+                                    className="relative group"
+                                >
                                     {feesWithPlans.has(fee.id) ? (
                                         <div className="bg-white rounded-[32px] shadow-sm border border-gray-200 p-6 transition-all hover:shadow-xl">
                                             <div className="flex items-center justify-between mb-4">
@@ -352,7 +383,7 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, currentUser
                                             </div>
                                         </>
                                     )}
-                                </div>
+                                </motion.div>
                             ))}
                         </div>
                     )}

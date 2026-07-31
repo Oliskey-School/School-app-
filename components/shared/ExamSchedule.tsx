@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { EXAM_TYPE_COLORS, ClockIcon, ExamIcon, AlertTriangleIcon } from '../../constants';
 import { Exam } from '../../types';
 import { api } from '../../lib/api';
@@ -75,8 +76,8 @@ const ExamSchedule: React.FC = () => {
                         </button>
                     </div>
                 ) : Object.keys(groupedExams).length > 0 ? (
-                    Object.entries(groupedExams).map(([date, examsOnDate]) => (
-                        <div key={date}>
+                    Object.entries(groupedExams).map(([date, examsOnDate], groupIdx) => (
+                        <motion.div key={date} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: Math.min(groupIdx, 8) * 0.05 }}>
                             <div className="mb-3 pl-1">
                                 <h3 className="font-bold text-lg text-gray-700">
                                     {/* Replace hyphens with slashes for better cross-browser date parsing consistency */}
@@ -89,9 +90,9 @@ const ExamSchedule: React.FC = () => {
                                     const borderColorClass = examTypeStyle.split(' ').find(c => c.startsWith('border-')) || 'border-gray-300';
                                     const bgColorClass = examTypeStyle.split(' ')[0] || 'bg-gray-100';
                                     const textColorClass = (examTypeStyle.split(' ')[1] || 'text-gray-800').replace('-800', '-600');
-                                    
+
                                     return (
-                                        <div key={exam.id} className={`bg-white rounded-xl shadow-sm border-l-4 ${borderColorClass} overflow-hidden`}>
+                                        <div key={exam.id} className={`bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow border-l-4 ${borderColorClass} overflow-hidden`}>
                                             <div className="p-4 flex items-center space-x-4">
                                                 <div className={`flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center ${bgColorClass}`}>
                                                     <ExamIcon className={`w-6 h-6 ${textColorClass}`} />
@@ -111,7 +112,7 @@ const ExamSchedule: React.FC = () => {
                                     )
                                 })}
                             </div>
-                        </div>
+                        </motion.div>
                     ))
                 ) : (
                     <div className="text-center py-10 bg-white rounded-lg shadow-sm mt-8">

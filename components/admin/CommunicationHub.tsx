@@ -1,25 +1,35 @@
 ﻿import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { UsersIcon, ParentNavIcon, TeacherNavIcon, StudentNavIcon, AIIcon } from '../../constants';
 import { toast } from 'react-hot-toast';
 import { getAIClient, AI_MODEL_NAME, SchemaType as Type } from '../../lib/ai';
 import { api } from '../../lib/api';
 import { useAutoSync } from '../../hooks/useAutoSync';
+import CenteredLoader from '../ui/CenteredLoader';
 
 import { useAuth } from '../../context/AuthContext';
 
 type Audience = 'all' | 'parents' | 'teachers' | 'students';
 
-const AudienceCard: React.FC<{ icon: React.ReactNode, label: string, count?: number, id: Audience, selected: boolean, onSelect: () => void }> = ({ icon, label, count, id, selected, onSelect }) => {
-    const baseStyle = "w-full p-4 bg-white rounded-xl shadow-sm flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-200";
-    const selectedStyle = "ring-2 ring-sky-500 border-sky-500 scale-105";
-    const hoverStyle = "hover:shadow-md hover:scale-105";
+const AudienceCard: React.FC<{ icon: React.ReactNode, label: string, count?: number, id: Audience, selected: boolean, onSelect: () => void, index?: number }> = ({ icon, label, count, id, selected, onSelect, index = 0 }) => {
+    const baseStyle = "w-full p-4 bg-white rounded-xl shadow-sm flex flex-col items-center justify-center text-center cursor-pointer transition-colors duration-200";
+    const selectedStyle = "ring-2 ring-sky-500 border-sky-500";
 
     return (
-        <button onClick={onSelect} className={`${baseStyle} ${selected ? selectedStyle : 'border-transparent'} ${hoverStyle}`} aria-pressed={selected}>
+        <motion.button
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0, scale: selected ? 1.05 : 1 }}
+            transition={{ duration: 0.2, delay: index * 0.05 }}
+            whileHover={{ scale: selected ? 1.05 : 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={onSelect}
+            className={`${baseStyle} ${selected ? selectedStyle : 'border-transparent'}`}
+            aria-pressed={selected}
+        >
             <div className={`mb-2 ${selected ? 'text-sky-500' : 'text-gray-500'}`}>{icon}</div>
             <span className={`font-semibold ${selected ? 'text-sky-600' : 'text-gray-700'}`}>{label}</span>
             {count !== undefined && <span className="text-xs text-gray-500 mt-1">{count} recipients</span>}
-        </button>
+        </motion.button>
     );
 };
 
@@ -188,9 +198,10 @@ const CommunicationHub: React.FC = () => {
                 <div>
                     <h3 className="text-lg font-bold text-gray-800 mb-2">1. Select Audience</h3>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        {audiences.map(audience => (
+                        {audiences.map((audience, ai) => (
                             <AudienceCard
                                 key={audience.id}
+                                index={ai}
                                 id={audience.id}
                                 icon={audience.icon}
                                 label={audience.label}
@@ -206,23 +217,27 @@ const CommunicationHub: React.FC = () => {
                 <div>
                     <div className="flex justify-between items-center mb-2">
                         <h3 className="text-lg font-bold text-gray-800">2. Compose Message</h3>
-                        <button
+                        <motion.button
+                            whileHover={{ scale: 1.03 }}
+                            whileTap={{ scale: 0.97 }}
                             type="button"
                             onClick={() => setShowAiPrompt(!showAiPrompt)}
                             className="flex items-center space-x-2 px-3 py-1 text-sm font-semibold text-sky-600 bg-sky-100 rounded-full hover:bg-sky-200 transition-colors"
                         >
                             <AIIcon className="h-4 w-4" />
                             <span>Generate with AI</span>
-                        </button>
+                        </motion.button>
                     </div>
+                    <AnimatePresence>
                     {showAiPrompt && (
-                        <div className="bg-white p-3 rounded-xl shadow-sm mb-4 border border-sky-200 space-y-2">
+                        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="bg-white p-3 rounded-xl shadow-sm mb-4 border border-sky-200 space-y-2 overflow-hidden">
                             <input type="text" value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} placeholder="e.g., Announce the mid-term break dates" className="w-full px-3 py-2 text-sm text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:ring-sky-500 focus:border-sky-500" disabled={isGenerating} />
-                            <button onClick={handleGenerate} disabled={isGenerating || !aiPrompt} className="w-full px-4 py-2 text-sm font-semibold text-white bg-sky-500 rounded-lg hover:bg-sky-600 disabled:bg-gray-400">
+                            <motion.button whileHover={!(isGenerating || !aiPrompt) ? { scale: 1.01 } : {}} whileTap={!(isGenerating || !aiPrompt) ? { scale: 0.98 } : {}} onClick={handleGenerate} disabled={isGenerating || !aiPrompt} className="w-full px-4 py-2 text-sm font-semibold text-white bg-sky-500 rounded-lg hover:bg-sky-600 disabled:bg-gray-400">
                                 {isGenerating ? 'Generating...' : 'Generate'}
-                            </button>
-                        </div>
+                            </motion.button>
+                        </motion.div>
                     )}
+                    </AnimatePresence>
                     <div className="bg-white p-4 rounded-xl shadow-sm space-y-4">
                         <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" className="w-full px-4 py-2 text-gray-800 bg-gray-50 border border-gray-300 rounded-lg focus:ring-sky-500 focus:border-sky-500 font-semibold" />
                         <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={8} placeholder="Type your announcement here..." className="w-full px-4 py-2 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:ring-sky-500 focus:border-sky-500" />
@@ -233,17 +248,15 @@ const CommunicationHub: React.FC = () => {
                 <div>
                     <h3 className="text-lg font-bold text-gray-800 mb-2">Recent Announcements</h3>
                     {isLoadingData ? (
-                        <div className="bg-white p-8 rounded-xl shadow-sm flex justify-center">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sky-500"></div>
-                        </div>
+                        <CenteredLoader className="bg-white p-8 rounded-xl shadow-sm" />
                     ) : notices.length === 0 ? (
                         <div className="bg-white p-8 rounded-xl shadow-sm text-center text-gray-500 italic">
                             No announcements sent yet.
                         </div>
                     ) : (
                         <div className="bg-white rounded-xl shadow-sm overflow-hidden divide-y divide-gray-100">
-                            {notices.map((notice) => (
-                                <div key={notice.id} className="p-4 hover:bg-gray-50 transition-colors">
+                            {notices.map((notice, ni) => (
+                                <motion.div key={notice.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(ni, 15) * 0.02 }} className="p-4 hover:bg-gray-50 transition-colors">
                                     <div className="flex justify-between items-start mb-1">
                                         <h4 className="font-bold text-gray-900">{notice.title}</h4>
                                         <span className="text-xs text-gray-400">
@@ -261,20 +274,22 @@ const CommunicationHub: React.FC = () => {
                                         </div>
                                         <button className="text-xs font-semibold text-sky-600 hover:text-sky-700">View Details</button>
                                     </div>
-                                </div>
+                                </motion.div>
                             ))}
                         </div>
                     )}
                 </div>
             </main>
             <div className="p-4 mt-auto bg-white border-t border-gray-200">
-                <button
+                <motion.button
+                    whileHover={!(isSending || !selectedAudience || !title || !message) ? { scale: 1.01 } : {}}
+                    whileTap={!(isSending || !selectedAudience || !title || !message) ? { scale: 0.98 } : {}}
                     onClick={handleSend}
                     disabled={isSending || !selectedAudience || !title || !message}
                     className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white bg-sky-500 hover:bg-sky-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 disabled:bg-gray-400"
                 >
                     {isSending ? 'Sending...' : 'Send'}
-                </button>
+                </motion.button>
             </div>
         </div>
     );

@@ -1,8 +1,10 @@
 ﻿import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { TrendingUp, Target, TrendingDown, Award, Users } from 'lucide-react';
+import CenteredLoader from '../ui/CenteredLoader';
 
 interface GradeDistribution {
     grade: string;
@@ -101,24 +103,20 @@ const AcademicAnalytics: React.FC<AcademicAnalyticsProps> = ({ schoolId, current
     };
 
     if (loading) {
-        return (
-            <div className="flex justify-center items-center h-64">
-                <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-            </div>
-        );
+        return <CenteredLoader className="h-64" />;
     }
 
     return (
         <div className="p-4 sm:p-6 max-w-7xl mx-auto pb-24 lg:pb-6">
             {/* Header */}
-            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl p-4 sm:p-6 text-white mb-6">
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl p-4 sm:p-6 text-white mb-6">
                 <h1 className="text-2xl sm:text-3xl font-bold mb-2">📊 Academic Analytics</h1>
                 <p className="text-indigo-100 text-sm sm:text-base">Comprehensive performance tracking and analysis</p>
-            </div>
+            </motion.div>
 
             {/* Key Metrics */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0 }} className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
                     <div className="flex items-center justify-between">
                         <div>
                             <p className="text-xs sm:text-sm text-gray-600">Overall GPA</p>
@@ -129,9 +127,9 @@ const AcademicAnalytics: React.FC<AcademicAnalyticsProps> = ({ schoolId, current
                             <Award className="h-5 w-5 sm:h-6 sm:w-6 text-indigo-600" />
                         </div>
                     </div>
-                </div>
+                </motion.div>
 
-                <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.05 }} className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
                     <div className="flex items-center justify-between">
                         <div>
                             <p className="text-xs sm:text-sm text-gray-600">Pass Rate</p>
@@ -145,9 +143,9 @@ const AcademicAnalytics: React.FC<AcademicAnalyticsProps> = ({ schoolId, current
                             <Target className="h-5 w-5 sm:h-6 sm:w-6 text-green-600" />
                         </div>
                     </div>
-                </div>
+                </motion.div>
 
-                <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.1 }} className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
                     <div className="flex items-center justify-between">
                         <div>
                             <p className="text-xs sm:text-sm text-gray-600">Top Performer</p>
@@ -158,9 +156,9 @@ const AcademicAnalytics: React.FC<AcademicAnalyticsProps> = ({ schoolId, current
                             <Award className="h-5 w-5 sm:h-6 sm:w-6 text-yellow-600" />
                         </div>
                     </div>
-                </div>
+                </motion.div>
 
-                <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.15 }} className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
                     <div className="flex items-center justify-between">
                         <div>
                             <p className="text-xs sm:text-sm text-gray-600">Total Students</p>
@@ -171,28 +169,30 @@ const AcademicAnalytics: React.FC<AcademicAnalyticsProps> = ({ schoolId, current
                             <Users className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
                         </div>
                     </div>
-                </div>
+                </motion.div>
             </div>
 
             {/* Grade Distribution */}
             <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
                 <h3 className="text-lg font-bold text-gray-900 mb-4">Grade Distribution</h3>
                 <div className="space-y-3">
-                    {gradeDistribution.map(item => (
+                    {gradeDistribution.map((item, gi) => (
                         <div key={item.grade}>
                             <div className="flex justify-between text-sm mb-1">
                                 <span className="font-semibold text-gray-900">Grade {item.grade}</span>
                                 <span className="text-gray-600">{item.count} students ({item.percentage.toFixed(1)}%)</span>
                             </div>
                             <div className="w-full bg-gray-200 rounded-full h-4">
-                                <div
+                                <motion.div
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${item.percentage}%` }}
+                                    transition={{ duration: 0.5, delay: gi * 0.05, ease: 'easeOut' }}
                                     className={`${getGradeColor(item.grade)} h-4 rounded-full flex items-center justify-end pr-2`}
-                                    style={{ width: `${item.percentage}%` }}
                                 >
                                     {item.percentage > 10 && (
                                         <span className="text-white text-xs font-semibold">{item.percentage.toFixed(0)}%</span>
                                     )}
-                                </div>
+                                </motion.div>
                             </div>
                         </div>
                     ))}

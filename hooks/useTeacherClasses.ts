@@ -37,12 +37,16 @@ export const useTeacherClasses = (teacherId?: string | null, branchId?: string |
             try {
                 const { api } = await import('../lib/api');
 
-                // 1. Resolve Teacher ID if not provided using authorized backend call
+                // Resolve the teacher ID AND fetch the detailed profile in one call —
+                // this endpoint already returns everything needed, so calling it twice
+                // (once to resolve the ID, once for the data) just doubled load on a
+                // heavy nested-include query for every screen that uses this hook.
+                let teacherData: any = null;
                 if (!currentTeacherId) {
-                    const teacherProfile = await api.getMyTeacherProfile().catch(() => null);
-                    if (teacherProfile) {
-                        currentTeacherId = teacherProfile.id;
-                        currentSchoolId = teacherProfile.school_id;
+                    teacherData = await api.getMyTeacherProfile().catch(() => null);
+                    if (teacherData) {
+                        currentTeacherId = teacherData.id;
+                        currentSchoolId = teacherData.school_id;
                     }
                 }
 
@@ -54,8 +58,10 @@ export const useTeacherClasses = (teacherId?: string | null, branchId?: string |
                 setResolvedTeacherId(currentTeacherId);
                 setResolvedSchoolId(currentSchoolId);
 
-                // 2. Fetch Detailed Data via API
-                const teacherData = await api.getMyTeacherProfile();
+                // If teacherId was passed in directly, we still need to fetch the data.
+                if (!teacherData) {
+                    teacherData = await api.getMyTeacherProfile();
+                }
 
                 if (teacherData) {
                     const finalClasses: ClassInfo[] = [];

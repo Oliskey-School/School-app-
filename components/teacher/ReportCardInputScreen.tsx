@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { getAIClient, AI_MODEL_NAME } from '../../lib/ai';
 import { Student, Teacher, Rating, ReportCard, ReportCardAcademicRecord } from '../../types';
@@ -422,15 +423,16 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
 
     return (
         <div className="p-4 bg-gray-100 font-serif min-h-screen">
-            <div className="max-w-5xl mx-auto bg-white p-6 sm:p-8 rounded-2xl shadow-xl border border-gray-200">
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="max-w-5xl mx-auto bg-white p-6 sm:p-8 rounded-2xl shadow-xl border border-gray-200">
                 <header className="relative border-b-2 border-gray-300 pb-6 mb-6">
-                    <button
+                    <motion.button
+                        whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
                         onClick={handleBack}
                         className="absolute left-0 top-0 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-all"
                         title="Close and return"
                     >
                         <XIcon className="w-6 h-6" />
-                    </button>
+                    </motion.button>
 
                     <div className="text-center pt-2">
                         <div className="flex justify-center items-center gap-3 mb-2">
@@ -565,12 +567,12 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
                         </div>
                     ) : (
                         <div className="grid grid-cols-2 gap-4">
-                            <button type="button" onClick={() => handleSave('Draft')} className="w-full py-3 bg-gray-200 text-gray-800 font-bold rounded-lg shadow-sm hover:bg-gray-300 transition-colors">Save Draft</button>
-                            <button type="button" onClick={() => handleSave('Submitted')} className="w-full py-3 bg-purple-600 text-white font-bold rounded-lg shadow-md hover:bg-purple-700 transition-colors">Submit for Review</button>
+                            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="button" onClick={() => handleSave('Draft')} className="w-full py-3 bg-gray-200 text-gray-800 font-bold rounded-lg shadow-sm hover:bg-gray-300 transition-colors">Save Draft</motion.button>
+                            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="button" onClick={() => handleSave('Submitted')} className="w-full py-3 bg-purple-600 text-white font-bold rounded-lg shadow-md hover:bg-purple-700 transition-colors">Submit for Review</motion.button>
                         </div>
                     )}
                 </div>
-            </div>
+            </motion.div>
 
             <ConfirmationModal
                 isOpen={isSubmitModalOpen}

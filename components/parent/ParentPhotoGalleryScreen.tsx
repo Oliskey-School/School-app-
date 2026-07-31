@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { ChevronRightIcon, XCircleIcon, ChevronLeftIcon, PhotoIcon } from '../../constants';
 import { api } from '../../lib/api';
@@ -79,8 +80,13 @@ const ParentPhotoGalleryScreen: React.FC<ParentPhotoGalleryScreenProps> = ({ sch
             <main className="flex-grow p-4 overflow-y-auto">
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                     {photos.map((photo, index) => (
-                        <button
+                        <motion.button
                             key={photo.id}
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ duration: 0.25, delay: Math.min(index, 15) * 0.03 }}
+                            whileHover={{ y: -2 }}
+                            whileTap={{ scale: 0.97 }}
                             onClick={() => handleOpenPhoto(index)}
                             className="relative block w-full aspect-square rounded-lg overflow-hidden shadow-md group focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
                         >
@@ -93,45 +99,65 @@ const ParentPhotoGalleryScreen: React.FC<ParentPhotoGalleryScreenProps> = ({ sch
                             <p className="absolute bottom-0 left-0 right-0 p-2 text-white text-xs font-semibold">
                                 {photo.caption}
                             </p>
-                        </button>
+                        </motion.button>
                     ))}
                 </div>
             </main>
 
+            <AnimatePresence>
             {selectedPhotoIndex !== null && (
-                <div
-                    className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 animate-fade-in"
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="fixed inset-0 bg-black/80 flex items-center justify-center z-50"
                     onClick={handleClosePhoto}
                     role="dialog"
                     aria-modal="true"
                     aria-labelledby="photo-caption"
                 >
-                    <div className="relative w-full max-w-lg p-4" onClick={(e) => e.stopPropagation()}>
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                        className="relative w-full max-w-lg p-4"
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         <div className="bg-white rounded-lg shadow-2xl overflow-hidden">
-                            <img
-                                src={photos[selectedPhotoIndex].imageUrl}
-                                alt={photos[selectedPhotoIndex].caption}
-                                className="w-full h-auto max-h-[70vh] object-contain"
-                            />
+                            <AnimatePresence mode="wait">
+                                <motion.img
+                                    key={selectedPhotoIndex}
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    transition={{ duration: 0.15 }}
+                                    src={photos[selectedPhotoIndex].imageUrl}
+                                    alt={photos[selectedPhotoIndex].caption}
+                                    className="w-full h-auto max-h-[70vh] object-contain"
+                                />
+                            </AnimatePresence>
                             <p id="photo-caption" className="p-4 text-center font-semibold text-gray-800">
                                 {photos[selectedPhotoIndex].caption}
                             </p>
                         </div>
 
-                        <button onClick={handleClosePhoto} className="absolute -top-2 -right-2 text-white bg-black/50 rounded-full hover:bg-black/80" aria-label="Close photo viewer">
+                        <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={handleClosePhoto} className="absolute -top-2 -right-2 text-white bg-black/50 rounded-full hover:bg-black/80" aria-label="Close photo viewer">
                             <XCircleIcon className="w-9 h-9" />
-                        </button>
-                    </div>
+                        </motion.button>
+                    </motion.div>
 
-                    <button onClick={handlePrevPhoto} className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-white/20 text-white rounded-full hover:bg-white/40" aria-label="Previous photo">
+                    <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={handlePrevPhoto} className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-white/20 text-white rounded-full hover:bg-white/40" aria-label="Previous photo">
                         <ChevronLeftIcon className="h-8 w-8" />
-                    </button>
+                    </motion.button>
 
-                    <button onClick={handleNextPhoto} className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-white/20 text-white rounded-full hover:bg-white/40" aria-label="Next photo">
+                    <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={handleNextPhoto} className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-white/20 text-white rounded-full hover:bg-white/40" aria-label="Next photo">
                         <ChevronRightIcon className="h-8 w-8" />
-                    </button>
-                </div>
+                    </motion.button>
+                </motion.div>
             )}
+            </AnimatePresence>
         </div>
     );
 };

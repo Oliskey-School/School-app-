@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { api } from '../../lib/api';
 import { Student, ReportCard, Rating } from '../../types';
@@ -20,17 +21,25 @@ interface ResultsScreenProps {
 }
 
 const TermTab: React.FC<{ term: string; isActive: boolean; onClick: () => void; }> = ({ term, isActive, onClick }) => (
-    <button
+    <motion.button
+        whileTap={{ scale: 0.96 }}
         onClick={onClick}
-        className={`flex-1 py-2 text-sm font-semibold rounded-md transition-colors ${isActive ? 'bg-orange-500 text-white shadow' : 'text-gray-600'
+        className={`relative flex-1 py-2 text-sm font-semibold rounded-md transition-colors ${isActive ? 'text-white' : 'text-gray-600'
             }`}
     >
-        {term}
-    </button>
+        {isActive && (
+            <motion.div
+                layoutId="resultsTermHighlight"
+                className="absolute inset-0 bg-orange-500 rounded-md shadow"
+                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+            />
+        )}
+        <span className="relative">{term}</span>
+    </motion.button>
 );
 
 const RatingBadge: React.FC<{ rating: Rating }> = ({ rating }) => {
-    if (!rating) return <span className="text-gray-300 text-sm">â€”</span>;
+    if (!rating) return <span className="text-gray-300 text-sm">—</span>;
     const colors: Record<string, string> = {
         'A': 'bg-green-100 text-green-700',
         'B': 'bg-blue-100 text-blue-700',
@@ -60,7 +69,7 @@ const ReportCardView: React.FC<{ report: ReportCard, student?: Student, schoolNa
                     <h2 className="text-lg font-bold text-gray-800">{schoolName || 'School Academy'}</h2>
                 </div>
                 {motto && <p className="text-gray-400 italic text-xs">"{motto}"</p>}
-                <p className="text-orange-600 font-bold uppercase tracking-widest text-xs mt-1">Official Report Card â€” {report.term}</p>
+                <p className="text-orange-600 font-bold uppercase tracking-widest text-xs mt-1">Official Report Card — {report.term}</p>
             </div>
 
             {/* Student Info Bar */}
@@ -78,9 +87,9 @@ const ReportCardView: React.FC<{ report: ReportCard, student?: Student, schoolNa
                 <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Academic Performance</h4>
                 <div className="overflow-x-auto text-sm">
                     <table className="min-w-full border-collapse border border-gray-200 rounded-lg overflow-hidden">
-                        <thead className="bg-orange-50 text-gray-600 font-bold text-xs uppercase">
+                        <thead className="sticky top-0 z-10 bg-orange-50 text-gray-600 font-bold text-xs uppercase">
                             <tr>
-                                <th className="p-2 border border-gray-200 text-left">Subject</th>
+                                <th className="sticky left-0 z-10 bg-orange-50 p-2 border border-gray-200 text-left shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]">Subject</th>
                                 <th className="p-2 border border-gray-200 w-12 text-center">Test 1</th>
                                 <th className="p-2 border border-gray-200 w-12 text-center">Test 2</th>
                                 <th className="p-2 border border-gray-200 w-12 text-center">Exam</th>
@@ -92,7 +101,7 @@ const ReportCardView: React.FC<{ report: ReportCard, student?: Student, schoolNa
                         <tbody>
                             {report.academicRecords.map((record, i) => (
                                 <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                                    <td className="p-1.5 border border-gray-200 font-semibold text-gray-800">{record.subject}</td>
+                                    <td className={`sticky left-0 z-[5] p-1.5 border border-gray-200 font-semibold text-gray-800 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)] ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>{record.subject}</td>
                                     <td className="p-1.5 border border-gray-200 text-center text-gray-700">{record.test1 || '-'}</td>
                                     <td className="p-1.5 border border-gray-200 text-center text-gray-700">{record.test2 || '-'}</td>
                                     <td className="p-1.5 border border-gray-200 text-center text-gray-700">{record.exam || '-'}</td>
@@ -330,7 +339,12 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
         window.print();
     };
 
-    if (loading) return <div className="p-10 text-center">Loading academic records...</div>;
+    if (loading) return (
+        <div className="flex flex-col items-center justify-center py-16">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mb-3" />
+            <p className="text-gray-400 text-sm font-medium">Loading academic records...</p>
+        </div>
+    );
 
     if (performanceData.length === 0 || !isAnyResultPublished) {
         return (
@@ -355,42 +369,49 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
                     ))}
                 </div>
                 {navigateTo && (
-                    <button
+                    <motion.button
+                        whileTap={{ scale: 0.96 }}
                         onClick={() => navigateTo('selectReportTerm', 'Select Term', { student, studentId })}
                         className="px-3 py-2 text-sm font-semibold text-orange-600 hover:underline whitespace-nowrap"
                     >
                         Change Year/Term
-                    </button>
+                    </motion.button>
                 )}
             </div>
 
             <main className="flex-grow p-4 overflow-y-auto">
+              <AnimatePresence mode="wait">
                 {formattedReportCard && showFullReport && (
-                    <div className="mb-4 max-w-4xl mx-auto">
+                    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="mb-4 max-w-4xl mx-auto">
                         <div className="flex flex-wrap items-center justify-between mb-4 print:hidden gap-3">
-                            <button
+                            <motion.button
+                                whileTap={{ x: -2 }}
                                 onClick={() => setShowFullReport(false)}
                                 className="text-sm text-orange-600 font-semibold hover:underline flex items-center gap-1"
                             >
-                                â† Back to Summary
-                            </button>
-                            
+                                Back to Summary
+                            </motion.button>
+
                             <div className="flex items-center gap-2">
-                                <button
+                                <motion.button
+                                    whileHover={{ y: -1 }}
+                                    whileTap={{ scale: 0.96 }}
                                     onClick={handlePrint}
                                     className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-bold transition-colors"
                                 >
                                     <Printer className="w-4 h-4" />
                                     <span className="hidden sm:inline">Print</span>
-                                </button>
-                                <button
+                                </motion.button>
+                                <motion.button
+                                    whileHover={{ y: isDownloading ? 0 : -1 }}
+                                    whileTap={{ scale: isDownloading ? 1 : 0.96 }}
                                     onClick={handleDownloadPDF}
                                     disabled={isDownloading}
                                     className="flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-bold transition-colors disabled:opacity-70"
                                 >
                                     <Download className="w-4 h-4" />
                                     <span>{isDownloading ? 'Generating...' : 'Download PDF'}</span>
-                                </button>
+                                </motion.button>
                             </div>
                         </div>
                         <ReportCardView
@@ -401,22 +422,28 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
                             logoUrl={currentSchool?.logoUrl}
                             motto={currentSchool?.motto}
                         />
-                    </div>
+                    </motion.div>
                 )}
 
                 {!showFullReport && (
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 print:hidden">
+                    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="grid grid-cols-1 lg:grid-cols-3 gap-4 print:hidden">
                         <div className="lg:col-span-2 bg-white p-4 rounded-xl shadow-sm">
                             <div className="flex items-center space-x-2 mb-3">
                                 <BookOpenIcon className="h-5 w-5 text-orange-600" />
                                 <h4 className="font-bold text-gray-800">Grades ({activeTerm})</h4>
                             </div>
                             <div className="space-y-2">
-                                {termGrades.length > 0 ? termGrades.map((record: any) => (
-                                    <div key={record.subject} className="flex justify-between items-center bg-gray-50 p-2 rounded-lg">
+                                {termGrades.length > 0 ? termGrades.map((record: any, i: number) => (
+                                    <motion.div
+                                        key={record.subject}
+                                        initial={{ opacity: 0, y: 8 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ duration: 0.2, delay: Math.min(i, 10) * 0.03 }}
+                                        className="flex justify-between items-center bg-gray-50 p-2 rounded-lg"
+                                    >
                                         <span className="font-semibold text-sm text-gray-700">{record.subject}</span>
                                         <span className={`font-bold text-sm px-2 py-0.5 rounded-full ${SUBJECT_COLORS[record.subject] || 'bg-gray-200'}`}>{record.score}%</span>
-                                    </div>
+                                    </motion.div>
                                 )) : <p className="text-gray-500 text-sm">No grades recorded for this term.</p>}
                             </div>
 
@@ -433,7 +460,7 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
                                         </div>
                                         <div className="bg-white p-3 rounded-lg shadow-sm">
                                             <p className="text-xs text-gray-500 font-medium uppercase">Overall Grade</p>
-                                            <p className="text-xl font-bold text-gray-800">{activeReportCard.overall_grade || 'â€”'}</p>
+                                            <p className="text-xl font-bold text-gray-800">{activeReportCard.overall_grade || '—'}</p>
                                         </div>
                                     </div>
                                     <div className="space-y-3">
@@ -451,24 +478,32 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
                                         )}
                                     </div>
                                     <div className="mt-4">
-                                        <button
+                                        <motion.button
+                                            whileHover={{ y: -1 }}
+                                            whileTap={{ scale: 0.98 }}
                                             onClick={() => setShowFullReport(true)}
                                             className="w-full py-2 bg-white border border-orange-200 text-orange-700 rounded-lg text-sm font-bold hover:bg-orange-100 transition-colors shadow-sm"
                                         >
-                                            ðŸ“„ View Full Digital Report Card
-                                        </button>
+                                            📄 View Full Digital Report Card
+                                        </motion.button>
                                     </div>
                                 </div>
                             )}
 
                             <div className="mt-6">
                                 <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
-                                    <span className="p-1 bg-purple-100 rounded text-purple-600">ðŸ“</span>
+                                    <span className="p-1 bg-purple-100 rounded text-purple-600">📝</span>
                                     Recent Quizzes
                                 </h4>
                                 <div className="space-y-2">
-                                    {quizResults.length > 0 ? quizResults.map((result: any) => (
-                                        <div key={result.id} className="flex justify-between items-center bg-white border border-gray-100 p-3 rounded-lg hover:shadow-sm transition-shadow">
+                                    {quizResults.length > 0 ? quizResults.map((result: any, i: number) => (
+                                        <motion.div
+                                            key={result.id}
+                                            initial={{ opacity: 0, y: 8 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            transition={{ duration: 0.2, delay: Math.min(i, 10) * 0.03 }}
+                                            className="flex justify-between items-center bg-white border border-gray-100 p-3 rounded-lg hover:shadow-sm transition-shadow"
+                                        >
                                             <div>
                                                 <div className="font-semibold text-sm text-gray-800">{result.quiz?.title || 'Quiz'}</div>
                                                 <div className="text-xs text-gray-500">{new Date(result.submitted_at).toLocaleDateString()}</div>
@@ -479,7 +514,7 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
                                                     {result.score}%
                                                 </span>
                                             </div>
-                                        </div>
+                                        </motion.div>
                                     )) : <p className="text-gray-500 text-sm italic">No quizzes taken yet.</p>}
                                 </div>
                             </div>
@@ -514,8 +549,9 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    </motion.div>
                 )}
+              </AnimatePresence>
             </main>
         </div>
     );

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import { api } from '../../lib/api';
 import { Student } from '../../types';
 import { toast } from 'react-hot-toast';
@@ -128,9 +129,14 @@ const AwardPoints: React.FC<AwardPointsProps> = ({ students = [] }) => {
             <div className="bg-white rounded-xl p-6 shadow-sm">
                 <h3 className="font-bold text-gray-800 mb-4">Quick Award</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {quickReasons.map((quick) => (
-                        <button
+                    {quickReasons.map((quick, i) => (
+                        <motion.button
                             key={quick.label}
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.2, delay: i * 0.05 }}
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
                             onClick={() => {
                                 setReason(quick.label);
                                 setPoints(quick.points);
@@ -140,7 +146,7 @@ const AwardPoints: React.FC<AwardPointsProps> = ({ students = [] }) => {
                         >
                             <p className="font-semibold text-sm text-gray-800">{quick.label}</p>
                             <p className="text-xl font-bold text-indigo-600 mt-1">+{quick.points}</p>
-                        </button>
+                        </motion.button>
                     ))}
                 </div>
             </div>
@@ -187,7 +193,9 @@ const AwardPoints: React.FC<AwardPointsProps> = ({ students = [] }) => {
                         />
                     </div>
 
-                    <button
+                    <motion.button
+                        whileHover={!submitting ? { scale: 1.01 } : {}}
+                        whileTap={!submitting ? { scale: 0.98 } : {}}
                         onClick={awardPoints}
                         disabled={submitting || selectedStudents.length === 0 || !reason}
                         className="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
@@ -203,7 +211,7 @@ const AwardPoints: React.FC<AwardPointsProps> = ({ students = [] }) => {
                                 <span>Award to {selectedStudents.length} Student(s)</span>
                             </>
                         )}
-                    </button>
+                    </motion.button>
                 </div>
 
                 {/* Student Selection */}
@@ -213,9 +221,13 @@ const AwardPoints: React.FC<AwardPointsProps> = ({ students = [] }) => {
                     </h3>
 
                     <div className="space-y-2 max-h-96 overflow-y-auto">
-                        {(Array.isArray(students) ? students : []).map((student) => (
-                            <button
+                        {(Array.isArray(students) ? students : []).map((student, i) => (
+                            <motion.button
                                 key={student.id}
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                transition={{ duration: 0.15, delay: Math.min(i, 20) * 0.02 }}
+                                whileTap={{ scale: 0.98 }}
                                 onClick={() => toggleStudent(student.id)}
                                 className={`w-full p-3 rounded-lg border-2 transition-all text-left ${selectedStudents.includes(student.id)
                                     ? 'border-indigo-500 bg-indigo-50'
@@ -236,7 +248,7 @@ const AwardPoints: React.FC<AwardPointsProps> = ({ students = [] }) => {
                                         <CheckCircleIcon className="h-6 w-6 text-indigo-600" />
                                     )}
                                 </div>
-                            </button>
+                            </motion.button>
                         ))}
                     </div>
                 </div>

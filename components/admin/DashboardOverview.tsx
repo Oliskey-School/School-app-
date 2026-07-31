@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import PremiumLoader from '../ui/PremiumLoader';
@@ -43,7 +44,7 @@ import {
 import { AuditLog, RoleName } from '../../types';
 import DonutChart from '../ui/DonutChart';
 import { EmergencyBroadcastModal } from './EmergencyBroadcastModal';
-import { AlertTriangle, Activity, Flame, ShieldCheck, Shield, FileText, Rocket, Beaker, Calendar, TrendingUp, Building2, Bus, BarChart3, Database, Monitor, Star, Receipt, Clock, FileCheck, Download, BellRing, LayoutGrid, GraduationCap, QrCode, ScanLine, Archive, UsersRound, ClipboardCheck, Repeat, ShieldAlert, ClipboardEdit, LogOut, DoorOpen, Gauge, School } from 'lucide-react';
+import { AlertTriangle, Activity, Flame, ShieldCheck, Shield, FileText, Rocket, Beaker, Calendar, TrendingUp, Building2, Bus, BarChart3, Database, Monitor, Star, Receipt, Clock, FileCheck, Download, BellRing, LayoutGrid, GraduationCap, QrCode, ScanLine, Archive, UsersRound, ClipboardCheck, Repeat, ShieldAlert, ClipboardEdit, LogOut, DoorOpen, Gauge, School, Landmark, Settings } from 'lucide-react';
 import AIInsightsPanel from '../shared/AIInsightsPanel';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -63,10 +64,19 @@ const StatCard: React.FC<{
     onClick: () => void;
     trend: string;
     trendColor: string;
-}> = ({ label, value, icon, colorClasses, onClick, trend, trendColor }) => {
+    index?: number;
+}> = ({ label, value, icon, colorClasses, onClick, trend, trendColor, index = 0 }) => {
     const { t } = useTranslation();
     return (
-    <button onClick={onClick} className={`w-full text-left p-4 sm:p-6 rounded-3xl text-white relative overflow-hidden transition-transform transform hover:-translate-y-1 ${colorClasses}`}>
+    <motion.button
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25, delay: index * 0.06 }}
+        whileHover={{ y: -3 }}
+        whileTap={{ scale: 0.98 }}
+        onClick={onClick}
+        className={`w-full text-left p-4 sm:p-6 rounded-3xl text-white relative overflow-hidden ${colorClasses}`}
+    >
         {React.cloneElement(icon, { className: "absolute -right-6 -bottom-6 h-24 sm:h-32 w-24 sm:w-32 text-white/10" })}
         <div className="relative z-10">
             <div className="flex justify-between items-start">
@@ -82,24 +92,48 @@ const StatCard: React.FC<{
                 <span className="text-white/70 font-medium ml-1 hidden xs:inline">{t('dashboard.last30Days')}</span>
             </div>
         </div>
-    </button>
+    </motion.button>
     );
 };
 
 
-const QuickActionCard: React.FC<{ label: string; icon: React.ReactElement<{ className?: string }>; onClick: () => void; color: string; }> = ({ label, icon, onClick, color }) => (
-    <button onClick={onClick} className="bg-white p-3 sm:p-4 rounded-2xl shadow-sm flex flex-col items-center justify-center text-center hover:bg-gray-50 hover:shadow-md hover:ring-2 hover:ring-indigo-200 transition-all duration-200 group h-full">
+const QuickActionCard: React.FC<{ label: string; icon: React.ReactElement<{ className?: string }>; onClick: () => void; color: string; index?: number; }> = ({ label, icon, onClick, color, index = 0 }) => (
+    <motion.button
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.2, delay: Math.min(index, 14) * 0.025 }}
+        whileHover={{ y: -2 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={onClick}
+        className="bg-white p-3 sm:p-4 rounded-2xl shadow-sm flex flex-col items-center justify-center text-center hover:bg-gray-50 hover:shadow-md hover:ring-2 hover:ring-indigo-200 transition-shadow group h-full"
+    >
         <div className={`p-3 sm:p-4 rounded-full ${color} group-hover:scale-110 transition-transform duration-200 flex-shrink-0`}>
             {React.cloneElement(icon, { className: "h-6 w-6 sm:h-8 sm:w-8 text-white" })}
         </div>
         <p className="font-bold text-gray-700 mt-2 sm:mt-3 text-xs sm:text-sm leading-tight line-clamp-2 md:line-clamp-none">{label}</p>
-    </button>
+    </motion.button>
 );
 
-// Added Register Exams button locally since previous edit failed
-const AlertCard: React.FC<{ label: string; value: string | number; icon: React.ReactElement<{ className?: string }>; onClick: () => void; color: string; }> = ({ label, value, icon, onClick, color }) => (
-    <button onClick={onClick} className="w-full bg-white p-4 rounded-xl shadow-sm flex items-center space-x-4 text-left border border-gray-100 hover:border-gray-200 hover:bg-gray-50 transition-colors">
-        <div className={`${color.replace('text-', 'bg-').replace('-500', '-100')} p-3 rounded-xl`}>
+// Tailwind can't see runtime-interpolated classes (e.g. `color.replace('text-', 'bg-')`)
+// and purges them from the production build, so alert cards need a fully-static
+// per-color class map instead of string interpolation.
+const ALERT_COLOR_CLASSES: Record<string, string> = {
+    'text-indigo-600': 'bg-indigo-100',
+    'text-red-500': 'bg-red-100',
+    'text-orange-500': 'bg-orange-100',
+};
+
+const AlertCard: React.FC<{ label: string; value: string | number; icon: React.ReactElement<{ className?: string }>; onClick: () => void; color: string; index: number }> = ({ label, value, icon, onClick, color, index }) => (
+    <motion.button
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25, delay: index * 0.06 }}
+        whileHover={{ y: -2 }}
+        whileTap={{ scale: 0.98 }}
+        onClick={onClick}
+        className="w-full bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow flex items-center space-x-4 text-left border border-gray-100 hover:border-gray-200"
+    >
+        <div className={`${ALERT_COLOR_CLASSES[color] || 'bg-gray-100'} p-3 rounded-xl`}>
             {React.cloneElement(icon, { className: `h-6 w-6 ${color}` })}
         </div>
         <div>
@@ -107,7 +141,7 @@ const AlertCard: React.FC<{ label: string; value: string | number; icon: React.R
             <p className="text-xs text-gray-500 font-medium">Action required</p>
         </div>
         <ChevronRightIcon className="h-6 w-6 text-gray-400 ml-auto" />
-    </button>
+    </motion.button>
 );
 
 const EnrollmentLineChart = ({ data, color }: { data: { year: number, count: number }[], color: string }) => {
@@ -153,8 +187,13 @@ const formatDistanceToNow = (isoDate: string): string => {
     return `${days}d ago`;
 };
 
-const ActivityLogItem: React.FC<{ log: AuditLog, isLast: boolean }> = ({ log, isLast }) => (
-    <div className="relative pl-12">
+const ActivityLogItem: React.FC<{ log: AuditLog, isLast: boolean, index?: number }> = ({ log, isLast, index = 0 }) => (
+    <motion.div
+        initial={{ opacity: 0, x: -8 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.2, delay: Math.min(index, 10) * 0.04 }}
+        className="relative pl-12"
+    >
         <div className="absolute left-4 top-2 w-0.5 h-full bg-gray-200"></div>
         <div className="absolute left-0 top-0 w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center bg-gray-100 ring-4 ring-gray-50">
             {actionTypeIcons[log.type]}
@@ -165,7 +204,7 @@ const ActivityLogItem: React.FC<{ log: AuditLog, isLast: boolean }> = ({ log, is
             </p>
             <p className="text-xs text-gray-400">{formatDistanceToNow(log.timestamp)}</p>
         </div>
-    </div>
+    </motion.div>
 );
 
 
@@ -384,39 +423,55 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Main Content Column */}
                 <div className="lg:col-span-2 space-y-6">
-                    <div className="bg-gradient-to-br from-indigo-700 to-indigo-900 p-6 rounded-3xl">
+                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="bg-gradient-to-br from-indigo-700 to-indigo-900 p-6 rounded-3xl">
                         <h2 className="text-2xl font-bold text-white mb-1">
                             {t('dashboard.welcome', { name: (() => { const n = user?.full_name || profile?.full_name; if (!n) return 'Admin'; const first = n.split(' ')[0]; return ['school','admin','branch','main','demo'].includes(first.toLowerCase()) ? n : first; })() })}
                         </h2>
                         <p className="text-white/80">{t('dashboard.commandCenter')}</p>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-                            <StatCard label={t('dashboard.totalStudents')} value={totalStudents} icon={<StudentsIcon />} colorClasses="bg-gradient-to-br from-blue-500 to-blue-700" onClick={() => navigateTo('studentList', 'Manage Students', {})} trend={formatTrend(studentTrend)} trendColor="text-blue-200" />
-                            <StatCard label={t('dashboard.totalStaff')} value={totalStaff} icon={<StaffIcon />} colorClasses="bg-gradient-to-br from-purple-400 to-purple-600" onClick={() => navigateTo('teacherList', 'Manage Teachers', {})} trend={formatTrend(teacherTrend)} trendColor="text-purple-200" />
-                            <StatCard label={t('dashboard.totalParents')} value={totalParents} icon={<UsersIcon />} colorClasses="bg-gradient-to-br from-orange-400 to-orange-600" onClick={() => navigateTo('parentList', 'Manage Parents', {})} trend={formatTrend(parentTrend)} trendColor="text-orange-200" />
-                            <StatCard label={t('dashboard.academicLevels')} value={stats?.totalAcademicLevels || 0} icon={<ViewGridIcon />} colorClasses="bg-gradient-to-br from-indigo-400 to-indigo-600" onClick={() => navigateTo('classList', 'Manage Classes', {})} trend={formatTrend(classTrend)} trendColor="text-indigo-200" />
+                            <StatCard index={0} label={t('dashboard.totalStudents')} value={totalStudents} icon={<StudentsIcon />} colorClasses="bg-gradient-to-br from-blue-500 to-blue-700" onClick={() => navigateTo('studentList', 'Manage Students', {})} trend={formatTrend(studentTrend)} trendColor="text-blue-200" />
+                            <StatCard index={1} label={t('dashboard.totalStaff')} value={totalStaff} icon={<StaffIcon />} colorClasses="bg-gradient-to-br from-purple-400 to-purple-600" onClick={() => navigateTo('teacherList', 'Manage Teachers', {})} trend={formatTrend(teacherTrend)} trendColor="text-purple-200" />
+                            <StatCard index={2} label={t('dashboard.totalParents')} value={totalParents} icon={<UsersIcon />} colorClasses="bg-gradient-to-br from-orange-400 to-orange-600" onClick={() => navigateTo('parentList', 'Manage Parents', {})} trend={formatTrend(parentTrend)} trendColor="text-orange-200" />
+                            <StatCard index={3} label={t('dashboard.academicLevels')} value={stats?.totalAcademicLevels || 0} icon={<ViewGridIcon />} colorClasses="bg-gradient-to-br from-indigo-400 to-indigo-600" onClick={() => navigateTo('classList', 'Manage Classes', {})} trend={formatTrend(classTrend)} trendColor="text-indigo-200" />
                         </div>
-                    </div>
+                    </motion.div>
 
                     <AIInsightsPanel />
 
                     <div>
                         <h2 className="text-xl font-bold text-gray-700 mb-4 px-1">Quick Actions</h2>
 
+                        {/* Daily Essentials — the handful of actions an admin reaches for most days,
+                            pulled to the top so the dashboard reads at a glance instead of requiring
+                            a full scroll through 11 department sections to find them. Every destination
+                            here also still appears in its normal department section below. */}
+                        <div className="mb-6">
+                            <h3 className="text-xs font-bold text-indigo-500 uppercase tracking-wider mb-2 px-1">Daily Essentials</h3>
+                            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 sm:gap-4">
+                                <QuickActionCard index={0} label="Approvals" icon={<CheckCircleIcon />} onClick={() => navigateTo('studentApprovals', 'Student Approvals')} color="bg-indigo-600" />
+                                <QuickActionCard index={1} label="Attendance" icon={<ClockIcon />} onClick={() => navigateTo('teacherAttendance', 'Teacher Attendance')} color="bg-amber-500" />
+                                <QuickActionCard index={2} label="Announce" icon={<MegaphoneIcon />} onClick={() => navigateTo('communicationHub', 'Communication Hub')} color="bg-teal-500" />
+                                <QuickActionCard index={3} label="Fee Management" icon={<ReceiptIcon />} onClick={() => navigateTo('feeManagement', 'Fee Management')} color="bg-orange-500" />
+                                <QuickActionCard index={4} label="Timetable" icon={<ClipboardListIcon />} onClick={() => navigateTo('timetable', 'AI Timetable')} color="bg-indigo-500" />
+                                <QuickActionCard index={5} label="Emergency" icon={<AlertTriangle />} onClick={() => setIsBroadcastOpen(true)} color="bg-red-600 animate-pulse" />
+                            </div>
+                        </div>
+
                         <div className="space-y-6">
                             {/* People & Enrollment */}
                             <div>
                                 <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-1">People & Enrollment</h3>
                                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 sm:gap-4">
-                                    <QuickActionCard label="School Status" icon={<School className="w-6 h-6" />} onClick={() => navigateTo('digitalTwin', 'School Status')} color="bg-slate-800" />
-                                    <QuickActionCard label="Add User" icon={<PlusIcon />} onClick={() => navigateTo('selectUserTypeToAdd', 'Add New User', {})} color="bg-indigo-500" />
-                                    <QuickActionCard label="Approvals" icon={<CheckCircleIcon />} onClick={() => navigateTo('studentApprovals', 'Student Approvals')} color="bg-indigo-600" />
-                                    <QuickActionCard label="Onboarding" icon={<SchoolLogoIcon />} onClick={() => navigateTo('manageSchoolInfo', 'School Onboarding')} color="bg-pink-600" />
-                                    <QuickActionCard label="Enroll Student" icon={<UserIcon />} onClick={() => navigateTo('enrollmentPage', 'New Student Enrollment')} color="bg-emerald-600" />
-                                    <QuickActionCard label="Past Students" icon={<Archive className="w-6 h-6" />} onClick={() => navigateTo('pastStudents', 'Past Students')} color="bg-slate-600" />
-                                    <QuickActionCard label="User Accounts" icon={<UsersIcon />} onClick={() => navigateTo('userAccounts', 'User Accounts')} color="bg-indigo-600" />
-                                    <QuickActionCard label="Manage Branches" icon={<Building2 className="w-6 h-6" />} onClick={() => navigateTo('schoolManagement', 'Manage Branches')} color="bg-blue-600" />
+                                    <QuickActionCard index={0} label="School Status" icon={<School className="w-6 h-6" />} onClick={() => navigateTo('digitalTwin', 'School Status')} color="bg-slate-800" />
+                                    <QuickActionCard index={1} label="Add User" icon={<PlusIcon />} onClick={() => navigateTo('selectUserTypeToAdd', 'Add New User', {})} color="bg-indigo-500" />
+                                    <QuickActionCard index={2} label="Approvals" icon={<CheckCircleIcon />} onClick={() => navigateTo('studentApprovals', 'Student Approvals')} color="bg-indigo-600" />
+                                    <QuickActionCard index={3} label="Onboarding" icon={<SchoolLogoIcon />} onClick={() => navigateTo('manageSchoolInfo', 'School Onboarding')} color="bg-pink-600" />
+                                    <QuickActionCard index={4} label="Enroll Student" icon={<UserIcon />} onClick={() => navigateTo('enrollmentPage', 'New Student Enrollment')} color="bg-emerald-600" />
+                                    <QuickActionCard index={5} label="Past Students" icon={<Archive className="w-6 h-6" />} onClick={() => navigateTo('pastStudents', 'Past Students')} color="bg-slate-600" />
+                                    <QuickActionCard index={6} label="User Accounts" icon={<UsersIcon />} onClick={() => navigateTo('userAccounts', 'User Accounts')} color="bg-indigo-600" />
+                                    <QuickActionCard index={7} label="Manage Branches" icon={<Building2 className="w-6 h-6" />} onClick={() => navigateTo('schoolManagement', 'Manage Branches')} color="bg-blue-600" />
                                     {!currentBranchId && (
-                                        <QuickActionCard label="Branch Transfers" icon={<UsersIcon />} onClick={() => navigateTo('branchTransfer', 'Branch Transfers')} color="bg-fuchsia-600" />
+                                        <QuickActionCard index={8} label="Branch Transfers" icon={<UsersIcon />} onClick={() => navigateTo('branchTransfer', 'Branch Transfers')} color="bg-fuchsia-600" />
                                     )}
                                 </div>
                             </div>
@@ -425,18 +480,18 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                             <div>
                                 <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-1">Academic</h3>
                                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 sm:gap-4">
-                                    <QuickActionCard label="Timetable" icon={<ClipboardListIcon />} onClick={() => navigateTo('timetable', 'AI Timetable')} color="bg-indigo-500" />
-                                    <QuickActionCard label="Teacher Assignments" icon={<UsersRound className="w-6 h-6" />} onClick={() => navigateTo('teacherAssignments', 'Teacher Assignments')} color="bg-purple-600" />
-                                    <QuickActionCard label="Classrooms & QR" icon={<QrCode className="w-6 h-6" />} onClick={() => navigateTo('classroomManagement', 'Classrooms & QR Codes')} color="bg-sky-600" />
-                                    <QuickActionCard label="Class Verification" icon={<ScanLine className="w-6 h-6" />} onClick={() => navigateTo('classVerification', 'Class Verification')} color="bg-blue-700" />
-                                    <QuickActionCard label="Register Exams" icon={<DocumentTextIcon />} onClick={() => navigateTo('exams', 'External Exams')} color="bg-indigo-600" />
-                                    <QuickActionCard label="Enter Results" icon={<TrendingUp />} onClick={() => navigateTo('resultsEntry', 'Results Entry')} color="bg-cyan-600" />
-                                    <QuickActionCard label="Publish Reports" icon={<ReportIcon />} onClick={() => navigateTo('reportCardPublishing', 'Publish Reports', {})} color="bg-purple-500" />
-                                    <QuickActionCard label="Promotion" icon={<GraduationCap />} onClick={() => navigateTo('sessionPromotion', 'End-of-Session Promotion')} color="bg-indigo-700" />
-                                    <QuickActionCard label="Track Attendance" icon={<Calendar />} onClick={() => navigateTo('attendanceTracker', 'Curriculum Attendance')} color="bg-green-600" />
-                                    <QuickActionCard label="Classroom Observation" icon={<ClipboardEdit className="w-6 h-6" />} onClick={() => navigateTo('classroomObservation', 'Classroom Observation')} color="bg-fuchsia-700" />
-                                    <QuickActionCard label="Departments" icon={<Building2 className="w-6 h-6" />} onClick={() => navigateTo('departmentManagement', 'Departments')} color="bg-cyan-900" />
-                                    <QuickActionCard label="School Clubs" icon={<Star className="w-6 h-6" />} onClick={() => navigateTo('clubManagement', 'School Clubs')} color="bg-amber-800" />
+                                    <QuickActionCard index={0} label="Timetable" icon={<ClipboardListIcon />} onClick={() => navigateTo('timetable', 'AI Timetable')} color="bg-indigo-500" />
+                                    <QuickActionCard index={1} label="Teacher Assignments" icon={<UsersRound className="w-6 h-6" />} onClick={() => navigateTo('teacherAssignments', 'Teacher Assignments')} color="bg-purple-600" />
+                                    <QuickActionCard index={2} label="Classrooms & QR" icon={<QrCode className="w-6 h-6" />} onClick={() => navigateTo('classroomManagement', 'Classrooms & QR Codes')} color="bg-sky-600" />
+                                    <QuickActionCard index={3} label="Class Verification" icon={<ScanLine className="w-6 h-6" />} onClick={() => navigateTo('classVerification', 'Class Verification')} color="bg-blue-700" />
+                                    <QuickActionCard index={4} label="Register Exams" icon={<DocumentTextIcon />} onClick={() => navigateTo('exams', 'External Exams')} color="bg-indigo-600" />
+                                    <QuickActionCard index={5} label="Enter Results" icon={<TrendingUp />} onClick={() => navigateTo('resultsEntry', 'Results Entry')} color="bg-cyan-600" />
+                                    <QuickActionCard index={6} label="Publish Reports" icon={<ReportIcon />} onClick={() => navigateTo('reportCardPublishing', 'Publish Reports', {})} color="bg-purple-500" />
+                                    <QuickActionCard index={7} label="Promotion" icon={<GraduationCap />} onClick={() => navigateTo('sessionPromotion', 'End-of-Session Promotion')} color="bg-indigo-700" />
+                                    <QuickActionCard index={8} label="Track Attendance" icon={<Calendar />} onClick={() => navigateTo('attendanceTracker', 'Curriculum Attendance')} color="bg-green-600" />
+                                    <QuickActionCard index={9} label="Classroom Observation" icon={<ClipboardEdit className="w-6 h-6" />} onClick={() => navigateTo('classroomObservation', 'Classroom Observation')} color="bg-fuchsia-700" />
+                                    <QuickActionCard index={10} label="Departments" icon={<Building2 className="w-6 h-6" />} onClick={() => navigateTo('departmentManagement', 'Departments')} color="bg-cyan-900" />
+                                    <QuickActionCard index={11} label="School Clubs" icon={<Star className="w-6 h-6" />} onClick={() => navigateTo('clubManagement', 'School Clubs')} color="bg-amber-800" />
                                 </div>
                             </div>
 
@@ -552,7 +607,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
 
                         {/* Boarding & Transport Section */}
                         <div className="mt-8">
-                            <h2 className="text-xl font-bold text-gray-700 mb-3 px-1">🏠 Boarding & Transport</h2>
+                            <h2 className="text-xl font-bold text-gray-700 mb-3 px-1 flex items-center gap-2"><Building2 className="w-5 h-5 text-gray-400" />Boarding & Transport</h2>
                             <div className="grid grid-cols-3 md:grid-cols-5 gap-4">
                                 <QuickActionCard
                                     label="Hostel Management"
@@ -577,7 +632,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
 
                         {/* System & Data Section */}
                         <div className="mt-8">
-                            <h2 className="text-xl font-bold text-gray-700 mb-3 px-1">⚙️ System & Data</h2>
+                            <h2 className="text-xl font-bold text-gray-700 mb-3 px-1 flex items-center gap-2"><Settings className="w-5 h-5 text-gray-400" />System & Data</h2>
                             <div className="grid grid-cols-3 md:grid-cols-5 gap-4">
                                 <QuickActionCard
                                     label="Custom Reports"
@@ -620,7 +675,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
 
                         {/* Compliance & Privacy Section */}
                         <div className="mt-8">
-                            <h2 className="text-xl font-bold text-gray-700 mb-3 px-1">🔒 Compliance & Privacy</h2>
+                            <h2 className="text-xl font-bold text-gray-700 mb-3 px-1 flex items-center gap-2"><Shield className="w-5 h-5 text-gray-400" />Compliance & Privacy</h2>
                             <div className="grid grid-cols-3 md:grid-cols-5 gap-4">
                                 <QuickActionCard
                                     label="Consent Forms"
@@ -651,7 +706,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
 
                         {/* Phase 8: Step 12 Safety & Wellbeing Section */}
                         <div className="mt-8">
-                            <h2 className="text-xl font-bold text-gray-700 mb-3 px-1">🛡️ Safety & Wellbeing</h2>
+                            <h2 className="text-xl font-bold text-gray-700 mb-3 px-1 flex items-center gap-2"><ShieldCheck className="w-5 h-5 text-gray-400" />Safety & Wellbeing</h2>
                             <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                                 <QuickActionCard
                                     label="Emergency Alerts"
@@ -682,7 +737,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
 
                         {/* Phase 9: Step 13 Governance & Ministry Section */}
                         <div className="mt-8">
-                            <h2 className="text-xl font-bold text-gray-700 mb-3 px-1">🏛️ Governance & Ministry</h2>
+                            <h2 className="text-xl font-bold text-gray-700 mb-3 px-1 flex items-center gap-2"><Landmark className="w-5 h-5 text-gray-400" />Governance & Ministry</h2>
                             <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                                 <QuickActionCard
                                     label="Quality Assurance"
@@ -731,8 +786,8 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                 </div>
 
                 {/* Sidebar Column */}
-                <div className="lg:col-span-1 space-y-6">
-                    <div className="bg-white p-4 rounded-2xl shadow-sm">
+                <div className="lg:col-span-1 space-y-6 lg:sticky lg:top-6 lg:self-start">
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="bg-white p-4 rounded-2xl shadow-sm">
                         <h2 className="text-lg font-bold text-gray-700 mb-3 px-1">School Health</h2>
                         <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
                             <div>
@@ -745,19 +800,19 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                             <p className="font-semibold text-gray-800 px-1">Enrollment Trend</p>
                             <EnrollmentLineChart data={enrollmentData} color="#4f46e5" />
                         </div>
-                    </div>
+                    </motion.div>
 
-                    <div>
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: 0.05 }}>
                         <h2 className="text-lg font-bold text-gray-700 mb-3 px-1">Action Required</h2>
                         <div className="space-y-3">
                             {pendingApprovalsCount > 0 && (
-                                <AlertCard label="Student Approvals" value={pendingApprovalsCount} icon={<CheckCircleIcon />} onClick={() => navigateTo('studentApprovals', 'Student Approvals')} color="text-indigo-600" />
+                                <AlertCard index={0} label="Student Approvals" value={pendingApprovalsCount} icon={<CheckCircleIcon />} onClick={() => navigateTo('studentApprovals', 'Student Approvals')} color="text-indigo-600" />
                             )}
                             {unpublishedReports > 0 && (
-                                <AlertCard label="Reports to Publish" value={unpublishedReports} icon={<ReportIcon />} onClick={() => navigateTo('reportCardPublishing', 'Publish Reports')} color="text-red-500" />
+                                <AlertCard index={1} label="Reports to Publish" value={unpublishedReports} icon={<ReportIcon />} onClick={() => navigateTo('reportCardPublishing', 'Publish Reports')} color="text-red-500" />
                             )}
                             {overdueFees > 0 && (
-                                <AlertCard label="in Overdue Fees" value={new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(overdueFees)} icon={<ReceiptIcon />} onClick={() => navigateTo('feeManagement', 'Fee Management')} color="text-orange-500" />
+                                <AlertCard index={2} label="in Overdue Fees" value={new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(overdueFees)} icon={<ReceiptIcon />} onClick={() => navigateTo('feeManagement', 'Fee Management')} color="text-orange-500" />
                             )}
                             {unpublishedReports === 0 && overdueFees === 0 && (
                                 <div className="bg-white p-4 rounded-xl shadow-sm text-center text-gray-500">
@@ -765,17 +820,17 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                                 </div>
                             )}
                         </div>
-                    </div>
+                    </motion.div>
 
-                    <div>
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: 0.1 }}>
                         <h2 className="text-lg font-bold text-gray-700 mb-3 px-1">Recent Activity</h2>
                         <div className="bg-white p-4 rounded-2xl shadow-sm space-y-4">
-                            {recentActivities.map((log, index) => <ActivityLogItem key={log.id} log={log} isLast={index === recentActivities.length - 1} />)}
-                            <button onClick={() => navigateTo('auditLog', 'Audit Log')} className="mt-2 text-sm w-full text-center font-semibold text-indigo-600 hover:text-indigo-800">
+                            {recentActivities.map((log, index) => <ActivityLogItem key={log.id} log={log} isLast={index === recentActivities.length - 1} index={index} />)}
+                            <motion.button whileTap={{ scale: 0.97 }} onClick={() => navigateTo('auditLog', 'Audit Log')} className="mt-2 text-sm w-full text-center font-semibold text-indigo-600 hover:text-indigo-800">
                                 View Full Log
-                            </button>
+                            </motion.button>
                         </div>
-                    </div>
+                    </motion.div>
                 </div>
             </div >
 

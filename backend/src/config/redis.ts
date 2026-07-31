@@ -22,6 +22,7 @@ export const redisConnection = new IORedis(process.env.REDIS_URL || 'redis://loc
 });
 
 let isReady = false;
+let everBeenReady = false;
 
 redisConnection.on('error', (err) => {
     isReady = false;
@@ -33,6 +34,7 @@ redisConnection.on('error', (err) => {
 
 redisConnection.on('ready', () => {
     isReady = true;
+    everBeenReady = true;
     console.log('✅ [Redis] Shared connection ready — cache, rate limiting, and CSRF replay guard are Redis-backed.');
 });
 
@@ -43,6 +45,46 @@ redisConnection.connect().catch(() => { /* handled by the error listener */ });
  * in-memory fallback, avoiding a per-call timeout wait while Redis is down. */
 export function isRedisReady(): boolean {
     return isReady;
+}
+
+/**
+ * Resolves once the connection is ready, or `false` after `timeoutMs`.
+ *
+ * Exists ONLY for the one-time startup race: rate limiters (and anything
+ * else) built at module-load time fire their first Redis call before the
+ * real (async) TCP handshake to even a local Redis has finished — an
+ * instant `isRedisReady()` check there is a guaranteed-false race on every
+ * cold start, not an actual outage, so it's worth a short bounded wait.
+ *
+ * The default is deliberately generous (not ~100ms, which is all a real
+ * handshake needs): in dev, `tsx` transpiles the whole route tree
+ * synchronously on boot, which blocks the event loop for several seconds
+ * and delays EVERY pending callback by roughly the same amount — including
+ * this timer and Redis's own 'ready' event. A short timeout races those two
+ * equally-delayed callbacks against each other and can lose by milliseconds
+ * even though Redis was never actually slow. In production (pre-built, no
+ * blocking transpile step) this resolves almost immediately regardless.
+ *
+ * Once the connection has been ready at least once, this returns instantly
+ * (`false` if currently down) instead of waiting — a LATER outage must
+ * still fail fast per-request, or every request would eat a `timeoutMs`
+ * stall for as long as Redis stays down, which is the opposite of the
+ * fail-open design this exists to protect.
+ */
+export function waitForRedisReady(timeoutMs = 10_000): Promise<boolean> {
+    if (isReady) return Promise.resolve(true);
+    if (everBeenReady) return Promise.resolve(false);
+    return new Promise((resolve) => {
+        const onReady = () => {
+            clearTimeout(timer);
+            resolve(true);
+        };
+        const timer = setTimeout(() => {
+            redisConnection.off('ready', onReady);
+            resolve(false);
+        }, timeoutMs);
+        redisConnection.once('ready', onReady);
+    });
 }
 
 export default redisConnection;

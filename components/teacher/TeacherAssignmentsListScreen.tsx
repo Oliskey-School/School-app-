@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Assignment } from '../../types';
 import { ChevronRightIcon, PlusIcon, CheckCircleIcon, ClipboardListIcon } from '../../constants';
 import { api } from '../../lib/api';
@@ -105,15 +106,20 @@ const TeacherAssignmentsListScreen: React.FC<TeacherAssignmentsListScreenProps> 
                 )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {Object.entries(assignmentsByClass).map(([className, classAssignments]: [string, Assignment[]]) => {
+                    {Object.entries(assignmentsByClass).map(([className, classAssignments]: [string, Assignment[]], i) => {
                         const totalSubmissions = classAssignments.reduce((sum, a) => sum + a.submissionsCount, 0);
                         const totalStudentsPossibleSubmissions = classAssignments.reduce((sum, a) => sum + a.totalStudents, 0);
 
                         return (
-                            <button
+                            <motion.button
                                 key={className}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.2, delay: Math.min(i, 12) * 0.04 }}
+                                whileHover={{ y: -2 }}
+                                whileTap={{ scale: 0.98 }}
                                 onClick={() => navigateTo('classAssignments', `Assignments: ${className}`, { className })}
-                                className="w-full bg-white p-4 rounded-xl shadow-sm flex justify-between items-center text-left hover:bg-purple-50 transition-colors"
+                                className="w-full bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow flex justify-between items-center text-left"
                             >
                                 <div className="flex items-center space-x-4">
                                     <div className="p-3 bg-purple-100 rounded-lg">
@@ -131,26 +137,36 @@ const TeacherAssignmentsListScreen: React.FC<TeacherAssignmentsListScreenProps> 
                                     </div>
                                     <ChevronRightIcon className="h-5 w-5 text-gray-400" />
                                 </div>
-                            </button>
+                            </motion.button>
                         );
                     })}
                 </div>
                     </>
                 )}
             </main>
+            <AnimatePresence>
             {successMessage && (
-                <div className="fixed bottom-24 right-6 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center space-x-2 animate-slide-in-up">
+                <motion.div
+                    initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 20, scale: 0.95 }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                    className="fixed bottom-24 right-6 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center space-x-2"
+                >
                     <CheckCircleIcon className="w-5 h-5" />
                     <span>{successMessage}</span>
-                </div>
+                </motion.div>
             )}
+            </AnimatePresence>
             <div className="fixed bottom-24 right-6 lg:bottom-12 lg:right-12 z-40">
-                <button
+                <motion.button
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.92 }}
                     onClick={() => navigateTo('assignmentCreator', 'Create Assignment', {})}
-                    className="p-4 bg-indigo-600 text-white rounded-full shadow-xl hover:bg-indigo-700 transition-all hover:scale-110 active:scale-95"
+                    className="p-4 bg-indigo-600 text-white rounded-full shadow-xl hover:bg-indigo-700 transition-colors"
                 >
                     <PlusIcon className="h-6 w-6" />
-                </button>
+                </motion.button>
             </div>
         </div>
     );

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createFee, getAllFees, getFeeById, updateFee, updateFeeStatus, deleteFee, bulkFetchFees, getFinancialAnalytics, recordPayment, getPaymentHistory, deletePayment, getTransactions } from '../controllers/fee.controller';
+import { createFee, getAllFees, getFeeById, updateFee, updateFeeStatus, deleteFee, bulkFetchFees, getFinancialAnalytics, recordPayment, getPaymentHistory, deletePayment, getTransactions, notifyFeeAssignment, notifyPaymentConfirmation } from '../controllers/fee.controller';
 import { authenticate } from '../middleware/auth.middleware';
 
 const router = Router();
@@ -7,6 +7,8 @@ const router = Router();
 router.use(authenticate);
 
 router.post('/record-payment', recordPayment);
+router.post('/notify-assignment', notifyFeeAssignment);
+router.post('/notify-payment', notifyPaymentConfirmation);
 router.get('/history', getPaymentHistory);
 router.get('/payment-history', getPaymentHistory); // alias used by parent FeeStatusScreen
 router.delete('/payments/:id', deletePayment);

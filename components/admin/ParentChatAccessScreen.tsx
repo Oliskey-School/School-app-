@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { SearchIcon, UserGroupIcon } from '../../constants';
@@ -156,7 +157,9 @@ const ParentChatAccessScreen: React.FC = () => {
                         <h1 className="text-lg font-bold text-gray-800">Parent Chat Access</h1>
                         <p className="text-xs text-gray-400 mt-0.5">Control which teachers parents can message, and for how long</p>
                     </div>
-                    <button
+                    <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={() => setShowGrantForm(true)}
                         className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm"
                     >
@@ -164,7 +167,7 @@ const ParentChatAccessScreen: React.FC = () => {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                         </svg>
                         Grant Access
-                    </button>
+                    </motion.button>
                 </div>
 
                 {/* Filters */}
@@ -184,11 +187,12 @@ const ParentChatAccessScreen: React.FC = () => {
                             <button
                                 key={s}
                                 onClick={() => setFilterStatus(s)}
-                                className={`px-3 py-1.5 text-xs font-semibold rounded-full transition-all capitalize ${
-                                    filterStatus === s ? 'bg-indigo-600 text-white shadow-sm' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                                className={`relative px-3 py-1.5 text-xs font-semibold rounded-full transition-colors capitalize ${
+                                    filterStatus === s ? 'text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                                 }`}
                             >
-                                {s}
+                                {filterStatus === s && <motion.div layoutId="chatAccessFilterTab" className="absolute inset-0 bg-indigo-600 rounded-full shadow-sm" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />}
+                                <span className="relative">{s}</span>
                             </button>
                         ))}
                     </div>
@@ -213,8 +217,8 @@ const ParentChatAccessScreen: React.FC = () => {
                     </div>
                 ) : (
                     <div className="flex flex-col gap-2">
-                        {filteredPerms.map(p => (
-                            <div key={p.id} className="bg-white rounded-xl border border-gray-100/80 px-4 py-3 flex items-center gap-4 shadow-sm">
+                        {filteredPerms.map((p, pi) => (
+                            <motion.div key={p.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(pi, 15) * 0.03 }} className="bg-white rounded-xl border border-gray-100/80 px-4 py-3 flex items-center gap-4 shadow-sm">
                                 <div className="flex items-center gap-2 flex-1 min-w-0">
                                     <Avatar name={p.parent?.full_name || 'P'} url={p.parent?.user?.avatar_url} />
                                     <div className="min-w-0">
@@ -238,30 +242,33 @@ const ParentChatAccessScreen: React.FC = () => {
                                         <p className="text-[11px] text-gray-400 mt-0.5">{formatExpiry(p)}</p>
                                     </div>
                                     {p.status === 'active' && (
-                                        <button
+                                        <motion.button
+                                            whileHover={{ scale: 1.03 }}
+                                            whileTap={{ scale: 0.96 }}
                                             onClick={() => handleRevoke(p.id)}
                                             disabled={revoking === p.id}
                                             className="px-3 py-1.5 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-50"
                                         >
                                             {revoking === p.id ? '...' : 'Revoke'}
-                                        </button>
+                                        </motion.button>
                                     )}
                                 </div>
-                            </div>
+                            </motion.div>
                         ))}
                     </div>
                 )}
             </div>
 
             {/* Grant Modal */}
+            <AnimatePresence>
             {showGrantForm && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+                    <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} transition={{ type: 'spring', stiffness: 400, damping: 32 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
                         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
                             <h2 className="font-bold text-gray-800">Grant Teacher Chat Access</h2>
-                            <button onClick={() => setShowGrantForm(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 transition-colors">
+                            <motion.button whileTap={{ scale: 0.9 }} onClick={() => setShowGrantForm(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 transition-colors">
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                            </button>
+                            </motion.button>
                         </div>
 
                         <div className="p-6 space-y-5">
@@ -367,21 +374,24 @@ const ParentChatAccessScreen: React.FC = () => {
                         </div>
 
                         <div className="px-6 pb-5 flex gap-3">
-                            <button onClick={() => setShowGrantForm(false)}
+                            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => setShowGrantForm(false)}
                                 className="flex-1 py-2.5 text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors">
                                 Cancel
-                            </button>
-                            <button
+                            </motion.button>
+                            <motion.button
+                                whileHover={!(submitting || !selectedParent || !selectedTeacher) ? { scale: 1.02 } : {}}
+                                whileTap={!(submitting || !selectedParent || !selectedTeacher) ? { scale: 0.98 } : {}}
                                 onClick={handleGrant}
                                 disabled={submitting || !selectedParent || !selectedTeacher}
                                 className="flex-1 py-2.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors disabled:opacity-50 shadow-sm"
                             >
                                 {submitting ? 'Granting...' : 'Grant Access'}
-                            </button>
+                            </motion.button>
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
         </div>
     );
 };

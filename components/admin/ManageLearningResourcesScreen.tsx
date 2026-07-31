@@ -1,10 +1,12 @@
 ﻿import { toast } from 'react-hot-toast';
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { TrashIcon, PlusIcon, ElearningIcon, LinkIcon, SearchIcon, VideoIcon, FilePdfIcon, CloudUploadIcon } from '../../constants';
 import ConfirmationModal from '../ui/ConfirmationModal';
 import ResourceUploadModal from './ResourceUploadModal';
+import CenteredLoader from '../ui/CenteredLoader';
 
 const ManageLearningResourcesScreen: React.FC = () => {
     const { currentSchool, currentBranchId } = useAuth();
@@ -85,13 +87,14 @@ const ManageLearningResourcesScreen: React.FC = () => {
                     <h1 className="text-2xl font-bold text-gray-800">Learning Resources</h1>
                     <p className="text-gray-500 text-sm">Curate digital content for student learning.</p>
                 </div>
-                <button
+                <motion.button
+                    whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.98 }}
                     onClick={() => setIsUploadModalOpen(true)}
-                    className="flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-5 py-2.5 rounded-xl shadow-lg hover:shadow-xl hover:scale-105 transition-all font-semibold"
+                    className="flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-5 py-2.5 rounded-xl shadow-lg hover:shadow-xl transition-all font-semibold"
                 >
                     <CloudUploadIcon className="w-5 h-5" />
                     <span>Upload Resource</span>
-                </button>
+                </motion.button>
             </div>
 
             {/* Main Content */}
@@ -129,7 +132,7 @@ const ManageLearningResourcesScreen: React.FC = () => {
 
                 {loading ? (
                     <div className="flex-grow flex justify-center items-center">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                        <CenteredLoader />
                     </div>
                 ) : filteredResources.length === 0 ? (
                     <div className="flex-grow flex flex-col justify-center items-center text-gray-400 py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
@@ -145,8 +148,8 @@ const ManageLearningResourcesScreen: React.FC = () => {
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                        {filteredResources.map(res => (
-                            <div key={res.id} className="group flex flex-col bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-xl transition-all hover:-translate-y-1 duration-300">
+                        {filteredResources.map((res, ri) => (
+                            <motion.div key={res.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(ri, 15) * 0.03 }} className="group flex flex-col bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-xl transition-all hover:-translate-y-1 duration-300">
                                 <div className="relative h-40 bg-gray-100 flex items-center justify-center overflow-hidden">
                                     {res.thumbnail_url ? (
                                         <img src={res.thumbnail_url} alt={res.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
@@ -193,7 +196,7 @@ const ManageLearningResourcesScreen: React.FC = () => {
                                         <span>{new Date(res.created_at).toLocaleDateString()}</span>
                                     </div>
                                 </div>
-                            </div>
+                            </motion.div>
                         ))}
                     </div>
                 )}

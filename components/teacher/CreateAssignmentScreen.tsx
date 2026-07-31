@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -221,7 +222,7 @@ const CreateAssignmentScreen: React.FC<CreateAssignmentScreenProps> = ({ classIn
                 <textarea value={description} onChange={e => setDescription(e.target.value)} rows={12} required className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg" />
               </div>
             </div>
-            <div className="lg:col-span-1 space-y-5">
+            <div className="lg:col-span-1 space-y-5 lg:sticky lg:top-6 lg:self-start">
               <div className="bg-white p-4 rounded-xl shadow-sm space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Class & Subject</label>
@@ -249,29 +250,31 @@ const CreateAssignmentScreen: React.FC<CreateAssignmentScreenProps> = ({ classIn
               </div>
               <div className="bg-white p-4 rounded-xl shadow-sm space-y-4">
                 <label className="block text-sm font-medium text-gray-700">Attachments</label>
-                <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors">
+                <motion.button whileHover={{ scale: 1.005 }} whileTap={{ scale: 0.99 }} type="button" onClick={() => fileInputRef.current?.click()} className="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:bg-gray-100 hover:border-purple-300 transition-colors">
                   Attach Files
-                </button>
+                </motion.button>
+                <AnimatePresence>
                 {attachedFiles.length > 0 && (
-                  <div className="space-y-2">
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="space-y-2 overflow-hidden">
                     {attachedFiles.map((file, i) => (
-                      <div key={i} className="flex items-center p-2 bg-gray-50 rounded-lg text-sm">
+                      <motion.div key={i} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="flex items-center p-2 bg-gray-50 rounded-lg text-sm">
                         {getFileIcon(file.name)}
                         <span className="ml-2 truncate">{file.name}</span>
-                        <button type="button" onClick={() => handleRemoveFile(file)} className="ml-auto text-red-500 p-1">×</button>
-                      </div>
+                        <motion.button whileTap={{ scale: 0.9 }} type="button" onClick={() => handleRemoveFile(file)} className="ml-auto text-red-500 p-1" aria-label={`Remove ${file.name}`}>×</motion.button>
+                      </motion.div>
                     ))}
-                  </div>
+                  </motion.div>
                 )}
+                </AnimatePresence>
                 <input type="file" multiple ref={fileInputRef} onChange={handleFileChange} className="hidden" />
               </div>
             </div>
           </div>
         </main>
         <div className="p-4 bg-white border-t">
-          <button type="submit" disabled={loading} className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors">
+          <motion.button whileHover={!loading ? { scale: 1.01 } : {}} whileTap={!loading ? { scale: 0.98 } : {}} type="submit" disabled={loading} className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors">
             {loading ? 'Processing...' : 'Create Assignment'}
-          </button>
+          </motion.button>
         </div>
       </form>
     </div>

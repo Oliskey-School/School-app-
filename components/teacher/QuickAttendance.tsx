@@ -84,23 +84,28 @@ export const QuickAttendance: React.FC<{ classId: string }> = ({ classId }) => {
                     <h2 className="font-bold text-lg">Class Attendance</h2>
                     <p className="text-xs text-gray-500">{students.length} Students • Default: Present</p>
                 </div>
-                <button 
+                <motion.button
+                    whileTap={{ scale: 0.95 }}
                     onClick={() => setAttendance(Object.fromEntries(students.map(s => [s.id, 'present'])))}
                     className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-full"
                 >
                     RESET ALL
-                </button>
+                </motion.button>
             </div>
 
             <div className="p-4 space-y-3">
-                {students.map((student) => {
+                {students.map((student, i) => {
                     const status = attendance[student.id];
                     return (
-                        <motion.div 
+                        <motion.div
                             key={student.id}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.2, delay: Math.min(i, 15) * 0.03 }}
+                            whileTap={{ scale: 0.98 }}
                             onClick={() => toggleStatus(student.id)}
-                            className={`p-4 rounded-2xl flex items-center justify-between transition-colors border-2 cursor-pointer ${
-                                status === 'present' ? 'bg-white border-transparent' : 
+                            className={`p-4 rounded-2xl flex items-center justify-between transition-colors border-2 cursor-pointer shadow-sm ${
+                                status === 'present' ? 'bg-white border-transparent' :
                                 status === 'late' ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-200'
                             }`}
                         >
@@ -111,11 +116,20 @@ export const QuickAttendance: React.FC<{ classId: string }> = ({ classId }) => {
                                 <span className="font-bold text-gray-800">{student.full_name || student.name}</span>
                             </div>
 
-                            <div className="flex items-center gap-2">
-                                {status === 'present' && <Check className="w-6 h-6 text-emerald-500" />}
-                                {status === 'late' && <div className="flex items-center gap-1.5 text-amber-600 font-bold text-sm"><Clock className="w-5 h-5"/> LATE</div>}
-                                {status === 'absent' && <div className="flex items-center gap-1.5 text-red-600 font-bold text-sm"><X className="w-5 h-5"/> ABSENT</div>}
-                            </div>
+                            <AnimatePresence mode="wait">
+                                <motion.div
+                                    key={status}
+                                    initial={{ opacity: 0, scale: 0.7 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.7 }}
+                                    transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+                                    className="flex items-center gap-2"
+                                >
+                                    {status === 'present' && <Check className="w-6 h-6 text-emerald-500" />}
+                                    {status === 'late' && <div className="flex items-center gap-1.5 text-amber-600 font-bold text-sm"><Clock className="w-5 h-5"/> LATE</div>}
+                                    {status === 'absent' && <div className="flex items-center gap-1.5 text-red-600 font-bold text-sm"><X className="w-5 h-5"/> ABSENT</div>}
+                                </motion.div>
+                            </AnimatePresence>
                         </motion.div>
                     );
                 })}
@@ -123,13 +137,15 @@ export const QuickAttendance: React.FC<{ classId: string }> = ({ classId }) => {
 
             {/* Float Action Button */}
             <div className="fixed bottom-6 left-4 right-4">
-                <button 
+                <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.96 }}
                     onClick={handleSubmit}
-                    className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold shadow-xl flex items-center justify-center gap-2 active:scale-95 transition-transform"
+                    className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold shadow-xl flex items-center justify-center gap-2"
                 >
                     <Send className="w-5 h-5" />
                     SUBMIT ATTENDANCE
-                </button>
+                </motion.button>
             </div>
         </div>
     );

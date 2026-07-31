@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { api } from '../../lib/api';
 import { CertificateIcon, AwardIcon, StarIcon, TrophyIcon, UsersIcon, SparklesIcon } from '../../constants';
@@ -46,7 +47,12 @@ const AchievementsScreen: React.FC = () => {
         }
     };
 
-    if (loading) return <div className="p-8 text-center text-gray-500 font-medium">Loading achievements...</div>;
+    if (loading) return (
+        <div className="flex flex-col items-center justify-center py-16">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mb-3" />
+            <p className="text-gray-400 text-sm font-medium">Loading achievements...</p>
+        </div>
+    );
 
     if (achievements.length === 0) {
         return (
@@ -70,15 +76,22 @@ const AchievementsScreen: React.FC = () => {
                     <div>
                         <h2 className="text-xl font-bold text-gray-800 mb-3">My Badges</h2>
                         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4">
-                            {categories.badges.map(badge => {
+                            {categories.badges.map((badge, i) => {
                                 const Icon = getIcon(badge.icon);
                                 return (
-                                    <div key={badge.id} className="bg-white p-4 rounded-2xl shadow-sm flex flex-col items-center justify-center text-center space-y-2">
+                                    <motion.div
+                                        key={badge.id}
+                                        initial={{ opacity: 0, scale: 0.85 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        transition={{ type: 'spring', stiffness: 400, damping: 22, delay: Math.min(i, 15) * 0.04 }}
+                                        whileHover={{ y: -3 }}
+                                        className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-md transition-shadow flex flex-col items-center justify-center text-center space-y-2"
+                                    >
                                         <div className={`w-16 h-16 rounded-full flex items-center justify-center ${badge.color || 'bg-blue-100 text-blue-600'}`}>
                                             <Icon className="h-8 w-8" />
                                         </div>
                                         <p className="font-bold text-xs text-gray-700 leading-tight">{badge.title}</p>
-                                    </div>
+                                    </motion.div>
                                 );
                             })}
                         </div>
@@ -91,8 +104,14 @@ const AchievementsScreen: React.FC = () => {
                         <div>
                             <h2 className="text-xl font-bold text-gray-800 mb-3">My Certificates</h2>
                             <div className="space-y-3">
-                                {categories.certificates.map(cert => (
-                                    <div key={cert.id} className="bg-white p-4 rounded-xl shadow-sm flex items-center space-x-4">
+                                {categories.certificates.map((cert, i) => (
+                                    <motion.div
+                                        key={cert.id}
+                                        initial={{ opacity: 0, y: 8 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ duration: 0.25, delay: Math.min(i, 10) * 0.04 }}
+                                        className="bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow flex items-center space-x-4"
+                                    >
                                         <div className="flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center bg-blue-100">
                                             <CertificateIcon className="w-6 h-6 text-blue-600" />
                                         </div>
@@ -100,7 +119,7 @@ const AchievementsScreen: React.FC = () => {
                                             <p className="font-bold text-gray-800">{cert.title}</p>
                                             <p className="text-sm text-gray-500">Issued: {new Date(cert.date).toLocaleDateString()}</p>
                                         </div>
-                                    </div>
+                                    </motion.div>
                                 ))}
                             </div>
                         </div>
@@ -111,8 +130,14 @@ const AchievementsScreen: React.FC = () => {
                         <div>
                             <h2 className="text-xl font-bold text-gray-800 mb-3">My Awards</h2>
                             <div className="space-y-3">
-                                {categories.awards.map(award => (
-                                    <div key={award.id} className="bg-white p-4 rounded-xl shadow-sm border border-yellow-200">
+                                {categories.awards.map((award, i) => (
+                                    <motion.div
+                                        key={award.id}
+                                        initial={{ opacity: 0, y: 8 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ duration: 0.25, delay: Math.min(i, 10) * 0.04 }}
+                                        className="bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow border border-yellow-200"
+                                    >
                                         <div className="flex items-center space-x-4">
                                             <div className="flex-shrink-0 text-yellow-500">
                                                 <AwardIcon className="w-6 h-6" />
@@ -123,7 +148,7 @@ const AchievementsScreen: React.FC = () => {
                                             </div>
                                         </div>
                                         <p className="text-sm text-gray-600 mt-2 pl-10">{award.description}</p>
-                                    </div>
+                                    </motion.div>
                                 ))}
                             </div>
                         </div>
@@ -135,8 +160,14 @@ const AchievementsScreen: React.FC = () => {
                     <div>
                         <h2 className="text-xl font-bold text-gray-800 mb-3">Other Achievements</h2>
                         <div className="space-y-3">
-                            {categories.others.map(ach => (
-                                <div key={ach.id} className="bg-white p-4 rounded-xl shadow-sm flex items-center space-x-4 border border-indigo-200">
+                            {categories.others.map((ach, i) => (
+                                <motion.div
+                                    key={ach.id}
+                                    initial={{ opacity: 0, y: 8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.25, delay: Math.min(i, 10) * 0.04 }}
+                                    className="bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow flex items-center space-x-4 border border-indigo-200"
+                                >
                                     <div className="flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center bg-indigo-50">
                                         <StarIcon className="w-6 h-6 text-indigo-600" />
                                     </div>
@@ -145,7 +176,7 @@ const AchievementsScreen: React.FC = () => {
                                         <p className="text-sm text-gray-500">{ach.description}</p>
                                         <p className="text-xs text-gray-400 mt-1">{new Date(ach.date).toLocaleDateString()}</p>
                                     </div>
-                                </div>
+                                </motion.div>
                             ))}
                         </div>
                     </div>

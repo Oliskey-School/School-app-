@@ -46,6 +46,17 @@ const PhotoGalleryScreen: React.FC = () => {
         setSelectedPhotoIndex((prevIndex) => (prevIndex! - 1 + photos.length) % photos.length);
     }, [selectedPhotoIndex, photos.length]);
 
+    useEffect(() => {
+        if (selectedPhotoIndex === null) return;
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') handleClosePhoto();
+            else if (e.key === 'ArrowRight') handleNextPhoto();
+            else if (e.key === 'ArrowLeft') handlePrevPhoto();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [selectedPhotoIndex, handleClosePhoto, handleNextPhoto, handlePrevPhoto]);
+
     if (loading) return <CenteredLoader message="Loading gallery..." />;
 
     return (

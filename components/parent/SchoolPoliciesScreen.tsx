@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { api } from '../../lib/api';
 import { SchoolPolicy } from '../../types';
@@ -57,8 +58,15 @@ const SchoolPoliciesScreen: React.FC<SchoolPoliciesScreenProps> = ({ schoolId })
           <div className="text-center p-8 text-gray-500">No policies found.</div>
         ) : (
           <div className="space-y-3">
-            {policies.map(policy => (
-              <div key={policy.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow">
+            {policies.map((policy, i) => (
+              <motion.div
+                key={policy.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25, delay: Math.min(i, 10) * 0.05 }}
+                whileHover={{ y: -2 }}
+                className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow"
+              >
                 <div className="flex items-start justify-between">
                   <div>
                     <h4 className="font-bold text-gray-800 text-lg">{policy.title}</h4>
@@ -69,12 +77,12 @@ const SchoolPoliciesScreen: React.FC<SchoolPoliciesScreenProps> = ({ schoolId })
                   href={policy.url || '#'}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full flex items-center justify-center space-x-2 py-3 px-4 bg-gray-50 text-gray-700 hover:text-green-700 hover:bg-green-50 font-semibold rounded-xl border border-gray-200 hover:border-green-200 transition-all group"
+                  className="w-full flex items-center justify-center space-x-2 py-3 px-4 bg-gray-50 text-gray-700 hover:text-green-700 hover:bg-green-50 font-semibold rounded-xl border border-gray-200 hover:border-green-200 transition-colors group"
                 >
                   <DocumentTextIcon className="w-5 h-5 group-hover:text-green-600" />
                   <span>View Document</span>
                 </a>
-              </div>
+              </motion.div>
             ))}
           </div>
         )}

@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect, useMemo } from 'react';
+import { motion } from 'framer-motion';
 import { api } from '../../lib/api';
 import { SearchIcon } from '../../constants';
 import { useProfile } from '../../context/ProfileContext';
@@ -32,11 +33,16 @@ const Avatar: React.FC<{ contact: Contact }> = ({ contact }) => (
           </div>
 );
 
-const ContactRow: React.FC<{ contact: Contact; loading?: boolean; onSelect: () => void }> = ({ contact, loading, onSelect }) => (
-    <button
+const ContactRow: React.FC<{ contact: Contact; loading?: boolean; onSelect: () => void; index: number }> = ({ contact, loading, onSelect, index }) => (
+    <motion.button
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.2, delay: Math.min(index, 12) * 0.03 }}
+        whileHover={{ x: 2 }}
+        whileTap={{ scale: 0.99 }}
         onClick={onSelect}
         disabled={loading}
-        className="w-full flex items-center gap-3 p-3.5 text-left rounded-xl transition-all border bg-white/70 border-gray-100/60 hover:bg-white/90 active:scale-[0.99] disabled:opacity-50"
+        className="w-full flex items-center gap-3 p-3.5 text-left rounded-xl border bg-white/70 border-gray-100/60 hover:bg-white/90 transition-colors disabled:opacity-50"
     >
         <Avatar contact={contact} />
         <div className="flex-1 min-w-0">
@@ -51,7 +57,7 @@ const ContactRow: React.FC<{ contact: Contact; loading?: boolean; onSelect: () =
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
         }
-    </button>
+    </motion.button>
 );
 
 const ParentNewChatScreen: React.FC<ParentNewChatScreenProps> = ({ navigateTo }) => {
@@ -150,10 +156,11 @@ const ParentNewChatScreen: React.FC<ParentNewChatScreenProps> = ({ navigateTo })
             {tabs.length > 1 && (
                 <div className="flex gap-2 px-4 pt-3 pb-1 overflow-x-auto no-scrollbar flex-shrink-0">
                     {tabs.map(tab => (
-                        <button
+                        <motion.button
                             key={tab}
+                            whileTap={{ scale: 0.95 }}
                             onClick={() => setActiveTab(tab)}
-                            className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all border ${
+                            className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors border ${
                                 activeTab === tab
                                     ? 'bg-green-500 text-white border-green-500 shadow-sm'
                                     : 'bg-white/80 text-gray-600 border-gray-200 hover:border-green-300'
@@ -161,7 +168,7 @@ const ParentNewChatScreen: React.FC<ParentNewChatScreenProps> = ({ navigateTo })
                         >
                             {tab}
                             <span className="ml-1 opacity-70">({contacts[tab]?.length || 0})</span>
-                        </button>
+                        </motion.button>
                     ))}
                 </div>
             )}
@@ -169,23 +176,24 @@ const ParentNewChatScreen: React.FC<ParentNewChatScreenProps> = ({ navigateTo })
             {/* Contact list */}
             <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2">
                 {filteredContacts.length > 0 ? (
-                    filteredContacts.map(c => (
+                    filteredContacts.map((c, i) => (
                         <ContactRow
                             key={c.userId}
                             contact={c}
+                            index={i}
                             loading={startingChat === c.userId}
                             onSelect={() => handleSelect(c)}
                         />
                     ))
                 ) : (
-                    <div className="flex flex-col items-center justify-center h-full text-center py-16 gap-3">
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }} className="flex flex-col items-center justify-center h-full text-center py-16 gap-3">
                         <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center">
                             <SearchIcon className="w-7 h-7 text-gray-300" />
                         </div>
                         <p className="text-gray-500 text-sm font-medium">
                             {searchTerm ? 'No results found' : 'No contacts available'}
                         </p>
-                    </div>
+                    </motion.div>
                 )}
             </div>
         </div>

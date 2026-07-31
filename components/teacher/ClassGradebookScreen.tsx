@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { motion } from 'framer-motion';
 import { Student, ClassInfo } from '../../types';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
@@ -506,27 +507,31 @@ const ClassGradebookScreen: React.FC<{
                         </select>
 
                         <div className="flex gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 no-scrollbar">
-                            <button
+                            <motion.button
+                                whileHover={!saving ? { y: -1 } : {}}
+                                whileTap={!saving ? { scale: 0.96 } : {}}
                                 onClick={() => handleSave('Draft')}
                                 disabled={saving}
-                                className="flex-1 sm:flex-none whitespace-nowrap flex items-center justify-center px-4 py-2.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 transition-all shadow-sm text-sm font-semibold active:scale-95"
+                                className="flex-1 sm:flex-none whitespace-nowrap flex items-center justify-center px-4 py-2.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 transition-colors shadow-sm text-sm font-semibold"
                             >
                                 {saving ? <div className="animate-spin h-4 w-4 border-2 border-white rounded-full border-t-transparent mr-2"></div> : <SaveIcon className="w-4 h-4 mr-2" />}
                                 <span>Save Draft</span>
-                            </button>
+                            </motion.button>
 
-                            <button
+                            <motion.button
+                                whileHover={!saving ? { y: -1 } : {}}
+                                whileTap={!saving ? { scale: 0.96 } : {}}
                                 onClick={() => handleSave('Submitted')}
                                 disabled={saving}
-                                className="flex-1 sm:flex-none whitespace-nowrap flex items-center justify-center px-4 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-all shadow-sm text-sm font-semibold active:scale-95"
+                                className="flex-1 sm:flex-none whitespace-nowrap flex items-center justify-center px-4 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors shadow-sm text-sm font-semibold"
                             >
                                 <CheckCircleIcon className="w-4 h-4 mr-2" />
                                 <span>Submit</span>
-                            </button>
+                            </motion.button>
 
-                            <button onClick={handleBack} className="px-4 py-2.5 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 text-sm font-medium whitespace-nowrap active:scale-95">
+                            <motion.button whileTap={{ scale: 0.96 }} onClick={handleBack} className="px-4 py-2.5 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 text-sm font-medium whitespace-nowrap">
                                 Close
-                            </button>
+                            </motion.button>
                         </div>
                     </div>
                 </div>
@@ -544,11 +549,11 @@ const ClassGradebookScreen: React.FC<{
                 ) : (
                     <>
                         {/* Desktop Table - hidden on mobile */}
-                        <div className="hidden lg:block bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
+                        <div className="hidden lg:block bg-white rounded-xl shadow border border-gray-200 overflow-auto max-h-[calc(100vh-320px)]">
                             <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
+                                <thead className="bg-gray-50 sticky top-0 z-10">
                                     <tr>
-                                        <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Student</th>
+                                        <th scope="col" className="sticky left-0 z-20 bg-gray-50 px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">Student</th>
                                         <th scope="col" className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-24">Test 1 (20)</th>
                                         <th scope="col" className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-24">Test 2 (20)</th>
                                         <th scope="col" className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-24">Exam (60)</th>
@@ -560,8 +565,8 @@ const ClassGradebookScreen: React.FC<{
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
                                     {students.map((student, idx) => (
-                                        <tr key={student.studentId} className={student.isDirty ? 'bg-yellow-50' : 'hover:bg-gray-50'}>
-                                            <td className="px-6 py-4 whitespace-nowrap">
+                                        <motion.tr key={student.studentId} layout className={`transition-colors ${student.isDirty ? 'bg-yellow-50' : 'hover:bg-gray-50'}`}>
+                                            <td className={`sticky left-0 z-[5] px-6 py-4 whitespace-nowrap shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)] ${student.isDirty ? 'bg-yellow-50' : 'bg-white'}`}>
                                                 <div className="flex items-center">
                                                     <div className="flex-shrink-0 h-10 w-10">
                                                         {student.avatarUrl ? (
@@ -613,9 +618,15 @@ const ClassGradebookScreen: React.FC<{
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-center">
                                                 {student.offersSubject ? (
-                                                    <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${student.total >= 50 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                                    <motion.span
+                                                        key={student.total}
+                                                        initial={{ scale: 0.85, opacity: 0.6 }}
+                                                        animate={{ scale: 1, opacity: 1 }}
+                                                        transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+                                                        className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${student.total >= 50 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}
+                                                    >
                                                         {student.total}
-                                                    </span>
+                                                    </motion.span>
                                                 ) : (
                                                     <span className="text-sm text-gray-300 font-semibold">—</span>
                                                 )}
@@ -636,7 +647,7 @@ const ClassGradebookScreen: React.FC<{
                                                     ? student.remark
                                                     : <span className="italic text-gray-400">Not offering this subject</span>}
                                             </td>
-                                        </tr>
+                                        </motion.tr>
                                     ))}
                                 </tbody>
                             </table>
@@ -645,9 +656,13 @@ const ClassGradebookScreen: React.FC<{
                         {/* Mobile Cards - hidden on desktop */}
                         <div className="lg:hidden space-y-3">
                             {students.map((student, idx) => (
-                                <div
+                                <motion.div
                                     key={student.studentId}
-                                    className={`bg-white rounded-xl shadow-sm border border-gray-200 p-4 ${student.isDirty ? 'bg-yellow-50 border-yellow-300' : ''}`}
+                                    layout
+                                    initial={{ opacity: 0, y: 8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.2, delay: Math.min(idx, 12) * 0.03 }}
+                                    className={`bg-white rounded-xl shadow-sm border border-gray-200 p-4 transition-colors ${student.isDirty ? 'bg-yellow-50 border-yellow-300' : ''}`}
                                 >
                                     {/* Student Header */}
                                     <div className="flex items-center gap-3 mb-3 pb-3 border-b border-gray-100">
@@ -719,14 +734,14 @@ const ClassGradebookScreen: React.FC<{
                                     <div className="text-xs text-gray-500 text-center px-2 py-1 bg-gray-50 rounded">
                                         {student.offersSubject ? student.remark : <span className="italic text-gray-400">Not offering this subject</span>}
                                     </div>
-                                </div>
+                                </motion.div>
                             ))}
                         </div>
                     </>
                 )}
 
                 {/* Summary / Legend */}
-                <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
                         <h4 className="font-bold text-gray-800 mb-3 flex items-center text-sm"><CalculatorIcon className="w-4 h-4 mr-2 text-purple-600" /> Grading Scale</h4>
                         <div className="space-y-2 text-xs sm:text-sm text-gray-600">
@@ -755,7 +770,7 @@ const ClassGradebookScreen: React.FC<{
                             </div>
                         </div>
                     </div>
-                </div>
+                </motion.div>
             </div>
         </div >
     );

@@ -64,7 +64,12 @@ export const config = {
     nvidiaApiKey: process.env.NVIDIA_API_KEY || process.env.NVIDIA_NIM_API_KEY || '',
     // OpenAI-compatible base (chat/embeddings) + genai base (image/audio).
     nvidiaBaseUrl: process.env.NVIDIA_BASE_URL || 'https://integrate.api.nvidia.com/v1',
-    nvidiaGenaiBaseUrl: process.env.NVIDIA_GENAI_BASE_URL || 'https://ai.api.nvidia.com/v1'
+    nvidiaGenaiBaseUrl: process.env.NVIDIA_GENAI_BASE_URL || 'https://ai.api.nvidia.com/v1',
+    // Must match the frontend's VITE_GOOGLE_CLIENT_ID — the backend checks the
+    // verified ID token's `aud` claim against this so Google Sign-In can't be
+    // spoofed by posting an arbitrary email/name directly to the login endpoint.
+    googleClientId: process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID
+        || '1036010453198-q6c7pjf53uqus1j3o85bfud2gebe4rcu.apps.googleusercontent.com',
 };
 
 // Backward-compat constants

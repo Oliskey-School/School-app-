@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
@@ -20,6 +21,7 @@ import {
     RefreshCw
 } from 'lucide-react';
 import { useAutoSync } from '../../hooks/useAutoSync';
+import CenteredLoader from '../ui/CenteredLoader';
 
 type TabType = 'routes' | 'stops' | 'assignments';
 
@@ -167,8 +169,11 @@ const TransportManagementScreen = () => {
                 <div className="flex p-1.5 bg-gray-100 rounded-2xl">
                     {tabs.map(tab => (
                         <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-                            className={`flex items-center space-x-2 px-5 py-2 rounded-xl transition-all font-bold ${activeTab === tab.key ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-                            <tab.icon className="w-4 h-4" /><span className="text-sm">{tab.label}</span>
+                            className={`relative flex items-center space-x-2 px-5 py-2 rounded-xl transition-colors font-bold ${activeTab === tab.key ? 'text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}>
+                            {activeTab === tab.key && (
+                                <motion.div layoutId="transportTab" className="absolute inset-0 bg-white rounded-xl shadow-sm" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />
+                            )}
+                            <tab.icon className="w-4 h-4 relative" /><span className="text-sm relative">{tab.label}</span>
                         </button>
                     ))}
                 </div>
@@ -182,10 +187,7 @@ const TransportManagementScreen = () => {
             </div>
 
             {loading ? (
-                <div className="flex flex-col items-center justify-center py-40 space-y-4">
-                    <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-                    <p className="text-gray-400 font-medium animate-pulse">Loading transport data...</p>
-                </div>
+                <CenteredLoader message="Loading transport data..." className="py-40" />
             ) : (
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                     {/* Routes Tab */}
@@ -197,9 +199,9 @@ const TransportManagementScreen = () => {
                                     <input type="text" placeholder="Search routes or bus number..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
                                         className="w-full pl-12 pr-4 py-3 bg-white border border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
                                 </div>
-                                <button onClick={() => setIsAdding(true)} className="flex items-center space-x-2 bg-indigo-600 text-white px-5 py-2.5 rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 font-bold">
+                                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => setIsAdding(true)} className="flex items-center space-x-2 bg-indigo-600 text-white px-5 py-2.5 rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 font-bold">
                                     <PlusIcon className="w-5 h-5" /><span>Add Route</span>
-                                </button>
+                                </motion.button>
                             </div>
                             {filteredRoutes.length === 0 ? (
                                 <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-gray-200">
@@ -208,8 +210,8 @@ const TransportManagementScreen = () => {
                                 </div>
                             ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    {filteredRoutes.map(route => (
-                                        <div key={route.id} className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4 hover:shadow-md transition-shadow group">
+                                    {filteredRoutes.map((route, ri) => (
+                                        <motion.div key={route.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(ri, 15) * 0.03 }} className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4 hover:shadow-md transition-shadow group">
                                             <div className="flex justify-between items-start">
                                                 <div className={`p-3 rounded-2xl ${route.status === 'active' ? 'bg-emerald-50 text-emerald-600' : route.status === 'maintenance' ? 'bg-amber-50 text-amber-600' : 'bg-gray-100 text-gray-500'}`}>
                                                     <Bus className="w-6 h-6" />
@@ -240,12 +242,12 @@ const TransportManagementScreen = () => {
                                             </div>
                                             <div className="flex items-center justify-between pt-2">
                                                 <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
-                                                    <div className="bg-indigo-500 h-2 rounded-full transition-all" style={{ width: `${Math.min(((route.assigned_count || 0) / route.capacity) * 100, 100)}%` }} />
+                                                    <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(((route.assigned_count || 0) / route.capacity) * 100, 100)}%` }} transition={{ duration: 0.6, delay: Math.min(ri, 15) * 0.05, ease: 'easeOut' }} className="bg-indigo-500 h-2 rounded-full" />
                                                 </div>
                                                 <span className="text-xs font-bold text-gray-500 ml-3 whitespace-nowrap">{route.assigned_count || 0}/{route.capacity}</span>
                                             </div>
                                             <button onClick={() => handleDelete('routes', route.id)} className="w-full py-2 text-sm font-bold text-red-500 bg-red-50 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-100">Delete Route</button>
-                                        </div>
+                                        </motion.div>
                                     ))}
                                 </div>
                             )}
@@ -257,9 +259,9 @@ const TransportManagementScreen = () => {
                         <div className="space-y-6">
                             <div className="flex justify-between items-center">
                                 <h2 className="text-lg font-bold text-gray-700">Bus Stops</h2>
-                                <button onClick={() => setIsAdding(true)} className="flex items-center space-x-2 bg-indigo-600 text-white px-5 py-2.5 rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 font-bold">
+                                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => setIsAdding(true)} className="flex items-center space-x-2 bg-indigo-600 text-white px-5 py-2.5 rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 font-bold">
                                     <PlusIcon className="w-5 h-5" /><span>Add Stop</span>
-                                </button>
+                                </motion.button>
                             </div>
                             <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
                                 <table className="w-full text-left border-collapse">
@@ -276,8 +278,8 @@ const TransportManagementScreen = () => {
                                     <tbody className="divide-y divide-gray-50">
                                         {stops.length === 0 ? (
                                             <tr><td colSpan={6} className="px-6 py-12 text-center text-gray-400">No stops added yet.</td></tr>
-                                        ) : stops.map(stop => (
-                                            <tr key={stop.id} className="hover:bg-gray-50/30 transition-colors">
+                                        ) : stops.map((stop, si) => (
+                                            <motion.tr key={stop.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(si, 15) * 0.02 }} className="hover:bg-gray-50/30 transition-colors">
                                                 <td className="px-6 py-5"><div className="flex items-center space-x-3"><div className="p-2 bg-amber-50 rounded-xl"><MapPin className="w-4 h-4 text-amber-600" /></div><span className="font-bold text-gray-800">{stop.stop_name}</span></div></td>
                                                 <td className="px-6 py-5 text-sm font-medium text-gray-600">{stop.route?.route_name || '—'}</td>
                                                 <td className="px-6 py-5"><span className="bg-gray-100 text-gray-700 text-xs font-bold px-3 py-1 rounded-full">#{stop.stop_order}</span></td>
@@ -286,7 +288,7 @@ const TransportManagementScreen = () => {
                                                 <td className="px-6 py-5">
                                                     <button onClick={() => handleDelete('stops', stop.id)} className="p-2 hover:bg-red-50 rounded-xl text-gray-400 hover:text-red-500 transition-all"><Trash2 className="w-4 h-4" /></button>
                                                 </td>
-                                            </tr>
+                                            </motion.tr>
                                         ))}
                                     </tbody>
                                 </table>
@@ -299,9 +301,9 @@ const TransportManagementScreen = () => {
                         <div className="space-y-6">
                             <div className="flex justify-between items-center">
                                 <h2 className="text-lg font-bold text-gray-700">Student–Bus Assignments</h2>
-                                <button onClick={() => setIsAdding(true)} className="flex items-center space-x-2 bg-indigo-600 text-white px-5 py-2.5 rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 font-bold">
+                                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => setIsAdding(true)} className="flex items-center space-x-2 bg-indigo-600 text-white px-5 py-2.5 rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 font-bold">
                                     <PlusIcon className="w-5 h-5" /><span>Assign Student</span>
-                                </button>
+                                </motion.button>
                             </div>
                             <div className="grid grid-cols-1 gap-4">
                                 {assignments.length === 0 ? (
@@ -309,8 +311,8 @@ const TransportManagementScreen = () => {
                                         <UserPlus className="w-12 h-12 text-gray-200 mx-auto mb-4" />
                                         <p className="text-gray-400 font-medium">No student assignments yet.</p>
                                     </div>
-                                ) : assignments.map(a => (
-                                    <div key={a.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center space-x-4 hover:shadow-md transition-shadow">
+                                ) : assignments.map((a, ai) => (
+                                    <motion.div key={a.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(ai, 15) * 0.03 }} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center space-x-4 hover:shadow-md transition-shadow">
                                         <div className="p-3 bg-indigo-50 text-indigo-600 rounded-full"><Users className="w-5 h-5" /></div>
                                         <div className="flex-grow">
                                             <h3 className="font-bold text-gray-900">{a.student?.full_name || 'Unknown'}</h3>
@@ -321,7 +323,7 @@ const TransportManagementScreen = () => {
                                         </div>
                                         <span className={`text-xs font-bold px-3 py-1 rounded-full ${a.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{a.status}</span>
                                         <button onClick={() => handleDelete('assignments', a.id)} className="p-2 hover:bg-red-50 rounded-xl text-gray-400 hover:text-red-500 transition-all"><Trash2 className="w-4 h-4" /></button>
-                                    </div>
+                                    </motion.div>
                                 ))}
                             </div>
                         </div>
@@ -330,9 +332,10 @@ const TransportManagementScreen = () => {
             )}
 
             {/* Add Modal */}
+            <AnimatePresence>
             {isAdding && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-                    <div className="bg-white rounded-[2rem] p-8 max-w-lg w-full space-y-8 shadow-2xl">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                    <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} transition={{ type: 'spring', stiffness: 400, damping: 32 }} className="bg-white rounded-[2rem] p-8 max-w-lg w-full space-y-8 shadow-2xl">
                         <div>
                             <h2 className="text-2xl font-bold text-gray-900 font-outfit">
                                 {activeTab === 'routes' ? 'Add Route' : activeTab === 'stops' ? 'Add Stop' : 'Assign Student'}
@@ -413,12 +416,13 @@ const TransportManagementScreen = () => {
                             )}
                         </div>
                         <div className="flex space-x-4">
-                            <button onClick={() => { setIsAdding(false); setFormData({}); }} className="flex-grow py-4 px-6 border border-gray-100 rounded-2xl text-gray-600 font-bold hover:bg-gray-50 transition-all active:scale-95">Cancel</button>
-                            <button onClick={handleSave} className="flex-grow py-4 px-6 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 active:scale-95" disabled={loading}>{loading ? 'Saving...' : 'Confirm'}</button>
+                            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => { setIsAdding(false); setFormData({}); }} className="flex-grow py-4 px-6 border border-gray-100 rounded-2xl text-gray-600 font-bold hover:bg-gray-50 transition-all">Cancel</motion.button>
+                            <motion.button whileHover={!loading ? { scale: 1.02 } : {}} whileTap={!loading ? { scale: 0.98 } : {}} onClick={handleSave} className="flex-grow py-4 px-6 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100" disabled={loading}>{loading ? 'Saving...' : 'Confirm'}</motion.button>
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
         </div>
     );
 };

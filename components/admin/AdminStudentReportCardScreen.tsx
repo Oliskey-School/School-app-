@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { SchoolLogoIcon, DocumentTextIcon, getFormattedClassName } from '../../constants';
 import { Student, ReportCard, Rating } from '../../types';
 import { useAuth } from '../../context/AuthContext';
@@ -213,32 +214,39 @@ const AdminStudentReportCardScreen: React.FC<AdminStudentReportCardScreenProps> 
                             <button
                                 key={report.term}
                                 onClick={() => setActiveTerm(report.term)}
-                                className={`px-3 py-1.5 text-sm font-sans font-semibold rounded-md transition-colors ${
-                                    activeTerm === report.term ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-600'
+                                className={`relative px-3 py-1.5 text-sm font-sans font-semibold rounded-md transition-colors ${
+                                    activeTerm === report.term ? 'text-indigo-600' : 'text-gray-600'
                                 }`}
                             >
-                                {report.term} {report.status === 'Published' ? '✓' : ` (${report.status})`}
+                                {activeTerm === report.term && (
+                                    <motion.div layoutId="reportCardTermTab" className="absolute inset-0 bg-white rounded-md shadow-sm" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />
+                                )}
+                                <span className="relative">{report.term} {report.status === 'Published' ? '✓' : ` (${report.status})`}</span>
                             </button>
                         ))}
                     </div>
-                    <button onClick={handlePrint} className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white font-sans font-semibold rounded-lg shadow-md hover:bg-indigo-700">
+                    <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={handlePrint} className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white font-sans font-semibold rounded-lg shadow-md hover:bg-indigo-700">
                         <DocumentTextIcon className="w-5 h-5"/>
                         <span>Print</span>
-                    </button>
+                    </motion.button>
                 </div>
-                
+
+                <AnimatePresence mode="wait">
                 {activeReport ? (
-                    <TermReport
-                        report={activeReport}
-                        student={student}
-                        schoolName={currentSchool?.name}
-                        logoUrl={currentSchool?.logoUrl}
-                        motto={currentSchool?.motto}
-                        address={currentSchool?.address}
-                    />
+                    <motion.div key={activeReport.term} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+                        <TermReport
+                            report={activeReport}
+                            student={student}
+                            schoolName={currentSchool?.name}
+                            logoUrl={currentSchool?.logoUrl}
+                            motto={currentSchool?.motto}
+                            address={currentSchool?.address}
+                        />
+                    </motion.div>
                 ) : (
                     <p>Select a term to view the report.</p>
                 )}
+                </AnimatePresence>
 
             </div>
         </div>

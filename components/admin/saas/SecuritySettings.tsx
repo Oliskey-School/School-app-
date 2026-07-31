@@ -1,5 +1,6 @@
 import { toast } from 'react-hot-toast';
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../../lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import {
@@ -160,6 +161,7 @@ export const SecuritySettings: React.FC<SecuritySettingsProps> = ({ navigateTo }
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Two-Factor Authentication */}
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
@@ -197,19 +199,20 @@ export const SecuritySettings: React.FC<SecuritySettingsProps> = ({ navigateTo }
                                     Two-factor authentication adds an extra layer of security to your account.
                                     You'll need to enter a code from your authenticator app when signing in.
                                 </p>
-                                <button
+                                <motion.button
+                                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                                     onClick={generateQRCode}
                                     disabled={loading}
                                     className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
                                 >
                                     <Key className="w-4 h-4" />
                                     Enable 2FA
-                                </button>
+                                </motion.button>
                             </div>
                         )}
 
                         {showQR && (
-                            <div className="space-y-4">
+                            <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.15 }} className="space-y-4">
                                 <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                                     <p className="text-sm text-blue-800 mb-2">
                                         <strong>Step 1:</strong> Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.)
@@ -254,22 +257,24 @@ export const SecuritySettings: React.FC<SecuritySettingsProps> = ({ navigateTo }
                                 </div>
 
                                 <div className="flex gap-2">
-                                    <button
+                                    <motion.button
+                                        whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                                         onClick={verifyAndEnable2FA}
                                         disabled={loading || verificationCode.length !== 6}
                                         className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
                                     >
                                         <CheckCircle className="w-4 h-4" />
                                         Verify & Enable
-                                    </button>
-                                    <button
+                                    </motion.button>
+                                    <motion.button
+                                        whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                                         onClick={() => setShowQR(false)}
                                         className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
                                     >
                                         Cancel
-                                    </button>
+                                    </motion.button>
                                 </div>
-                            </div>
+                            </motion.div>
                         )}
 
                         {twoFactorEnabled && (
@@ -279,19 +284,22 @@ export const SecuritySettings: React.FC<SecuritySettingsProps> = ({ navigateTo }
                                         ✓ Your account is protected with two-factor authentication
                                     </p>
                                 </div>
-                                <button
+                                <motion.button
+                                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                                     onClick={disable2FA}
                                     disabled={loading}
                                     className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
                                 >
                                     Disable 2FA
-                                </button>
+                                </motion.button>
                             </div>
                         )}
                     </CardContent>
                 </Card>
+                </motion.div>
 
                 {/* Security Preferences */}
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.05 }}>
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
@@ -384,7 +392,8 @@ export const SecuritySettings: React.FC<SecuritySettingsProps> = ({ navigateTo }
                         </div>
 
                         {/* Save Button */}
-                        <button
+                        <motion.button
+                            whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                             onClick={handleSaveSettings}
                             disabled={loading}
                             className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 mt-6"
@@ -400,12 +409,14 @@ export const SecuritySettings: React.FC<SecuritySettingsProps> = ({ navigateTo }
                                     Save Settings
                                 </>
                             )}
-                        </button>
+                        </motion.button>
                     </CardContent>
                 </Card>
+                </motion.div>
             </div>
 
             {/* Security Tips */}
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.1 }}>
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -446,6 +457,7 @@ export const SecuritySettings: React.FC<SecuritySettingsProps> = ({ navigateTo }
                     </div>
                 </CardContent>
             </Card>
+            </motion.div>
         </div>
     );
 };

@@ -19,10 +19,15 @@ export class AiService {
     }
 
     static async saveGeneratedResource(schoolId: string, branchId: string | undefined, resourceData: any) {
+        // content_type must be part of the match — a teacher's saved "scheme"
+        // and their saved "generated_resources" for the SAME subject/class are
+        // different rows. Without this they collide on one record and each save
+        // silently overwrites the other.
         const where: any = {
             teacher_id: resourceData.teacher_id,
             subject: resourceData.subject,
             class_name: resourceData.class_name,
+            content_type: resourceData.content_type,
             school_id: schoolId
         };
 

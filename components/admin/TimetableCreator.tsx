@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
@@ -498,8 +499,9 @@ const TimetableCreator: React.FC<{ navigateTo: (path: string) => void, initialCl
                         <ChevronDownIcon className="w-5 h-5 text-gray-400" />
                     </button>
 
+                    <AnimatePresence>
                     {showClassSelector && (
-                        <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-gray-200 max-h-64 overflow-y-auto p-2 grid grid-cols-2 md:grid-cols-4 gap-2">
+                        <motion.div initial={{ opacity: 0, y: -8, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -8, scale: 0.98 }} transition={{ duration: 0.15 }} className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-gray-200 max-h-64 overflow-y-auto p-2 grid grid-cols-2 md:grid-cols-4 gap-2">
                             {allClasses.map(cls => (
                                 <button
                                     key={cls.id}
@@ -509,8 +511,9 @@ const TimetableCreator: React.FC<{ navigateTo: (path: string) => void, initialCl
                                     {cls.name}
                                 </button>
                             ))}
-                        </div>
+                        </motion.div>
                     )}
+                    </AnimatePresence>
                 </div>
             </header>
 
@@ -533,21 +536,25 @@ const TimetableCreator: React.FC<{ navigateTo: (path: string) => void, initialCl
 
                 {/* Primary Actions */}
                 <div className="flex items-center gap-2">
-                    <button
+                    <motion.button
+                        whileHover={!(isGenerating || selectedClasses.length === 0) ? { scale: 1.02 } : {}}
+                        whileTap={!(isGenerating || selectedClasses.length === 0) ? { scale: 0.98 } : {}}
                         onClick={handleAutoGenerate}
                         disabled={isGenerating || selectedClasses.length === 0}
                         className={`px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-lg shadow-sm flex items-center gap-2 transition-all ${isGenerating ? 'opacity-75 cursor-not-allowed' : ''}`}
                     >
                         {isGenerating ? <RefreshIcon className="w-4 h-4 animate-spin" /> : <SparklesIcon className="w-4 h-4" />}
                         {isGenerating ? 'Solving...' : 'Auto-Fill Schedule'}
-                    </button>
-                    <button
+                    </motion.button>
+                    <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={handleSave}
                         className="px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-bold rounded-lg shadow-sm flex items-center gap-2"
                     >
                         <SaveIcon className="w-4 h-4" />
                         Save to Database
-                    </button>
+                    </motion.button>
                 </div>
             </div>
 
@@ -627,18 +634,18 @@ const TimetableCreator: React.FC<{ navigateTo: (path: string) => void, initialCl
                 )}
             </main>
 
-            {/* EDIT CELL POPUP (Simple MVP) */}
             {/* EDIT CELL POPUP */}
+            <AnimatePresence>
             {editingCell && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
-                    <div className="bg-white rounded-2xl shadow-2xl p-6 w-96 transform scale-100 transition-all">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
+                    <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} transition={{ type: 'spring', stiffness: 400, damping: 32 }} className="bg-white rounded-2xl shadow-2xl p-6 w-96">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-lg font-bold text-gray-900">
                                 Edit {editingCell.day} - {PERIODS[editingCell.periodIndex]?.name}
                             </h3>
-                            <button onClick={() => setEditingCell(null)} className="p-2 hover:bg-gray-100 rounded-full">
+                            <motion.button whileTap={{ scale: 0.9 }} onClick={() => setEditingCell(null)} className="p-2 hover:bg-gray-100 rounded-full">
                                 <XIcon className="w-5 h-5 text-gray-500" />
-                            </button>
+                            </motion.button>
                         </div>
 
                         <div className="space-y-4">
@@ -674,27 +681,32 @@ const TimetableCreator: React.FC<{ navigateTo: (path: string) => void, initialCl
                         </div>
 
                         <div className="mt-8 flex gap-3">
-                            <button
+                            <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
                                 onClick={handleCellClear}
                                 className="mr-auto py-3 px-4 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition-colors"
                                 title="Clear Slot"
                             >
                                 <TrashIcon className="w-5 h-5" />
-                            </button>
-                            <button onClick={() => setEditingCell(null)} className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition-colors">
+                            </motion.button>
+                            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => setEditingCell(null)} className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition-colors">
                                 Cancel
-                            </button>
-                            <button
+                            </motion.button>
+                            <motion.button
+                                whileHover={(popupSubject && popupTeacher) ? { scale: 1.02 } : {}}
+                                whileTap={(popupSubject && popupTeacher) ? { scale: 0.98 } : {}}
                                 onClick={handleCellUpdate}
                                 disabled={!popupSubject || !popupTeacher}
                                 className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 Confirm
-                            </button>
+                            </motion.button>
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
 
         </div>
     );

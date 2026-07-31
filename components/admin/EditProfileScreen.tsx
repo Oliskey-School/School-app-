@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { UserIcon, MailIcon, PhoneIcon, CameraIcon } from '../../constants';
 import { useProfile } from '../../context/ProfileContext';
 import { useUserIdentity } from '../../lib/hooks/useUserIdentity';
@@ -86,7 +87,7 @@ const EditProfileScreen: React.FC = () => {
             <form onSubmit={handleSave} className="flex-grow flex flex-col">
                 <main className="flex-grow p-4 space-y-6 overflow-y-auto">
                     {/* Photo Upload */}
-                    <div className="flex justify-center">
+                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="flex justify-center">
                         <div className="relative">
                             <img src={avatar} alt="Admin" className="w-28 h-28 rounded-full object-cover shadow-md flex-shrink-0 aspect-square" />
                             <label htmlFor="photo-upload" className="absolute bottom-0 right-0 bg-blue-600 p-2 rounded-full border-2 border-white cursor-pointer hover:bg-blue-700">
@@ -94,10 +95,10 @@ const EditProfileScreen: React.FC = () => {
                                 <input id="photo-upload" name="photo-upload" type="file" className="sr-only" accept="image/*" onChange={handleImageChange} />
                             </label>
                         </div>
-                    </div>
+                    </motion.div>
 
                     {/* Form Fields */}
-                    <div className="bg-white p-4 rounded-xl shadow-sm space-y-4">
+                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.05 }} className="bg-white p-4 rounded-xl shadow-sm space-y-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Admin ID</label>
                             <div className="relative">
@@ -137,19 +138,20 @@ const EditProfileScreen: React.FC = () => {
                                 <input type="tel" id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full pl-10 pr-3 py-3 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" />
                             </div>
                         </div>
-                    </div>
+                    </motion.div>
                 </main>
 
                 {/* Action Button */}
                 <div className="p-4 mt-auto bg-gray-50 border-t border-gray-200">
-                    <button
+                    <motion.button
+                        whileHover={!isLoading ? { scale: 1.01 } : {}} whileTap={!isLoading ? { scale: 0.98 } : {}}
                         type="submit"
                         disabled={isLoading}
                         className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white ${isLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
                             } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
                     >
                         {isLoading ? 'Saving...' : 'Save Profile'}
-                    </button>
+                    </motion.button>
                 </div>
             </form>
         </div>

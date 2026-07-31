@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../../lib/api';
 import { useAuth } from '../../../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
+import CenteredLoader from '../../ui/CenteredLoader';
 import {
     Calendar,
     CreditCard,
@@ -221,17 +223,18 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
                     <h1 className="text-3xl font-bold text-gray-900">Subscription Management</h1>
                     <p className="text-gray-600 mt-1">Manage and monitor all school subscriptions</p>
                 </div>
-                <button
+                <motion.button
+                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                     onClick={exportToCSV}
                     className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
                 >
                     <Download className="w-4 h-4 mr-2" />
                     Export CSV
-                </button>
+                </motion.button>
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 <StatCard
                     title="Total Subscriptions"
                     value={stats.total}
@@ -262,7 +265,7 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
                     icon={<XCircle className="w-6 h-6 text-red-600" />}
                     color="bg-red-50"
                 />
-            </div>
+            </motion.div>
 
             {/* Filters and Search */}
             <Card>
@@ -304,19 +307,18 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
                 <CardHeader>
                     <CardTitle className="flex items-center justify-between">
                         <span>Subscriptions ({filteredSubscriptions.length})</span>
-                        <button
+                        <motion.button
+                            whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                             onClick={fetchSubscriptions}
                             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                         >
                             <RefreshCw className="w-5 h-5 text-gray-600" />
-                        </button>
+                        </motion.button>
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
                     {loading ? (
-                        <div className="flex justify-center items-center py-12">
-                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-                        </div>
+                        <CenteredLoader className="py-12" />
                     ) : filteredSubscriptions.length === 0 ? (
                         <div className="text-center py-12 text-gray-500">
                             No subscriptions found
@@ -335,8 +337,14 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                    {filteredSubscriptions.map((sub) => (
-                                        <tr key={sub.id} className="hover:bg-gray-50">
+                                    {filteredSubscriptions.map((sub, index) => (
+                                        <motion.tr
+                                            key={sub.id}
+                                            initial={{ opacity: 0, y: 6 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            transition={{ duration: 0.15, delay: Math.min(index, 12) * 0.02 }}
+                                            className="hover:bg-gray-50"
+                                        >
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="font-medium text-gray-900">{sub.school_name}</div>
                                             </td>
@@ -367,24 +375,26 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
                                             <td className="px-6 py-4 whitespace-nowrap text-sm">
                                                 <div className="flex items-center gap-2">
                                                     {sub.status !== 'active' && sub.status !== 'canceled' && (
-                                                        <button
+                                                        <motion.button
+                                                            whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                                                             onClick={() => openRenewalModal(sub)}
                                                             className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
                                                         >
                                                             Renew
-                                                        </button>
+                                                        </motion.button>
                                                     )}
                                                     {sub.status !== 'canceled' && (
-                                                        <button
+                                                        <motion.button
+                                                            whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                                                             onClick={() => handleCancelSubscription(sub.id)}
                                                             className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
                                                         >
                                                             Cancel
-                                                        </button>
+                                                        </motion.button>
                                                     )}
                                                 </div>
                                             </td>
-                                        </tr>
+                                        </motion.tr>
                                     ))}
                                 </tbody>
                             </table>
@@ -394,50 +404,67 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
             </Card>
 
             {/* Renewal Confirmation Modal */}
-            {renewalModal && (
-                <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setRenewalModal(null)}>
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8" onClick={e => e.stopPropagation()}>
-                        <h2 className="text-xl font-bold text-gray-900 mb-1">Renew Subscription</h2>
-                        <p className="text-sm text-gray-500 mb-6">{renewalModal.subscription.school_name} — {renewalModal.subscription.plan_name}</p>
+            <AnimatePresence>
+                {renewalModal && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.15 }}
+                        className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
+                        onClick={() => setRenewalModal(null)}
+                    >
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                            className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8"
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <h2 className="text-xl font-bold text-gray-900 mb-1">Renew Subscription</h2>
+                            <p className="text-sm text-gray-500 mb-6">{renewalModal.subscription.school_name} — {renewalModal.subscription.plan_name}</p>
 
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1.5">Amount (₦)</label>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    value={renewalModal.amount}
-                                    onChange={e => setRenewalModal(prev => prev ? { ...prev, amount: e.target.value } : null)}
-                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1.5">Payment Gateway</label>
-                                <div className="flex gap-3">
-                                    {(['paystack', 'flutterwave'] as const).map(gw => (
-                                        <button
-                                            key={gw}
-                                            onClick={() => setRenewalModal(prev => prev ? { ...prev, gateway: gw } : null)}
-                                            className={`flex-1 py-2.5 rounded-xl text-sm font-bold border transition-all capitalize ${renewalModal.gateway === gw ? 'bg-indigo-600 text-white border-indigo-600' : 'border-gray-200 text-gray-600 hover:border-indigo-300'}`}
-                                        >
-                                            {gw}
-                                        </button>
-                                    ))}
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1.5">Amount (₦)</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={renewalModal.amount}
+                                        onChange={e => setRenewalModal(prev => prev ? { ...prev, amount: e.target.value } : null)}
+                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1.5">Payment Gateway</label>
+                                    <div className="flex gap-3">
+                                        {(['paystack', 'flutterwave'] as const).map(gw => (
+                                            <motion.button
+                                                key={gw}
+                                                whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                                                onClick={() => setRenewalModal(prev => prev ? { ...prev, gateway: gw } : null)}
+                                                className={`flex-1 py-2.5 rounded-xl text-sm font-bold border transition-all capitalize ${renewalModal.gateway === gw ? 'bg-indigo-600 text-white border-indigo-600' : 'border-gray-200 text-gray-600 hover:border-indigo-300'}`}
+                                            >
+                                                {gw}
+                                            </motion.button>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <div className="flex gap-3 mt-8">
-                            <button onClick={() => setRenewalModal(null)} className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 font-bold hover:bg-gray-50 transition-all">
-                                Cancel
-                            </button>
-                            <button onClick={handleConfirmRenewal} className="flex-1 py-3 rounded-xl bg-green-600 text-white font-bold hover:bg-green-700 transition-all">
-                                Proceed to Payment
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+                            <div className="flex gap-3 mt-8">
+                                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => setRenewalModal(null)} className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 font-bold hover:bg-gray-50 transition-all">
+                                    Cancel
+                                </motion.button>
+                                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={handleConfirmRenewal} className="flex-1 py-3 rounded-xl bg-green-600 text-white font-bold hover:bg-green-700 transition-all">
+                                    Proceed to Payment
+                                </motion.button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };

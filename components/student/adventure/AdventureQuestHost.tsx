@@ -40,13 +40,9 @@ const AdventureQuestHost: React.FC<{ handleBack: () => void }> = ({ handleBack }
         setAppState('loading');
         setError(null);
         try {
-            const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
-            if (!apiKey) {
-                setError("Configuration Error: API Key is missing. Please check your settings.");
-                setAppState('home');
-                return;
-            }
-            const ai = getAIClient(apiKey);
+            // getAIClient() picks the right provider itself — NVIDIA (the default)
+            // is powered by the backend proxy and needs no browser-side key.
+            const ai = getAIClient();
 
             const sourceContentDescription = adventureContent.type === 'text'
                 ? 'the following text'

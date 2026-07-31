@@ -32,8 +32,8 @@ const AppointmentCard: React.FC<{
                 <span>{new Date(appointment.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</span>
                 {appointment.status === 'Pending' ? (
                     <div className="flex space-x-2">
-                        <button onClick={() => onUpdateStatus(appointment.id, 'Cancelled')} className="p-2 bg-red-100 rounded-full hover:bg-red-200"><XCircleIcon className="w-5 h-5 text-red-600" /></button>
-                        <button onClick={() => onUpdateStatus(appointment.id, 'Confirmed')} className="p-2 bg-green-100 rounded-full hover:bg-green-200"><CheckCircleIcon className="w-5 h-5 text-green-600" /></button>
+                        <button onClick={() => onUpdateStatus(appointment.id, 'Cancelled')} className="p-2 bg-red-100 rounded-full hover:bg-red-200" aria-label="Reject appointment request"><XCircleIcon className="w-5 h-5 text-red-600" /></button>
+                        <button onClick={() => onUpdateStatus(appointment.id, 'Confirmed')} className="p-2 bg-green-100 rounded-full hover:bg-green-200" aria-label="Approve appointment request"><CheckCircleIcon className="w-5 h-5 text-green-600" /></button>
                     </div>
                 ) : (
                     <span className={`px-2 py-1 text-xs rounded-full ${appointment.status === 'Confirmed' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'}`}>{appointment.status}</span>

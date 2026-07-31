@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { api } from '../../lib/api';
 import { Student } from '../../types';
@@ -123,9 +124,11 @@ const QuizzesScreen: React.FC<QuizzesScreenProps> = ({ navigateTo, student }) =>
       <main className="flex-grow p-4 space-y-6 overflow-y-auto pb-24">
         {/* Category Selector */}
         <div className="space-y-3">
-          <button
+          <motion.button
+            whileHover={{ y: -1 }}
+            whileTap={{ scale: 0.98 }}
             onClick={() => setActiveCategory('cbt')}
-            className={`w-full text-left p-4 rounded-2xl transition-all border-2 ${activeCategory === 'cbt'
+            className={`w-full text-left p-4 rounded-2xl transition-colors border-2 ${activeCategory === 'cbt'
               ? 'bg-orange-50 border-orange-200 shadow-md ring-1 ring-orange-100'
               : 'bg-white border-gray-100 hover:border-gray-200 shadow-sm'
               }`}
@@ -140,15 +143,17 @@ const QuizzesScreen: React.FC<QuizzesScreenProps> = ({ navigateTo, student }) =>
               </div>
               {activeCategory === 'cbt' && (
                 <div className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center text-white text-xs font-bold scale-110 shadow-md">
-                  âœ“
+                  ✓
                 </div>
               )}
             </div>
-          </button>
+          </motion.button>
 
-          <button
+          <motion.button
+            whileHover={{ y: -1 }}
+            whileTap={{ scale: 0.98 }}
             onClick={() => setActiveCategory('quiz')}
-            className={`w-full text-left p-4 rounded-2xl transition-all border-2 ${activeCategory === 'quiz'
+            className={`w-full text-left p-4 rounded-2xl transition-colors border-2 ${activeCategory === 'quiz'
               ? 'bg-blue-50 border-blue-200 shadow-md ring-1 ring-blue-100'
               : 'bg-white border-gray-100 hover:border-gray-200 shadow-sm'
               }`}
@@ -163,11 +168,11 @@ const QuizzesScreen: React.FC<QuizzesScreenProps> = ({ navigateTo, student }) =>
               </div>
               {activeCategory === 'quiz' && (
                 <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold scale-110 shadow-md">
-                  âœ“
+                  ✓
                 </div>
               )}
             </div>
-          </button>
+          </motion.button>
         </div>
 
         {/* Content List */}
@@ -184,29 +189,35 @@ const QuizzesScreen: React.FC<QuizzesScreenProps> = ({ navigateTo, student }) =>
           {items.length === 0 ? (
             <div className="bg-white rounded-3xl p-12 text-center border-2 border-dashed border-gray-200">
               <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-4xl grayscale opacity-50">ðŸ“‹</span>
+                <span className="text-4xl grayscale opacity-50">📋</span>
               </div>
               <h3 className="text-gray-800 font-bold mb-1">Nothing here yet</h3>
               <p className="text-gray-400 text-sm max-w-[200px] mx-auto">No {activeCategory === 'cbt' ? 'exams' : 'quizzes'} have been published for Grade {student.grade} yet.</p>
-              <button
+              <motion.button
+                whileTap={{ scale: 0.96 }}
                 onClick={fetchContent}
                 className="mt-6 px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold transition-colors"
               >
                 Check again
-              </button>
+              </motion.button>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-4">
-              {items.map(item => {
+              {items.map((item, i) => {
                 const colorClass = SUBJECT_COLORS[item.subject] || 'bg-gray-400 text-white';
                 const [bgColor] = colorClass.split(' ');
 
                 return (
-                  <button
+                  <motion.button
                     key={`${item.type}-${item.id}`}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.25, delay: Math.min(i, 10) * 0.04 }}
+                    whileHover={item.submission ? {} : { y: -2 }}
+                    whileTap={item.submission ? {} : { scale: 0.99 }}
                     onClick={() => !item.submission && handleStart(item)}
                     disabled={!!item.submission}
-                    className={`group w-full bg-white rounded-2xl shadow-sm p-4 flex items-center justify-between text-left transition-all border ${item.submission
+                    className={`group w-full bg-white rounded-2xl shadow-sm p-4 flex items-center justify-between text-left transition-shadow border ${item.submission
                         ? 'opacity-75 cursor-default bg-gray-50 border-gray-200'
                         : 'hover:shadow-lg hover:ring-2 hover:ring-orange-200 border-gray-100'
                       }`}
@@ -249,7 +260,7 @@ const QuizzesScreen: React.FC<QuizzesScreenProps> = ({ navigateTo, student }) =>
                     <div className="bg-gray-50 p-2 rounded-xl group-hover:bg-orange-500 group-hover:text-white transition-all shadow-sm">
                       <ChevronRightIcon className="w-5 h-5" />
                     </div>
-                  </button>
+                  </motion.button>
                 );
               })}
             </div>

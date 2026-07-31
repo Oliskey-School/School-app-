@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import { toast } from 'react-hot-toast';
 import { XCircleIcon, SparklesIcon, BriefcaseIcon, CheckCircleIcon, PlusIcon, EditIcon, CalendarIcon, SaveIcon, CloudUploadIcon, RefreshIcon, ChevronLeftIcon } from '../../constants';
@@ -721,7 +722,9 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                     </div>
 
                     <div className="flex items-center space-x-3 overflow-x-auto pb-1 lg:pb-0 no-scrollbar">
-                        <button
+                        <motion.button
+                            whileHover={!isGenerating ? { scale: 1.02 } : {}}
+                            whileTap={!isGenerating ? { scale: 0.98 } : {}}
                             onClick={handleAiGenerate}
                             disabled={isGenerating}
                             className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100 font-bold text-xs disabled:opacity-50"
@@ -730,11 +733,13 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                                 ? <div className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
                                 : <SparklesIcon className="w-4 h-4" />}
                             {isGenerating ? 'Generating...' : 'AI Auto-Fill'}
-                        </button>
+                        </motion.button>
 
                         <div className="h-8 w-[1px] bg-gray-200 mx-2 hidden sm:block"></div>
 
-                        <button
+                        <motion.button
+                            whileHover={!isSaving ? { scale: 1.02 } : {}}
+                            whileTap={!isSaving ? { scale: 0.98 } : {}}
                             onClick={handlePublishClick}
                             disabled={isSaving}
                             className={`flex-shrink-0 px-5 py-2.5 text-sm font-bold rounded-xl shadow-sm transition-all flex items-center gap-2 disabled:opacity-50 ${status === 'Published' ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-900 text-white hover:bg-gray-800'}`}
@@ -745,15 +750,16 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                                 <CloudUploadIcon className="w-4 h-4" />
                             )}
                             {isSaving ? 'Saving...' : (status === 'Published' ? 'Update Live' : 'Publish Live')}
-                        </button>
+                        </motion.button>
                     </div>
                 </div>
             </header>
 
             {/* Publish Preview Modal */}
+            <AnimatePresence>
             {showPublishModal && (
-                <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in p-4">
-                    <div className="bg-white rounded-3xl shadow-2xl max-w-3xl w-full p-6 animate-scale-up border border-gray-100 max-h-[90vh] flex flex-col">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                    <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} transition={{ type: 'spring', stiffness: 400, damping: 32 }} className="bg-white rounded-3xl shadow-2xl max-w-3xl w-full p-6 border border-gray-100 max-h-[90vh] flex flex-col">
                         <div className="flex justify-center mb-3">
                             <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
                                 <CloudUploadIcon className="w-6 h-6 text-indigo-600" />
@@ -810,22 +816,27 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                         </div>
 
                         <div className="flex space-x-3">
-                            <button
+                            <motion.button
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
                                 onClick={() => setShowPublishModal(false)}
                                 className="flex-1 py-3 px-4 rounded-xl font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
                             >
                                 Cancel
-                            </button>
-                            <button
+                            </motion.button>
+                            <motion.button
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
                                 onClick={confirmPublish}
                                 className="flex-1 py-3 px-4 rounded-xl font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200"
                             >
                                 Publish Live
-                            </button>
+                            </motion.button>
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
 
             <div className="flex-grow flex flex-col lg:flex-row overflow-hidden relative">
 

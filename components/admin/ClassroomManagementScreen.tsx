@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useBranch } from '../../context/BranchContext';
 import { toast } from 'react-hot-toast';
 import { QRCodeCanvas } from 'qrcode.react';
+import CenteredLoader from '../ui/CenteredLoader';
 import {
     PlusIcon,
     SearchIcon,
@@ -174,13 +176,15 @@ const ClassroomManagementScreen = () => {
                     <h1 className="text-2xl font-bold text-gray-900 font-outfit">Classrooms & QR Codes</h1>
                     <p className="text-gray-500">Each classroom has a permanent QR code teachers scan to verify their lessons.</p>
                 </div>
-                <button
+                <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={openAdd}
                     className="flex items-center space-x-2 bg-indigo-600 text-white px-4 py-2 rounded-xl hover:bg-indigo-700 transition-colors shadow-sm font-semibold"
                 >
                     <PlusIcon className="w-5 h-5" />
                     <span>Add Classroom</span>
-                </button>
+                </motion.button>
             </div>
 
             <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
@@ -197,7 +201,7 @@ const ClassroomManagementScreen = () => {
             </div>
 
             {loading ? (
-                <div className="text-center py-12 text-gray-500">Loading classrooms...</div>
+                <CenteredLoader message="Loading classrooms..." className="py-12" />
             ) : filtered.length === 0 ? (
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
                     <QrCode className="w-12 h-12 text-gray-300 mx-auto mb-4" />
@@ -206,8 +210,8 @@ const ClassroomManagementScreen = () => {
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filtered.map(room => (
-                        <div key={room.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4 hover:shadow-md transition-shadow">
+                    {filtered.map((room, ri) => (
+                        <motion.div key={room.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(ri, 12) * 0.04 }} whileHover={{ y: -2 }} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4 hover:shadow-md transition-shadow">
                             <div className="flex justify-between items-start">
                                 <div className="p-3 rounded-2xl bg-indigo-50 text-indigo-600">
                                     <QrCode className="w-5 h-5" />
@@ -245,15 +249,16 @@ const ClassroomManagementScreen = () => {
                                 <QrCode className="w-4 h-4" />
                                 View QR Code
                             </button>
-                        </div>
+                        </motion.div>
                     ))}
                 </div>
             )}
 
             {/* Add / Edit modal */}
+            <AnimatePresence>
             {(isAdding || editing) && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-                    <div className="bg-white rounded-3xl p-6 max-w-md w-full space-y-6 shadow-2xl animate-in zoom-in-95 duration-200">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+                    <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} transition={{ type: 'spring', stiffness: 400, damping: 32 }} className="bg-white rounded-3xl p-6 max-w-md w-full space-y-6 shadow-2xl">
                         <h2 className="text-xl font-bold text-gray-900 font-outfit">
                             {editing ? 'Edit Classroom' : 'Add New Classroom'}
                         </h2>
@@ -304,28 +309,34 @@ const ClassroomManagementScreen = () => {
                             </div>
                         </div>
                         <div className="flex space-x-3">
-                            <button
+                            <motion.button
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
                                 onClick={() => { setIsAdding(false); setEditing(null); }}
                                 className="flex-grow py-3 px-4 border border-gray-200 rounded-2xl text-gray-600 font-bold hover:bg-gray-50 transition-colors"
                             >
                                 Cancel
-                            </button>
-                            <button
+                            </motion.button>
+                            <motion.button
+                                whileHover={!saving ? { scale: 1.02 } : {}}
+                                whileTap={!saving ? { scale: 0.98 } : {}}
                                 onClick={handleSave}
                                 disabled={saving}
                                 className="flex-grow py-3 px-4 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200 disabled:opacity-60"
                             >
                                 {saving ? 'Saving...' : editing ? 'Save Changes' : 'Create'}
-                            </button>
+                            </motion.button>
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
 
             {/* QR code modal */}
+            <AnimatePresence>
             {qrRoom && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-                    <div className="bg-white rounded-3xl p-6 max-w-sm w-full space-y-5 shadow-2xl animate-in zoom-in-95 duration-200 text-center">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+                    <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} transition={{ type: 'spring', stiffness: 400, damping: 32 }} className="bg-white rounded-3xl p-6 max-w-sm w-full space-y-5 shadow-2xl text-center">
                         <div>
                             <h2 className="text-xl font-bold text-gray-900 font-outfit">{qrRoom.name}</h2>
                             <p className="text-sm text-gray-500">{qrRoom.branch?.name || ''}</p>
@@ -337,30 +348,36 @@ const ClassroomManagementScreen = () => {
                             Print this code and paste it at the classroom entrance. Teachers scan it at the start and end of each lesson.
                         </p>
                         <div className="grid grid-cols-2 gap-3">
-                            <button
+                            <motion.button
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
                                 onClick={handleDownload}
                                 className="flex items-center justify-center gap-2 py-3 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-colors"
                             >
                                 <Download className="w-4 h-4" />
                                 Download
-                            </button>
-                            <button
+                            </motion.button>
+                            <motion.button
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
                                 onClick={handlePrint}
                                 className="flex items-center justify-center gap-2 py-3 bg-gray-900 text-white rounded-2xl font-bold hover:bg-gray-800 transition-colors"
                             >
                                 <Printer className="w-4 h-4" />
                                 Print
-                            </button>
+                            </motion.button>
                         </div>
-                        <button
+                        <motion.button
+                            whileTap={{ scale: 0.98 }}
                             onClick={() => setQrRoom(null)}
                             className="w-full py-3 border border-gray-200 rounded-2xl text-gray-600 font-bold hover:bg-gray-50 transition-colors"
                         >
                             Close
-                        </button>
-                    </div>
-                </div>
+                        </motion.button>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
         </div>
     );
 };

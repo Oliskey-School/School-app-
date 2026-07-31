@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { api } from '../../lib/api';
 
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
 import { Heart, User, TrendingUp, MessageCircle, CheckCircle } from 'lucide-react';
+import CenteredLoader from '../ui/CenteredLoader';
 
 interface SponsorshipRequest {
     id: number;
@@ -202,7 +204,7 @@ const SponsorshipMatching: React.FC = () => {
     };
 
     if (loading) {
-        return <div className="flex justify-center items-center h-64"><div className="w-8 h-8 border-4 border-rose-600 border-t-transparent rounded-full animate-spin"></div></div>;
+        return <CenteredLoader className="h-64" />;
     }
 
     return (
@@ -254,7 +256,8 @@ const SponsorshipMatching: React.FC = () => {
 
             {/* Tabs */}
             <div className="flex space-x-2 mb-6">
-                <button
+                <motion.button
+                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                     onClick={() => setActiveTab('requests')}
                     className={`px-6 py-3 rounded-lg font-semibold transition-colors ${activeTab === 'requests'
                         ? 'bg-rose-600 text-white'
@@ -262,8 +265,9 @@ const SponsorshipMatching: React.FC = () => {
                         }`}
                 >
                     Requests ({requests.length})
-                </button>
-                <button
+                </motion.button>
+                <motion.button
+                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                     onClick={() => setActiveTab('active')}
                     className={`px-6 py-3 rounded-lg font-semibold transition-colors ${activeTab === 'active'
                         ? 'bg-rose-600 text-white'
@@ -271,8 +275,9 @@ const SponsorshipMatching: React.FC = () => {
                         }`}
                 >
                     Active Sponsorships ({activeSponsorships.length})
-                </button>
-                <button
+                </motion.button>
+                <motion.button
+                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                     onClick={() => setActiveTab('create')}
                     className={`px-6 py-3 rounded-lg font-semibold transition-colors ${activeTab === 'create'
                         ? 'bg-rose-600 text-white'
@@ -280,7 +285,7 @@ const SponsorshipMatching: React.FC = () => {
                         }`}
                 >
                     + Create Request
-                </button>
+                </motion.button>
             </div>
 
             {/* Requests Tab */}
@@ -292,8 +297,8 @@ const SponsorshipMatching: React.FC = () => {
                             <p className="text-lg">No sponsorship requests</p>
                         </div>
                     ) : (
-                        requests.map(req => (
-                            <div key={req.id} className="bg-white rounded-xl shadow-sm p-6">
+                        requests.map((req, ri) => (
+                            <motion.div key={req.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(ri, 15) * 0.03 }} className="bg-white rounded-xl shadow-sm p-6">
                                 <div className="flex items-start justify-between mb-4">
                                     <div>
                                         <h3 className="text-lg font-bold text-gray-900">Student #{req.student_id}</h3>
@@ -320,16 +325,16 @@ const SponsorshipMatching: React.FC = () => {
                                         <p className="text-2xl font-bold text-rose-600">₦{req.amount_needed.toLocaleString()}</p>
                                     </div>
                                     {req.status === 'Pending' && (
-                                        <button className="px-4 py-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 font-semibold">
+                                        <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="px-4 py-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 font-semibold">
                                             Match Sponsor
-                                        </button>
+                                        </motion.button>
                                     )}
                                 </div>
 
                                 <div className="mt-3 text-xs text-gray-500">
                                     Created: {new Date(req.created_at).toLocaleDateString()}
                                 </div>
-                            </div>
+                            </motion.div>
                         ))
                     )}
                 </div>
@@ -344,8 +349,8 @@ const SponsorshipMatching: React.FC = () => {
                             <p className="text-lg">No active sponsorships</p>
                         </div>
                     ) : (
-                        activeSponsorships.map(sponsorship => (
-                            <div key={sponsorship.id} className="bg-white rounded-xl shadow-sm p-6">
+                        activeSponsorships.map((sponsorship, si) => (
+                            <motion.div key={sponsorship.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(si, 15) * 0.03 }} className="bg-white rounded-xl shadow-sm p-6">
                                 <div className="flex items-start justify-between mb-4">
                                     <div>
                                         <h3 className="text-lg font-bold text-gray-900">Anonymous Student</h3>
@@ -375,7 +380,7 @@ const SponsorshipMatching: React.FC = () => {
                                 <div className="mt-4 p-3 bg-blue-50 rounded-lg text-sm text-blue-900">
                                     🔒 <strong>Privacy Protected:</strong> Student identity kept anonymous in public-facing materials
                                 </div>
-                            </div>
+                            </motion.div>
                         ))
                     )}
                 </div>
@@ -383,7 +388,7 @@ const SponsorshipMatching: React.FC = () => {
 
             {/* Create Request Tab */}
             {activeTab === 'create' && (
-                <div className="bg-white rounded-xl shadow-sm p-6">
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="bg-white rounded-xl shadow-sm p-6">
                     <h2 className="text-2xl font-bold text-gray-900 mb-6">Create Sponsorship Request</h2>
 
                     <div className="space-y-4 mb-6">
@@ -446,13 +451,14 @@ const SponsorshipMatching: React.FC = () => {
                         </div>
                     </div>
 
-                    <button
+                    <motion.button
+                        whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
                         onClick={handleCreateRequest}
                         className="w-full px-6 py-3 bg-rose-600 text-white rounded-lg hover:bg-rose-700 font-bold transition-colors"
                     >
                         Create Sponsorship Request
-                    </button>
-                </div>
+                    </motion.button>
+                </motion.div>
             )}
         </div>
     );

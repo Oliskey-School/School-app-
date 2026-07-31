@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { DollarSign, TrendingUp, TrendingDown, PieChart, Calendar, Download, CreditCard } from 'lucide-react';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { useAuth } from '../../context/AuthContext';
+import CenteredLoader from '../ui/CenteredLoader';
 
 
 interface FinancialSummary {
@@ -156,7 +158,7 @@ const FinanceDashboard: React.FC = () => {
     };
 
     if (loading || !financialData) {
-        return <div className="flex justify-center items-center h-64"><div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div></div>;
+        return <CenteredLoader className="h-64" />;
     }
 
     const profitMargin = financialData.total_revenue > 0
@@ -166,10 +168,10 @@ const FinanceDashboard: React.FC = () => {
     return (
         <div className="p-4 sm:p-6 max-w-7xl mx-auto pb-24 lg:pb-6">
             {/* Header */}
-            <div className="bg-gradient-to-r from-green-600 to-teal-600 rounded-xl p-4 sm:p-6 text-white mb-6">
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="bg-gradient-to-r from-green-600 to-teal-600 rounded-xl p-4 sm:p-6 text-white mb-6">
                 <h1 className="text-2xl sm:text-3xl font-bold mb-2">💰 Financial Dashboard</h1>
                 <p className="text-green-100 text-sm sm:text-base">Comprehensive financial analytics and forecasting</p>
-            </div>
+            </motion.div>
 
             {/* Controls */}
             <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
@@ -179,8 +181,10 @@ const FinanceDashboard: React.FC = () => {
                             <label className="block text-sm font-semibold text-gray-700 mb-2">View Mode</label>
                             <div className="flex space-x-2">
                                 {(['monthly', 'quarterly', 'annual'] as const).map(mode => (
-                                    <button
+                                    <motion.button
                                         key={mode}
+                                        whileHover={{ scale: 1.03 }}
+                                        whileTap={{ scale: 0.97 }}
                                         onClick={() => setViewMode(mode)}
                                         className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold ${viewMode === mode
                                             ? 'bg-green-600 text-white'
@@ -188,7 +192,7 @@ const FinanceDashboard: React.FC = () => {
                                             }`}
                                     >
                                         {mode.charAt(0).toUpperCase() + mode.slice(1)}
-                                    </button>
+                                    </motion.button>
                                 ))}
                             </div>
                         </div>
@@ -205,19 +209,21 @@ const FinanceDashboard: React.FC = () => {
                         </div>
                     </div>
 
-                    <button
+                    <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={exportReport}
                         className="w-full md:w-auto px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold flex items-center justify-center space-x-2 text-sm"
                     >
                         <Download className="h-5 w-5" />
                         <span>Export Report</span>
-                    </button>
+                    </motion.button>
                 </div>
             </div>
 
             {/* Key Metrics */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
                     <div className="flex items-center justify-between">
                         <div>
                             <p className="text-xs sm:text-sm text-gray-600">Total Revenue</p>
@@ -227,9 +233,9 @@ const FinanceDashboard: React.FC = () => {
                             <TrendingUp className="h-5 w-5 sm:h-6 sm:w-6 text-green-600" />
                         </div>
                     </div>
-                </div>
+                </motion.div>
 
-                <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.05 }} className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
                     <div className="flex items-center justify-between">
                         <div>
                             <p className="text-xs sm:text-sm text-gray-600">Total Expenses</p>
@@ -239,9 +245,9 @@ const FinanceDashboard: React.FC = () => {
                             <TrendingDown className="h-5 w-5 sm:h-6 sm:w-6 text-red-600" />
                         </div>
                     </div>
-                </div>
+                </motion.div>
 
-                <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.1 }} className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
                     <div className="flex items-center justify-between">
                         <div>
                             <p className="text-xs sm:text-sm text-gray-600">Net Income</p>
@@ -253,9 +259,9 @@ const FinanceDashboard: React.FC = () => {
                             <DollarSign className={`h-5 w-5 sm:h-6 sm:w-6 ${financialData.net_income >= 0 ? 'text-green-600' : 'text-red-600'}`} />
                         </div>
                     </div>
-                </div>
+                </motion.div>
 
-                <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.15 }} className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
                     <div className="flex items-center justify-between">
                         <div>
                             <p className="text-xs sm:text-sm text-gray-600">Profit Margin</p>
@@ -265,7 +271,7 @@ const FinanceDashboard: React.FC = () => {
                             <PieChart className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
                         </div>
                     </div>
-                </div>
+                </motion.div>
             </div>
 
             {/* Revenue vs Expenses Chart */}
@@ -289,7 +295,7 @@ const FinanceDashboard: React.FC = () => {
                                         <span className="font-semibold text-gray-900">₦{item.amount.toLocaleString()} ({percentage.toFixed(1)}%)</span>
                                     </div>
                                     <div className="w-full bg-gray-200 rounded-full h-3">
-                                        <div className={`${item.color} h-3 rounded-full`} style={{ width: `${percentage}%` }}></div>
+                                        <motion.div initial={{ width: 0 }} animate={{ width: `${percentage}%` }} transition={{ duration: 0.5, ease: 'easeOut' }} className={`${item.color} h-3 rounded-full`}></motion.div>
                                     </div>
                                 </div>
                             );
@@ -316,7 +322,7 @@ const FinanceDashboard: React.FC = () => {
                                         <span className="font-semibold text-gray-900">₦{item.amount.toLocaleString()} ({percentage.toFixed(1)}%)</span>
                                     </div>
                                     <div className="w-full bg-gray-200 rounded-full h-3">
-                                        <div className={`${item.color} h-3 rounded-full`} style={{ width: `${percentage}%` }}></div>
+                                        <motion.div initial={{ width: 0 }} animate={{ width: `${percentage}%` }} transition={{ duration: 0.5, ease: 'easeOut' }} className={`${item.color} h-3 rounded-full`}></motion.div>
                                     </div>
                                 </div>
                             );
@@ -335,7 +341,7 @@ const FinanceDashboard: React.FC = () => {
                             <span className="font-bold text-green-600">{feeCollectionRate.rate}%</span>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-4">
-                            <div className="bg-green-500 h-4 rounded-full" style={{ width: `${feeCollectionRate.rate}%` }}></div>
+                            <motion.div initial={{ width: 0 }} animate={{ width: `${feeCollectionRate.rate}%` }} transition={{ duration: 0.6, ease: 'easeOut' }} className="bg-green-500 h-4 rounded-full"></motion.div>
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4 mt-6">
@@ -354,8 +360,8 @@ const FinanceDashboard: React.FC = () => {
                     <h3 className="text-lg font-bold text-gray-900 mb-4">Payment Methods</h3>
                     {paymentMethods.length > 0 ? (
                         <div className="space-y-3">
-                            {paymentMethods.map(method => (
-                                <div key={method.method} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            {paymentMethods.map((method, mi) => (
+                                <motion.div key={method.method} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.2, delay: mi * 0.04 }} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                                     <div className="flex items-center space-x-3">
                                         <span className="text-2xl">{getMethodIcon(method.method)}</span>
                                         <div>
@@ -367,7 +373,7 @@ const FinanceDashboard: React.FC = () => {
                                         <p className="font-bold text-gray-900">₦{method.amount.toLocaleString()}</p>
                                         <p className="text-xs text-gray-600">{method.percentage.toFixed(1)}%</p>
                                     </div>
-                                </div>
+                                </motion.div>
                             ))}
                         </div>
                     ) : (
@@ -381,12 +387,12 @@ const FinanceDashboard: React.FC = () => {
                 <div className="bg-white rounded-xl shadow-sm p-6">
                     <h3 className="text-lg font-bold text-gray-900 mb-4">📈 Revenue Forecast (Next 3 Months)</h3>
                     <div className="grid grid-cols-3 gap-4">
-                        {forecastData.map(item => (
-                            <div key={item.month} className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-lg p-4">
+                        {forecastData.map((item, fi) => (
+                            <motion.div key={item.month} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: fi * 0.06 }} className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-lg p-4">
                                 <p className="text-sm text-gray-600">{item.month}</p>
                                 <p className="text-xl font-bold text-indigo-600">₦{Math.round(item.projected).toLocaleString()}</p>
                                 <p className="text-xs text-gray-500 mt-1">Projected</p>
-                            </div>
+                            </motion.div>
                         ))}
                     </div>
                 </div>

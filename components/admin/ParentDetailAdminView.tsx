@@ -1,4 +1,5 @@
 ﻿import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { Parent } from '../../types';
 import { PhoneIcon, EditIcon, TrashIcon, StudentsIcon, MailIcon, ChevronLeftIcon } from '../../constants';
@@ -131,15 +132,15 @@ const ParentDetailAdminView: React.FC<ParentDetailAdminViewProps> = ({ parent, n
         <div className="flex flex-col h-full bg-gray-50">
             {/* Header */}
             <div className="flex items-center p-4 bg-white border-b sticky top-0 z-10">
-                <button onClick={handleBack} className="p-2 hover:bg-gray-100 rounded-full mr-3">
+                <motion.button whileTap={{ scale: 0.9 }} onClick={handleBack} className="p-2 hover:bg-gray-100 rounded-full mr-3">
                     <ChevronLeftIcon className="w-6 h-6 text-gray-600" />
-                </button>
+                </motion.button>
                 <h2 className="text-xl font-bold text-gray-800">Parent Details</h2>
             </div>
 
             <main className="flex-grow p-4 space-y-4 overflow-y-auto pb-32">
                 {/* Profile Card */}
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row items-center md:items-start space-y-4 md:space-y-0 md:space-x-6">
+                <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row items-center md:items-start space-y-4 md:space-y-0 md:space-x-6">
                     <img src={parent.avatarUrl || 'https://i.pravatar.cc/150'} alt={parent.name} className="w-24 h-24 rounded-full object-cover border-4 border-blue-50 shadow-md" />
                     <div className="flex-grow text-center md:text-left">
                         <h3 className="text-2xl font-bold text-gray-800">{parent?.name || 'Parent'}</h3>
@@ -155,10 +156,10 @@ const ParentDetailAdminView: React.FC<ParentDetailAdminViewProps> = ({ parent, n
                             </a>
                         </div>
                     </div>
-                </div>
+                </motion.div>
 
                 {/* Linked Children Section */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.05 }} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                     <div className="p-4 bg-gray-50 border-b flex items-center justify-between">
                         <h4 className="font-bold text-gray-800 flex items-center">
                             <StudentsIcon className="w-5 h-5 mr-2 text-blue-600" /> 
@@ -182,21 +183,31 @@ const ParentDetailAdminView: React.FC<ParentDetailAdminViewProps> = ({ parent, n
                                     className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all font-mono"
                                 />
                             </div>
-                            <button 
+                            <motion.button
+                                whileHover={!isLinking && studentIdToLink ? { scale: 1.02 } : {}}
+                                whileTap={!isLinking && studentIdToLink ? { scale: 0.96 } : {}}
                                 type="submit"
                                 disabled={isLinking || !studentIdToLink}
                                 className="px-6 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 disabled:bg-gray-300 transition-colors shadow-sm"
                             >
                                 {isLinking ? 'Linking...' : 'Link Child'}
-                            </button>
+                            </motion.button>
                         </form>
 
                         {/* Children List */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
-                            {children.length > 0 ? children.map(child => {
+                            <AnimatePresence>
+                            {children.length > 0 ? children.map((child, i) => {
                                 if (!child) return null;
                                 return (
-                                    <div key={child.id} className="bg-gray-50 p-4 rounded-xl flex items-center justify-between border border-transparent hover:border-gray-200 transition-all group">
+                                    <motion.div
+                                        key={child.id}
+                                        initial={{ opacity: 0, y: 8 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, scale: 0.95 }}
+                                        transition={{ duration: 0.2, delay: Math.min(i, 10) * 0.04 }}
+                                        className="bg-gray-50 p-4 rounded-xl flex items-center justify-between border border-transparent hover:border-gray-200 transition-colors group"
+                                    >
                                         <div className="flex items-center space-x-3">
                                             <img src={child.avatarUrl || 'https://i.pravatar.cc/150'} alt={child.name} className="w-12 h-12 rounded-xl object-cover border border-white shadow-sm" />
                                             <div>
@@ -204,14 +215,16 @@ const ParentDetailAdminView: React.FC<ParentDetailAdminViewProps> = ({ parent, n
                                                 <p className="text-xs text-gray-500 font-medium">Grade {child.grade}{child.section}</p>
                                             </div>
                                         </div>
-                                        <button 
+                                        <motion.button
+                                            whileHover={{ scale: 1.1 }}
+                                            whileTap={{ scale: 0.9 }}
                                             onClick={() => handleUnlinkClick(child)}
-                                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-white rounded-lg transition-all"
+                                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-white rounded-lg transition-colors"
                                             title="Remove link"
                                         >
                                             <X className="w-5 h-5" />
-                                        </button>
-                                    </div>
+                                        </motion.button>
+                                    </motion.div>
                                 );
                             }) : (
                                 <div className="col-span-full py-12 flex flex-col items-center justify-center text-center bg-gray-50 rounded-2xl border border-dashed border-gray-200">
@@ -219,23 +232,24 @@ const ParentDetailAdminView: React.FC<ParentDetailAdminViewProps> = ({ parent, n
                                     <p className="text-sm text-gray-500 font-medium">No children linked to this parent yet.</p>
                                 </div>
                             )}
+                            </AnimatePresence>
                         </div>
                     </div>
-                </div>
+                </motion.div>
             </main>
 
             {/* Sticky Actions */}
-            <div className="fixed bottom-0 left-0 right-0 md:relative p-4 bg-white border-t border-gray-100 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] md:shadow-none flex flex-col space-y-2">
+            <div className="fixed bottom-0 left-0 right-0 md:relative p-4 bg-white/90 backdrop-blur-md border-t border-gray-100 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] md:shadow-none flex flex-col space-y-2">
                 <h3 className="text-xs font-bold text-gray-400 text-center uppercase tracking-[0.2em] mb-1">Admin Management</h3>
                 <div className="grid grid-cols-2 gap-3">
-                    <button onClick={() => navigateTo('addParent', `Edit ${parent.name}`, { parentToEdit: parent })} className="flex items-center justify-center space-x-2 py-3 bg-indigo-50 text-indigo-700 rounded-xl font-bold hover:bg-indigo-100 transition-colors border border-indigo-100">
+                    <motion.button whileHover={{ y: -2 }} whileTap={{ scale: 0.97, y: 0 }} onClick={() => navigateTo('addParent', `Edit ${parent.name}`, { parentToEdit: parent })} className="flex items-center justify-center space-x-2 py-3 bg-indigo-50 text-indigo-700 rounded-xl font-bold hover:bg-indigo-100 transition-colors border border-indigo-100">
                         <EditIcon className="w-5 h-5" />
                         <span>Edit Profile</span>
-                    </button>
-                    <button onClick={() => setShowDeleteModal(true)} className="flex items-center justify-center space-x-2 py-3 bg-red-50 text-red-700 rounded-xl font-bold hover:bg-red-100 transition-colors border border-red-100">
+                    </motion.button>
+                    <motion.button whileHover={{ y: -2 }} whileTap={{ scale: 0.97, y: 0 }} onClick={() => setShowDeleteModal(true)} className="flex items-center justify-center space-x-2 py-3 bg-red-50 text-red-700 rounded-xl font-bold hover:bg-red-100 transition-colors border border-red-100">
                         <TrashIcon className="w-5 h-5" />
                         <span>Delete Account</span>
-                    </button>
+                    </motion.button>
                 </div>
             </div>
 

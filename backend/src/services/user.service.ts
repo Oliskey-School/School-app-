@@ -31,7 +31,10 @@ export class UserService {
         }
 
         if (role) {
-            where.role = role;
+            // Prisma's Role enum is uppercase (ADMIN, TEACHER, ...) — callers pass
+            // whatever casing the frontend has (e.g. "admin"), which Prisma
+            // rejects outright as an invalid enum value for a `where` filter.
+            where.role = role.toUpperCase();
         }
 
         if (term) {

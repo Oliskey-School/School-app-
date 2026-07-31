@@ -1,4 +1,5 @@
 ﻿import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { Teacher } from '../../types';
 import { MailIcon, PhoneIcon, ChartBarIcon, CalendarIcon, EditIcon, BriefcaseIcon, gradeColors, SUBJECT_COLORS, TrashIcon } from '../../constants';
@@ -103,7 +104,12 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
             <main className="flex-grow p-4 overflow-y-auto">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                     {/* Teacher Info */}
-                    <div className="lg:col-span-3 bg-white p-4 rounded-xl shadow-sm flex flex-col sm:flex-row items-center sm:space-x-4 space-y-4 sm:space-y-0 text-center sm:text-left">
+                    <motion.div
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="lg:col-span-3 bg-white p-4 rounded-xl shadow-sm flex flex-col sm:flex-row items-center sm:space-x-4 space-y-4 sm:space-y-0 text-center sm:text-left"
+                    >
                         <img
                             key={`${teacher.id}-${refreshKey}`}
                             src={`${teacher.avatarUrl || teacher.avatar_url}${ (teacher.avatarUrl || teacher.avatar_url)?.includes('uploads/') ? `?t=${refreshKey}` : '' }`} 
@@ -127,25 +133,49 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
                                         </span>
                                     )}
                                 </div>
-                                <div className="relative mt-2 sm:mt-0 sm:ml-2">
-                                    <button
-                                        onClick={() => setShowStatusDropdown(v => !v)}
-                                        className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold underline"
-                                    >
-                                        Change
-                                    </button>
-                                    {showStatusDropdown && (
-                                        <div className="absolute left-0 top-6 z-50 bg-white border border-gray-200 rounded-xl shadow-lg py-1 min-w-[130px]">
-                                            {['Active', 'On Leave', 'Inactive'].map(s => (
-                                                <button
-                                                    key={s}
-                                                    onClick={() => { setPendingStatus(s); setShowStatusDropdown(false); }}
-                                                    className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${teacher.status === s ? 'font-bold text-indigo-600' : 'text-gray-700'}`}
-                                                >{s}</button>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
+                                {/* Only teachers with a linked login account can have their status changed here — */}
+                                {/* a teacher record without an associated user account has nothing to toggle. */}
+                                {!!teacher.user_id && (
+                                    <div className="relative mt-2 sm:mt-0 sm:ml-2">
+                                        <motion.button
+                                            whileTap={{ scale: 0.95 }}
+                                            onClick={() => setShowStatusDropdown(v => !v)}
+                                            className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold underline underline-offset-2"
+                                        >
+                                            Change
+                                        </motion.button>
+                                        <AnimatePresence>
+                                            {showStatusDropdown && (
+                                                <>
+                                                    <motion.div
+                                                        initial={{ opacity: 0 }}
+                                                        animate={{ opacity: 1 }}
+                                                        exit={{ opacity: 0 }}
+                                                        className="fixed inset-0 z-40"
+                                                        onClick={() => setShowStatusDropdown(false)}
+                                                    />
+                                                    <motion.div
+                                                        initial={{ opacity: 0, y: -8, scale: 0.96 }}
+                                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                        exit={{ opacity: 0, y: -8, scale: 0.96 }}
+                                                        transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                                                        className="absolute left-0 top-6 z-50 bg-white border border-gray-200 rounded-xl shadow-lg py-1 min-w-[130px]"
+                                                    >
+                                                        {['Active', 'On Leave', 'Inactive'].map(s => (
+                                                            <motion.button
+                                                                key={s}
+                                                                whileHover={{ x: 2 }}
+                                                                whileTap={{ scale: 0.98 }}
+                                                                onClick={() => { setPendingStatus(s); setShowStatusDropdown(false); }}
+                                                                className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${teacher.status === s ? 'font-bold text-indigo-600' : 'text-gray-700'}`}
+                                                            >{s}</motion.button>
+                                                        ))}
+                                                    </motion.div>
+                                                </>
+                                            )}
+                                        </AnimatePresence>
+                                    </div>
+                                )}
                             </div>
                             <p className={`text-sm font-semibold inline-block px-2 py-0.5 rounded mt-2 ${SUBJECT_COLORS[teacher.subjects?.[0] || ''] || 'bg-gray-200'}`}>{(teacher.subjects || []).join(', ')}</p>
                             {((teacher as any).branch_name || (teacher as any).branchName) && (
@@ -165,13 +195,19 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
                                 <a href={`tel:${teacher.phone}`} className="flex items-center space-x-1 text-sm text-gray-600 hover:text-indigo-600"><PhoneIcon className="w-4 h-4" /><span>Call</span></a>
                             </div>
                         </div>
-                    </div>
+                    </motion.div>
 
                     {/* Main Content */}
                     <div className="lg:col-span-2 space-y-4">
                         {/* Quick Stats */}
                         <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                            <div className="bg-white p-3 sm:p-4 rounded-xl shadow-sm text-center">
+                            <motion.div
+                                initial={{ opacity: 0, y: 12 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.3, delay: 0.05 }}
+                                whileHover={{ y: -2 }}
+                                className="bg-white p-3 sm:p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow text-center"
+                            >
                                 <p className="text-xs sm:text-sm text-gray-500">Attendance</p>
                                 <div className="relative w-16 h-16 sm:w-20 sm:h-20 mx-auto mt-1">
                                     <DonutChart percentage={statsLoading ? 0 : stats.attendanceRate} color="#4f46e5" size={80} strokeWidth={9} />
@@ -179,59 +215,102 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
                                         {statsLoading ? '...' : `${stats.attendanceRate}%`}
                                     </div>
                                 </div>
-                            </div>
-                            <div className="bg-white p-3 sm:p-4 rounded-xl shadow-sm text-center">
+                            </motion.div>
+                            <motion.div
+                                initial={{ opacity: 0, y: 12 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.3, delay: 0.1 }}
+                                whileHover={{ y: -2 }}
+                                className="bg-white p-3 sm:p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow text-center"
+                            >
                                 <p className="text-xs sm:text-sm text-gray-500">Avg. Student Score</p>
                                 <p className="text-3xl sm:text-5xl font-bold text-indigo-600 mt-2 truncate">
                                     {statsLoading ? '...' : `${stats.avgStudentScore}%`}
                                 </p>
-                            </div>
+                            </motion.div>
                         </div>
 
                         {/* Assigned Classes */}
-                        <div className="bg-white p-4 rounded-xl shadow-sm">
+                        <motion.div
+                            initial={{ opacity: 0, y: 12 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.3, delay: 0.15 }}
+                            className="bg-white p-4 rounded-xl shadow-sm"
+                        >
                             <h4 className="font-bold text-gray-800 mb-2">Assigned Classes ({displayClasses.length})</h4>
                             <div className="space-y-2">
                                 {displayClasses.length > 0 ? displayClasses.map((c, idx) => (
-                                    <div key={idx} className="bg-gray-50 p-3 rounded-lg flex justify-between items-center">
+                                    <motion.div
+                                        key={idx}
+                                        initial={{ opacity: 0, x: -6 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ duration: 0.2, delay: Math.min(idx, 10) * 0.04 }}
+                                        className="bg-gray-50 p-3 rounded-lg flex justify-between items-center"
+                                    >
                                         <p className="font-semibold text-gray-700 text-sm sm:text-base truncate mr-2">{c.displayName} - {c.subject}</p>
                                         <span className={`text-xs sm:text-xs font-semibold px-2 py-1 rounded-full bg-gray-200 flex-shrink-0 whitespace-nowrap`}>{c.studentCount > 0 ? `${c.studentCount} students` : 'Class Info'}</span>
-                                    </div>
+                                    </motion.div>
                                 )) : <p className="text-gray-500 text-sm italic">No classes assigned.</p>}
                             </div>
-                        </div>
+                        </motion.div>
                     </div>
 
                     {/* Sidebar */}
-                    <div className="lg:col-span-1">
+                    <div className="lg:col-span-1 lg:sticky lg:top-6 lg:self-start">
                         {/* Actions */}
-                        <div className="bg-white p-4 rounded-xl shadow-sm space-y-2">
-                            <button onClick={() => navigateTo('teacherPerformance', 'Performance Evaluation', { teacher })} className="w-full flex items-center space-x-3 p-3 text-left hover:bg-gray-50 rounded-lg transition-colors">
+                        <motion.div
+                            initial={{ opacity: 0, y: 12 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.3, delay: 0.1 }}
+                            className="bg-white p-4 rounded-xl shadow-sm space-y-2"
+                        >
+                            <motion.button whileHover={{ x: 2 }} whileTap={{ scale: 0.98 }} onClick={() => navigateTo('teacherPerformance', 'Performance Evaluation', { teacher })} className="w-full flex items-center space-x-3 p-3 text-left hover:bg-gray-50 rounded-lg transition-colors">
                                 <ChartBarIcon className="w-6 h-6 text-indigo-500 flex-shrink-0" />
                                 <span className="font-semibold text-gray-700 text-sm sm:text-base">Performance Evaluation</span>
-                            </button>
-                            <button onClick={() => navigateTo('teacherAttendanceDetail', `${teacher.full_name || teacher.name}'s Attendance`, { teacher })} className="w-full flex items-center space-x-3 p-3 text-left hover:bg-gray-50 rounded-lg transition-colors">
+                            </motion.button>
+                            <motion.button whileHover={{ x: 2 }} whileTap={{ scale: 0.98 }} onClick={() => navigateTo('teacherAttendanceDetail', `${teacher.full_name || teacher.name}'s Attendance`, { teacher })} className="w-full flex items-center space-x-3 p-3 text-left hover:bg-gray-50 rounded-lg transition-colors">
                                 <CalendarIcon className="w-6 h-6 text-indigo-500 flex-shrink-0" />
                                 <span className="font-semibold text-gray-700 text-sm sm:text-base">Full Attendance Record</span>
-                            </button>
-                            <button onClick={() => navigateTo('teacherPersonnelFile', `${teacher.full_name || teacher.name}'s Personnel File`, { teacher })} className="w-full flex items-center space-x-3 p-3 text-left hover:bg-gray-50 rounded-lg transition-colors">
+                            </motion.button>
+                            <motion.button whileHover={{ x: 2 }} whileTap={{ scale: 0.98 }} onClick={() => navigateTo('teacherPersonnelFile', `${teacher.full_name || teacher.name}'s Personnel File`, { teacher })} className="w-full flex items-center space-x-3 p-3 text-left hover:bg-gray-50 rounded-lg transition-colors">
                                 <BriefcaseIcon className="w-6 h-6 text-indigo-500 flex-shrink-0" />
                                 <span className="font-semibold text-gray-700 text-sm sm:text-base">Personnel File</span>
-                            </button>
-                        </div>
+                            </motion.button>
+                        </motion.div>
 
                         {/* Timeline */}
-                        <div className="bg-white p-4 rounded-xl shadow-sm mt-4">
+                        <motion.div
+                            initial={{ opacity: 0, y: 12 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.3, delay: 0.2 }}
+                            className="bg-white p-4 rounded-xl shadow-sm mt-4"
+                        >
                             <StudentTeacherTimeline subjectType="teacher" subjectId={teacher.id} canEdit />
-                        </div>
+                        </motion.div>
                     </div>
                 </div>
             </main>
-            <div className="p-4 mt-auto bg-white border-t space-y-2">
-                <h3 className="text-sm font-bold text-gray-500 text-center uppercase">Admin Actions</h3>
+            <div className="px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] mt-auto bg-white/90 backdrop-blur-md border-t border-gray-100 space-y-2 sticky bottom-0 z-10">
+                <h3 className="text-xs font-bold text-gray-400 text-center uppercase tracking-widest">Admin Actions</h3>
                 <div className="grid grid-cols-2 gap-3">
-                    <button onClick={() => navigateTo('addTeacher', `Edit ${teacher.full_name || teacher.name}`, { teacherToEdit: teacher })} className="flex items-center justify-center space-x-2 py-3 bg-indigo-100 text-indigo-700 rounded-xl font-semibold hover:bg-indigo-200 transition-colors text-sm sm:text-base"><EditIcon className="w-4 h-4 sm:w-5 sm:h-5" /><span>Edit Profile</span></button>
-                    <button onClick={() => setShowDeleteModal(true)} className="flex items-center justify-center space-x-2 py-3 bg-red-100 text-red-700 rounded-xl font-semibold hover:bg-red-200 transition-colors text-sm sm:text-base"><TrashIcon className="w-4 h-4 sm:w-5 sm:h-5" /><span>Delete Account</span></button>
+                    <motion.button
+                        whileHover={{ y: -2 }}
+                        whileTap={{ scale: 0.97, y: 0 }}
+                        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                        onClick={() => navigateTo('addTeacher', `Edit ${teacher.full_name || teacher.name}`, { teacherToEdit: teacher })}
+                        className="flex items-center justify-center space-x-2 py-3 bg-indigo-100 text-indigo-700 rounded-xl font-semibold hover:bg-indigo-200 transition-colors text-sm sm:text-base"
+                    >
+                        <EditIcon className="w-4 h-4 sm:w-5 sm:h-5" /><span>Edit Profile</span>
+                    </motion.button>
+                    <motion.button
+                        whileHover={{ y: -2 }}
+                        whileTap={{ scale: 0.97, y: 0 }}
+                        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                        onClick={() => setShowDeleteModal(true)}
+                        className="flex items-center justify-center space-x-2 py-3 bg-red-100 text-red-700 rounded-xl font-semibold hover:bg-red-200 transition-colors text-sm sm:text-base"
+                    >
+                        <TrashIcon className="w-4 h-4 sm:w-5 sm:h-5" /><span>Delete Account</span>
+                    </motion.button>
                 </div>
             </div>
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { useProfile } from '../../context/ProfileContext';
 import { api } from '../../lib/api';
@@ -27,8 +28,7 @@ const VolunteerSignup: React.FC = () => {
     const [mySignups, setMySignups] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'available' | 'my-signups'>('available');
-    const [totalHours, setTotalHours] = useState(0);
-    const [badges, setBadges] = useState<any[]>([]);
+    const totalHours = mySignups.reduce((sum, s) => sum + (Number(s.hours_contributed) || 0), 0);
 
     const fetchOpportunities = useCallback(async () => {
         try {
@@ -55,21 +55,10 @@ const VolunteerSignup: React.FC = () => {
         }
     }, []);
 
-    const fetchVolunteerStats = useCallback(async () => {
-        try {
-            // Use signup count as a proxy for hours/badges since those tables don't exist yet
-            setTotalHours(0);
-            setBadges([]);
-        } catch (error: any) {
-            console.error('Error fetching stats:', error);
-        }
-    }, []);
-
     const loadAll = useCallback(() => {
         fetchOpportunities();
         fetchMySignups();
-        fetchVolunteerStats();
-    }, [fetchOpportunities, fetchMySignups, fetchVolunteerStats]);
+    }, [fetchOpportunities, fetchMySignups]);
 
     // Real-time synchronization
     useAutoSync(['volunteering_opportunities', 'volunteers'], loadAll);
@@ -131,16 +120,7 @@ const VolunteerSignup: React.FC = () => {
                 <h1 className="text-3xl font-bold mb-2">Volunteer Opportunities</h1>
                 <p className="text-indigo-100">Support your school community</p>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-                    <div className="bg-white/20 rounded-lg p-4">
-                        <div className="flex items-center space-x-3">
-                            <Clock className="h-8 w-8" />
-                            <div>
-                                <p className="text-2xl font-bold">{totalHours}</p>
-                                <p className="text-sm text-indigo-100">Total Hours</p>
-                            </div>
-                        </div>
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
                     <div className="bg-white/20 rounded-lg p-4">
                         <div className="flex items-center space-x-3">
                             <Users className="h-8 w-8" />
@@ -152,34 +132,20 @@ const VolunteerSignup: React.FC = () => {
                     </div>
                     <div className="bg-white/20 rounded-lg p-4">
                         <div className="flex items-center space-x-3">
-                            <Award className="h-8 w-8" />
+                            <Clock className="h-8 w-8" />
                             <div>
-                                <p className="text-2xl font-bold">{badges.length}</p>
-                                <p className="text-sm text-indigo-100">Badges Earned</p>
+                                <p className="text-2xl font-bold">{totalHours}</p>
+                                <p className="text-sm text-indigo-100">Hours Contributed</p>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Badges */}
-            {badges.length > 0 && (
-                <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
-                    <h2 className="text-xl font-bold text-gray-900 mb-4">🏆 Recognition Badges</h2>
-                    <div className="flex flex-wrap gap-3">
-                        {badges.map(badge => (
-                            <div key={badge.id} className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-4 py-2 rounded-full flex items-center space-x-2">
-                                <Award className="h-5 w-5" />
-                                <span className="font-semibold">{badge.badge_name}</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-
             {/* Tabs */}
             <div className="flex space-x-2 mb-6">
-                <button
+                <motion.button
+                    whileTap={{ scale: 0.96 }}
                     onClick={() => setActiveTab('available')}
                     className={`px-6 py-3 rounded-lg font-semibold transition-colors ${activeTab === 'available'
                         ? 'bg-indigo-600 text-white'
@@ -187,8 +153,9 @@ const VolunteerSignup: React.FC = () => {
                         }`}
                 >
                     Available Opportunities ({opportunities.length})
-                </button>
-                <button
+                </motion.button>
+                <motion.button
+                    whileTap={{ scale: 0.96 }}
                     onClick={() => setActiveTab('my-signups')}
                     className={`px-6 py-3 rounded-lg font-semibold transition-colors ${activeTab === 'my-signups'
                         ? 'bg-indigo-600 text-white'
@@ -196,7 +163,7 @@ const VolunteerSignup: React.FC = () => {
                         }`}
                 >
                     My Signups ({mySignups.length})
-                </button>
+                </motion.button>
             </div>
 
             {/* Available Opportunities */}
@@ -209,8 +176,15 @@ const VolunteerSignup: React.FC = () => {
                             <p className="text-sm">Check back soon for new ways to help!</p>
                         </div>
                     ) : (
-                        opportunities.map(opp => (
-                            <div key={opp.id} className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+                        opportunities.map((opp, i) => (
+                            <motion.div
+                                key={opp.id}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.25, delay: Math.min(i, 10) * 0.05 }}
+                                whileHover={{ y: -2 }}
+                                className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden"
+                            >
                                 <div className={`h-2 ${getTypeColor(opp.opportunity_type)}`}></div>
                                 <div className="p-6">
                                     <div className="flex items-start justify-between mb-3">
@@ -247,16 +221,17 @@ const VolunteerSignup: React.FC = () => {
                                         <span className="text-sm text-gray-600">
                                             <strong>{opp.slots_available - opp.slots_filled}</strong> slots available
                                         </span>
-                                        <button
+                                        <motion.button
+                                            whileTap={{ scale: opp.slots_filled >= opp.slots_available ? 1 : 0.95 }}
                                             onClick={() => handleSignup(opp.id)}
                                             disabled={opp.slots_filled >= opp.slots_available}
                                             className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed font-semibold transition-colors"
                                         >
                                             {opp.slots_filled >= opp.slots_available ? 'Filled' : 'Sign Up'}
-                                        </button>
+                                        </motion.button>
                                     </div>
                                 </div>
-                            </div>
+                            </motion.div>
                         ))
                     )}
                 </div>
@@ -272,8 +247,14 @@ const VolunteerSignup: React.FC = () => {
                             <p className="text-sm">Sign up for an opportunity to get started!</p>
                         </div>
                     ) : (
-                        mySignups.map(signup => (
-                            <div key={signup.id} className="bg-white rounded-xl shadow-sm p-6">
+                        mySignups.map((signup, i) => (
+                            <motion.div
+                                key={signup.id}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.25, delay: Math.min(i, 10) * 0.05 }}
+                                className="bg-white rounded-xl shadow-sm p-6"
+                            >
                                 <div className="flex items-start justify-between">
                                     <div className="flex-1">
                                         <div className="flex items-center space-x-3 mb-2">
@@ -299,7 +280,7 @@ const VolunteerSignup: React.FC = () => {
                                         )}
                                     </div>
                                 </div>
-                            </div>
+                            </motion.div>
                         ))
                     )}
                 </div>

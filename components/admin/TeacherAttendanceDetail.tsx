@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Teacher } from '../../types';
 import { ChevronLeftIcon, ChevronRightIcon, CheckCircleIcon } from '../../constants';
 import { api } from '../../lib/api';
@@ -140,9 +141,20 @@ const TeacherAttendanceDetail: React.FC<{ teacher: Teacher }> = ({ teacher }) =>
         <div className="p-4 bg-gray-50 space-y-4">
             <div className="bg-white p-4 rounded-xl shadow-sm">
                 <div className="flex justify-between items-center mb-4">
-                    <button onClick={goToPreviousMonth} className="p-2 rounded-full hover:bg-gray-100"><ChevronLeftIcon className="h-5 w-5 text-gray-600" /></button>
-                    <h3 className="font-bold text-lg text-gray-800">{currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</h3>
-                    <button onClick={goToNextMonth} className="p-2 rounded-full hover:bg-gray-100"><ChevronRightIcon className="h-5 w-5 text-gray-600" /></button>
+                    <motion.button whileTap={{ scale: 0.9 }} onClick={goToPreviousMonth} className="p-2 rounded-full hover:bg-gray-100"><ChevronLeftIcon className="h-5 w-5 text-gray-600" /></motion.button>
+                    <AnimatePresence mode="wait">
+                        <motion.h3
+                            key={currentDate.toISOString().slice(0, 7)}
+                            initial={{ opacity: 0, y: -6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 6 }}
+                            transition={{ duration: 0.15 }}
+                            className="font-bold text-lg text-gray-800"
+                        >
+                            {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
+                        </motion.h3>
+                    </AnimatePresence>
+                    <motion.button whileTap={{ scale: 0.9 }} onClick={goToNextMonth} className="p-2 rounded-full hover:bg-gray-100"><ChevronRightIcon className="h-5 w-5 text-gray-600" /></motion.button>
                 </div>
                 <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-gray-500 mb-2">
                     {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => <div key={`${day}-${i}`}>{day}</div>)}
@@ -159,15 +171,20 @@ const TeacherAttendanceDetail: React.FC<{ teacher: Teacher }> = ({ teacher }) =>
                             const isPending = pendingChanges.has(dateString);
                             
                             return (
-                                <button
+                                <motion.button
                                     key={day}
+                                    initial={{ opacity: 0, scale: 0.8 }}
+                                    animate={{ opacity: 1, scale: isPending ? 1.1 : 1 }}
+                                    transition={{ duration: 0.15, delay: Math.min(index, 20) * 0.01 }}
+                                    whileHover={{ scale: isPending ? 1.1 : 1.08 }}
+                                    whileTap={{ scale: 0.92 }}
                                     onClick={() => handleDayClick(dateString)}
-                                    className={`w-9 h-9 flex items-center justify-center rounded-full text-sm font-semibold transition-all ${
+                                    className={`w-9 h-9 flex items-center justify-center rounded-full text-sm font-semibold transition-colors ${
                                         status ? attendanceColors[status] : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
-                                    } ${isPending ? 'ring-2 ring-offset-2 ring-indigo-500 scale-110 shadow-md' : 'hover:scale-105'}`}
+                                    } ${isPending ? 'ring-2 ring-offset-2 ring-indigo-500 shadow-md' : ''}`}
                                 >
                                     {day}
-                                </button>
+                                </motion.button>
                             )
                         })}
                     </div>
@@ -180,26 +197,35 @@ const TeacherAttendanceDetail: React.FC<{ teacher: Teacher }> = ({ teacher }) =>
                 </div>
             </div>
             <div className="grid grid-cols-3 gap-3 text-center">
-                <div className="bg-white p-3 rounded-xl shadow-sm border border-transparent hover:border-green-100 transition-colors">
-                    <p className="font-bold text-lg text-green-600">{stats.present}</p>
+                <motion.div layout className="bg-white p-3 rounded-xl shadow-sm border border-transparent hover:border-green-100 transition-colors">
+                    <motion.p key={stats.present} initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="font-bold text-lg text-green-600">{stats.present}</motion.p>
                     <p className="text-xs text-gray-500">Present</p>
-                </div>
-                <div className="bg-white p-3 rounded-xl shadow-sm border border-transparent hover:border-red-100 transition-colors">
-                    <p className="font-bold text-lg text-red-600">{stats.absent}</p>
+                </motion.div>
+                <motion.div layout className="bg-white p-3 rounded-xl shadow-sm border border-transparent hover:border-red-100 transition-colors">
+                    <motion.p key={stats.absent} initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="font-bold text-lg text-red-600">{stats.absent}</motion.p>
                     <p className="text-xs text-gray-500">Absent</p>
-                </div>
-                <div className="bg-white p-3 rounded-xl shadow-sm border border-transparent hover:border-amber-100 transition-colors">
-                    <p className="font-bold text-lg text-amber-600">{stats.leave}</p>
+                </motion.div>
+                <motion.div layout className="bg-white p-3 rounded-xl shadow-sm border border-transparent hover:border-amber-100 transition-colors">
+                    <motion.p key={stats.leave} initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="font-bold text-lg text-amber-600">{stats.leave}</motion.p>
                     <p className="text-xs text-gray-500">On Leave</p>
-                </div>
+                </motion.div>
             </div>
 
+            <AnimatePresence>
             {pendingChanges.size > 0 && (
-                <div className="flex gap-3 pt-2">
-                    <button
+                <motion.div
+                    initial={{ opacity: 0, y: 12, height: 0 }}
+                    animate={{ opacity: 1, y: 0, height: 'auto' }}
+                    exit={{ opacity: 0, y: 12, height: 0 }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 35 }}
+                    className="flex gap-3 pt-2"
+                >
+                    <motion.button
+                        whileHover={{ y: -2 }}
+                        whileTap={{ scale: 0.96, y: 0 }}
                         onClick={handleSave}
                         disabled={isSaving}
-                        className="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg hover:bg-indigo-700 active:scale-95 transition-all disabled:bg-indigo-300"
+                        className="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg hover:bg-indigo-700 transition-colors disabled:bg-indigo-300"
                     >
                         {isSaving ? (
                             <div className="animate-spin h-5 w-5 border-2 border-white rounded-full border-t-transparent"></div>
@@ -207,17 +233,20 @@ const TeacherAttendanceDetail: React.FC<{ teacher: Teacher }> = ({ teacher }) =>
                             <Save className="w-5 h-5" />
                         )}
                         <span>Save Attendance ({pendingChanges.size})</span>
-                    </button>
-                    <button
+                    </motion.button>
+                    <motion.button
+                        whileHover={{ rotate: -20 }}
+                        whileTap={{ scale: 0.9 }}
                         onClick={() => setPendingChanges(new Map())}
                         disabled={isSaving}
-                        className="p-3 bg-gray-200 text-gray-600 rounded-xl hover:bg-gray-300 active:scale-95 transition-all disabled:opacity-50"
+                        className="p-3 bg-gray-200 text-gray-600 rounded-xl hover:bg-gray-300 transition-colors disabled:opacity-50"
                         title="Reset changes"
                     >
                         <RotateCcw className="w-5 h-5" />
-                    </button>
-                </div>
+                    </motion.button>
+                </motion.div>
             )}
+            </AnimatePresence>
         </div>
     );
 };

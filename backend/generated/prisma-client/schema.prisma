@@ -4029,6 +4029,7 @@ enum Role {
   INSPECTOR
   EXAM_OFFICER
   COMPLIANCE_OFFICER
+  COUNSELOR
 }
 
 // Academic calendar — Lagos State / Nigerian term dates.

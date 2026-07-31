@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
 import {
@@ -124,8 +125,11 @@ const DataExportScreen = () => {
             <div className="flex p-1 bg-gray-100 rounded-xl w-fit">
                 {(['requests', 'new'] as const).map(tab => (
                     <button key={tab} onClick={() => setActiveTab(tab)}
-                        className={`px-5 py-2 rounded-lg font-bold text-sm capitalize transition-all ${activeTab === tab ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}>
-                        {tab === 'new' ? 'New Request' : 'All Requests'}
+                        className={`relative px-5 py-2 rounded-lg font-bold text-sm capitalize transition-colors ${activeTab === tab ? 'text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}>
+                        {activeTab === tab && (
+                            <motion.div layoutId="dataExportTab" className="absolute inset-0 bg-white shadow-sm rounded-lg" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />
+                        )}
+                        <span className="relative">{tab === 'new' ? 'New Request' : 'All Requests'}</span>
                     </button>
                 ))}
             </div>
@@ -148,8 +152,8 @@ const DataExportScreen = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
-                            {requests.map(req => (
-                                <tr key={req.id} className="hover:bg-gray-50/30 transition-colors">
+                            {requests.map((req, ri) => (
+                                <motion.tr key={req.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(ri, 15) * 0.02 }} className="hover:bg-gray-50/30 transition-colors">
                                     <td className="px-6 py-4 font-bold text-gray-800 text-sm">{req.requester_name}</td>
                                     <td className="px-6 py-4 text-sm text-gray-600">{req.student_name}</td>
                                     <td className="px-6 py-4">
@@ -162,12 +166,12 @@ const DataExportScreen = () => {
                                     <td className="px-6 py-4"><span className={`text-xs font-bold px-3 py-1 rounded-full capitalize ${statusStyles[req.status]}`}>{req.status}</span></td>
                                     <td className="px-6 py-4">
                                         {req.status === 'pending' && (
-                                            <button onClick={() => handleApprove(req.id)} className="px-3 py-1.5 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition-all">Approve</button>
+                                            <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => handleApprove(req.id)} className="px-3 py-1.5 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition-all">Approve</motion.button>
                                         )}
                                         {req.status === 'processing' && <RefreshCw className="w-4 h-4 text-blue-500 animate-spin" />}
                                         {req.status === 'completed' && <CheckCircle2 className="w-5 h-5 text-emerald-500" />}
                                     </td>
-                                </tr>
+                                </motion.tr>
                             ))}
                             {requests.length === 0 && (
                                 <tr>
@@ -178,7 +182,7 @@ const DataExportScreen = () => {
                     </table>
                 </div>
             ) : (
-                <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 space-y-6">
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-2">Parent/Guardian Name</label>
@@ -221,10 +225,10 @@ const DataExportScreen = () => {
                             <p className="text-sm text-red-700"><strong>Warning:</strong> Data deletion is irreversible. Deleted data cannot be recovered. Under NDPR, you have 72 hours to process deletion requests.</p>
                         </div>
                     )}
-                    <button onClick={handleSubmit} className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100">
+                    <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }} onClick={handleSubmit} className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100">
                         Submit Request
-                    </button>
-                </div>
+                    </motion.button>
+                </motion.div>
             )}
         </div>
     );

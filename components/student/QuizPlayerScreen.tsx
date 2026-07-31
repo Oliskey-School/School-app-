@@ -1,5 +1,6 @@
 ﻿
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { Quiz, Question, QuestionOption, Student } from '../../types';
 import { CheckCircleIcon, XCircleIcon, ClockIcon, ChevronRightIcon, ChevronLeftIcon } from '../../constants';
@@ -273,13 +274,13 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, cbtExamId, 
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-6 overflow-y-auto">
         <div className="bg-white rounded-3xl shadow-xl p-8 max-w-lg w-full border border-orange-100 animate-fade-in my-auto">
           <div className="w-20 h-20 bg-orange-100 rounded-2xl flex items-center justify-center mx-auto mb-6 transform rotate-3 shadow-inner">
-            <span className="text-4xl">ðŸ“œ</span>
+            <span className="text-4xl">📜</span>
           </div>
           <h2 className="text-3xl font-extrabold text-gray-900 text-center mb-4">Assessment Rules</h2>
 
           <div className="space-y-4 mb-8">
             <div className="flex items-start gap-4 p-4 bg-red-50 rounded-2xl border border-red-100">
-              <span className="text-2xl mt-1">ðŸš«</span>
+              <span className="text-2xl mt-1">🚫</span>
               <div>
                 <h4 className="font-bold text-red-800">No Window Switching</h4>
                 <p className="text-sm text-red-700 leading-relaxed">Changing tabs or minimizing the browser 3 times will trigger an <strong>automatic submission</strong> and you will be returned to the dashboard.</p>
@@ -304,19 +305,22 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, cbtExamId, 
           </div>
 
           <div className="space-y-3">
-            <button
+            <motion.button
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.97 }}
               onClick={() => setShowInstructions(false)}
-              className="w-full py-4 bg-orange-500 text-white font-bold rounded-2xl hover:bg-orange-600 transition-all shadow-lg shadow-orange-200 active:scale-95 text-lg"
+              className="w-full py-4 bg-orange-500 text-white font-bold rounded-2xl hover:bg-orange-600 transition-colors shadow-lg shadow-orange-200 text-lg"
             >
               I Understand, Start Now
-            </button>
+            </motion.button>
 
-            <button
+            <motion.button
+              whileTap={{ scale: 0.97 }}
               onClick={handleBack}
               className="w-full py-3 text-gray-500 font-semibold rounded-xl hover:bg-gray-100 transition-colors"
             >
               Maybe Later
-            </button>
+            </motion.button>
           </div>
         </div>
       </div>
@@ -325,27 +329,37 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, cbtExamId, 
 
   if (isFinished) {
     return (
-      <div className="p-8 flex flex-col items-center justify-center h-full text-center bg-gray-50 animate-fade-in">
-        <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mb-8 shadow-inner">
+      <div className="p-8 flex flex-col items-center justify-center h-full text-center bg-gray-50">
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+          className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mb-8 shadow-inner"
+        >
           <CheckCircleIcon className="w-12 h-12 text-green-600" />
-        </div>
-        <h2 className="text-3xl font-bold text-gray-800 mb-2">Well Done!</h2>
-        <p className="text-gray-500 mb-8">You have successfully completed the assessment.</p>
+        </motion.div>
+        <motion.h2 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="text-3xl font-bold text-gray-800 mb-2">Well Done!</motion.h2>
+        <motion.p initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="text-gray-500 mb-8">You have successfully completed the assessment.</motion.p>
 
-        <div className="bg-white p-6 rounded-3xl shadow-sm w-full max-w-sm mb-8 border border-gray-100">
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="bg-white p-6 rounded-3xl shadow-sm w-full max-w-sm mb-8 border border-gray-100">
           <span className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1 block">Your Score</span>
           <div className="text-5xl font-black text-orange-500 mb-2">{finalScore}%</div>
           <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
-            <div className="bg-orange-500 h-full transition-all duration-1000" style={{ width: `${finalScore}%` }}></div>
+            <motion.div initial={{ width: 0 }} animate={{ width: `${finalScore}%` }} transition={{ duration: 1, delay: 0.3, ease: 'easeOut' }} className="bg-orange-500 h-full"></motion.div>
           </div>
-        </div>
+        </motion.div>
 
-        <button
+        <motion.button
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35 }}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.96 }}
           onClick={handleBack}
-          className="w-full max-w-sm py-4 bg-orange-500 text-white font-black rounded-2xl shadow-xl hover:bg-orange-600 hover:shadow-orange-200 transition-all active:scale-95"
+          className="w-full max-w-sm py-4 bg-orange-500 text-white font-black rounded-2xl shadow-xl hover:bg-orange-600 hover:shadow-orange-200 transition-shadow"
         >
           Return to Dashboard
-        </button>
+        </motion.button>
       </div>
     );
   }
@@ -391,77 +405,101 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, cbtExamId, 
       </div>
 
       <main className="flex-1 overflow-y-auto p-4 md:p-6">
-        <div className="max-w-2xl mx-auto w-full space-y-6">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentQuestionIndex}
+            initial={{ opacity: 0, x: 16 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -16 }}
+            transition={{ duration: 0.2 }}
+            className="max-w-2xl mx-auto w-full space-y-6"
+          >
 
-          {/* Question Card */}
-          <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-100 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-1.5 h-full bg-orange-500"></div>
-            <h2 className="text-xl md:text-2xl font-bold text-slate-800 leading-snug">
-              {currentQuestion?.text}
-            </h2>
-          </div>
+            {/* Question Card */}
+            <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-100 relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-1.5 h-full bg-orange-500"></div>
+              <h2 className="text-xl md:text-2xl font-bold text-slate-800 leading-snug">
+                {currentQuestion?.text}
+              </h2>
+            </div>
 
-          {/* Options */}
-          <div className="space-y-3">
-            {currentQuestion?.options?.map((option) => {
-              const isSelected = selectedAnswerId === option.id;
+            {/* Options */}
+            <div className="space-y-3">
+              {currentQuestion?.options?.map((option, i) => {
+                const isSelected = selectedAnswerId === option.id;
 
-              return (
-                <button
-                  key={option.id}
-                  onClick={() => handleAnswerSelect(option.id)}
-                  className={`w-full group p-4 md:p-5 rounded-2xl border-2 text-left transition-all flex items-center gap-4 ${isSelected
-                    ? 'bg-orange-50 border-orange-500 shadow-md ring-1 ring-orange-500/20'
-                    : 'bg-white border-slate-100 hover:border-slate-200 hover:bg-slate-50'
-                    }`}
-                >
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm transition-all ${isSelected ? 'bg-orange-500 text-white' : 'bg-slate-100 text-slate-400 group-hover:bg-slate-200'
-                    }`}>
-                    {option.id}
-                  </div>
-                  <span className={`flex-1 font-bold ${isSelected ? 'text-orange-900' : 'text-slate-700'}`}>
-                    {option.text}
-                  </span>
-                  {isSelected && (
-                    <div className="w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center text-white text-xs">
-                      âœ“
+                return (
+                  <motion.button
+                    key={option.id}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.2, delay: i * 0.05 }}
+                    whileHover={{ y: -1 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => handleAnswerSelect(option.id)}
+                    className={`w-full group p-4 md:p-5 rounded-2xl border-2 text-left transition-colors flex items-center gap-4 ${isSelected
+                      ? 'bg-orange-50 border-orange-500 shadow-md ring-1 ring-orange-500/20'
+                      : 'bg-white border-slate-100 hover:border-slate-200 hover:bg-slate-50'
+                      }`}
+                  >
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm transition-colors ${isSelected ? 'bg-orange-500 text-white' : 'bg-slate-100 text-slate-400 group-hover:bg-slate-200'
+                      }`}>
+                      {option.id}
                     </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+                    <span className={`flex-1 font-bold ${isSelected ? 'text-orange-900' : 'text-slate-700'}`}>
+                      {option.text}
+                    </span>
+                    {isSelected && (
+                      <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ type: 'spring', stiffness: 500, damping: 20 }}
+                        className="w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center text-white text-xs"
+                      >
+                        ✓
+                      </motion.div>
+                    )}
+                  </motion.button>
+                );
+              })}
+            </div>
+          </motion.div>
+        </AnimatePresence>
       </main>
 
       {/* Footer Navigation */}
       <footer className="bg-white p-4 border-t border-slate-200">
         <div className="max-w-2xl mx-auto w-full flex gap-3">
-          <button
+          <motion.button
+            whileTap={{ scale: currentQuestionIndex === 0 ? 1 : 0.96 }}
             onClick={handlePrevious}
             disabled={currentQuestionIndex === 0}
-            className="flex-1 py-4 px-6 font-bold text-slate-400 bg-slate-50 border border-slate-200 rounded-2xl disabled:opacity-30 transition-all flex items-center justify-center gap-2"
+            className="flex-1 py-4 px-6 font-bold text-slate-400 bg-slate-50 border border-slate-200 rounded-2xl disabled:opacity-30 transition-colors flex items-center justify-center gap-2"
           >
             <ChevronLeftIcon className="w-5 h-5" />
             Back
-          </button>
+          </motion.button>
 
           {currentQuestionIndex < questions.length - 1 ? (
-            <button
+            <motion.button
+              whileHover={{ y: -1 }}
+              whileTap={{ scale: 0.97 }}
               onClick={handleNext}
-              className="flex-[2] py-4 px-6 font-bold text-white bg-slate-800 rounded-2xl shadow-lg hover:shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2"
+              className="flex-[2] py-4 px-6 font-bold text-white bg-slate-800 rounded-2xl shadow-lg hover:shadow-xl transition-shadow flex items-center justify-center gap-2"
             >
               Next Question
               <ChevronRightIcon className="w-5 h-5" />
-            </button>
+            </motion.button>
           ) : (
-            <button
+            <motion.button
+              whileHover={{ y: isSubmitting ? 0 : -1 }}
+              whileTap={{ scale: isSubmitting ? 1 : 0.97 }}
               onClick={() => finishQuiz()}
               disabled={isSubmitting}
-              className="flex-[2] py-4 px-6 font-black text-white bg-orange-600 rounded-2xl shadow-lg hover:bg-orange-700 transition-all active:scale-95"
+              className="flex-[2] py-4 px-6 font-black text-white bg-orange-600 rounded-2xl shadow-lg hover:bg-orange-700 transition-colors"
             >
               {isSubmitting ? 'Submitting...' : 'Finish & Submit'}
-            </button>
+            </motion.button>
           )}
         </div>
       </footer>

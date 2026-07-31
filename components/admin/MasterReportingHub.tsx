@@ -1,4 +1,5 @@
 ﻿import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import { FileBarChart, Users, GraduationCap, Award, Download, Building, CheckCircle, Clock } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
@@ -55,7 +56,7 @@ const MasterReportingHub: React.FC = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {/* ASC Report */}
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between">
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between">
                     <div>
                         <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center mb-4">
                             <Building className="w-6 h-6 text-indigo-600" />
@@ -63,18 +64,20 @@ const MasterReportingHub: React.FC = () => {
                         <h3 className="text-lg font-bold">Annual School Census</h3>
                         <p className="text-sm text-gray-500 mt-2">Comprehensive school data required by the Ministry of Education (MoE).</p>
                     </div>
-                    <button
+                    <motion.button
+                        whileHover={generating !== 'census' ? { scale: 1.02 } : {}}
+                        whileTap={generating !== 'census' ? { scale: 0.98 } : {}}
                         onClick={handleGenerateCensus}
                         disabled={generating === 'census'}
                         className="mt-6 w-full flex items-center justify-center gap-2 bg-indigo-600 text-white py-2 rounded-xl font-bold hover:bg-indigo-700 transition disabled:opacity-50"
                     >
                         {generating === 'census' ? <Clock className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                         Generate ASC
-                    </button>
-                </div>
+                    </motion.button>
+                </motion.div>
 
                 {/* Teacher Registry */}
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between">
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.05 }} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between">
                     <div>
                         <div className="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center mb-4">
                             <Users className="w-6 h-6 text-emerald-600" />
@@ -82,18 +85,20 @@ const MasterReportingHub: React.FC = () => {
                         <h3 className="text-lg font-bold">Teacher Registry (TRCN)</h3>
                         <p className="text-sm text-gray-500 mt-2">Export certified teacher lists for TRCN national certification tracking.</p>
                     </div>
-                    <button
+                    <motion.button
+                        whileHover={generating !== 'trcn' ? { scale: 1.02 } : {}}
+                        whileTap={generating !== 'trcn' ? { scale: 0.98 } : {}}
                         onClick={handleTeacherRegistry}
                         disabled={generating === 'trcn'}
                         className="mt-6 w-full flex items-center justify-center gap-2 border border-emerald-200 text-emerald-700 py-2 rounded-xl font-bold hover:bg-emerald-50 transition disabled:opacity-50"
                     >
                         {generating === 'trcn' ? <Clock className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                         Export TRCN List
-                    </button>
-                </div>
+                    </motion.button>
+                </motion.div>
 
                 {/* Compliance Certificate */}
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between">
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.1 }} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between">
                     <div>
                         <div className="w-12 h-12 bg-amber-50 rounded-xl flex items-center justify-center mb-4">
                             <Award className="w-6 h-6 text-amber-600" />
@@ -101,14 +106,16 @@ const MasterReportingHub: React.FC = () => {
                         <h3 className="text-lg font-bold">Compliance Certificates</h3>
                         <p className="text-sm text-gray-500 mt-2">Automated school status certificates based on current audit metrics.</p>
                     </div>
-                    <button
+                    <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={() => toast.success("Certificate Generation Module Loaded")}
                         className="mt-6 w-full flex items-center justify-center gap-2 bg-gray-900 text-white py-2 rounded-xl font-bold hover:bg-black transition"
                     >
                         <CheckCircle className="w-4 h-4" />
                         Issue Certificate
-                    </button>
-                </div>
+                    </motion.button>
+                </motion.div>
             </div>
 
             {/* Recent Exports History */}

@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { motion } from 'framer-motion';
 import { Student } from '../../types';
 import { ChevronRightIcon, DocumentTextIcon } from '../../constants';
 
@@ -28,15 +29,20 @@ const AdminSelectTermForReport: React.FC<AdminSelectTermForReportProps> = ({ stu
         <p className="text-sm text-indigo-700">Choose the academic term you want to view or edit.</p>
       </div>
       <div className="space-y-3">
-        {terms.map(term => (
-          <button
+        {terms.map((term, ti) => (
+          <motion.button
             key={term}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2, delay: ti * 0.05 }}
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.99 }}
             onClick={() => handleSelectTerm(term)}
             className="w-full bg-white rounded-xl shadow-sm p-4 flex items-center justify-between text-left hover:bg-gray-50 hover:ring-2 hover:ring-indigo-200 transition-all"
           >
             <span className="font-bold text-lg text-gray-800">{term}</span>
             <ChevronRightIcon className="text-gray-400" />
-          </button>
+          </motion.button>
         ))}
       </div>
     </div>

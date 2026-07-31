@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { api } from '../../lib/api';
 import { Student } from '../../types';
@@ -61,11 +62,16 @@ const SelectChildForReportScreen: React.FC<SelectChildForReportScreenProps> = ({
         <p className="text-sm text-green-700">Choose a child to view their latest academic report card.</p>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {children.map(child => (
-          <button
+        {children.map((child, i) => (
+          <motion.button
             key={child.id}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, delay: Math.min(i, 10) * 0.05 }}
+            whileHover={{ y: -2 }}
+            whileTap={{ scale: 0.98 }}
             onClick={() => handleSelectChild(child)}
-            className="w-full bg-white rounded-xl shadow-sm p-4 flex items-center justify-between text-left hover:bg-gray-50 hover:ring-2 hover:ring-green-200 transition-all"
+            className="w-full bg-white rounded-xl shadow-sm hover:shadow-md p-4 flex items-center justify-between text-left hover:ring-2 hover:ring-green-200 transition-shadow"
           >
             <div className="flex items-center space-x-4">
               {child.avatarUrl ? (
@@ -81,7 +87,7 @@ const SelectChildForReportScreen: React.FC<SelectChildForReportScreenProps> = ({
               </div>
             </div>
             <ChevronRightIcon className="text-gray-400" />
-          </button>
+          </motion.button>
         ))}
       </div>
     </div>

@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { WrenchIcon, CheckCircleIcon } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAutoSync } from '../../hooks/useAutoSync';
+import CenteredLoader from '../ui/CenteredLoader';
 
 const CATEGORIES = ['Furniture', 'Electrical', 'Plumbing', 'Water Leakage', 'HVAC/Fan', 'Other'];
 const STATUS_FLOW: Record<string, string[]> = { Pending: ['In Progress', 'Completed'], 'In Progress': ['Completed', 'Pending'], Completed: [] };
@@ -77,14 +79,15 @@ const MaintenanceTickets = () => {
                         <h2 className="text-xl font-bold text-gray-800">Maintenance Tickets</h2>
                         <p className="text-sm text-gray-500">Track repairs and equipment issues</p>
                     </div>
-                    <button onClick={() => setShowForm(v => !v)} className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+                    <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => setShowForm(v => !v)} className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
                         <WrenchIcon size={20} />
                         <span>New Request</span>
-                    </button>
+                    </motion.button>
                 </div>
 
+                <AnimatePresence>
                 {showForm && (
-                    <form onSubmit={handleSubmit} className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 mb-6 space-y-3">
+                    <motion.form initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} onSubmit={handleSubmit} className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 mb-6 space-y-3 overflow-hidden">
                         <input value={form.issue_title} onChange={e => setForm(f => ({ ...f, issue_title: e.target.value }))}
                             placeholder="What's wrong? (e.g. Fan not working)" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400" />
                         <input value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
@@ -99,14 +102,15 @@ const MaintenanceTickets = () => {
                         </div>
                         <textarea value={form.issue_description} onChange={e => setForm(f => ({ ...f, issue_description: e.target.value }))}
                             placeholder="More detail (optional)" rows={2} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400" />
-                        <button type="submit" disabled={submitting} className="bg-indigo-600 text-white text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60">
+                        <motion.button whileHover={!submitting ? { scale: 1.02 } : {}} whileTap={!submitting ? { scale: 0.98 } : {}} type="submit" disabled={submitting} className="bg-indigo-600 text-white text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60">
                             {submitting ? 'Submitting...' : 'Submit Report'}
-                        </button>
-                    </form>
+                        </motion.button>
+                    </motion.form>
                 )}
+                </AnimatePresence>
 
                 {loading ? (
-                    <div className="py-8 text-center text-gray-500">Loading tickets...</div>
+                    <CenteredLoader message="Loading tickets..." className="py-8" />
                 ) : (
                     <div className="overflow-hidden">
                         {tickets.length === 0 ? (
@@ -127,8 +131,8 @@ const MaintenanceTickets = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                    {tickets.map((ticket) => (
-                                        <tr key={ticket.id} className="hover:bg-gray-50">
+                                    {tickets.map((ticket, ti) => (
+                                        <motion.tr key={ticket.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(ti, 15) * 0.02 }} className="hover:bg-gray-50">
                                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-indigo-600">
                                                 {ticket.ticket_number}
                                             </td>
@@ -160,7 +164,7 @@ const MaintenanceTickets = () => {
                                                     ))}
                                                 </div>
                                             </td>
-                                        </tr>
+                                        </motion.tr>
                                     ))}
                                 </tbody>
                             </table>

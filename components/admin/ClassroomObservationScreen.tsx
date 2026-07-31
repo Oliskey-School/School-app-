@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { ClipboardCheck, History, Star } from 'lucide-react';
+import CenteredLoader from '../ui/CenteredLoader';
 
 interface Criterion { key: string; label: string; max_score: number; }
 interface Teacher { id: string; full_name: string; }
@@ -86,18 +88,22 @@ const ClassroomObservationScreen = () => {
             </div>
 
             <div className="bg-white p-1.5 rounded-2xl shadow-sm border border-gray-100 flex gap-1 w-fit">
-                <button onClick={() => setTab('new')} className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${tab === 'new' ? 'bg-indigo-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
-                    <ClipboardCheck className="w-4 h-4" /> New Observation
+                <button onClick={() => setTab('new')} className={`relative flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${tab === 'new' ? 'text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
+                    {tab === 'new' && <motion.div layoutId="observationTab" className="absolute inset-0 bg-indigo-600 rounded-xl" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />}
+                    <span className="relative flex items-center gap-1.5"><ClipboardCheck className="w-4 h-4" /> New Observation</span>
                 </button>
-                <button onClick={() => setTab('history')} className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${tab === 'history' ? 'bg-indigo-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
-                    <History className="w-4 h-4" /> History {history.length > 0 && `(${history.length})`}
+                <button onClick={() => setTab('history')} className={`relative flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${tab === 'history' ? 'text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
+                    {tab === 'history' && <motion.div layoutId="observationTab" className="absolute inset-0 bg-indigo-600 rounded-xl" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />}
+                    <span className="relative flex items-center gap-1.5"><History className="w-4 h-4" /> History {history.length > 0 && `(${history.length})`}</span>
                 </button>
             </div>
 
             {loading ? (
-                <div className="text-center py-12 text-gray-500">Loading...</div>
-            ) : tab === 'new' ? (
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-4">
+                <CenteredLoader className="py-12" />
+            ) : (
+            <AnimatePresence mode="wait">
+            {tab === 'new' ? (
+                <motion.div key="new" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <select value={teacherId} onChange={e => setTeacherId(e.target.value)} className="border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400">
                             <option value="">Select a teacher</option>
@@ -130,20 +136,20 @@ const ClassroomObservationScreen = () => {
                     <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Overall notes (optional)" rows={2}
                         className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400" />
 
-                    <button onClick={handleSubmit} disabled={submitting} className="bg-indigo-600 text-white font-semibold px-5 py-2.5 rounded-xl disabled:opacity-60">
+                    <motion.button whileHover={!submitting ? { scale: 1.02 } : {}} whileTap={!submitting ? { scale: 0.98 } : {}} onClick={handleSubmit} disabled={submitting} className="bg-indigo-600 text-white font-semibold px-5 py-2.5 rounded-xl disabled:opacity-60">
                         {submitting ? 'Saving...' : 'Submit Observation'}
-                    </button>
-                </div>
+                    </motion.button>
+                </motion.div>
             ) : (
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <motion.div key="history" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                     {!teacherId ? (
                         <p className="p-8 text-center text-gray-400">Select a teacher above to see their observation history.</p>
                     ) : history.length === 0 ? (
                         <p className="p-8 text-center text-gray-400">No observations recorded yet for this teacher.</p>
                     ) : (
                         <div className="divide-y divide-gray-50">
-                            {history.map((h: any) => (
-                                <div key={h.id} className="px-5 py-4 flex items-center justify-between gap-3">
+                            {history.map((h: any, i: number) => (
+                                <motion.div key={h.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(i, 15) * 0.02 }} className="px-5 py-4 flex items-center justify-between gap-3">
                                     <div>
                                         <p className="font-semibold text-gray-900 text-sm">{new Date(h.date).toLocaleDateString()}</p>
                                         {h.notes && <p className="text-xs text-gray-500">{h.notes}</p>}
@@ -151,11 +157,13 @@ const ClassroomObservationScreen = () => {
                                     <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${GRADE_STYLES[h.overall_grade] || 'bg-gray-100 text-gray-600'}`}>
                                         {h.overall_score}% ({h.overall_grade})
                                     </span>
-                                </div>
+                                </motion.div>
                             ))}
                         </div>
                     )}
-                </div>
+                </motion.div>
+            )}
+            </AnimatePresence>
             )}
         </div>
     );

@@ -1,5 +1,6 @@
 ﻿
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { Student } from '../../types';
 import IDCardGenerator from '../shared/IDCardGenerator';
@@ -168,8 +169,8 @@ const StudentIDCardDashboard: React.FC = () => {
                             {loading ? (
                                 Array(5).fill(0).map((_, i) => <SkeletonRow key={i} />)
                             ) : filteredStudents.length > 0 ? (
-                                filteredStudents.map((student) => (
-                                    <tr key={student.id} className="hover:bg-gray-50 transition-colors group">
+                                filteredStudents.map((student, i) => (
+                                    <motion.tr key={student.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2, delay: Math.min(i, 15) * 0.02 }} className="hover:bg-gray-50 transition-colors group">
                                         <td className="px-6 py-4">
                                             <div className="flex items-center space-x-3">
                                                 <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center overflow-hidden border-2 border-white shadow-sm">
@@ -213,7 +214,7 @@ const StudentIDCardDashboard: React.FC = () => {
                                                 <ChevronRight className="w-4 h-4" />
                                             </button>
                                         </td>
-                                    </tr>
+                                    </motion.tr>
                                 ))
                             ) : (
                                 <tr>
@@ -232,9 +233,10 @@ const StudentIDCardDashboard: React.FC = () => {
             </div>
 
             {/* ID Generator Modal */}
+            <AnimatePresence>
             {showGenerator && selectedStudent && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                    <div className="bg-white rounded-[40px] shadow-2xl w-full max-w-4xl overflow-hidden animate-in fade-in zoom-in duration-300">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} transition={{ type: 'spring', stiffness: 400, damping: 32 }} className="bg-white rounded-[40px] shadow-2xl w-full max-w-4xl overflow-hidden">
                         <div className="flex items-center justify-between p-8 border-b border-gray-100">
                             <div>
                                 <h2 className="text-2xl font-black text-gray-900 uppercase">Generate Student ID</h2>
@@ -265,9 +267,10 @@ const StudentIDCardDashboard: React.FC = () => {
                                 Close Preview
                             </button>
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
         </div>
     );
 };

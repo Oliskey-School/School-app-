@@ -1,5 +1,6 @@
 ﻿
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import {
   EditIcon,
   NotificationIcon,
@@ -173,7 +174,13 @@ const ParentProfileScreen: React.FC<ParentProfileScreenProps> = ({ onLogout, nav
 
           <div className="bg-white rounded-xl shadow-sm p-2">
             {menuItems.map((item, index) => (
-              <button key={item.label} onClick={() => handleItemClick(item.id)} className={`w-full flex items-center justify-between p-3 text-left rounded-lg transition-colors ${activeSetting === item.id ? 'bg-gray-100' : 'hover:bg-gray-50'}`}>
+              <motion.button
+                key={item.label}
+                whileHover={{ x: 2 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => handleItemClick(item.id)}
+                className={`w-full flex items-center justify-between p-3 text-left rounded-lg transition-colors ${activeSetting === item.id ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
+              >
                 <div className="flex items-center space-x-4">
                   <div className={`p-2 rounded-lg ${theme.iconColors[index % theme.iconColors.length]}`}>
                     {React.cloneElement(item.icon as React.ReactElement, { className: 'h-5 w-5' })}
@@ -181,7 +188,7 @@ const ParentProfileScreen: React.FC<ParentProfileScreenProps> = ({ onLogout, nav
                   <span className="font-semibold text-gray-700">{item.label}</span>
                 </div>
                 <ChevronRightIcon className="h-5 w-5 text-gray-400" />
-              </button>
+              </motion.button>
             ))}
           </div>
 
@@ -191,11 +198,12 @@ const ParentProfileScreen: React.FC<ParentProfileScreenProps> = ({ onLogout, nav
               <h4 className="px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Your Schools</h4>
               <div className="bg-white rounded-xl shadow-sm p-2 space-y-1">
                 {memberships.map((m) => (
-                  <button
+                  <motion.button
                     key={m.school_id}
+                    whileTap={{ scale: 0.98 }}
                     onClick={() => handleSwitchSchool(m.school_id)}
                     disabled={isSwitching}
-                    className={`w-full flex items-center justify-between p-3 rounded-lg transition-all ${m.school_id === currentSchool?.id
+                    className={`w-full flex items-center justify-between p-3 rounded-lg transition-colors ${m.school_id === currentSchool?.id
                       ? 'bg-purple-50 border border-purple-100'
                       : 'hover:bg-gray-50 text-gray-600'
                       }`}
@@ -219,17 +227,17 @@ const ParentProfileScreen: React.FC<ParentProfileScreenProps> = ({ onLogout, nav
                     ) : (
                       <RefreshIcon className={`w-3 h-3 text-gray-300 ${isSwitching ? 'animate-spin' : ''}`} />
                     )}
-                  </button>
+                  </motion.button>
                 ))}
               </div>
             </div>
           )}
         </div>
         <div className="p-4 bg-gray-50 border-t border-gray-200">
-          <button onClick={onLogout} className="w-full flex items-center justify-center space-x-2 py-3 px-4 font-medium text-red-500 bg-white rounded-lg shadow-sm border hover:bg-red-50">
+          <motion.button whileTap={{ scale: 0.97 }} onClick={onLogout} className="w-full flex items-center justify-center space-x-2 py-3 px-4 font-medium text-red-500 bg-white rounded-lg shadow-sm border hover:bg-red-50">
             <LogoutIcon className="h-5 w-5" />
             <span>Logout</span>
-          </button>
+          </motion.button>
         </div>
       </div>
 
@@ -237,9 +245,9 @@ const ParentProfileScreen: React.FC<ParentProfileScreenProps> = ({ onLogout, nav
       <div className={`flex-1 flex-col bg-gray-50 ${activeSetting ? 'flex' : 'hidden md:flex'}`}>
         {activeSetting && (
           <div className="md:hidden p-2 bg-white border-b flex items-center">
-            <button onClick={() => setActiveSetting(null)} className="p-2 rounded-full hover:bg-gray-100">
+            <motion.button whileTap={{ scale: 0.9 }} onClick={() => setActiveSetting(null)} className="p-2 rounded-full hover:bg-gray-100">
               <ChevronLeftIcon className="w-6 h-6 text-gray-600" />
-            </button>
+            </motion.button>
             <h2 className="font-bold text-lg text-gray-800 ml-2">
               {menuItems.find(i => i.id === activeSetting)?.label}
             </h2>

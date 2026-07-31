@@ -39,7 +39,12 @@ const GradeEntryScreen: React.FC<GradeEntryScreenProps> = ({ exam, handleBack })
     const [currentTerm, setCurrentTerm] = useState<{ name: string; academic_year: string }>({ name: 'First Term', academic_year: '' });
     const debounceTimeoutRef = useRef<number | null>(null);
 
-    // Parse Class Name
+    // Fallback-only class name parser. exam.classId (the real class UUID) is the
+    // authoritative source of the roster — see fetchData below. This regex guess
+    // is kept only for legacy exams saved before class_id was persisted, and it
+    // is unreliable for Nigerian curriculum names: "JSS 1" contains digit "1"
+    // (not the true numeric grade, which is offset by +6 for JSS / +9 for SSS)
+    // and its first capital letter "J" (from "JSS", not an actual section).
     const gradeSection = React.useMemo(() => {
         if (!exam?.className) return { grade: 0, section: 'A' };
         const gradeMatch = exam.className.match(/\d+/);
@@ -74,12 +79,17 @@ const GradeEntryScreen: React.FC<GradeEntryScreenProps> = ({ exam, handleBack })
         if (!exam || !gradeSection || !currentSchool?.id) return;
         setLoading(true);
         try {
-            // 1. Fetch Students using backend API
-            const studentsData = await api.getStudentsByClass(
-                parseInt(gradeSection.grade.toString(), 10),
-                gradeSection.section,
-                currentSchool.id
-            );
+            // 1. Fetch Students using backend API.
+            // Prefer the real class UUID (exam.classId) — it always resolves the
+            // correct roster. Only fall back to the className regex-guess for
+            // legacy exams saved before class_id was captured.
+            const studentsData = exam.classId
+                ? await api.getStudentsByClassId(exam.classId)
+                : await api.getStudentsByClass(
+                    parseInt(gradeSection.grade.toString(), 10),
+                    gradeSection.section,
+                    currentSchool.id
+                );
 
             const loadedStudents = studentsData.map((s: any) => ({
                 ...s,

@@ -1,4 +1,5 @@
 ﻿import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { Assignment, Submission, StudentAssignment } from '../../types';
 import api from '../../lib/api';
@@ -178,23 +179,34 @@ const AssignmentsScreen: React.FC<StudentAssignmentsScreenProps> = ({ studentId,
         <div className="flex flex-col h-full bg-gray-50">
             <main className="flex-grow p-4 overflow-y-auto">
                 {dueSoonCount > 0 && (
-                    <div className="mb-4 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
+                    <motion.div
+                        initial={{ opacity: 0, y: -8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.25 }}
+                        className="mb-4 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800"
+                    >
                         <ExclamationCircleIcon className="w-5 h-5 flex-shrink-0" />
                         <span className="text-sm font-semibold">
-                            {dueSoonCount} assignment{dueSoonCount > 1 ? 's' : ''} due in 2 days or less â€” submit before the deadline.
+                            {dueSoonCount} assignment{dueSoonCount > 1 ? 's' : ''} due in 2 days or less — submit before the deadline.
                         </span>
-                    </div>
+                    </motion.div>
                 )}
                 {filteredAssignments.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {filteredAssignments.map(assignment => {
+                        {filteredAssignments.map((assignment, i) => {
                             const status = getStatus(assignment);
                             const subjectColor = SUBJECT_COLORS[assignment.subject] || 'bg-gray-100 text-gray-800';
                             const buttonInfo = getButtonInfo(assignment);
                             const dueSoon = isDueSoon(assignment);
 
                             return (
-                                <div key={assignment.id} className={`bg-white rounded-xl shadow-sm overflow-hidden transition-all hover:shadow-md ${dueSoon ? 'ring-2 ring-amber-400' : ''}`}>
+                                <motion.div
+                                    key={assignment.id}
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.25, delay: Math.min(i, 10) * 0.04 }}
+                                    className={`bg-white rounded-xl shadow-sm overflow-hidden transition-shadow hover:shadow-md ${dueSoon ? 'ring-2 ring-amber-400' : ''}`}
+                                >
                                     <div className="p-4">
                                         <div className="flex justify-between items-start mb-2">
                                             <h4 className="font-bold text-lg text-gray-800 pr-2 flex-1">{assignment.title}</h4>
@@ -219,14 +231,16 @@ const AssignmentsScreen: React.FC<StudentAssignmentsScreenProps> = ({ studentId,
                                             <span>{status.text}</span>
                                         </div>
 
-                                        <button
+                                        <motion.button
+                                            whileHover={{ scale: 1.03 }}
+                                            whileTap={{ scale: 0.95 }}
                                             onClick={() => handleButtonClick(assignment, buttonInfo.text)}
                                             className={`px-4 py-1.5 text-sm font-semibold rounded-lg transition-colors ${buttonInfo.style}`}
                                         >
                                             {buttonInfo.text}
-                                        </button>
+                                        </motion.button>
                                     </div>
-                                </div>
+                                </motion.div>
                             );
                         })}
                     </div>

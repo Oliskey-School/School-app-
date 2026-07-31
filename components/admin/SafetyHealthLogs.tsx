@@ -1,6 +1,8 @@
 ﻿import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { useAutoSync } from '../../hooks/useAutoSync';
+import CenteredLoader from '../ui/CenteredLoader';
 
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
@@ -76,9 +78,10 @@ const AddEntryForm = ({
     handleSave,
     setIsAdding
 }: AddEntryFormProps) => (
-    <div className="bg-white rounded-[2.5rem] p-8 w-full shadow-sm border border-gray-100 animate-in fade-in slide-in-from-right-4 duration-300">
+    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.25 }} className="bg-white rounded-[2.5rem] p-8 w-full shadow-sm border border-gray-100">
         <div className="flex items-center space-x-4 mb-8">
-            <button
+            <motion.button
+                whileTap={{ scale: 0.9 }}
                 onClick={() => {
                     setIsAdding(false);
                     setFormData({});
@@ -86,7 +89,7 @@ const AddEntryForm = ({
                 className="p-3 bg-gray-100 hover:bg-gray-200 rounded-2xl transition-all group"
             >
                 <ChevronLeft className="w-6 h-6 text-gray-600 group-hover:-translate-x-0.5 transition-transform" />
-            </button>
+            </motion.button>
             <div>
                 <h3 className="text-2xl font-bold text-gray-900 font-outfit">
                     {activeTab === 'incidents' ? 'Log Health Incident' :
@@ -293,7 +296,9 @@ const AddEntryForm = ({
         </div>
 
         <div className="flex flex-col md:flex-row space-y-3 md:space-y-0 md:space-x-4 mt-12 max-w-2xl">
-            <button
+            <motion.button
+                whileHover={!loading ? { scale: 1.01 } : {}}
+                whileTap={!loading ? { scale: 0.98 } : {}}
                 onClick={() => {
                     setIsAdding(false);
                     setFormData({});
@@ -302,16 +307,18 @@ const AddEntryForm = ({
                 disabled={loading}
             >
                 Cancel
-            </button>
-            <button
+            </motion.button>
+            <motion.button
+                whileHover={!loading ? { scale: 1.01 } : {}}
+                whileTap={!loading ? { scale: 0.98 } : {}}
                 onClick={handleSave}
                 className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-100 disabled:opacity-50"
                 disabled={loading}
             >
                 {loading ? 'Saving...' : 'Save Record'}
-            </button>
+            </motion.button>
         </div>
-    </div>
+    </motion.div>
 );
 
 interface IncidentTabProps {
@@ -326,10 +333,10 @@ const IncidentTab = ({ incidents, setIsAdding }: IncidentTabProps) => (
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input type="text" placeholder="Search incidents..." className="w-full pl-10 pr-4 py-2 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" />
             </div>
-            <button onClick={() => setIsAdding(true)} className="flex items-center space-x-2 bg-red-600 text-white px-4 py-2 rounded-xl font-bold hover:bg-red-700 transition-colors shadow-lg shadow-red-100">
+            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => setIsAdding(true)} className="flex items-center space-x-2 bg-red-600 text-white px-4 py-2 rounded-xl font-bold hover:bg-red-700 transition-colors shadow-lg shadow-red-100">
                 <PlusIcon className="w-5 h-5" />
                 <span>Log Incident</span>
-            </button>
+            </motion.button>
         </div>
 
         <div className="grid grid-cols-1 gap-4">
@@ -339,8 +346,8 @@ const IncidentTab = ({ incidents, setIsAdding }: IncidentTabProps) => (
                     <p className="text-gray-400 font-medium">No health incidents recorded yet.</p>
                 </div>
             ) : (
-                incidents.map(inc => (
-                    <div key={inc.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-start space-x-4 hover:shadow-md transition-shadow">
+                incidents.map((inc, ii) => (
+                    <motion.div key={inc.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(ii, 15) * 0.03 }} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-start space-x-4 hover:shadow-md transition-shadow">
                         <div className={`p-3 rounded-full ${inc.severity === 'Critical' ? 'bg-red-100 text-red-600' :
                             inc.severity === 'Severe' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'
                             }`}>
@@ -363,7 +370,7 @@ const IncidentTab = ({ incidents, setIsAdding }: IncidentTabProps) => (
                                 )}
                             </div>
                         </div>
-                    </div>
+                    </motion.div>
                 ))
             )}
         </div>
@@ -379,15 +386,15 @@ const DrillTab = ({ drills, setIsAdding }: DrillTabProps) => (
     <div className="space-y-6">
         <div className="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
             <h2 className="font-bold text-gray-700">Emergency Drill Records</h2>
-            <button onClick={() => setIsAdding(true)} className="flex items-center space-x-2 bg-orange-600 text-white px-4 py-2 rounded-xl font-bold hover:bg-orange-700 transition-colors">
+            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => setIsAdding(true)} className="flex items-center space-x-2 bg-orange-600 text-white px-4 py-2 rounded-xl font-bold hover:bg-orange-700 transition-colors">
                 <Flame className="w-5 h-5" />
                 <span>Record Drill</span>
-            </button>
+            </motion.button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {drills.map(drill => (
-                <div key={drill.id} className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">
+            {drills.map((drill, di) => (
+                <motion.div key={drill.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(di, 12) * 0.04 }} className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">
                     <div className="flex justify-between items-center">
                         <div className="p-3 bg-orange-50 text-orange-600 rounded-2xl">
                             <Flame className="w-6 h-6" />
@@ -413,7 +420,7 @@ const DrillTab = ({ drills, setIsAdding }: DrillTabProps) => (
                             <p className="font-bold text-gray-700">{drill.participants_count}</p>
                         </div>
                     </div>
-                </div>
+                </motion.div>
             ))}
         </div>
     </div>
@@ -431,10 +438,10 @@ const PolicyTab = ({ policies, setIsAdding }: PolicyTabProps) => (
                 <h2 className="text-3xl font-bold font-outfit">Safeguarding Policies</h2>
                 <p className="text-indigo-100 opacity-80">Manage institutional child protection standards and guidelines.</p>
             </div>
-            <button onClick={() => setIsAdding(true)} className="bg-white text-indigo-600 px-8 py-3 rounded-2xl font-bold shadow-xl hover:bg-gray-50 transition-all flex items-center space-x-2 group">
+            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => setIsAdding(true)} className="bg-white text-indigo-600 px-8 py-3 rounded-2xl font-bold shadow-xl hover:bg-gray-50 transition-all flex items-center space-x-2 group">
                 <UploadCloud className="w-5 h-5 group-hover:scale-110 transition-transform" />
                 <span>Upload Policy</span>
-            </button>
+            </motion.button>
         </div>
 
         <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
@@ -448,8 +455,8 @@ const PolicyTab = ({ policies, setIsAdding }: PolicyTabProps) => (
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                    {policies.map(policy => (
-                        <tr key={policy.id} className="hover:bg-gray-50/30 transition-colors">
+                    {policies.map((policy, pi) => (
+                        <motion.tr key={policy.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(pi, 15) * 0.02 }} className="hover:bg-gray-50/30 transition-colors">
                             <td className="px-6 py-4">
                                 <div className="flex items-center space-x-3">
                                     <FileText className="w-5 h-5 text-indigo-500" />
@@ -468,7 +475,7 @@ const PolicyTab = ({ policies, setIsAdding }: PolicyTabProps) => (
                                     Download
                                 </a>
                             </td>
-                        </tr>
+                        </motion.tr>
                     ))}
                 </tbody>
             </table>
@@ -591,39 +598,38 @@ const SafetyHealthLogs = () => {
                         <div className="flex p-1.5 bg-gray-100 rounded-2xl">
                             <button
                                 onClick={() => setActiveTab('incidents')}
-                                className={`flex items-center space-x-2 px-6 py-2 rounded-xl transition-all font-bold ${activeTab === 'incidents' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                                className={`relative flex items-center space-x-2 px-6 py-2 rounded-xl transition-colors font-bold ${activeTab === 'incidents' ? 'text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
                             >
-                                <Activity className="w-4 h-4" />
-                                <span>Incidents</span>
+                                {activeTab === 'incidents' && <motion.div layoutId="safetyTab" className="absolute inset-0 bg-white rounded-xl shadow-sm" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />}
+                                <span className="relative flex items-center gap-2"><Activity className="w-4 h-4" /><span>Incidents</span></span>
                             </button>
                             <button
                                 onClick={() => setActiveTab('drills')}
-                                className={`flex items-center space-x-2 px-6 py-2 rounded-xl transition-all font-bold ${activeTab === 'drills' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                                className={`relative flex items-center space-x-2 px-6 py-2 rounded-xl transition-colors font-bold ${activeTab === 'drills' ? 'text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
                             >
-                                <Flame className="w-4 h-4" />
-                                <span>Drills</span>
+                                {activeTab === 'drills' && <motion.div layoutId="safetyTab" className="absolute inset-0 bg-white rounded-xl shadow-sm" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />}
+                                <span className="relative flex items-center gap-2"><Flame className="w-4 h-4" /><span>Drills</span></span>
                             </button>
                             <button
                                 onClick={() => setActiveTab('safeguarding')}
-                                className={`flex items-center space-x-2 px-6 py-2 rounded-xl transition-all font-bold ${activeTab === 'safeguarding' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                                className={`relative flex items-center space-x-2 px-6 py-2 rounded-xl transition-colors font-bold ${activeTab === 'safeguarding' ? 'text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
                             >
-                                <ShieldCheck className="w-4 h-4" />
-                                <span>Policies</span>
+                                {activeTab === 'safeguarding' && <motion.div layoutId="safetyTab" className="absolute inset-0 bg-white rounded-xl shadow-sm" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />}
+                                <span className="relative flex items-center gap-2"><ShieldCheck className="w-4 h-4" /><span>Policies</span></span>
                             </button>
                         </div>
                     </header>
 
                     {loading ? (
-                        <div className="flex flex-col items-center justify-center py-40 space-y-4">
-                            <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-                            <p className="text-gray-400 font-medium animate-pulse">Syncing safety logs...</p>
-                        </div>
+                        <CenteredLoader message="Syncing safety logs..." className="py-40" />
                     ) : (
-                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <AnimatePresence mode="wait">
+                        <motion.div key={activeTab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
                             {activeTab === 'incidents' && <IncidentTab incidents={incidents} setIsAdding={setIsAdding} />}
                             {activeTab === 'drills' && <DrillTab drills={drills} setIsAdding={setIsAdding} />}
                             {activeTab === 'safeguarding' && <PolicyTab policies={policies} setIsAdding={setIsAdding} />}
-                        </div>
+                        </motion.div>
+                        </AnimatePresence>
                     )}
                 </>
             )}

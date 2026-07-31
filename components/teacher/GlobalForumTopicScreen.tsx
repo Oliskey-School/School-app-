@@ -10,9 +10,11 @@ const formatTimestamp = (isoDate: string): string =>
 interface Props {
     topicId: string;
     topicTitle?: string;
+    topicContent?: string;
+    topicAuthor?: string;
 }
 
-const GlobalForumTopicScreen: React.FC<Props> = ({ topicId, topicTitle }) => {
+const GlobalForumTopicScreen: React.FC<Props> = ({ topicId, topicTitle, topicContent, topicAuthor }) => {
     const { user } = useAuth();
     const isTeacher = (user?.role || '').toUpperCase() === 'TEACHER';
     const [posts, setPosts] = useState<any[]>([]);
@@ -60,7 +62,9 @@ const GlobalForumTopicScreen: React.FC<Props> = ({ topicId, topicTitle }) => {
                 {topicTitle && (
                     <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
                         <h3 className="font-bold text-gray-800">{topicTitle}</h3>
-                        <p className="text-xs text-gray-400 mt-1">Global Teacher Community · replies are visible to teachers from all schools</p>
+                        {topicAuthor && <p className="text-xs text-gray-500 mt-1">By {topicAuthor}</p>}
+                        {topicContent && <p className="text-gray-700 mt-2 whitespace-pre-wrap">{topicContent}</p>}
+                        <p className="text-xs text-gray-400 mt-2">Global Teacher Community · replies are visible to teachers from all schools</p>
                     </div>
                 )}
                 {posts.map(post => (

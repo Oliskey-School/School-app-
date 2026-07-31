@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback, lazy, Suspense } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import DashboardLayout from '../layout/DashboardLayout';
 import AskAIWidget from '../shared/AskAIWidget';
 import { DEFAULT_AVATAR } from '../../lib/avatar';
@@ -214,17 +215,22 @@ const AcademicsTab = ({ student, navigateTo, schoolId, currentBranchId }: { stud
 
     return (
         <div className="p-4 space-y-4">
-            <div className="bg-gradient-to-r from-green-500 to-teal-500 p-4 rounded-2xl shadow-lg flex items-center justify-between text-white">
+            <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25 }}
+                className="bg-gradient-to-r from-green-500 to-teal-500 p-4 rounded-2xl shadow-lg flex items-center justify-between text-white"
+            >
                 <div>
                     <h3 className="font-bold text-lg">Personalized Advice</h3>
                     <p className="text-sm opacity-90">Get AI-powered tips for your child.</p>
                 </div>
-                <button onClick={() => navigateTo('aiParentingTips', 'AI Parenting Tips', { student: { ...student, academicPerformance: academicRecords } })} className="bg-white/20 px-4 py-2 rounded-lg font-semibold hover:bg-white/30 transition-colors flex items-center space-x-2">
+                <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => navigateTo('aiParentingTips', 'AI Parenting Tips', { student: { ...student, academicPerformance: academicRecords } })} className="bg-white/20 px-4 py-2 rounded-lg font-semibold hover:bg-white/30 transition-colors flex items-center space-x-2">
                     <SparklesIcon className="h-5 w-5" /><span>Get Tips</span>
-                </button>
-            </div>
+                </motion.button>
+            </motion.div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <div className="bg-white p-4 rounded-xl shadow-sm">
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: 0.05 }} className="bg-white p-4 rounded-xl shadow-sm">
                     <div className="flex justify-between items-center">
                         <div><h4 className="font-bold text-gray-800">Term Performance</h4><p className="text-sm text-gray-700">Current Term</p></div>
                         {averageScore > 0 && <div className="text-right"><p className="font-bold text-2xl text-green-600">{averageScore}%</p><p className="text-xs text-gray-700">Overall Average</p></div>}
@@ -232,30 +238,30 @@ const AcademicsTab = ({ student, navigateTo, schoolId, currentBranchId }: { stud
                     {academicRecords.length > 0 ? (
                         <div className="mt-3 space-y-2">
                             {academicRecords.map((grade, i) => (
-                                <div key={i} className="flex justify-between items-center bg-gray-50 p-2 rounded-lg">
+                                <motion.div key={i} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.2, delay: Math.min(i, 10) * 0.03 }} className="flex justify-between items-center bg-gray-50 p-2 rounded-lg">
                                     <span className="font-semibold text-sm text-gray-700">{grade.subject}</span>
                                     <span className="font-bold text-sm text-gray-800">{grade.score}%</span>
-                                </div>
+                                </motion.div>
                             ))}
                         </div>
                     ) : <p className="text-sm text-gray-500 mt-2">No grades recorded yet.</p>}
-                </div>
-                <div className="bg-white p-4 rounded-xl shadow-sm">
+                </motion.div>
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: 0.1 }} className="bg-white p-4 rounded-xl shadow-sm">
                     <h4 className="font-bold text-gray-800 mb-3">Upcoming Homework</h4>
                     <div className="space-y-3">
-                        {assignments.length > 0 ? assignments.map(hw => {
+                        {assignments.length > 0 ? assignments.map((hw, i) => {
                             const status = getHomeworkStatus(hw);
                             return (
-                                <div key={hw.id} className="flex justify-between items-center border-b pb-2 last:border-b-0">
+                                <motion.div key={hw.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(i, 10) * 0.04 }} className="flex justify-between items-center border-b pb-2 last:border-b-0">
                                     <div><p className="font-bold text-gray-800">{hw.title}</p><p className="text-sm text-gray-700">{hw.subject} &bull; Due {new Date(hw.dueDate).toLocaleDateString('en-GB')}</p></div>
                                     <div className={`flex items-center space-x-2 text-xs font-semibold px-2 py-1 rounded-full ${status.bg} ${status.color}`}>
                                         {React.cloneElement(status.icon as any, { className: `h-4 w-4 ${status.isComplete ? 'animate-checkmark-pop' : ''}`.trim() })}<span>{status.text}</span>
                                     </div>
-                                </div>
+                                </motion.div>
                             );
                         }) : <p className="text-sm text-gray-700 text-center">No upcoming homework.</p>}
                     </div>
-                </div>
+                </motion.div>
             </div>
         </div>
     );
@@ -286,10 +292,17 @@ const BehaviorTab = ({ student }: { student: Student }) => {
     return (
         <div className="p-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {notes.length > 0 ? [...notes].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(note => {
+                {notes.length > 0 ? [...notes].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((note, i) => {
                     const isPositive = note.type === 'Positive';
                     return (
-                        <div key={note.id} className={`p-4 rounded-xl border ${isPositive ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                        <motion.div
+                            key={note.id}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.25, delay: Math.min(i, 10) * 0.05 }}
+                            whileHover={{ y: -2 }}
+                            className={`p-4 rounded-xl border shadow-sm hover:shadow-md transition-shadow ${isPositive ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}
+                        >
                             <div className="flex justify-between items-start">
                                 <h5 className={`font-bold ${isPositive ? 'text-green-800' : 'text-red-800'}`}>{note.title}</h5>
                                 <p className="text-xs text-gray-700 font-medium flex-shrink-0 ml-2">{new Date(note.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
@@ -302,7 +315,7 @@ const BehaviorTab = ({ student }: { student: Student }) => {
                                 </div>
                             )}
                             <p className="text-xs text-gray-600 text-right mt-2 italic">- {note.by}</p>
-                        </div>
+                        </motion.div>
                     );
                 }) : <p className="md:col-span-2 text-sm text-gray-700 text-center py-8">No behavioral notes recorded.</p>}
             </div>
@@ -356,9 +369,20 @@ const AttendanceTab = ({ student }: { student: Student }) => {
     return (
         <div className="p-4 bg-white rounded-xl shadow-sm">
             <div className="flex justify-between items-center mb-4">
-                <button onClick={goToPreviousMonth} className="p-2 rounded-full hover:bg-gray-100"><ChevronLeftIcon className="h-5 w-5 text-gray-600" /></button>
-                <h3 className="font-bold text-lg text-gray-800">{currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</h3>
-                <button onClick={goToNextMonth} className="p-2 rounded-full hover:bg-gray-100"><ChevronRightIcon className="h-5 w-5 text-gray-600" /></button>
+                <motion.button whileTap={{ scale: 0.9 }} onClick={goToPreviousMonth} className="p-2 rounded-full hover:bg-gray-100"><ChevronLeftIcon className="h-5 w-5 text-gray-600" /></motion.button>
+                <AnimatePresence mode="wait">
+                    <motion.h3
+                        key={currentDate.toISOString().slice(0, 7)}
+                        initial={{ opacity: 0, y: -6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 6 }}
+                        transition={{ duration: 0.15 }}
+                        className="font-bold text-lg text-gray-800"
+                    >
+                        {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
+                    </motion.h3>
+                </AnimatePresence>
+                <motion.button whileTap={{ scale: 0.9 }} onClick={goToNextMonth} className="p-2 rounded-full hover:bg-gray-100"><ChevronRightIcon className="h-5 w-5 text-gray-600" /></motion.button>
             </div>
             <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-gray-500 mb-2">
                 {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => <div key={`${day}-${index}`}>{day}</div>)}
@@ -370,7 +394,17 @@ const AttendanceTab = ({ student }: { student: Student }) => {
                     const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
                     const dateString = date.toISOString().split('T')[0];
                     const status = attendanceMap.get(dateString);
-                    return <div key={day} className={`w-9 h-9 flex items-center justify-center rounded-full text-sm font-semibold ${status ? attendanceColors[status] : 'bg-gray-100 text-gray-400'}`}>{day}</div>;
+                    return (
+                        <motion.div
+                            key={day}
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ duration: 0.15, delay: Math.min(index, 20) * 0.01 }}
+                            className={`w-9 h-9 flex items-center justify-center rounded-full text-sm font-semibold ${status ? attendanceColors[status] : 'bg-gray-100 text-gray-400'}`}
+                        >
+                            {day}
+                        </motion.div>
+                    );
                 })}
             </div>
             <div className="flex justify-center space-x-3 mt-4 text-xs">
@@ -387,16 +421,25 @@ type ChildDetailTab = 'academics' | 'behavior' | 'attendance';
 const ChildDetailScreen = ({ student, initialTab, navigateTo, schoolId, currentBranchId }: { student: Student, initialTab?: ChildDetailTab, navigateTo: (view: string, title: string, props?: any) => void, schoolId?: string, currentBranchId?: string | null }) => {
     const [activeTab, setActiveTab] = useState<ChildDetailTab>(initialTab || 'academics');
     const TabButton = ({ id, label }: { id: ChildDetailTab, label: string }) => (
-        <button onClick={() => setActiveTab(id)} className={`flex-1 py-2 text-sm font-semibold rounded-md transition-colors ${activeTab === id ? 'bg-green-500 text-white shadow' : 'text-gray-800'}`}>{label}</button>
+        <motion.button whileTap={{ scale: 0.97 }} onClick={() => setActiveTab(id)} className={`relative flex-1 py-2 text-sm font-semibold rounded-md ${activeTab === id ? 'text-white' : 'text-gray-800'}`}>
+            {activeTab === id && (
+                <motion.div layoutId="parentChildDetailTab" transition={{ type: 'spring', stiffness: 400, damping: 30 }} className="absolute inset-0 bg-green-500 rounded-md shadow" />
+            )}
+            <span className="relative z-10">{label}</span>
+        </motion.button>
     );
     return (
         <div className="flex flex-col h-full bg-gray-50">
             <div className="p-4 bg-white flex items-center space-x-4"><img src={student.avatarUrl} alt={student.name} className="w-16 h-16 rounded-full object-cover border-4 border-green-100" /><div><h3 className="text-xl font-bold text-gray-800">{student.name}</h3><p className="text-gray-700 font-medium">{getFormattedClassName(student.grade, student.section)}</p></div></div>
             <div className="px-4 py-2 bg-white"><div className="flex space-x-1 bg-gray-200 p-1 rounded-lg"><TabButton id="academics" label="Academics" /><TabButton id="behavior" label="Behavior" /><TabButton id="attendance" label="Attendance" /></div></div>
             <div className="flex-grow overflow-y-auto">
-                {activeTab === 'academics' && <AcademicsTab student={student} navigateTo={navigateTo} schoolId={schoolId} currentBranchId={currentBranchId} />}
-                {activeTab === 'behavior' && <BehaviorTab student={student} />}
-                {activeTab === 'attendance' && <div className="p-4"><AttendanceTab student={student} /></div>}
+                <AnimatePresence mode="wait">
+                    <motion.div key={activeTab} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15 }}>
+                        {activeTab === 'academics' && <AcademicsTab student={student} navigateTo={navigateTo} schoolId={schoolId} currentBranchId={currentBranchId} />}
+                        {activeTab === 'behavior' && <BehaviorTab student={student} />}
+                        {activeTab === 'attendance' && <div className="p-4"><AttendanceTab student={student} /></div>}
+                    </motion.div>
+                </AnimatePresence>
             </div>
         </div>
     );

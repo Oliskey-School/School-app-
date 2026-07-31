@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import {
@@ -69,29 +70,36 @@ const MyClassHubScreen: React.FC<MyClassHubScreenProps> = ({ classId, navigateTo
 
     return (
         <div className="p-4 lg:p-6 max-w-5xl mx-auto space-y-6 pb-24">
-            <div className="bg-gradient-to-br from-purple-600 to-indigo-700 p-6 rounded-3xl text-white shadow-lg">
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="bg-gradient-to-br from-purple-600 to-indigo-700 p-6 rounded-3xl text-white shadow-lg">
                 <h1 className="text-2xl font-bold font-outfit">{data.class.name}</h1>
                 <p className="text-white/70 mt-1">{data.roster.length} students · You are the Class Teacher</p>
-            </div>
+            </motion.div>
 
-            <div className="bg-white p-1.5 rounded-2xl shadow-sm border border-gray-100 flex overflow-x-auto gap-1">
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: 0.05 }} className="bg-white p-1.5 rounded-2xl shadow-sm border border-gray-100 flex overflow-x-auto gap-1">
                 {TABS.map(t => (
-                    <button key={t.key} onClick={() => setTab(t.key)}
-                        className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-colors ${
-                            tab === t.key ? 'bg-indigo-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
-                        {t.icon} {t.label}
-                        {t.key === 'medical' && data.medical_alerts.length > 0 && (
-                            <span className="w-2 h-2 rounded-full bg-red-500" />
+                    <motion.button key={t.key} whileTap={{ scale: 0.96 }} onClick={() => setTab(t.key)}
+                        className={`relative flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap ${
+                            tab === t.key ? 'text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
+                        {tab === t.key && (
+                            <motion.div layoutId="myClassHubTab" transition={{ type: 'spring', stiffness: 400, damping: 30 }} className="absolute inset-0 bg-indigo-600 rounded-xl" />
                         )}
-                    </button>
+                        <span className="relative z-10 flex items-center gap-1.5">
+                            {t.icon} {t.label}
+                            {t.key === 'medical' && data.medical_alerts.length > 0 && (
+                                <span className="w-2 h-2 rounded-full bg-red-500" />
+                            )}
+                        </span>
+                    </motion.button>
                 ))}
-            </div>
+            </motion.div>
 
+            <AnimatePresence mode="wait">
+            <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
             {tab === 'roster' && (
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                     <div className="divide-y divide-gray-50">
-                        {data.roster.map((s: any) => (
-                            <div key={s.id}>
+                        {data.roster.map((s: any, i: number) => (
+                            <motion.div key={s.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(i, 12) * 0.03 }}>
                                 <button onClick={() => setExpandedStudent(expandedStudent === s.id ? null : s.id)}
                                     className="w-full px-5 py-4 flex items-center justify-between gap-3 hover:bg-gray-50/50 text-left">
                                     <div className="flex items-center gap-3">
@@ -107,20 +115,30 @@ const MyClassHubScreen: React.FC<MyClassHubScreenProps> = ({ classId, navigateTo
                                         onClick={(e) => { e.stopPropagation(); navigateTo('studentProfile', s.full_name, { studentId: s.id, student: { ...s, name: s.full_name, avatarUrl: s.avatar_url, schoolGeneratedId: s.school_generated_id } }); }}
                                         className="text-xs font-bold text-indigo-600 hover:underline">View Profile</button>
                                 </button>
+                                <AnimatePresence initial={false}>
                                 {expandedStudent === s.id && (
-                                    <div className="px-5 pb-4 bg-gray-50/50">
-                                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1"><Phone className="w-3 h-3" /> Parent / Guardian</p>
-                                        {s.parents.length === 0 ? (
-                                            <p className="text-sm text-gray-400">No parent/guardian on record.</p>
-                                        ) : s.parents.map((p: any, i: number) => (
-                                            <div key={i} className="text-sm text-gray-700 mb-1">
-                                                {p.full_name} {p.relationship ? `(${p.relationship})` : ''}
-                                                {p.phone ? ` · ${p.phone}` : ''} {p.email ? ` · ${p.email}` : ''}
-                                            </div>
-                                        ))}
-                                    </div>
+                                    <motion.div
+                                        initial={{ height: 0, opacity: 0 }}
+                                        animate={{ height: 'auto', opacity: 1 }}
+                                        exit={{ height: 0, opacity: 0 }}
+                                        transition={{ type: 'spring', stiffness: 400, damping: 35 }}
+                                        className="overflow-hidden"
+                                    >
+                                        <div className="px-5 pb-4 bg-gray-50/50">
+                                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1"><Phone className="w-3 h-3" /> Parent / Guardian</p>
+                                            {s.parents.length === 0 ? (
+                                                <p className="text-sm text-gray-400">No parent/guardian on record.</p>
+                                            ) : s.parents.map((p: any, i: number) => (
+                                                <div key={i} className="text-sm text-gray-700 mb-1">
+                                                    {p.full_name} {p.relationship ? `(${p.relationship})` : ''}
+                                                    {p.phone ? ` · ${p.phone}` : ''} {p.email ? ` · ${p.email}` : ''}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </motion.div>
                                 )}
-                            </div>
+                                </AnimatePresence>
+                            </motion.div>
                         ))}
                         {data.roster.length === 0 && <p className="px-5 py-10 text-center text-gray-400">No students enrolled yet.</p>}
                     </div>
@@ -231,6 +249,8 @@ const MyClassHubScreen: React.FC<MyClassHubScreenProps> = ({ classId, navigateTo
                         </div>}
                 </div>
             )}
+            </motion.div>
+            </AnimatePresence>
         </div>
     );
 };

@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import {
@@ -11,6 +12,7 @@ import {
     EyeOffIcon
 } from '../../constants';
 import { useAutoSync } from '../../hooks/useAutoSync';
+import CenteredLoader from '../ui/CenteredLoader';
 
 const XIcon = ({ className }: { className?: string }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 ${className || ''}`.trim()} viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
@@ -210,9 +212,18 @@ const StudentApprovalsScreen: React.FC<StudentApprovalsScreenProps> = ({ handleB
                         />
                     </div>
                     
+                    <AnimatePresence>
                     {selectedIds.length > 0 && (
-                        <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-4 duration-300">
-                            <button 
+                        <motion.div
+                            initial={{ opacity: 0, x: 10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: 10 }}
+                            transition={{ duration: 0.2 }}
+                            className="flex items-center gap-2"
+                        >
+                            <motion.button
+                                whileHover={{ scale: 1.03 }}
+                                whileTap={{ scale: 0.96 }}
                                 onClick={() => handleApprove(selectedIds)}
                                 disabled={processingIds.length > 0}
                                 className="px-3 py-2 bg-green-600 text-white text-xs font-bold rounded-lg hover:bg-green-700 flex items-center gap-2 disabled:opacity-50 shadow-md shadow-green-200"
@@ -223,29 +234,29 @@ const StudentApprovalsScreen: React.FC<StudentApprovalsScreenProps> = ({ handleB
                                     <CheckCircleIcon className="w-4 h-4" />
                                 )}
                                 <span className="hidden sm:inline">Approve</span> ({selectedIds.length})
-                            </button>
-                            <button 
+                            </motion.button>
+                            <motion.button
+                                whileHover={{ scale: 1.03 }}
+                                whileTap={{ scale: 0.96 }}
                                 onClick={() => handleReject(selectedIds)}
                                 disabled={processingIds.length > 0}
                                 className="px-3 py-2 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 flex items-center gap-2 shadow-md shadow-red-200"
                             >
                                 <XCircleIcon className="w-4 h-4" />
                                 <span className="hidden sm:inline">Reject</span>
-                            </button>
-                        </div>
+                            </motion.button>
+                        </motion.div>
                     )}
+                    </AnimatePresence>
                 </div>
             </div>
 
             {/* List */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-6">
                 {loading ? (
-                    <div className="flex flex-col items-center justify-center h-full text-gray-500 space-y-4">
-                        <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-                        <p className="text-sm font-medium">Fetching secure data...</p>
-                    </div>
+                    <CenteredLoader message="Fetching secure data..." className="h-full" />
                 ) : filteredStudents.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full text-gray-500 space-y-4 py-20">
+                    <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.25 }} className="flex flex-col items-center justify-center h-full text-gray-500 space-y-4 py-20">
                         <div className="p-6 bg-green-50 rounded-full">
                             <CheckCircleIcon className="w-16 h-16 text-green-300" />
                         </div>
@@ -253,7 +264,7 @@ const StudentApprovalsScreen: React.FC<StudentApprovalsScreenProps> = ({ handleB
                             <h3 className="font-bold text-gray-800 text-lg">Queue Clear!</h3>
                             <p className="text-sm max-w-xs text-gray-400">All student pending approvals have been processed for this branch.</p>
                         </div>
-                    </div>
+                    </motion.div>
                 ) : (
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                         <div className="overflow-x-auto">
@@ -275,8 +286,8 @@ const StudentApprovalsScreen: React.FC<StudentApprovalsScreenProps> = ({ handleB
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-50">
-                                    {filteredStudents.map((student) => (
-                                        <tr key={student.id} className={`group hover:bg-indigo-50/30 transition-all ${selectedIds.includes(student.id) ? 'bg-indigo-50/50' : ''}`}>
+                                    {filteredStudents.map((student, i) => (
+                                        <motion.tr key={student.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2, delay: Math.min(i, 15) * 0.02 }} className={`group hover:bg-indigo-50/30 transition-colors ${selectedIds.includes(student.id) ? 'bg-indigo-50/50' : ''}`}>
                                             <td className="p-4 text-center">
                                                 <input 
                                                     type="checkbox" 
@@ -344,7 +355,7 @@ const StudentApprovalsScreen: React.FC<StudentApprovalsScreenProps> = ({ handleB
                                                     </button>
                                                 </div>
                                             </td>
-                                        </tr>
+                                        </motion.tr>
                                     ))}
                                 </tbody>
                             </table>
@@ -354,9 +365,19 @@ const StudentApprovalsScreen: React.FC<StudentApprovalsScreenProps> = ({ handleB
             </div>
 
             {/* Credentials Modal */}
+            <AnimatePresence>
             {showCredentialsModal && (
-                <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
-                    <div className="bg-white rounded-3xl max-w-md w-full max-h-[90vh] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+                <motion.div
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+                >
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                        className="bg-white rounded-3xl max-w-md w-full max-h-[90vh] overflow-hidden shadow-2xl"
+                    >
                         <div className="p-6 border-b flex items-center justify-between bg-indigo-50/30">
                             <div className="flex items-center gap-3">
                                 <div className="w-12 h-12 bg-green-100 rounded-2xl flex items-center justify-center shadow-inner">
@@ -369,17 +390,18 @@ const StudentApprovalsScreen: React.FC<StudentApprovalsScreenProps> = ({ handleB
                                     <p className="text-[11px] font-bold text-indigo-400 uppercase tracking-widest">{approvedCredentials.length} credentials generated</p>
                                 </div>
                             </div>
-                            <button 
+                            <motion.button
+                                whileTap={{ scale: 0.9 }}
                                 onClick={() => setShowCredentialsModal(false)}
                                 className="p-2 hover:bg-white rounded-full transition-colors shadow-sm"
                             >
                                 <XIcon className="w-5 h-5 text-gray-400" />
-                            </button>
+                            </motion.button>
                         </div>
-                        
+
                         <div className="p-6 overflow-y-auto max-h-[50vh] space-y-4">
-                            {approvedCredentials.map((cred) => (
-                                <div key={cred.studentId} className="bg-gray-50 border border-gray-100 rounded-2xl p-5 relative group overflow-hidden">
+                            {approvedCredentials.map((cred, ci) => (
+                                <motion.div key={cred.studentId} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: ci * 0.06 }} className="bg-gray-50 border border-gray-100 rounded-2xl p-5 relative group overflow-hidden">
                                      <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 -mr-12 -mt-12 rounded-full"></div>
                                     <h3 className="font-black text-gray-800 mb-4 flex items-center gap-2">
                                         <div className="w-1.5 h-4 bg-indigo-500 rounded-full"></div>
@@ -437,10 +459,10 @@ const StudentApprovalsScreen: React.FC<StudentApprovalsScreenProps> = ({ handleB
                                             </div>
                                         </div>
                                     </div>
-                                </div>
+                                </motion.div>
                             ))}
                         </div>
-                        
+
                         <div className="p-6 bg-gray-50 border-t border-gray-100">
                             <div className="bg-indigo-600/5 rounded-xl p-3 mb-6 flex gap-3">
                                 <div className="text-xl">💡</div>
@@ -448,16 +470,19 @@ const StudentApprovalsScreen: React.FC<StudentApprovalsScreenProps> = ({ handleB
                                     Secure Transfer: Please provide these credentials to students privately. They are required to authenticate and reset their secure access key.
                                 </p>
                             </div>
-                            <button
+                            <motion.button
+                                whileHover={{ scale: 1.01 }}
+                                whileTap={{ scale: 0.98 }}
                                 onClick={() => setShowCredentialsModal(false)}
-                                className="w-full py-4 bg-gray-900 text-white font-black text-sm rounded-2xl hover:bg-black transition-all shadow-lg active:scale-[0.98] duration-200"
+                                className="w-full py-4 bg-gray-900 text-white font-black text-sm rounded-2xl hover:bg-black transition-colors shadow-lg"
                             >
                                 Confirm Access Issued
-                            </button>
+                            </motion.button>
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
         </div>
     );
 };

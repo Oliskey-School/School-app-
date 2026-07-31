@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { XCircleIcon, CheckCircleIcon, EyeIcon } from 'lucide-react';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
+import CenteredLoader from '../ui/CenteredLoader';
 
 interface IDVerificationRequest {
     id: string;
@@ -120,8 +122,9 @@ export default function IDVerificationPanel() {
             {/* Filter Tabs */}
             <div className="flex gap-2 mb-6 border-b border-gray-200">
                 {(['all', 'pending', 'approved', 'rejected'] as const).map((tab) => (
-                    <button
+                    <motion.button
                         key={tab}
+                        whileTap={{ scale: 0.97 }}
                         onClick={() => setFilter(tab)}
                         className={`px-4 py-2 font-medium transition border-b-2 ${filter === tab
                             ? 'border-indigo-600 text-indigo-600'
@@ -134,27 +137,28 @@ export default function IDVerificationPanel() {
                                 {requests.filter(r => r.status === 'pending').length}
                             </span>
                         )}
-                    </button>
+                    </motion.button>
                 ))}
             </div>
 
             {loading ? (
-                <div className="text-center py-12">
-                    <div className="animate-spin w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full mx-auto"></div>
-                    <p className="text-gray-600 mt-4">Loading requests...</p>
-                </div>
+                <CenteredLoader message="Loading requests..." className="py-12" />
             ) : requests.length === 0 ? (
-                <div className="text-center py-12 bg-gray-50 rounded-lg">
+                <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.25 }} className="text-center py-12 bg-gray-50 rounded-lg">
                     <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                     <p className="text-gray-600">No {filter !== 'all' ? filter : ''} verification requests</p>
-                </div>
+                </motion.div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {requests.map((request) => (
-                        <div
+                    {requests.map((request, i) => (
+                        <motion.div
                             key={request.id}
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.2, delay: Math.min(i, 20) * 0.03 }}
+                            whileHover={{ y: -2 }}
                             className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-lg transition cursor-pointer"
                             onClick={() => setSelectedRequest(request)}
                         >
@@ -183,15 +187,16 @@ export default function IDVerificationPanel() {
                                     className="w-full h-full object-cover"
                                 />
                             </div>
-                        </div>
+                        </motion.div>
                     ))}
                 </div>
             )}
 
             {/* Review Modal */}
+            <AnimatePresence>
             {selectedRequest && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} transition={{ type: 'spring', stiffness: 400, damping: 32 }} className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
                         <div className="p-6">
                             <div className="flex items-start justify-between mb-6">
                                 <div>
@@ -289,9 +294,10 @@ export default function IDVerificationPanel() {
                                 </div>
                             )}
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
         </div>
     );
 }

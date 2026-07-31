@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
@@ -20,6 +21,7 @@ import {
     Info,
     Loader2
 } from 'lucide-react';
+import CenteredLoader from '../ui/CenteredLoader';
 
 interface NotificationCategory {
     id: string;
@@ -108,12 +110,7 @@ const NotificationDigestSettings = () => {
     ];
 
     if (loading) {
-        return (
-            <div className="p-6 max-w-4xl mx-auto flex flex-col items-center justify-center min-h-[400px] space-y-4 font-outfit">
-                <Loader2 className="w-12 h-12 animate-spin text-indigo-500" />
-                <p className="text-gray-500 font-bold">Loading your preferences...</p>
-            </div>
-        );
+        return <CenteredLoader message="Loading your preferences..." className="min-h-[400px]" />;
     }
 
     return (
@@ -148,8 +145,8 @@ const NotificationDigestSettings = () => {
 
             {/* Categories */}
             <div className="space-y-4">
-                {categories.map(cat => (
-                    <div key={cat.id} className={`bg-white p-5 rounded-2xl shadow-sm border transition-all ${cat.id === 'emergency' ? 'border-red-200 bg-red-50/30' : 'border-gray-100'}`}>
+                {categories.map((cat, ci) => (
+                    <motion.div key={cat.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(ci, 15) * 0.03 }} className={`bg-white p-5 rounded-2xl shadow-sm border transition-all ${cat.id === 'emergency' ? 'border-red-200 bg-red-50/30' : 'border-gray-100'}`}>
                         <div className="flex items-start space-x-4">
                             <div className="p-2 rounded-xl bg-gray-50 text-gray-600 mt-1">{cat.icon}</div>
                             <div className="flex-grow">
@@ -162,36 +159,36 @@ const NotificationDigestSettings = () => {
                                     {/* Mode Selector */}
                                     <div className="flex p-0.5 bg-gray-100 rounded-lg">
                                         {modes.map(m => (
-                                            <button key={m.value} onClick={() => updateCategory(cat.id, 'mode', m.value)}
+                                            <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} key={m.value} onClick={() => updateCategory(cat.id, 'mode', m.value)}
                                                 className={`flex items-center space-x-1 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${cat.mode === m.value ? `${m.color} border` : 'text-gray-400'}`}>
                                                 {m.icon}<span>{m.label}</span>
-                                            </button>
+                                            </motion.button>
                                         ))}
                                     </div>
                                     {/* Channel Selector */}
                                     {cat.mode !== 'off' && (
                                         <div className="flex p-0.5 bg-gray-100 rounded-lg">
                                             {channels.map(ch => (
-                                                <button key={ch.value} onClick={() => updateCategory(cat.id, 'channel', ch.value)}
+                                                <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} key={ch.value} onClick={() => updateCategory(cat.id, 'channel', ch.value)}
                                                     className={`flex items-center space-x-1 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${cat.channel === ch.value ? 'bg-white shadow-sm text-indigo-600 border border-indigo-200' : 'text-gray-400'}`}>
                                                     {ch.icon}<span>{ch.label}</span>
-                                                </button>
+                                                </motion.button>
                                             ))}
                                         </div>
                                     )}
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    </motion.div>
                 ))}
             </div>
 
             {/* Save */}
-            <button onClick={handleSave} disabled={isSaving}
+            <motion.button whileHover={!isSaving ? { scale: 1.01 } : {}} whileTap={!isSaving ? { scale: 0.98 } : {}} onClick={handleSave} disabled={isSaving}
                 className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 flex items-center justify-center space-x-2 disabled:opacity-60">
                 {isSaving ? <Clock className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
                 <span>{isSaving ? 'Saving...' : 'Save Preferences'}</span>
-            </button>
+            </motion.button>
         </div>
     );
 };

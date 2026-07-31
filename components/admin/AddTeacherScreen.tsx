@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { Formik, Form, Field, ErrorMessage, FormikHelpers } from 'formik';
@@ -84,18 +85,29 @@ const MultiSelect: React.FC<{
                 onClick={() => setIsOpen(true)}
             >
                 {/* Selected Tags */}
+                <AnimatePresence initial={false}>
                 {selected.map(item => (
-                    <span key={item} className="flex items-center gap-1 bg-blue-100 text-blue-800 text-sm font-medium px-2 py-1 rounded-md">
+                    <motion.span
+                        key={item}
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.8 }}
+                        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                        className="flex items-center gap-1 bg-blue-100 text-blue-800 text-sm font-medium px-2 py-1 rounded-md"
+                    >
                         {item}
-                        <button
+                        <motion.button
+                            whileHover={{ scale: 1.15 }}
+                            whileTap={{ scale: 0.9 }}
                             type="button"
                             onClick={(e) => { e.stopPropagation(); toggleSelection(item); }}
                             className="text-blue-600 hover:text-blue-800 focus:outline-none"
                         >
                             <XCircleIcon className="w-4 h-4" />
-                        </button>
-                    </span>
+                        </motion.button>
+                    </motion.span>
                 ))}
+                </AnimatePresence>
 
                 {/* Input Field */}
                 <div className="flex-grow flex items-center min-w-[120px]">
@@ -113,25 +125,34 @@ const MultiSelect: React.FC<{
             </div>
 
             {/* Dropdown Menu */}
+            <AnimatePresence>
             {isOpen && (
-                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                <motion.div
+                    initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+                >
                     {filteredOptions.length > 0 ? (
                         filteredOptions.map(option => (
-                            <div
+                            <motion.div
                                 key={option}
+                                whileHover={{ x: 2 }}
                                 onClick={() => toggleSelection(option)}
-                                className="px-4 py-2 hover:bg-blue-50 cursor-pointer text-sm text-gray-700 flex items-center justify-between"
+                                className="px-4 py-2 hover:bg-blue-50 cursor-pointer text-sm text-gray-700 flex items-center justify-between transition-colors"
                             >
                                 <span>{option}</span>
-                            </div>
+                            </motion.div>
                         ))
                     ) : (
                         <div className="px-4 py-3 text-sm text-gray-500 text-center">
                             {options.length === 0 ? "No options available" : "No matching options"}
                         </div>
                     )}
-                </div>
+                </motion.div>
             )}
+            </AnimatePresence>
         </div>
     );
 };
@@ -613,10 +634,15 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                                     <UserIcon className="w-12 h-12 text-gray-400" />
                                 )}
                             </div>
-                            <label htmlFor="photo-upload" className="absolute bottom-0 right-0 bg-blue-600 p-2 rounded-full border-2 border-white cursor-pointer hover:bg-blue-700 shadow-lg transition-transform hover:scale-110">
+                            <motion.label
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.92 }}
+                                htmlFor="photo-upload"
+                                className="absolute bottom-0 right-0 bg-blue-600 p-2 rounded-full border-2 border-white cursor-pointer hover:bg-blue-700 shadow-lg"
+                            >
                                 <CameraIcon className="text-white h-4 w-4" />
                                 <input id="photo-upload" type="file" className="sr-only" accept="image/*" onChange={handleImageChange} />
-                            </label>
+                            </motion.label>
                         </div>
                     </div>
                     <div className="bg-white p-4 rounded-lg shadow-sm space-y-4">
@@ -662,7 +688,9 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                         </div>
 
                         {teacherToEdit && navigateTo && (
-                            <button
+                            <motion.button
+                                whileHover={{ y: -1 }}
+                                whileTap={{ scale: 0.98 }}
                                 type="button"
                                 onClick={() => navigateTo('teacherAssignments', `${teacherToEdit.name || (teacherToEdit as any).full_name}'s Assignments`, {
                                     teacherId: teacherToEdit.id,
@@ -681,7 +709,7 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                                     </div>
                                 </div>
                                 <ChevronRightIcon className="w-5 h-5 text-indigo-400 flex-shrink-0" />
-                            </button>
+                            </motion.button>
                         )}
 
                         {/* Curriculum Section */}
@@ -750,7 +778,7 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                                 </div>
                             )}
 
-                            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => (document.getElementById('doc-upload') as HTMLInputElement)?.click()}>
+                            <motion.div whileTap={{ scale: 0.99 }} className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:bg-gray-50 hover:border-blue-300 transition-colors cursor-pointer" onClick={() => (document.getElementById('doc-upload') as HTMLInputElement)?.click()}>
                                 <UsersIcon className="mx-auto h-8 w-8 text-gray-400" />
                                 <p className="mt-1 text-sm text-gray-600">Click to upload TRCN / Certificates</p>
                                 <p className="text-xs text-gray-400 mt-1">(PDF, JPG, PNG)</p>
@@ -768,7 +796,7 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                                         ))}
                                     </div>
                                 )}
-                            </div>
+                            </motion.div>
                         </div>
 
                         <div>
@@ -782,13 +810,15 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                     </div>
                 </main>
                 <div className="p-4 mt-auto bg-gray-50">
-                    <button
+                    <motion.button
+                        whileHover={!isLoading ? { scale: 1.01 } : {}}
+                        whileTap={!isLoading ? { scale: 0.98 } : {}}
                         type="submit"
                         disabled={isLoading}
                         className={`w-full flex justify-center py-3 px-4 rounded-lg text-white ${isLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} transition-colors`}
                     >
                         {isLoading ? 'Saving...' : (!canEditIdentity ? 'Assign Classes & Subjects to my branch' : (teacherToEdit ? 'Update Teacher' : 'Save Teacher'))}
-                    </button>
+                    </motion.button>
                 </div>
             </form>
 

@@ -4,6 +4,7 @@ import { toast } from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
 import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
+import ConfirmationModal from '../ui/ConfirmationModal';
 
 const timeAgo = (date: string | Date | undefined | null) => {
     if (!date) return '';
@@ -28,6 +29,7 @@ const GlobalTeacherCommunityScreen: React.FC<Props> = ({ navigateTo }) => {
     const [showCreate, setShowCreate] = useState(false);
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
+    const [topicToDelete, setTopicToDelete] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
 
     const loadTopics = async () => {
@@ -63,9 +65,7 @@ const GlobalTeacherCommunityScreen: React.FC<Props> = ({ navigateTo }) => {
         }
     };
 
-    const handleDelete = async (e: React.MouseEvent, id: string) => {
-        e.stopPropagation();
-        if (!window.confirm('Remove this topic from the community?')) return;
+    const handleDelete = async (id: string) => {
         try {
             await api.deleteGlobalForumTopic(id);
             toast.success('Topic removed');
@@ -97,7 +97,7 @@ const GlobalTeacherCommunityScreen: React.FC<Props> = ({ navigateTo }) => {
                         {topics.map(topic => (
                             <button
                                 key={topic.id}
-                                onClick={() => navigateTo('globalForumTopic', topic.title, { topicId: topic.id, topicTitle: topic.title })}
+                                onClick={() => navigateTo('globalForumTopic', topic.title, { topicId: topic.id, topicTitle: topic.title, topicContent: topic.content, topicAuthor: topic.author_name })}
                                 className="relative w-full bg-white rounded-xl shadow-sm p-4 text-left hover:bg-gray-50 hover:ring-2 hover:ring-indigo-200 transition-all group"
                             >
                                 <h4 className="font-bold text-gray-800 group-hover:text-indigo-700 transition-colors pr-6">{topic.title}</h4>
@@ -108,13 +108,15 @@ const GlobalTeacherCommunityScreen: React.FC<Props> = ({ navigateTo }) => {
                                     <span>{timeAgo(topic.last_activity)}</span>
                                 </div>
                                 {isSuperAdmin && (
-                                    <span
-                                        onClick={(e) => handleDelete(e, topic.id)}
+                                    <button
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); setTopicToDelete(topic.id); }}
                                         className="absolute top-2 right-2 p-1 text-gray-300 hover:text-red-500"
                                         title="Remove (moderator)"
+                                        aria-label="Remove topic (moderator)"
                                     >
                                         <XIcon className="h-4 w-4" />
-                                    </span>
+                                    </button>
                                 )}
                             </button>
                         ))}
@@ -174,6 +176,15 @@ const GlobalTeacherCommunityScreen: React.FC<Props> = ({ navigateTo }) => {
                     </div>
                 </div>
             )}
+            <ConfirmationModal
+                isOpen={!!topicToDelete}
+                onClose={() => setTopicToDelete(null)}
+                onConfirm={() => { if (topicToDelete) handleDelete(topicToDelete); }}
+                title="Remove Topic"
+                message="Remove this topic from the community? This cannot be undone."
+                confirmText="Remove"
+                isDanger
+            />
         </div>
     );
 };

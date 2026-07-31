@@ -1,10 +1,11 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { Radio, Wifi, Info } from 'lucide-react';
 
 const RadioContentScheduler: React.FC = () => {
     return (
         <div className="p-6 max-w-3xl mx-auto">
-            <div className="flex items-center gap-3 mb-8">
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="flex items-center gap-3 mb-8">
                 <div className="p-3 bg-purple-100 rounded-xl">
                     <Radio className="w-7 h-7 text-purple-600" />
                 </div>
@@ -12,9 +13,9 @@ const RadioContentScheduler: React.FC = () => {
                     <h1 className="text-2xl font-bold text-gray-900">Radio Content Scheduler</h1>
                     <p className="text-sm text-gray-500 mt-0.5">Schedule lessons for broadcast over community radio</p>
                 </div>
-            </div>
+            </motion.div>
 
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-8 text-center">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: 0.05 }} className="bg-amber-50 border border-amber-200 rounded-2xl p-8 text-center">
                 <div className="flex justify-center mb-4">
                     <span className="bg-amber-100 text-amber-700 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">Coming Soon</span>
                 </div>
@@ -42,7 +43,7 @@ const RadioContentScheduler: React.FC = () => {
                 <p className="text-sm text-gray-500 mt-6">
                     Contact <span className="font-semibold text-purple-600">support@oliskey.com</span> to enable radio broadcasting for your school.
                 </p>
-            </div>
+            </motion.div>
         </div>
     );
 };

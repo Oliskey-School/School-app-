@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { api } from '../../../lib/api';
 import { Student, CBTTest } from '../../../types';
@@ -131,9 +132,14 @@ const StudentCBTListScreen: React.FC<StudentCBTListScreenProps> = ({ studentId, 
                 </div>
 
                 <div className="grid grid-cols-1 gap-4">
-                    <button
+                    <motion.button
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.25 }}
+                        whileHover={{ y: -2 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={() => setSelectedType('Test')}
-                        className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md hover:ring-2 hover:ring-blue-200 transition-all"
+                        className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md hover:ring-2 hover:ring-blue-200 transition-shadow"
                     >
                         <div className="flex items-center space-x-4">
                             <div className="p-3 bg-blue-100 rounded-xl">
@@ -145,11 +151,16 @@ const StudentCBTListScreen: React.FC<StudentCBTListScreenProps> = ({ studentId, 
                             </div>
                         </div>
                         <ChevronRightIcon className="text-gray-400 h-6 w-6" />
-                    </button>
+                    </motion.button>
 
-                    <button
+                    <motion.button
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.25, delay: 0.06 }}
+                        whileHover={{ y: -2 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={() => setSelectedType('Exam')}
-                        className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md hover:ring-2 hover:ring-red-200 transition-all"
+                        className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md hover:ring-2 hover:ring-red-200 transition-shadow"
                     >
                         <div className="flex items-center space-x-4">
                             <div className="p-3 bg-red-100 rounded-xl">
@@ -161,7 +172,7 @@ const StudentCBTListScreen: React.FC<StudentCBTListScreenProps> = ({ studentId, 
                             </div>
                         </div>
                         <ChevronRightIcon className="text-gray-400 h-6 w-6" />
-                    </button>
+                    </motion.button>
                 </div>
             </div>
         );
@@ -185,12 +196,17 @@ const StudentCBTListScreen: React.FC<StudentCBTListScreenProps> = ({ studentId, 
                 ) : (
                     <div className="space-y-3">
                         {availableTests.length > 0 ? (
-                            availableTests.map(test => {
+                            availableTests.map((test, i) => {
                                 const hasTaken = Object.prototype.hasOwnProperty.call(takenScores, String(test.id));
                                 const myScore = takenScores[String(test.id)];
 
                                 return (
-                                    <div key={test.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+                                    <motion.div
+                                        key={test.id}
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ duration: 0.25, delay: Math.min(i, 10) * 0.05 }}
+                                        className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
                                         <div className="flex justify-between items-start">
                                             <div>
                                                 <h4 className="font-bold text-gray-800 text-lg">{test.title}</h4>
@@ -219,15 +235,17 @@ const StudentCBTListScreen: React.FC<StudentCBTListScreenProps> = ({ studentId, 
                                                 <span className="font-bold text-lg text-indigo-600">{myScore}%</span>
                                             </div>
                                         ) : (
-                                            <button
+                                            <motion.button
+                                                whileHover={{ scale: 1.01 }}
+                                                whileTap={{ scale: 0.97 }}
                                                 onClick={() => handleTakeTest(test)}
                                                 className="w-full mt-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center space-x-2"
                                             >
                                                 <span>Start {selectedType}</span>
                                                 <ChevronRightIcon className="w-4 h-4" />
-                                            </button>
+                                            </motion.button>
                                         )}
-                                    </div>
+                                    </motion.div>
                                 );
                             })
                         ) : (

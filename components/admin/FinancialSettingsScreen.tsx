@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronRightIcon } from '../../constants';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
@@ -12,7 +13,13 @@ const Accordion: React.FC<{ title: string; children: React.ReactNode; defaultOpe
         <span>{title}</span>
         <ChevronRightIcon className={`transition-transform ${isOpen ? 'rotate-90' : ''}`} />
       </button>
-      {isOpen && <div className="p-4 border-t">{children}</div>}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="p-4 border-t overflow-hidden">
+            {children}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
@@ -62,13 +69,14 @@ const FinancialSettingsScreen: React.FC = () => {
       <Accordion title="Invoice & Payment Methods">
         <p className="text-gray-600 text-sm">Customize invoice templates and enable payment methods like Bank Transfer, Card, etc.</p>
       </Accordion>
-      <button
+      <motion.button
+        whileHover={!isLoading ? { scale: 1.01 } : {}} whileTap={!isLoading ? { scale: 0.98 } : {}}
         onClick={handleSave}
         disabled={isLoading}
         className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-indigo-700 transition disabled:opacity-50"
       >
         {isLoading ? 'Saving...' : 'Save Financial Settings'}
-      </button>
+      </motion.button>
     </div>
   );
 };

@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { Student, ClassInfo, AttendanceStatus } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
@@ -6,6 +7,7 @@ import { toast } from 'react-hot-toast';
 import DonutChart from '../ui/DonutChart';
 import { CheckCircleIcon, XCircleIcon, ClockIcon, ExclamationCircleIcon, CalendarIcon } from '../../constants';
 import { useAutoSync } from '../../hooks/useAutoSync';
+import CenteredLoader from '../ui/CenteredLoader';
 
 interface ClassAttendanceDetailScreenProps {
     classInfo: any; // Flexible for the summary data passed
@@ -149,14 +151,11 @@ const ClassAttendanceDetailScreen: React.FC<ClassAttendanceDetailScreenProps> = 
 
             <main className="flex-grow overflow-y-auto">
                 {loading ? (
-                    <div className="flex items-center justify-center h-full">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-                        <span className="ml-2 text-gray-500">Syncing database...</span>
-                    </div>
+                    <CenteredLoader message="Syncing database..." className="h-full" />
                 ) : (
                     <ul className="divide-y divide-gray-200 shadow-sm rounded-xl mx-4 my-2 overflow-hidden border border-gray-100">
-                        {studentsInClass.map(student => (
-                            <li key={student.id} className="p-4 flex items-center justify-between bg-white hover:bg-indigo-50/30 transition-colors">
+                        {studentsInClass.map((student, si) => (
+                            <motion.li key={student.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(si, 20) * 0.02 }} className="p-4 flex items-center justify-between bg-white hover:bg-indigo-50/30 transition-colors">
                                 <div className="flex items-center space-x-4">
                                     {(student.avatar_url || student.avatarUrl) ? (
                                         <img src={student.avatar_url || student.avatarUrl} alt={student.full_name || student.name} className="w-12 h-12 rounded-full object-cover shadow-sm" />
@@ -171,7 +170,7 @@ const ClassAttendanceDetailScreen: React.FC<ClassAttendanceDetailScreenProps> = 
                                     </div>
                                 </div>
                                 <AttendanceStatusIndicator status={student.attendanceStatus} />
-                            </li>
+                            </motion.li>
                         ))}
                         {studentsInClass.length === 0 && (
                             <div className="text-center py-20 bg-white">

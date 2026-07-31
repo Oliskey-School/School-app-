@@ -85,11 +85,11 @@ const CBTScoresScreen: React.FC<CBTScoresScreenProps> = ({ test }) => {
                         <p>No students have submitted this test yet.</p>
                     </div>
                 ) : (
-                    <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+                    <div className="bg-white rounded-xl shadow-sm overflow-x-auto">
                         <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
+                            <thead className="bg-gray-50 sticky top-0 z-10">
                                 <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Student Name</th>
+                                    <th className="sticky left-0 z-20 bg-gray-50 px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">Student Name</th>
                                     <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Score</th>
                                     <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Percentage</th>
                                     <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Submitted</th>
@@ -99,7 +99,7 @@ const CBTScoresScreen: React.FC<CBTScoresScreenProps> = ({ test }) => {
                             <tbody className="bg-white divide-y divide-gray-200">
                                 {results.map((result, idx) => (
                                     <tr key={idx}>
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className="sticky left-0 z-10 bg-white px-6 py-4 whitespace-nowrap shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">
                                             <div className="text-sm font-medium text-gray-900">{result.studentName}</div>
                                             <div className="text-xs text-gray-500">ID: {result.studentId}</div>
                                         </td>
@@ -107,7 +107,7 @@ const CBTScoresScreen: React.FC<CBTScoresScreenProps> = ({ test }) => {
                                             <div className="text-sm text-gray-900">{result.score} / {result.totalQuestions}</div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className={`text-sm font-bold ${result.percentage >= 50 ? 'text-green-600' : 'text-red-600'}`}>
+                                            <div className={`text-sm font-bold ${result.status === 'Passed' ? 'text-green-600' : 'text-red-600'}`}>
                                                 {result.percentage}%
                                             </div>
                                         </td>
@@ -115,7 +115,7 @@ const CBTScoresScreen: React.FC<CBTScoresScreenProps> = ({ test }) => {
                                             {new Date(result.submittedAt).toLocaleDateString()}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            {result.percentage >= 50 ? (
+                                            {result.status === 'Passed' ? (
                                                 <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Passed</span>
                                             ) : (
                                                 <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Failed</span>

@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
-import { CalendarIcon, ClipboardListIcon, CheckCircleIcon, XCircleIcon } from '../../constants';
+import { CalendarIcon, ClipboardListIcon, CheckCircleIcon, XCircleIcon, MapPinIcon } from '../../constants';
 import PremiumLoader from '../ui/PremiumLoader';
+import ConfirmationModal from '../ui/ConfirmationModal';
 
 interface PermissionSlipScreenProps {
     students?: any[];
@@ -14,6 +16,7 @@ const PermissionSlipScreen: React.FC<PermissionSlipScreenProps> = ({ students = 
     const [slips, setSlips] = useState<any[]>([]);
     const [currentSlipIndex, setCurrentSlipIndex] = useState(0);
     const [loading, setLoading] = useState(true);
+    const [pendingResponse, setPendingResponse] = useState<'Approved' | 'Rejected' | null>(null);
 
     const fetchSlips = useCallback(async () => {
         if (!students || students.length === 0) {
@@ -98,7 +101,13 @@ const PermissionSlipScreen: React.FC<PermissionSlipScreenProps> = ({ students = 
                     )}
                 </div>
 
-                <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100 animate-fade-in">
+                <motion.div
+                    key={currentSlip.id}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.25 }}
+                    className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100"
+                >
                     <h2 className="text-2xl font-bold text-gray-800 mb-2">{currentSlip.title}</h2>
                     <div className="flex flex-wrap gap-4 text-sm text-gray-600 mb-6 pb-4 border-b border-gray-100">
                         <div className="flex items-center space-x-2 bg-gray-50 px-3 py-1.5 rounded-lg">
@@ -107,7 +116,7 @@ const PermissionSlipScreen: React.FC<PermissionSlipScreenProps> = ({ students = 
                         </div>
                         {currentSlip.location && (
                             <div className="flex items-center space-x-2 bg-gray-50 px-3 py-1.5 rounded-lg">
-                                <span className="font-semibold text-green-600">@</span>
+                                <MapPinIcon className="w-4 h-4 text-green-600" />
                                 <span>{currentSlip.location}</span>
                             </div>
                         )}
@@ -119,52 +128,75 @@ const PermissionSlipScreen: React.FC<PermissionSlipScreenProps> = ({ students = 
 
                     {slips.length > 1 && (
                         <div className="flex justify-between items-center text-sm text-gray-400 pt-4 border-t border-gray-50">
-                            <button
+                            <motion.button
+                                whileTap={{ scale: currentSlipIndex === 0 ? 1 : 0.95 }}
                                 disabled={currentSlipIndex === 0}
                                 onClick={() => setCurrentSlipIndex(prev => prev - 1)}
                                 className="disabled:opacity-30 hover:text-green-600 font-bold transition-colors"
                             >
                                 Previous
-                            </button>
-                            <button
+                            </motion.button>
+                            <motion.button
+                                whileTap={{ scale: currentSlipIndex === slips.length - 1 ? 1 : 0.95 }}
                                 disabled={currentSlipIndex === slips.length - 1}
                                 onClick={() => setCurrentSlipIndex(prev => prev + 1)}
                                 className="disabled:opacity-30 hover:text-green-600 font-bold transition-colors"
                             >
                                 Next
-                            </button>
+                            </motion.button>
                         </div>
                     )}
-                </div>
+                </motion.div>
 
+                <AnimatePresence>
                 {currentSlip.status !== 'Pending' && (
-                    <div className={`p-6 rounded-2xl text-center border-2 transition-all ${currentSlip.status === 'Approved' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.97 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.25 }}
+                        className={`p-6 rounded-2xl text-center border-2 ${currentSlip.status === 'Approved' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}
+                    >
                         <div className={`mx-auto w-12 h-12 rounded-full flex items-center justify-center mb-2 ${currentSlip.status === 'Approved' ? 'bg-green-100' : 'bg-red-100'}`}>
                             {currentSlip.status === 'Approved' ? <CheckCircleIcon className="w-6 h-6" /> : <XCircleIcon className="w-6 h-6" />}
                         </div>
                         <p className="font-bold text-lg">You have {currentSlip.status.toLowerCase()} this slip.</p>
-                    </div>
+                    </motion.div>
                 )}
+                </AnimatePresence>
             </main>
 
             {currentSlip.status === 'Pending' && (
                 <div className="p-4 mt-auto bg-white border-t border-gray-100 grid grid-cols-2 gap-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-                    <button
-                        onClick={() => handleResponse('Rejected')}
+                    <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.97 }}
+                        onClick={() => setPendingResponse('Rejected')}
                         className="flex justify-center items-center space-x-2 py-3.5 px-4 font-bold rounded-xl bg-red-50 text-red-600 hover:bg-red-100 transition-colors border border-red-100"
                     >
                         <XCircleIcon className="w-5 h-5" />
                         <span>Reject</span>
-                    </button>
-                    <button
-                        onClick={() => handleResponse('Approved')}
-                        className="flex justify-center items-center space-x-2 py-3.5 px-4 font-bold rounded-xl bg-green-500 text-white hover:bg-green-600 shadow-md shadow-green-200 transition-all hover:translate-y-[-1px]"
+                    </motion.button>
+                    <motion.button
+                        whileHover={{ y: -1 }}
+                        whileTap={{ scale: 0.97 }}
+                        onClick={() => setPendingResponse('Approved')}
+                        className="flex justify-center items-center space-x-2 py-3.5 px-4 font-bold rounded-xl bg-green-500 text-white hover:bg-green-600 shadow-md shadow-green-200 transition-shadow"
                     >
                         <CheckCircleIcon className="w-5 h-5" />
                         <span>Approve</span>
-                    </button>
+                    </motion.button>
                 </div>
             )}
+
+            <ConfirmationModal
+                isOpen={!!pendingResponse}
+                onClose={() => setPendingResponse(null)}
+                onConfirm={() => pendingResponse && handleResponse(pendingResponse)}
+                title={pendingResponse === 'Rejected' ? 'Reject this permission slip?' : 'Approve this permission slip?'}
+                message={`This decision for "${currentSlip.title}" will be recorded and cannot be undone from here.`}
+                confirmText={pendingResponse === 'Rejected' ? 'Reject' : 'Approve'}
+                isDanger={pendingResponse === 'Rejected'}
+            />
         </div>
     );
 };

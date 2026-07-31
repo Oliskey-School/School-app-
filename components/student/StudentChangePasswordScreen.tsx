@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { LockIcon, EyeIcon, EyeOffIcon } from '../../constants';
 import { api } from '../../lib/api';
@@ -23,7 +24,8 @@ const PasswordInput = ({ id, label, value, onChange }: { id: string, label: stri
                 <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-3 flex items-center pr-2 text-gray-400 hover:text-gray-600 cursor-pointer focus:outline-none"
+                    className="absolute inset-y-0 right-3 flex items-center pr-2 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer focus:outline-none"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                     {showPassword ? <EyeOffIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
                 </button>
@@ -74,20 +76,27 @@ const StudentChangePasswordScreen: React.FC = () => {
         <div className="flex flex-col h-full bg-gray-50">
             <form onSubmit={handleSubmit} className="flex-grow flex flex-col">
                 <main className="flex-grow p-4 overflow-y-auto">
-                    <div className="bg-white p-4 rounded-xl shadow-sm space-y-4">
+                    <motion.div
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="bg-white p-4 rounded-xl shadow-sm space-y-4"
+                    >
                         <PasswordInput id="currentPassword" label="Current Password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} />
                         <PasswordInput id="newPassword" label="New Password" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
                         <PasswordInput id="confirmPassword" label="Confirm New Password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} />
-                    </div>
+                    </motion.div>
                 </main>
                 <div className="p-4 mt-auto bg-gray-50 border-t border-gray-200">
-                    <button
+                    <motion.button
+                        whileHover={{ scale: loading ? 1 : 1.01 }}
+                        whileTap={{ scale: loading ? 1 : 0.98 }}
                         type="submit"
                         disabled={loading}
-                        className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${loading ? 'opacity-50' : ''}`}
+                        className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors ${loading ? 'opacity-50' : ''}`}
                     >
                         {loading ? 'Updating...' : 'Update Password'}
-                    </button>
+                    </motion.button>
                 </div>
             </form>
         </div>

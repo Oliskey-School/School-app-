@@ -160,7 +160,7 @@ const TeacherSalaryProfile: React.FC<TeacherSalaryProfileProps> = ({ teacherId, 
                     </div>
                     <div>
                         <p className="text-sm text-gray-600">Status</p>
-                        <span className="inline-flex px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
+                        <span className={`inline-flex px-3 py-1 rounded-full text-sm font-medium ${salaryData.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
                             {salaryData.is_active ? 'Active' : 'Inactive'}
                         </span>
                     </div>

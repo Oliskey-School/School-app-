@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
@@ -21,6 +22,7 @@ import {
     Filter,
     Loader2
 } from 'lucide-react';
+import CenteredLoader from '../ui/CenteredLoader';
 
 interface BoardTask {
     id: string;
@@ -121,12 +123,7 @@ const ProjectBoardScreen = () => {
     const totalTasks = columns.reduce((sum, col) => sum + (col.tasks?.length || 0), 0);
 
     if (loading) {
-        return (
-            <div className="p-12 flex flex-col items-center justify-center space-y-4 font-outfit min-h-[400px]">
-                <Loader2 className="w-12 h-12 animate-spin text-indigo-500" />
-                <p className="text-gray-500 font-bold">Loading your project board...</p>
-            </div>
-        );
+        return <CenteredLoader message="Loading your project board..." className="min-h-[400px]" />;
     }
 
     return (
@@ -162,8 +159,8 @@ const ProjectBoardScreen = () => {
 
                         {/* Task Cards */}
                         <div className="space-y-3">
-                            {(column.tasks || []).filter(t => !searchTerm || t.title.toLowerCase().includes(searchTerm.toLowerCase())).map(task => (
-                                <div key={task.id} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-all group">
+                            {(column.tasks || []).filter(t => !searchTerm || t.title.toLowerCase().includes(searchTerm.toLowerCase())).map((task, ti) => (
+                                <motion.div key={task.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(ti, 10) * 0.03 }} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-all group">
                                     {/* Labels */}
                                     <div className="flex flex-wrap gap-1 mb-2">
                                         {(task.labels || []).map(label => (
@@ -215,25 +212,27 @@ const ProjectBoardScreen = () => {
                                             </button>
                                         </div>
                                     </div>
-                                </div>
+                                </motion.div>
                             ))}
 
                             {/* Add Task Inline */}
+                            <AnimatePresence mode="wait">
                             {isAddingTask === column.id ? (
-                                <div className="bg-white p-4 rounded-2xl shadow-sm border border-indigo-200">
+                                <motion.div key="add-form" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="bg-white p-4 rounded-2xl shadow-sm border border-indigo-200">
                                     <input type="text" autoFocus placeholder="Task title..." value={newTaskTitle} onChange={e => setNewTaskTitle(e.target.value)}
                                         onKeyDown={e => e.key === 'Enter' && handleAddTask(column.id)}
                                         className="w-full px-3 py-2 bg-gray-50 border border-gray-100 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500 outline-none" />
                                     <div className="flex space-x-2 mt-2">
-                                        <button onClick={() => handleAddTask(column.id)} className="px-4 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 transition-all">Add</button>
+                                        <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => handleAddTask(column.id)} className="px-4 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 transition-all">Add</motion.button>
                                         <button onClick={() => { setIsAddingTask(null); setNewTaskTitle(''); }} className="px-4 py-1.5 text-gray-500 text-xs font-bold hover:text-gray-700 transition-all">Cancel</button>
                                     </div>
-                                </div>
+                                </motion.div>
                             ) : (
-                                <button onClick={() => setIsAddingTask(column.id)} className="w-full py-3 border-2 border-dashed border-gray-200 rounded-2xl text-gray-400 text-sm font-medium hover:border-indigo-200 hover:text-indigo-500 transition-all flex items-center justify-center space-x-1">
+                                <motion.button key="add-btn" whileHover={{ scale: 1.01 }} onClick={() => setIsAddingTask(column.id)} className="w-full py-3 border-2 border-dashed border-gray-200 rounded-2xl text-gray-400 text-sm font-medium hover:border-indigo-200 hover:text-indigo-500 transition-all flex items-center justify-center space-x-1">
                                     <PlusIcon className="w-4 h-4" /><span>Add Task</span>
-                                </button>
+                                </motion.button>
                             )}
+                            </AnimatePresence>
                         </div>
                     </div>
                 ))}

@@ -437,9 +437,12 @@ class ExpressApiClient {
         return result;
     }
 
-    async googleLogin(email: string, name: string): Promise<any> {
+    async googleLogin(credential: string): Promise<any> {
         this.clearCsrfToken();
-        const result = await this.post<any>('/auth/google-login', { email, name });
+        // The raw signed ID token is sent as-is — the backend verifies it against
+        // Google directly. We never send a locally-decoded email/name, since that
+        // would let anyone claim to be any user with a plain API call.
+        const result = await this.post<any>('/auth/google-login', { credential });
         if (result.token) sessionStorage.setItem('auth_token', result.token);
         if (result.refreshToken) sessionStorage.setItem('auth_refresh_token', result.refreshToken);
         return result;
@@ -1455,6 +1458,15 @@ class ExpressApiClient {
         }
     }
 
+    async getStudentBusRoute(studentId: string): Promise<any | null> {
+        try {
+            return await this.get(`/buses/student/${studentId}`);
+        } catch (err) {
+            // 404 means "no bus assigned" — a real, expected state, not an error.
+            return null;
+        }
+    }
+
     // ============================================
     // NOTIFICATIONS & NOTICES
     // ============================================
@@ -1623,6 +1635,25 @@ class ExpressApiClient {
             body = schoolIdOrData;
         }
         return this.post('/fees/record-payment', body);
+    }
+
+    // Server-side notification triggers — the backend looks up the fee/payment,
+    // student and linked parents itself and sends the email via SMTP. Keeps
+    // email credentials server-only instead of shipping them to the browser.
+    async notifyFeeAssignment(feeId: string): Promise<void> {
+        try {
+            await this.post('/fees/notify-assignment', { feeId });
+        } catch (err) {
+            console.error('Error triggering fee assignment notification:', err);
+        }
+    }
+
+    async notifyPaymentConfirmation(reference: string): Promise<void> {
+        try {
+            await this.post('/fees/notify-payment', { reference });
+        } catch (err) {
+            console.error('Error triggering payment confirmation notification:', err);
+        }
     }
 
     async getPaymentHistory(schoolIdOrFilters?: string | { studentId?: string | number; schoolId?: string; branchId?: string }, branchId?: string): Promise<any[]> {

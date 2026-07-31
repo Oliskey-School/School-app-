@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import Header from '../ui/Header';
 import { useProfile } from '../../context/ProfileContext';
 import { useAuth } from '../../context/AuthContext';
@@ -103,8 +104,9 @@ const ComplianceOfficerDashboard: React.FC<ComplianceOfficerDashboardProps> = ({
         value: string | number;
         icon: React.ReactElement;
         color: string;
-    }> = ({ title, value, icon, color }) => (
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+        index?: number;
+    }> = ({ title, value, icon, color, index = 0 }) => (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: index * 0.05 }} className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
             <div className="flex items-start justify-between">
                 <div className="flex-1">
                     <p className="text-sm text-gray-600 font-medium">{title}</p>
@@ -114,7 +116,7 @@ const ComplianceOfficerDashboard: React.FC<ComplianceOfficerDashboardProps> = ({
                     {React.cloneElement(icon, { className: 'w-6 h-6 text-white' })}
                 </div>
             </div>
-        </div>
+        </motion.div>
     );
 
     if (!profile) return <div className="p-8 text-center text-gray-500 font-medium">Loading compliance profile...</div>;
@@ -130,49 +132,49 @@ const ComplianceOfficerDashboard: React.FC<ComplianceOfficerDashboardProps> = ({
             />
 
             <main className="flex-1 overflow-y-auto p-6 space-y-6">
-                <div className="bg-gradient-to-r from-emerald-600 to-emerald-800 rounded-xl p-6 text-white">
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="bg-gradient-to-r from-emerald-600 to-emerald-800 rounded-xl p-6 text-white">
                     <h2 className="text-2xl font-bold">Welcome, {profile.name}</h2>
                     <p className="mt-2 text-emerald-100">Monitor compliance and quality standards</p>
-                </div>
+                </motion.div>
 
                 <div>
                     <h3 className="text-lg font-bold text-gray-900 mb-4">Compliance Overview</h3>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <StatCard title="Active Audits" value={complianceStats.activeAudits} icon={<ClipboardListIcon />} color="bg-blue-500" />
-                        <StatCard title="Completed Audits" value={complianceStats.completedAudits} icon={<CheckCircleIcon />} color="bg-green-500" />
-                        <StatCard title="Critical Issues" value={complianceStats.criticalIssues} icon={<ExclamationCircleIcon />} color="bg-red-500" />
-                        <StatCard title="Resolved Issues" value={complianceStats.resolvedIssues} icon={<AdminIcon />} color="bg-emerald-500" />
+                        <StatCard index={0} title="Active Audits" value={complianceStats.activeAudits} icon={<ClipboardListIcon />} color="bg-blue-500" />
+                        <StatCard index={1} title="Completed Audits" value={complianceStats.completedAudits} icon={<CheckCircleIcon />} color="bg-green-500" />
+                        <StatCard index={2} title="Critical Issues" value={complianceStats.criticalIssues} icon={<ExclamationCircleIcon />} color="bg-red-500" />
+                        <StatCard index={3} title="Resolved Issues" value={complianceStats.resolvedIssues} icon={<AdminIcon />} color="bg-emerald-500" />
                     </div>
                 </div>
 
                 {complianceStats.criticalIssues > 0 && (
-                    <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start space-x-3">
+                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start space-x-3">
                         <ExclamationCircleIcon className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />
                         <div className="flex-1">
                             <h4 className="font-semibold text-red-900">Critical Issue Requires Attention</h4>
                             <p className="text-sm text-red-800 mt-1">Fire extinguisher inspection overdue - Main Building</p>
-                            <button className="mt-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium">
+                            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="mt-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium">
                                 Review & Resolve
-                            </button>
+                            </motion.button>
                         </div>
-                    </div>
+                    </motion.div>
                 )}
 
                 <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
                     <h3 className="text-lg font-bold text-gray-900 mb-4">Quick Actions</h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <button className="flex items-center justify-center space-x-2 px-4 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium">
+                        <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="flex items-center justify-center space-x-2 px-4 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium">
                             <ClipboardListIcon className="w-5 h-5" />
                             <span>Create New Audit</span>
-                        </button>
-                        <button className="flex items-center justify-center space-x-2 px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium">
+                        </motion.button>
+                        <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="flex items-center justify-center space-x-2 px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium">
                             <DocumentTextIcon className="w-5 h-5" />
                             <span>View Reports</span>
-                        </button>
-                        <button className="flex items-center justify-center space-x-2 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium">
+                        </motion.button>
+                        <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="flex items-center justify-center space-x-2 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium">
                             <ChartBarIcon className="w-5 h-5" />
                             <span>Compliance Analytics</span>
-                        </button>
+                        </motion.button>
                     </div>
                 </div>
             </main>

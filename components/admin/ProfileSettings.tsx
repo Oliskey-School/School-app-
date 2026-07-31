@@ -1,5 +1,6 @@
 ﻿
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
     EditIcon,
     NotificationIcon,
@@ -143,7 +144,7 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ onLogout, navigateTo 
 
                     <div className="bg-white rounded-xl shadow-sm p-2">
                         {settingsItems.map((item) => (
-                            <button key={item.id} onClick={() => handleItemClick(item.id)} className={`w-full flex items-center justify-between p-3 text-left rounded-lg transition-colors ${activeSetting === item.id ? 'bg-gray-100' : 'hover:bg-gray-50'}`}>
+                            <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }} key={item.id} onClick={() => handleItemClick(item.id)} className={`w-full flex items-center justify-between p-3 text-left rounded-lg transition-colors ${activeSetting === item.id ? 'bg-gray-100' : 'hover:bg-gray-50'}`}>
                                 <div className="flex items-center space-x-4">
                                     <div className={`p-2 rounded-lg ${item.color}`}>
                                         {React.cloneElement(item.icon, { className: 'h-5 w-5' })}
@@ -151,12 +152,12 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ onLogout, navigateTo 
                                     <span className="font-semibold text-gray-700">{item.label}</span>
                                 </div>
                                 <ChevronRightIcon />
-                            </button>
+                            </motion.button>
                         ))}
                     </div>
 
                     <div className="bg-white rounded-xl shadow-sm p-2">
-                        <button onClick={() => setActiveSetting('systemSettings')} className={`w-full flex items-center justify-between p-3 text-left rounded-lg transition-colors ${activeSetting === 'systemSettings' ? 'bg-gray-100' : 'hover:bg-gray-50'}`}>
+                        <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }} onClick={() => setActiveSetting('systemSettings')} className={`w-full flex items-center justify-between p-3 text-left rounded-lg transition-colors ${activeSetting === 'systemSettings' ? 'bg-gray-100' : 'hover:bg-gray-50'}`}>
                             <div className="flex items-center space-x-4">
                                 <div className="p-2 rounded-lg bg-gray-100 text-gray-500"><SettingsIcon className="h-5 w-5" /></div>
                                 <div>
@@ -165,7 +166,7 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ onLogout, navigateTo 
                                 </div>
                             </div>
                             <ChevronRightIcon />
-                        </button>
+                        </motion.button>
                     </div>
 
                     {/* School Switcher Section */}
@@ -174,7 +175,8 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ onLogout, navigateTo 
                             <h4 className="px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Your Schools</h4>
                             <div className="bg-white rounded-xl shadow-sm p-2 space-y-1">
                                 {memberships.map((m) => (
-                                    <button
+                                    <motion.button
+                                        whileHover={!isSwitching ? { scale: 1.01 } : {}} whileTap={!isSwitching ? { scale: 0.99 } : {}}
                                         key={m.school_id}
                                         onClick={() => handleSwitchSchool(m.school_id)}
                                         disabled={isSwitching}
@@ -202,7 +204,7 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ onLogout, navigateTo 
                                         ) : (
                                             <RefreshIcon className={`w-3 h-3 text-gray-300 ${isSwitching ? 'animate-spin' : ''}`} />
                                         )}
-                                    </button>
+                                    </motion.button>
                                 ))}
                             </div>
                         </div>
@@ -233,7 +235,11 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ onLogout, navigateTo 
                     </div>
                 )}
                 <div className="flex-grow overflow-y-auto">
-                    {renderActiveSetting()}
+                    <AnimatePresence mode="wait">
+                        <motion.div key={activeSetting || 'placeholder'} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="h-full">
+                            {renderActiveSetting()}
+                        </motion.div>
+                    </AnimatePresence>
                 </div>
             </div>
         </div>

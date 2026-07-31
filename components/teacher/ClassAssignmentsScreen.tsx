@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { Assignment } from '../../types';
 import { ChevronRightIcon } from '../../constants';
 import { api } from '../../lib/api';
@@ -58,8 +59,15 @@ const ClassAssignmentsScreen: React.FC<ClassAssignmentsScreenProps> = ({ classNa
     return (
         <div className="p-4 bg-gray-100 h-full overflow-y-auto">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {assignments.map(assignment => (
-                    <div key={assignment.id} className="bg-white p-4 rounded-lg shadow-sm space-y-3 transition-all hover:shadow-md border">
+                {assignments.map((assignment, i) => (
+                    <motion.div
+                        key={assignment.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.2, delay: Math.min(i, 12) * 0.04 }}
+                        whileHover={{ y: -2 }}
+                        className="bg-white p-4 rounded-lg shadow-sm space-y-3 transition-shadow hover:shadow-md border"
+                    >
                         <div className="flex justify-between items-start">
                             <div>
                                 <h4 className="font-bold text-lg text-gray-800">{assignment.title}</h4>
@@ -74,16 +82,18 @@ const ClassAssignmentsScreen: React.FC<ClassAssignmentsScreenProps> = ({ classNa
                             Due: {new Date(assignment.dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </p>
                         <div className="border-t border-gray-100 pt-3">
-                            <button
+                            <motion.button
+                                whileHover={{ scale: 1.01 }}
+                                whileTap={{ scale: 0.97 }}
                                 onClick={() => navigateTo('assignmentSubmissions', `Submissions: ${assignment.title}`, { assignment })}
                                 className="w-full text-center py-2 px-4 bg-purple-100 text-purple-700 font-semibold rounded-lg hover:bg-purple-200 transition-colors flex justify-center items-center space-x-2"
                                 aria-label={`View submissions for ${assignment.title}`}
                             >
                                 <span>View Submissions</span>
                                 <ChevronRightIcon className="h-5 w-5" />
-                            </button>
+                            </motion.button>
                         </div>
-                    </div>
+                    </motion.div>
                 ))}
             </div>
             {assignments.length === 0 && (

@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { AlertTriangleIcon, CheckCircleIcon, ClockIcon, MapPinIcon, UserIcon } from '../../constants';
 import { useAuth } from '../../context/AuthContext';
 import { useProfile } from '../../context/ProfileContext';
+import CenteredLoader from '../ui/CenteredLoader';
 
 interface EmergencyAlert {
     id: string;
@@ -113,8 +115,10 @@ const EmergencyAlert: React.FC = () => {
             {/* Filters */}
             <div className="flex space-x-2">
                 {(['all', 'active', 'resolved'] as const).map((f) => (
-                    <button
+                    <motion.button
                         key={f}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={() => setFilter(f)}
                         className={`px-4 py-2 rounded-lg font-medium transition-colors ${filter === f
                             ? 'bg-indigo-600 text-white'
@@ -122,27 +126,27 @@ const EmergencyAlert: React.FC = () => {
                             }`}
                     >
                         {f.charAt(0).toUpperCase() + f.slice(1)}
-                    </button>
+                    </motion.button>
                 ))}
             </div>
 
             {/* Alerts List */}
             <div className="grid grid-cols-1 gap-4">
                 {loading ? (
-                    <div className="flex justify-center py-12">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-                    </div>
+                    <CenteredLoader className="py-12" />
                 ) : alerts.length === 0 ? (
                     <div className="text-center py-12 bg-white rounded-xl border border-gray-200">
                         <CheckCircleIcon className="w-16 h-16 text-green-500 mx-auto mb-4" />
                         <p className="text-gray-600">No {filter === 'all' ? '' : filter} alerts</p>
                     </div>
                 ) : (
-                    alerts.map((alert) => (
-                        <div
+                    alerts.map((alert, ai) => (
+                        <motion.div
                             key={alert.id}
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.2, delay: Math.min(ai, 10) * 0.04 }}
                             className={`bg-white rounded-xl shadow-sm border-2 p-6 ${getSeverityColor(alert.severity)}`}
-
                         >
                             <div className="flex items-start justify-between">
                                 <div className="flex-1">
@@ -191,24 +195,27 @@ const EmergencyAlert: React.FC = () => {
 
                                 {!alert.all_clear && (
                                     <div className="flex flex-col space-y-2">
-                                        <button
+                                        <motion.button
+                                            whileHover={{ scale: 1.03 }}
+                                            whileTap={{ scale: 0.96 }}
                                             onClick={() => setSelectedAlert(alert)}
                                             className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium text-sm"
                                         >
                                             Resolve
-                                        </button>
+                                        </motion.button>
                                     </div>
                                 )}
                             </div>
-                        </div>
+                        </motion.div>
                     ))
                 )}
             </div>
 
             {/* Resolve Modal */}
+            <AnimatePresence>
             {selectedAlert && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl p-6 max-w-md w-full">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} transition={{ type: 'spring', stiffness: 400, damping: 32 }} className="bg-white rounded-xl p-6 max-w-md w-full">
                         <h3 className="text-lg font-bold text-gray-900 mb-4">Resolve Alert</h3>
                         <textarea
                             value={responseNotes}
@@ -218,7 +225,9 @@ const EmergencyAlert: React.FC = () => {
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent mb-4"
                         ></textarea>
                         <div className="flex space-x-3">
-                            <button
+                            <motion.button
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
                                 onClick={() => {
                                     setSelectedAlert(null);
                                     setResponseNotes('');
@@ -226,17 +235,20 @@ const EmergencyAlert: React.FC = () => {
                                 className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
                             >
                                 Cancel
-                            </button>
-                            <button
+                            </motion.button>
+                            <motion.button
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
                                 onClick={() => handleResolve(selectedAlert.id)}
                                 className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
                             >
                                 Resolve Alert
-                            </button>
+                            </motion.button>
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
         </div>
     );
 };

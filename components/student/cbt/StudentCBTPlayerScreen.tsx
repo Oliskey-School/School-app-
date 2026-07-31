@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { CBTTest } from '../../../types';
 import { ClockIcon, CheckCircleIcon } from '../../../constants';
@@ -14,7 +15,6 @@ interface StudentCBTPlayerScreenProps {
 }
 
 const StudentCBTPlayerScreen: React.FC<StudentCBTPlayerScreenProps> = ({ test, studentId, handleBack }) => {
-    if (!test) return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Select a test to begin.</div>;
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
     const [answers, setAnswers] = useState<{ [key: string]: string }>({});
     const [timeLeft, setTimeLeft] = useState((test?.duration || 0) * 60); // in seconds
@@ -178,6 +178,10 @@ const StudentCBTPlayerScreen: React.FC<StudentCBTPlayerScreenProps> = ({ test, s
         return `${mins}:${secs.toString().padStart(2, '0')}`;
     };
 
+    if (!test) {
+        return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Select a test to begin.</div>;
+    }
+
     if (loading) {
         return (
             <div className="flex flex-col items-center justify-center h-full bg-gray-50 p-6">
@@ -223,19 +227,22 @@ const StudentCBTPlayerScreen: React.FC<StudentCBTPlayerScreenProps> = ({ test, s
                     </div>
 
                     <div className="space-y-3">
-                        <button
+                        <motion.button
+                            whileHover={{ scale: 1.01 }}
+                            whileTap={{ scale: 0.97 }}
                             onClick={() => setShowInstructions(false)}
-                            className="w-full py-4 bg-indigo-600 text-white font-bold rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 active:scale-95 text-lg"
+                            className="w-full py-4 bg-indigo-600 text-white font-bold rounded-2xl hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200 text-lg"
                         >
                             I Am Ready, Start Exam
-                        </button>
+                        </motion.button>
 
-                        <button
+                        <motion.button
+                            whileTap={{ scale: 0.97 }}
                             onClick={handleBack}
                             className="w-full py-3 text-gray-500 font-semibold rounded-xl hover:bg-gray-100 transition-colors"
                         >
                             Go Back
-                        </button>
+                        </motion.button>
                     </div>
                 </div>
             </div>
@@ -259,22 +266,29 @@ const StudentCBTPlayerScreen: React.FC<StudentCBTPlayerScreenProps> = ({ test, s
     if (isSubmitted) {
         return (
             <div className="flex flex-col items-center justify-center h-full bg-gray-50 p-6 text-center">
-                <CheckCircleIcon className="w-20 h-20 text-green-500 mb-4" />
-                <h2 className="text-2xl font-bold text-gray-800">Test Submitted!</h2>
-                <p className="text-gray-600 mt-2">You have successfully completed the test.</p>
+                <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 300, damping: 20 }}>
+                    <CheckCircleIcon className="w-20 h-20 text-green-500 mb-4" />
+                </motion.div>
+                <motion.h2 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="text-2xl font-bold text-gray-800">Test Submitted!</motion.h2>
+                <motion.p initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="text-gray-600 mt-2">You have successfully completed the test.</motion.p>
 
-                <div className="mt-6 bg-white p-6 rounded-xl shadow-sm border w-full max-w-sm">
+                <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="mt-6 bg-white p-6 rounded-xl shadow-sm border w-full max-w-sm">
                     <p className="text-sm text-gray-500 uppercase tracking-wide font-bold">Your Score</p>
                     <p className="text-5xl font-bold text-indigo-600 mt-2">{score} / {questions.length}</p>
                     <p className="text-lg font-medium text-gray-700 mt-1">{questions.length > 0 ? Math.round((score / questions.length) * 100) : 0}%</p>
-                </div>
+                </motion.div>
 
-                <button
+                <motion.button
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.96 }}
                     onClick={handleBack}
                     className="mt-8 px-6 py-3 bg-indigo-600 text-white font-bold rounded-lg shadow hover:bg-indigo-700 transition-colors"
                 >
                     Return to CBT Portal
-                </button>
+                </motion.button>
             </div>
         );
     }
@@ -297,51 +311,70 @@ const StudentCBTPlayerScreen: React.FC<StudentCBTPlayerScreenProps> = ({ test, s
 
             {/* Question Area */}
             <main className="flex-grow p-4 overflow-y-auto">
-                <div className="bg-white p-6 rounded-xl shadow-sm min-h-[300px]">
-                    <p className="text-lg font-medium text-gray-800 mb-6">{currentQuestion?.text}</p>
+                <AnimatePresence mode="wait">
+                    <motion.div
+                        key={currentQuestionIndex}
+                        initial={{ opacity: 0, x: 16 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -16 }}
+                        transition={{ duration: 0.2 }}
+                        className="bg-white p-6 rounded-xl shadow-sm min-h-[300px]"
+                    >
+                        <p className="text-lg font-medium text-gray-800 mb-6">{currentQuestion?.text}</p>
 
-                    <div className="space-y-3">
-                        {(currentQuestion?.options || []).map((option: string, idx: number) => (
-                            <button
-                                key={idx}
-                                onClick={() => handleAnswerSelect(currentQuestion.id, option)}
-                                className={`w-full text-left p-4 rounded-lg border-2 transition-all ${answers[currentQuestion.id] === option
-                                    ? 'border-indigo-500 bg-indigo-50 text-indigo-800'
-                                    : 'border-gray-200 hover:border-gray-300'
-                                    }`}
-                            >
-                                <span className="font-bold mr-3">{String.fromCharCode(65 + idx)}.</span>
-                                {option}
-                            </button>
-                        ))}
-                    </div>
-                </div>
+                        <div className="space-y-3">
+                            {(currentQuestion?.options || []).map((option: string, idx: number) => (
+                                <motion.button
+                                    key={idx}
+                                    initial={{ opacity: 0, y: 6 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.2, delay: idx * 0.05 }}
+                                    whileHover={{ y: -1 }}
+                                    whileTap={{ scale: 0.98 }}
+                                    onClick={() => handleAnswerSelect(currentQuestion.id, option)}
+                                    className={`w-full text-left p-4 rounded-lg border-2 transition-colors ${answers[currentQuestion.id] === option
+                                        ? 'border-indigo-500 bg-indigo-50 text-indigo-800'
+                                        : 'border-gray-200 hover:border-gray-300'
+                                        }`}
+                                >
+                                    <span className="font-bold mr-3">{String.fromCharCode(65 + idx)}.</span>
+                                    {option}
+                                </motion.button>
+                            ))}
+                        </div>
+                    </motion.div>
+                </AnimatePresence>
             </main>
 
             {/* Footer Controls */}
             <div className="p-4 bg-white border-t border-gray-200 flex justify-between">
-                <button
+                <motion.button
+                    whileTap={{ scale: currentQuestionIndex === 0 ? 1 : 0.96 }}
                     onClick={() => setCurrentQuestionIndex(prev => Math.max(0, prev - 1))}
                     disabled={currentQuestionIndex === 0}
-                    className="px-4 py-2 text-gray-600 font-semibold disabled:opacity-50"
+                    className="px-4 py-2 text-gray-600 font-semibold disabled:opacity-50 transition-colors"
                 >
                     Previous
-                </button>
+                </motion.button>
 
                 {currentQuestionIndex < questions.length - 1 ? (
-                    <button
+                    <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.96 }}
                         onClick={() => setCurrentQuestionIndex(prev => prev + 1)}
-                        className="px-6 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700"
+                        className="px-6 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition-colors"
                     >
                         Next
-                    </button>
+                    </motion.button>
                 ) : (
-                    <button
+                    <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.96 }}
                         onClick={handleSubmit}
-                        className="px-6 py-2 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700"
+                        className="px-6 py-2 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-colors"
                     >
                         Submit Test
-                    </button>
+                    </motion.button>
                 )}
             </div>
         </div>

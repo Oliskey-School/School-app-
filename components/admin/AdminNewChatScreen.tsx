@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { SearchIcon } from '../../constants';
 import { useProfile } from '../../context/ProfileContext';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
+import CenteredLoader from '../ui/CenteredLoader';
 
 interface Contact {
     userId: string;
@@ -39,11 +41,16 @@ const ContactRow: React.FC<{
     selected?: boolean;
     onSelect: () => void;
     onToggle?: () => void;
-}> = ({ contact, loading, selectable, selected, onSelect, onToggle }) => (
-    <button
+    index?: number;
+}> = ({ contact, loading, selectable, selected, onSelect, onToggle, index = 0 }) => (
+    <motion.button
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.15, delay: Math.min(index, 20) * 0.02 }}
+        whileTap={{ scale: 0.99 }}
         onClick={selectable ? onToggle : onSelect}
         disabled={loading}
-        className={`w-full flex items-center gap-3 p-3.5 text-left rounded-xl transition-all border active:scale-[0.99] disabled:opacity-50 ${
+        className={`w-full flex items-center gap-3 p-3.5 text-left rounded-xl transition-colors border disabled:opacity-50 ${
             selected
                 ? 'bg-indigo-50 border-indigo-200'
                 : 'bg-white/70 border-gray-100/60 hover:bg-white/90'
@@ -72,7 +79,7 @@ const ContactRow: React.FC<{
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
         )}
-    </button>
+    </motion.button>
 );
 
 const GroupNameSheet: React.FC<{
@@ -83,7 +90,7 @@ const GroupNameSheet: React.FC<{
 }> = ({ count, onConfirm, onBack, creating }) => {
     const [name, setName] = useState('');
     return (
-        <div className="absolute inset-0 bg-white/95 backdrop-blur-md flex flex-col z-20">
+        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.2 }} className="absolute inset-0 bg-white/95 backdrop-blur-md flex flex-col z-20">
             <div className="p-4 border-b border-gray-100/60 flex items-center gap-3">
                 <button onClick={onBack} className="p-2 rounded-full hover:bg-gray-100 transition-colors">
                     <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -127,7 +134,7 @@ const GroupNameSheet: React.FC<{
                         : 'Create Group Chat'}
                 </button>
             </div>
-        </div>
+        </motion.div>
     );
 };
 
@@ -238,16 +245,12 @@ const AdminNewChatScreen: React.FC<AdminNewChatScreenProps> = ({ navigateTo }) =
     };
 
     if (loading) {
-        return (
-            <div className="flex flex-col h-full items-center justify-center gap-3 text-gray-500">
-                <div className="w-8 h-8 border-3 border-indigo-400 border-t-transparent rounded-full animate-spin" />
-                <p className="text-sm">Loading contacts...</p>
-            </div>
-        );
+        return <CenteredLoader message="Loading contacts..." className="h-full" />;
     }
 
     return (
         <div className="relative flex flex-col h-full bg-gray-50/80 backdrop-blur-sm">
+            <AnimatePresence>
             {showNameSheet && (
                 <GroupNameSheet
                     count={selected.length}
@@ -256,6 +259,7 @@ const AdminNewChatScreen: React.FC<AdminNewChatScreenProps> = ({ navigateTo }) =
                     creating={creatingGroup}
                 />
             )}
+            </AnimatePresence>
 
             {/* Header */}
             <div className="p-4 bg-white/80 backdrop-blur-md border-b border-gray-100/60 sticky top-0 z-10 flex-shrink-0">
@@ -308,11 +312,16 @@ const AdminNewChatScreen: React.FC<AdminNewChatScreenProps> = ({ navigateTo }) =
             </div>
 
             {/* Selected chips (group mode) */}
+            <AnimatePresence>
             {groupMode && selected.length > 0 && (
-                <div className="flex gap-2 px-4 py-2.5 overflow-x-auto no-scrollbar bg-white/60 border-b border-gray-100/60 flex-shrink-0">
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="flex gap-2 px-4 py-2.5 overflow-x-auto no-scrollbar bg-white/60 border-b border-gray-100/60 flex-shrink-0">
                     {selected.map(c => (
-                        <button
+                        <motion.button
                             key={c.userId}
+                            layout
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.8 }}
                             onClick={() => toggleSelect(c)}
                             className="flex items-center gap-1.5 px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0"
                         >
@@ -320,10 +329,11 @@ const AdminNewChatScreen: React.FC<AdminNewChatScreenProps> = ({ navigateTo }) =
                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                             </svg>
-                        </button>
+                        </motion.button>
                     ))}
-                </div>
+                </motion.div>
             )}
+            </AnimatePresence>
 
             {/* Tabs */}
             {tabs.length > 1 && (
@@ -332,14 +342,14 @@ const AdminNewChatScreen: React.FC<AdminNewChatScreenProps> = ({ navigateTo }) =
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab)}
-                            className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all border ${
+                            className={`relative px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors border ${
                                 activeTab === tab
-                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                                    ? 'text-white border-indigo-600 shadow-sm'
                                     : 'bg-white/80 text-gray-600 border-gray-200 hover:border-indigo-300'
                             }`}
                         >
-                            {tab}
-                            <span className="ml-1 opacity-70">({contacts[tab]?.length || 0})</span>
+                            {activeTab === tab && <motion.div layoutId="newChatTab" className="absolute inset-0 bg-indigo-600 rounded-full" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />}
+                            <span className="relative">{tab}<span className="ml-1 opacity-70">({contacts[tab]?.length || 0})</span></span>
                         </button>
                     ))}
                 </div>
@@ -348,9 +358,10 @@ const AdminNewChatScreen: React.FC<AdminNewChatScreenProps> = ({ navigateTo }) =
             {/* Contact list */}
             <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2">
                 {filteredContacts.length > 0 ? (
-                    filteredContacts.map(c => (
+                    filteredContacts.map((c, ci) => (
                         <ContactRow
                             key={c.userId}
+                            index={ci}
                             contact={c}
                             loading={startingChat === c.userId}
                             selectable={groupMode}

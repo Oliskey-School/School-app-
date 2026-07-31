@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
@@ -91,7 +92,7 @@ const SchoolInfoScreen: React.FC = () => {
 
                 {/* Branding Section */}
                 <div className="space-y-6">
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                         <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
                             <PhotoIcon className="w-5 h-5 mr-2 text-indigo-600" />
                             Branding & Images
@@ -135,20 +136,22 @@ const SchoolInfoScreen: React.FC = () => {
                                         value={info.hero_image_url}
                                         onChange={e => setInfo({ ...info, hero_image_url: e.target.value })}
                                     />
+                                    <AnimatePresence>
                                     {info.hero_image_url && (
-                                        <div className="w-full h-48 bg-gray-100 rounded-xl border border-gray-200 overflow-hidden relative">
+                                        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 192 }} exit={{ opacity: 0, height: 0 }} className="w-full bg-gray-100 rounded-xl border border-gray-200 overflow-hidden relative">
                                             <img src={info.hero_image_url} alt="Hero" className="w-full h-full object-cover" />
-                                        </div>
+                                        </motion.div>
                                     )}
+                                    </AnimatePresence>
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    </motion.div>
                 </div>
 
                 {/* Anthem & Pledge Section */}
                 <div className="space-y-6">
-                    <form onSubmit={handleSave} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 h-full flex flex-col">
+                    <motion.form initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.05 }} onSubmit={handleSave} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 h-full flex flex-col">
                         <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
                             <MusicalNoteIcon className="w-5 h-5 mr-2 text-pink-600" />
                             Anthem & Pledge
@@ -177,10 +180,11 @@ const SchoolInfoScreen: React.FC = () => {
                         </div>
 
                         <div className="mt-6 pt-4 border-t border-gray-50">
-                            <button
+                            <motion.button
+                                whileHover={!isSaving ? { scale: 1.01 } : {}} whileTap={!isSaving ? { scale: 0.98 } : {}}
                                 type="submit"
                                 disabled={isSaving}
-                                className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 active:scale-95 transition-all disabled:opacity-50 shadow-md flex justify-center items-center"
+                                className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-all disabled:opacity-50 shadow-md flex justify-center items-center"
                             >
                                 {isSaving ? 'Saving...' : (
                                     <>
@@ -188,9 +192,9 @@ const SchoolInfoScreen: React.FC = () => {
                                         Save Changes
                                     </>
                                 )}
-                            </button>
+                            </motion.button>
                         </div>
-                    </form>
+                    </motion.form>
                 </div>
             </div>
         </div>

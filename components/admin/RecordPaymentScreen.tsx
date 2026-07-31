@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
@@ -81,7 +82,7 @@ const RecordPaymentScreen: React.FC<RecordPaymentScreenProps> = ({ navigateTo, f
                 </div>
             </div>
 
-            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="p-6 bg-indigo-50 border-b border-indigo-100">
                     <div className="flex items-start justify-between">
                         <div>
@@ -156,7 +157,9 @@ const RecordPaymentScreen: React.FC<RecordPaymentScreenProps> = ({ navigateTo, f
                     </div>
 
                     <div className="pt-4">
-                        <button
+                        <motion.button
+                            whileHover={!isProcessing ? { scale: 1.01 } : {}}
+                            whileTap={!isProcessing ? { scale: 0.98 } : {}}
                             onClick={handleRecordPayment}
                             disabled={isProcessing}
                             className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 hover:shadow-indigo-200 transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
@@ -172,10 +175,10 @@ const RecordPaymentScreen: React.FC<RecordPaymentScreenProps> = ({ navigateTo, f
                                     <span>Confirm and Record Payment</span>
                                 </>
                             )}
-                        </button>
+                        </motion.button>
                     </div>
                 </div>
-            </div>
+            </motion.div>
         </div>
     );
 };

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
 import {
@@ -704,26 +705,34 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
                                 )}
 
                                 {/* Emoji picker — positioned ABOVE input bar, never clipped */}
-                                {showEmojiPicker && (
-                                    <div
-                                        ref={emojiPickerRef}
-                                        className="absolute bottom-full left-2 mb-2 bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-100/80 p-3 w-64 z-50"
-                                    >
-                                        <div className="grid grid-cols-5 gap-1.5">
-                                            {COMMON_EMOJIS.map(emoji => (
-                                                <button
-                                                    key={emoji}
-                                                    type="button"
-                                                    onClick={() => { setInputText(p => p + emoji); setShowEmojiPicker(false); }}
-                                                    className="text-xl hover:bg-gray-100 rounded-lg p-1.5 transition-colors"
-                                                    style={{ touchAction: 'manipulation' }}
-                                                >
-                                                    {emoji}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
+                                <AnimatePresence>
+                                    {showEmojiPicker && (
+                                        <motion.div
+                                            ref={emojiPickerRef}
+                                            initial={{ opacity: 0, scale: 0.95, y: 8 }}
+                                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                                            exit={{ opacity: 0, scale: 0.95, y: 8 }}
+                                            transition={{ type: 'spring', stiffness: 420, damping: 30 }}
+                                            className="absolute bottom-full left-2 mb-2 bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-100/80 p-3 w-64 z-50"
+                                        >
+                                            <div className="grid grid-cols-5 gap-1.5">
+                                                {COMMON_EMOJIS.map(emoji => (
+                                                    <motion.button
+                                                        key={emoji}
+                                                        whileHover={{ scale: 1.2 }}
+                                                        whileTap={{ scale: 0.9 }}
+                                                        type="button"
+                                                        onClick={() => { setInputText(p => p + emoji); setShowEmojiPicker(false); }}
+                                                        className="text-xl hover:bg-gray-100 rounded-lg p-1.5 transition-colors"
+                                                        style={{ touchAction: 'manipulation' }}
+                                                    >
+                                                        {emoji}
+                                                    </motion.button>
+                                                ))}
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
 
                                 {/* Input form */}
                                 <form
@@ -768,19 +777,20 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
                                     />
 
                                     {/* Send button — smooth transition */}
-                                    <button
+                                    <motion.button
+                                        whileTap={{ scale: 0.88 }}
                                         type="submit"
                                         disabled={(!inputText.trim() && pendingAttachments.length === 0) || isUploading}
-                                        className={`min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl shadow transition-all duration-150 ease-out flex-shrink-0 ${
+                                        className={`min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl shadow transition-colors duration-150 ease-out flex-shrink-0 ${
                                             inputText.trim() || pendingAttachments.length > 0
-                                                ? `${theme.primary} text-white active:scale-90`
+                                                ? `${theme.primary} text-white`
                                                 : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                                         }`}
                                         style={{ touchAction: 'manipulation' }}
                                         aria-label="Send"
                                     >
                                         <SendIcon className="w-4 h-4" />
-                                    </button>
+                                    </motion.button>
                                 </form>
                             </div>
                         </>

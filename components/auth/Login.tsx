@@ -132,26 +132,15 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
   const handleGoogleResponse = async (response: any) => {
     setIsLoading(true);
     setError('');
-    
+
     try {
-      // Decode JWT to get email and name (No library needed for basic preview)
-      const base64Url = response.credential.split('.')[1];
-      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-      const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => {
-        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-      }).join(''));
-      
-      const payload = JSON.parse(jsonPayload);
-      const { email, name } = payload;
-      
-      console.log('🛡️ [Google] Verifying account:', email);
-      
-      // Call our backend to verify if this email has an account
-      await signInWithGoogle(email, name);
+      // Send the raw signed ID token straight to the backend — it verifies the
+      // signature, audience, and expiry against Google directly. We never trust
+      // a client-side JWT decode for the actual email/identity used to log in.
+      await signInWithGoogle(response.credential);
       navigate('/');
     } catch (err: any) {
       console.error('❌ [Google] Auth Error:', err);
-      // The backend returns "No Data" if not found
       setError(err.message || 'No Data');
     } finally {
       setIsLoading(false);
@@ -676,7 +665,7 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
 function mapRoleToDashboard(role: string): DashboardType {
   const map: any = {
     'admin': DashboardType.Admin,
-    'school_admin': DashboardType.Admin,
+    'schooladmin': DashboardType.Admin,
     'teacher': DashboardType.Teacher,
     'student': DashboardType.Student,
     'parent': DashboardType.Parent,
@@ -685,10 +674,14 @@ function mapRoleToDashboard(role: string): DashboardType {
     'inspector': DashboardType.Inspector,
     'examofficer': DashboardType.ExamOfficer,
     'complianceofficer': DashboardType.ComplianceOfficer,
-    'compliance_officer': DashboardType.ComplianceOfficer,
     'compliance': DashboardType.ComplianceOfficer,
+    'counselor': DashboardType.Counselor,
   };
-  return map[role.toLowerCase().replace(' ', '')] || DashboardType.Student;
+  // Prisma's Role enum uses underscores (EXAM_OFFICER, SUPER_ADMIN, ...) —
+  // stripping only spaces silently missed every underscored role and dropped
+  // real (non-demo) Exam Officer / Super Admin logins onto the Student
+  // dashboard instead, since an unmatched role falls back to Student below.
+  return map[role.toLowerCase().replace(/[_\s]/g, '')] || DashboardType.Student;
 }
 
 export default Login;

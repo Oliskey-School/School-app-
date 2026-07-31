@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import {
     Plus, Trash2, GripVertical, AlertTriangle, Shield, ChevronUp, ChevronDown, Bell
 } from 'lucide-react';
+import CenteredLoader from '../ui/CenteredLoader';
 
 interface Stage {
     id?: string;
@@ -138,14 +140,14 @@ const SOPSettingsScreen = () => {
                     <h1 className="text-2xl font-bold text-gray-900 font-outfit">SOP Incident Types</h1>
                     <p className="text-gray-500">Define the workflow each type of incident follows, and who gets notified at each stage.</p>
                 </div>
-                <button onClick={openCreate}
+                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={openCreate}
                     className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl hover:bg-indigo-700 transition-colors shadow-sm font-semibold">
                     <Plus className="w-5 h-5" /> New Incident Type
-                </button>
+                </motion.button>
             </div>
 
             {loading ? (
-                <div className="text-center py-12 text-gray-500">Loading incident types...</div>
+                <CenteredLoader message="Loading incident types..." className="py-12" />
             ) : types.length === 0 ? (
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
                     <Shield className="w-12 h-12 text-gray-300 mx-auto mb-4" />
@@ -154,8 +156,8 @@ const SOPSettingsScreen = () => {
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {types.map(t => (
-                        <div key={t.id} className={`bg-white p-5 rounded-2xl shadow-sm border space-y-3 ${t.is_active ? 'border-gray-100' : 'border-gray-200 opacity-60'}`}>
+                    {types.map((t, ti) => (
+                        <motion.div key={t.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(ti, 15) * 0.03 }} className={`bg-white p-5 rounded-2xl shadow-sm border space-y-3 ${t.is_active ? 'border-gray-100' : 'border-gray-200 opacity-60'}`}>
                             <div className="flex justify-between items-start">
                                 <div>
                                     <div className="flex items-center gap-2">
@@ -185,14 +187,15 @@ const SOPSettingsScreen = () => {
                                     </span>
                                 ))}
                             </div>
-                        </div>
+                        </motion.div>
                     ))}
                 </div>
             )}
 
+            <AnimatePresence>
             {showForm && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-                    <div className="bg-white rounded-3xl p-6 max-w-2xl w-full space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+                    <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} transition={{ type: 'spring', stiffness: 400, damping: 32 }} className="bg-white rounded-3xl p-6 max-w-2xl w-full space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
                         <h2 className="text-xl font-bold text-gray-900 font-outfit">{editing ? 'Edit Incident Type' : 'New Incident Type'}</h2>
 
                         <div className="space-y-4">
@@ -274,15 +277,16 @@ const SOPSettingsScreen = () => {
                         </div>
 
                         <div className="flex space-x-3">
-                            <button onClick={() => setShowForm(false)} className="flex-grow py-3 px-4 border border-gray-200 rounded-2xl text-gray-600 font-bold hover:bg-gray-50 transition-colors">Cancel</button>
-                            <button onClick={handleSave} disabled={saving}
+                            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => setShowForm(false)} className="flex-grow py-3 px-4 border border-gray-200 rounded-2xl text-gray-600 font-bold hover:bg-gray-50 transition-colors">Cancel</motion.button>
+                            <motion.button whileHover={!saving ? { scale: 1.02 } : {}} whileTap={!saving ? { scale: 0.98 } : {}} onClick={handleSave} disabled={saving}
                                 className="flex-grow py-3 px-4 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200 disabled:opacity-60">
                                 {saving ? 'Saving...' : editing ? 'Save Changes' : 'Create'}
-                            </button>
+                            </motion.button>
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
         </div>
     );
 };

@@ -84,7 +84,7 @@ export const getGrades = async (req: AuthRequest, res: Response) => {
 
 export const getSubjects = async (req: AuthRequest, res: Response) => {
     try {
-        const schoolId = (req.query.school_id as string) || req.user.school_id;
+        const schoolId = req.user.school_id; // never trust a client-supplied query param over the token
         const branchId = getEffectiveBranchId(req.user, (req.query.branch_id || req.query.branchId) as string);
 
         const result = await AcademicService.getSubjects(schoolId, branchId);
@@ -96,7 +96,7 @@ export const getSubjects = async (req: AuthRequest, res: Response) => {
 
 export const getAnalytics = async (req: AuthRequest, res: Response) => {
     try {
-        const schoolId = (req.query.schoolId as string) || req.user.school_id;
+        const schoolId = req.user.school_id; // never trust a client-supplied query param over the token
         const branchId = getEffectiveBranchId(req.user, (req.query.branchId || req.query.branch_id) as string);
         const term = req.query.term as string;
         const classId = req.query.classId ? req.query.classId as string : null;
@@ -110,7 +110,7 @@ export const getAnalytics = async (req: AuthRequest, res: Response) => {
 
 export const getPerformance = async (req: AuthRequest, res: Response) => {
     try {
-        const schoolId = (req.query.schoolId as string) || req.user.school_id;
+        const schoolId = req.user.school_id; // never trust a client-supplied query param over the token
         const branchId = getEffectiveBranchId(req.user, (req.query.branchId || req.query.branch_id) as string);
         const term = req.query.term as string;
         const session = req.query.session as string;

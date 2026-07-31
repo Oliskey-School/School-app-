@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { AlertTriangle, Paperclip } from 'lucide-react';
@@ -75,15 +76,15 @@ const SuspendStudentScreen: React.FC<SuspendStudentScreenProps> = ({ student, ha
 
     return (
         <div className="p-4 lg:p-6 max-w-2xl mx-auto space-y-6 pb-24">
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
+            <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
                 <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
                 <div>
                     <p className="font-bold text-amber-900">Suspend {student.name}</p>
                     <p className="text-sm text-amber-700">This letter will be sent immediately to the student and their parent/guardian, and permanently stored in the student's record.</p>
                 </div>
-            </div>
+            </motion.div>
 
-            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 space-y-4">
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.05 }} className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 space-y-4">
                 <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-1">Reason for Suspension</label>
                     <textarea rows={5} placeholder="Describe the full reason for this suspension..."
@@ -124,17 +125,20 @@ const SuspendStudentScreen: React.FC<SuspendStudentScreenProps> = ({ student, ha
                         <p className="text-xs text-gray-400 mt-1">{form.attachment_urls.length} document(s) attached</p>
                     )}
                 </div>
-            </div>
+            </motion.div>
 
             <div className="flex gap-3">
-                <button onClick={handleBack}
+                <motion.button whileTap={{ scale: 0.97 }} onClick={handleBack}
                     className="flex-1 py-3 border border-gray-200 rounded-2xl text-gray-600 font-bold hover:bg-gray-50 transition-colors">
                     Cancel
-                </button>
-                <button onClick={handleSubmit} disabled={saving}
+                </motion.button>
+                <motion.button
+                    whileHover={!saving ? { scale: 1.01 } : {}}
+                    whileTap={!saving ? { scale: 0.97 } : {}}
+                    onClick={handleSubmit} disabled={saving}
                     className="flex-1 py-3 bg-amber-600 text-white rounded-2xl font-bold hover:bg-amber-700 transition-colors shadow-lg shadow-amber-200 disabled:opacity-60">
                     {saving ? 'Sending...' : 'Issue Suspension Letter'}
-                </button>
+                </motion.button>
             </div>
         </div>
     );

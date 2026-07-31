@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { ChevronLeftIcon, CameraIcon, ChartBarIcon, BookOpenIcon, ClockIcon } from '../../constants';
 import { useProfile } from '../../context/ProfileContext';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
-import { LockIcon, UserIcon, EyeIcon, EyeOffIcon } from 'lucide-react';
+import { LockIcon, UserIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from './LanguageSwitcher';
 import { useUserIdentity } from '../../lib/hooks/useUserIdentity';
 
 interface EditProfileScreenProps {
     onBack: () => void;
+    navigateTo?: (view: string, title: string, props?: any) => void;
     user?: {
         id?: string;
         name: string;
@@ -24,13 +26,19 @@ interface EditProfileScreenProps {
 }
 
 const StatCard: React.FC<{ icon: any, label: string, value: string, color: string }> = ({ icon, label, value, color }) => (
-    <div className="flex flex-col items-center p-3 bg-white rounded-2xl shadow-sm border border-gray-50 min-w-[90px]">
+    <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        whileHover={{ y: -2 }}
+        transition={{ duration: 0.25 }}
+        className="flex flex-col items-center p-3 bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow duration-200 border border-gray-50 min-w-[90px]"
+    >
         <div className={`p-2 rounded-full mb-1 ${color} bg-opacity-10`}>
             {React.cloneElement(icon, { className: `w-5 h-5 ${color.replace('bg-', 'text-')}` })}
         </div>
         <span className="text-xl font-bold text-gray-800">{value}</span>
         <span className="text-xs text-gray-400 font-medium">{label}</span>
-    </div>
+    </motion.div>
 );
 
 const InputField: React.FC<{ label: string, value: string, onChange?: (val: string) => void, type?: string, readOnly?: boolean }> = ({ label, value, onChange, type = "text", readOnly = false }) => (
@@ -53,7 +61,7 @@ const InputField: React.FC<{ label: string, value: string, onChange?: (val: stri
     </div>
 );
 
-const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack, user, onProfileUpdate }) => {
+const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack, navigateTo, user, onProfileUpdate }) => {
     const { updateProfile } = useProfile();
     const { user: authUser } = useAuth();
     const { customId, formatId } = useUserIdentity();
@@ -63,13 +71,8 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack, user, onP
     const [avatar, setAvatar] = useState(user?.avatarUrl || '');
     const [email, setEmail] = useState(user?.email || '');
     const [username, setUsername] = useState(authUser?.user_metadata?.username || '');
-    const [currentPassword, setCurrentPassword] = useState('');
-    const [newPassword, setNewPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
-    const [showPassword, setShowPassword] = useState(false);
     const [saving, setSaving] = useState(false);
     const [updatingUsername, setUpdatingUsername] = useState(false);
-    const [updatingPassword, setUpdatingPassword] = useState(false);
     const [stats, setStats] = useState({
         attendanceRate: 0,
         assignmentsSubmitted: 0,
@@ -189,34 +192,6 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack, user, onP
         }
     };
 
-    const handleUpdatePassword = async () => {
-        if (!newPassword) return;
-        if (newPassword !== confirmPassword) {
-            toast.error('Passwords do not match');
-            return;
-        }
-        if (newPassword.length < 6) {
-            toast.error('Password must be at least 6 characters');
-            return;
-        }
-
-        setUpdatingPassword(true);
-        try {
-            await api.patch('/auth/update-password', { 
-                currentPassword, 
-                newPassword 
-            });
-            toast.success('Password updated successfully!');
-            setCurrentPassword('');
-            setNewPassword('');
-            setConfirmPassword('');
-        } catch (err: any) {
-            toast.error(err.message || 'Error updating password');
-        } finally {
-            setUpdatingPassword(false);
-        }
-    };
-
     return (
         <div className="flex flex-col h-full bg-slate-50 font-sans relative overflow-hidden">
             {/* Background decorations */}
@@ -238,7 +213,11 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack, user, onP
 
             {/* Main Content Card */}
             <main className="flex-grow px-4 -mt-16 relative z-10 pb-6 overflow-y-auto hide-scrollbar">
-                <div className="bg-white rounded-[2rem] shadow-xl shadow-orange-900/5 border border-white/50 min-h-[600px] flex flex-col items-center pt-20 pb-8 px-6 relative backdrop-blur-sm">
+                <motion.div
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.35, ease: 'easeOut' }}
+                    className="bg-white rounded-[2rem] shadow-xl shadow-orange-900/5 border border-white/50 min-h-[600px] flex flex-col items-center pt-20 pb-8 px-6 relative backdrop-blur-sm">
 
                     {/* Avatar Section */}
                     <div className="absolute -top-10 left-1/2 transform -translate-x-1/2">
@@ -257,7 +236,7 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack, user, onP
                                 PRO
                             </div>
                             {/* Camera Button */}
-                            <label className="absolute bottom-1 right-1 bg-gray-800 text-white p-2 rounded-full shadow-lg border-[3px] border-white hover:bg-gray-700 transition-transform hover:scale-110 active:scale-95 cursor-pointer">
+                            <label className="absolute bottom-1 right-1 bg-gray-800 text-white p-2 rounded-full shadow-lg border-[3px] border-white hover:bg-gray-700 transition-transform hover:scale-110 active:scale-95 cursor-pointer" aria-label="Change profile photo">
                                 <CameraIcon className="w-4 h-4" />
                                 <input type="file" className="hidden" accept="image/*" onChange={handleImageChange} />
                             </label>
@@ -331,77 +310,47 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack, user, onP
                                                     placeholder="Enter new username"
                                                 />
                                             </div>
-                                            <button
+                                            <motion.button
+                                                whileHover={{ scale: 1.02 }}
+                                                whileTap={{ scale: 0.96 }}
                                                 onClick={handleUpdateUsername}
                                                 disabled={updatingUsername || !username || username === authUser?.user_metadata?.username}
                                                 className="px-4 py-2 bg-slate-800 text-white text-xs font-bold rounded-xl hover:bg-slate-700 disabled:opacity-50 transition-colors"
                                             >
                                                 {updatingUsername ? '...' : 'Update'}
-                                            </button>
+                                            </motion.button>
                                         </div>
                                     </div>
 
-                                    <div className="w-full space-y-3 p-4 bg-orange-50/50 rounded-2xl border border-orange-100">
-                                        <div className="flex items-center space-x-2 mb-2">
-                                            <LockIcon className="w-4 h-4 text-orange-500" />
-                                            <span className="text-xs font-bold text-orange-700 uppercase">Change Password</span>
-                                        </div>
-
-                                        <div className="relative">
-                                            <input
-                                                type={showPassword ? "text" : "password"}
-                                                value={currentPassword}
-                                                onChange={e => setCurrentPassword(e.target.value)}
-                                                className="w-full bg-white border border-orange-100 text-gray-800 text-sm rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent block p-3 transition-all"
-                                                placeholder="Current Password"
-                                            />
-                                        </div>
-
-                                        <div className="relative">
-                                            <input
-                                                type={showPassword ? "text" : "password"}
-                                                value={newPassword}
-                                                onChange={e => setNewPassword(e.target.value)}
-                                                className="w-full bg-white border border-orange-100 text-gray-800 text-sm rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent block p-3 transition-all"
-                                                placeholder="New Password"
-                                            />
-                                            <button
-                                                onClick={() => setShowPassword(!showPassword)}
-                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                                            >
-                                                {showPassword ? <EyeOffIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
-                                            </button>
-                                        </div>
-
-                                        <input
-                                            type={showPassword ? "text" : "password"}
-                                            value={confirmPassword}
-                                            onChange={e => setConfirmPassword(e.target.value)}
-                                            className="w-full bg-white border border-orange-100 text-gray-800 text-sm rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent block p-3 transition-all"
-                                            placeholder="Confirm New Password"
-                                        />
-
-                                        <button
-                                            onClick={handleUpdatePassword}
-                                            disabled={updatingPassword || !newPassword}
-                                            className="w-full py-3 bg-orange-500 text-white text-sm font-bold rounded-xl hover:bg-orange-600 shadow-md shadow-orange-500/20 disabled:opacity-50 transition-all"
+                                    {navigateTo && (
+                                        <motion.button
+                                            whileHover={{ scale: 1.01 }}
+                                            whileTap={{ scale: 0.98 }}
+                                            onClick={() => navigateTo('changePassword', 'Change Password')}
+                                            className="w-full flex items-center justify-between p-4 bg-orange-50/50 rounded-2xl border border-orange-100 hover:bg-orange-50 transition-colors"
                                         >
-                                            {updatingPassword ? 'Updating...' : 'Change Password'}
-                                        </button>
-                                    </div>
+                                            <span className="flex items-center space-x-2">
+                                                <LockIcon className="w-4 h-4 text-orange-500" />
+                                                <span className="text-xs font-bold text-orange-700 uppercase">Change Password</span>
+                                            </span>
+                                            <ChevronLeftIcon className="w-4 h-4 text-orange-400 rotate-180" />
+                                        </motion.button>
+                                    )}
                                 </div>
                             </div>
                         )}
                     </div>
 
                     {/* Save Button */}
-                    <button
+                    <motion.button
+                        whileHover={{ scale: 1.01, y: -1 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={handleSave}
                         disabled={saving}
-                        className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white font-bold py-4 rounded-xl shadow-lg shadow-orange-500/30 hover:shadow-orange-500/40 transition-all transform hover:-translate-y-0.5 active:scale-[0.98] mt-8 disabled:opacity-70 disabled:cursor-wait">
+                        className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white font-bold py-4 rounded-xl shadow-lg shadow-orange-500/30 hover:shadow-orange-500/40 transition-shadow mt-8 disabled:opacity-70 disabled:cursor-wait">
                         {saving ? 'Saving...' : 'Save Changes'}
-                    </button>
-                </div>
+                    </motion.button>
+                </motion.div>
             </main>
         </div>
     );

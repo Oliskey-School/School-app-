@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { api } from '../../../lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
+import CenteredLoader from '../../ui/CenteredLoader';
 import {
     TrendingUp,
     Users,
@@ -154,31 +156,31 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ navigate
                     <p className="text-gray-600 mt-1">Platform insights and performance metrics</p>
                 </div>
                 <div className="flex gap-2">
-                    <button
+                    <motion.button
+                        whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                         onClick={fetchAnalytics}
                         className="flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
                     >
                         <RefreshCw className="w-4 h-4 mr-2" />
                         Refresh
-                    </button>
-                    <button
+                    </motion.button>
+                    <motion.button
+                        whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                         onClick={exportData}
                         className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
                     >
                         <Download className="w-4 h-4 mr-2" />
                         Export
-                    </button>
+                    </motion.button>
                 </div>
             </div>
 
             {loading ? (
-                <div className="flex justify-center items-center py-12">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-                </div>
+                <CenteredLoader className="py-12" />
             ) : (
                 <>
                     {/* Stats Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         <StatCard
                             title="Total Schools"
                             value={stats.totalSchools.toString()}
@@ -200,10 +202,10 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ navigate
                             icon={<Users className="w-6 h-6 text-blue-600" />}
                             color="bg-blue-50"
                         />
-                    </div>
+                    </motion.div>
 
                     {/* Charts Row 1 */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.05 }} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         {/* User Growth Chart */}
                         <Card>
                             <CardHeader>
@@ -252,10 +254,10 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ navigate
                                 </ResponsiveContainer>
                             </CardContent>
                         </Card>
-                    </div>
+                    </motion.div>
 
                     {/* Charts Row 2 */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.1 }} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         {/* Plan Distribution */}
                         <Card>
                             <CardHeader>
@@ -305,7 +307,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ navigate
                                 </ResponsiveContainer>
                             </CardContent>
                         </Card>
-                    </div>
+                    </motion.div>
                 </>
             )}
         </div>

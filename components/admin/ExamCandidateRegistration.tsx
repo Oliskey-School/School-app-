@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
 
 import { UserGroupIcon, SearchIcon, DownloadIcon, PlusIcon, XIcon, FolderIcon, DocumentTextIcon } from '../../constants';
+import CenteredLoader from '../ui/CenteredLoader';
 
 interface ExamBody {
     id: string;
@@ -339,12 +341,7 @@ export const ExamCandidateRegistration = React.forwardRef<ExamCandidateRegistrat
                             </div>
 
                             {loading ? (
-                                <div className="flex flex-col justify-center items-center h-80">
-                                    <div className="relative">
-                                        <div className="w-12 h-12 rounded-full border-4 border-indigo-50 border-t-indigo-500 animate-spin"></div>
-                                    </div>
-                                    <p className="mt-4 text-sm font-bold text-gray-400 uppercase tracking-widest">Gathering Data</p>
-                                </div>
+                                <CenteredLoader message="Gathering Data" className="h-80" />
                             ) : (
                                 <div className="overflow-x-auto">
                                     <table className="min-w-full divide-y divide-gray-50 font-sans">
@@ -377,8 +374,8 @@ export const ExamCandidateRegistration = React.forwardRef<ExamCandidateRegistrat
                                                         </div>
                                                     </td>
                                                 </tr>
-                                            ) : filteredStudents.map(student => (
-                                                <tr key={student.id} className="hover:bg-indigo-50/40 transition-all group">
+                                            ) : filteredStudents.map((student, si) => (
+                                                <motion.tr key={student.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(si, 20) * 0.02 }} className="hover:bg-indigo-50/40 transition-all group">
                                                     <td className="px-8 py-5 whitespace-nowrap">
                                                         <input
                                                             type="checkbox"
@@ -427,7 +424,7 @@ export const ExamCandidateRegistration = React.forwardRef<ExamCandidateRegistrat
                                                             </button>
                                                         )}
                                                     </td>
-                                                </tr>
+                                                </motion.tr>
                                             ))}
                                         </tbody>
                                     </table>
@@ -449,9 +446,10 @@ export const ExamCandidateRegistration = React.forwardRef<ExamCandidateRegistrat
             </div>
 
             {/* Setup Modal - MATCHING SCREENSHOT EXACTLY */}
+            <AnimatePresence>
             {showSetupModal && (
-                <div className="fixed inset-0 bg-[#0F172ACC]/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
-                    <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-[480px] overflow-hidden border border-gray-100 transform animate-in slide-in-from-bottom-8 duration-500">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-[#0F172ACC]/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
+                    <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} transition={{ type: 'spring', stiffness: 400, damping: 32 }} className="bg-white rounded-[32px] shadow-2xl w-full max-w-[480px] overflow-hidden border border-gray-100">
                         {/* Modal Header */}
                         <div className="px-10 pt-10 pb-4 flex justify-between items-center">
                             <h3 className="text-[22px] font-extrabold text-[#1A1C21] tracking-tight">Setup New Exam Body</h3>
@@ -505,9 +503,10 @@ export const ExamCandidateRegistration = React.forwardRef<ExamCandidateRegistrat
                                 </button>
                             </div>
                         </form>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
         </div>
     );
 });

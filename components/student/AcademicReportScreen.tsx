@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { motion } from 'framer-motion';
+
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { Student, AcademicRecord, BehaviorNote } from '../../types';
 import { fetchStudentById, fetchAcademicPerformance, fetchBehaviorNotes } from '../../lib/database';
@@ -39,17 +41,28 @@ const PerformanceTrendChart = ({ data }: { data: { term: string, average: number
 const SubjectScoresChart = ({ data }: { data: { subject: string, score: number }[] }) => {
     return (
         <div className="space-y-3 pt-2">
-            {data.map(item => {
+            {data.map((item, i) => {
                 const colorClass = SUBJECT_COLORS[item.subject] || 'bg-gray-200 text-gray-800';
                 return (
-                    <div key={item.subject} className="flex items-center space-x-2">
+                    <motion.div
+                        key={item.subject}
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.2, delay: i * 0.04 }}
+                        className="flex items-center space-x-2"
+                    >
                         <span className="w-28 text-sm font-medium text-gray-600 truncate">{item.subject}</span>
                         <div className="flex-grow bg-gray-200 rounded-full h-5">
-                            <div className={`${colorClass} h-5 rounded-full flex items-center justify-end pr-2 text-white text-xs font-bold`} style={{ width: `${item.score}%` }}>
+                            <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: `${item.score}%` }}
+                                transition={{ duration: 0.8, delay: i * 0.04, ease: 'easeOut' }}
+                                className={`${colorClass} h-5 rounded-full flex items-center justify-end pr-2 text-white text-xs font-bold`}
+                            >
                                 {item.score}
-                            </div>
+                            </motion.div>
                         </div>
-                    </div>
+                    </motion.div>
                 )
             })}
         </div>
@@ -121,17 +134,17 @@ const AcademicReportScreen: React.FC<AcademicReportScreenProps> = ({ studentId }
     return (
         <div className="p-4 space-y-4 bg-gray-50">
             {/* Student Header */}
-            <div className="bg-white p-4 rounded-xl shadow-sm flex items-center space-x-4">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="bg-white p-4 rounded-xl shadow-sm flex items-center space-x-4">
                 <img src={student.avatarUrl} alt={student.name} className="w-16 h-16 rounded-full object-cover border-4 border-orange-100" />
                 <div>
                     <h3 className="text-xl font-bold text-gray-800">{student.name}</h3>
                     <p className="text-gray-500 font-medium">Grade {student.grade}{student.section}</p>
                 </div>
-            </div>
+            </motion.div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {/* Performance Trend */}
-                <div className="bg-white p-4 rounded-xl shadow-sm">
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.05 }} className="bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow">
                     <div className="flex items-center space-x-2 mb-2">
                         <TrendingUpIcon className="h-5 w-5 text-orange-600" />
                         <h4 className="font-bold text-gray-800">Performance Trend</h4>
@@ -141,10 +154,10 @@ const AcademicReportScreen: React.FC<AcademicReportScreenProps> = ({ studentId }
                     ) : (
                         <p className="text-center py-10 text-gray-400 text-sm italic">No performance data available yet.</p>
                     )}
-                </div>
+                </motion.div>
 
                 {/* Subject Breakdown */}
-                <div className="bg-white p-4 rounded-xl shadow-sm">
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.1 }} className="bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow">
                     <div className="flex items-center space-x-2 mb-2">
                         <BookOpenIcon className="h-5 w-5 text-orange-600" />
                         <h4 className="font-bold text-gray-800">Breakdown ({performanceByTerm.slice(-1)[0]?.term || 'N/A'})</h4>
@@ -154,31 +167,31 @@ const AcademicReportScreen: React.FC<AcademicReportScreenProps> = ({ studentId }
                     ) : (
                         <p className="text-center py-10 text-gray-400 text-sm italic">No records for the latest term.</p>
                     )}
-                </div>
+                </motion.div>
             </div>
 
             {/* Teacher's Remarks */}
-            <div className="bg-white p-4 rounded-xl shadow-sm">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.15 }} className="bg-white p-4 rounded-xl shadow-sm">
                 <div className="flex items-center space-x-2 mb-3">
                     <ClipboardListIcon className="h-5 w-5 text-orange-600" />
                     <h4 className="font-bold text-gray-800">Teacher's Remarks</h4>
                 </div>
                 <div className="space-y-3">
                     {performance.filter(r => r.teacherRemark).map((record, idx) => (
-                        <div key={idx} className="bg-orange-50 p-3 rounded-lg">
+                        <motion.div key={idx} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: idx * 0.04 }} className="bg-orange-50 p-3 rounded-lg">
                             <p className="font-semibold text-orange-800">{record.subject}</p>
                             <p className="text-sm text-gray-700 italic">"{record.teacherRemark}"</p>
-                        </div>
+                        </motion.div>
                     ))}
-                    {(behaviorNotes && behaviorNotes.length > 0) ? behaviorNotes.map(note => (
-                        <div key={note.id} className="bg-orange-50 p-3 rounded-lg">
+                    {(behaviorNotes && behaviorNotes.length > 0) ? behaviorNotes.map((note, idx) => (
+                        <motion.div key={note.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: idx * 0.04 }} className="bg-orange-50 p-3 rounded-lg">
                             <p className="font-semibold text-orange-800">{note.title} ({note.type})</p>
                             <p className="text-sm text-gray-700">{note.note}</p>
                             <p className="text-xs text-gray-500 text-right mt-1">- {note.by} on {new Date(note.date).toLocaleDateString()}</p>
-                        </div>
+                        </motion.div>
                     )) : performance.every(r => !r.teacherRemark) && <p className="text-sm text-gray-400 text-center py-4">No remarks recorded.</p>}
                 </div>
-            </div>
+            </motion.div>
         </div>
     );
 };

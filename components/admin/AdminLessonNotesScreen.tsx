@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useAutoSync } from '../../hooks/useAutoSync';
@@ -118,8 +119,8 @@ const AdminLessonNotesScreen: React.FC<AdminLessonNotesScreenProps> = ({ schoolI
                         <p className="text-sm mt-1">Notes submitted by teachers will appear here</p>
                     </div>
                 ) : (
-                    notes.map(note => (
-                        <div key={note.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                    notes.map((note, ni) => (
+                        <motion.div key={note.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(ni, 15) * 0.03 }} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                             {/* Card header — click to expand */}
                             <button
                                 className="w-full text-left p-4 hover:bg-gray-50 transition-colors"
@@ -158,8 +159,9 @@ const AdminLessonNotesScreen: React.FC<AdminLessonNotesScreenProps> = ({ schoolI
                             </button>
 
                             {/* Expanded content */}
+                            <AnimatePresence>
                             {expandedId === note.id && (
-                                <div className="border-t border-gray-100 px-4 pb-4 pt-3 bg-gray-50">
+                                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="border-t border-gray-100 px-4 pb-4 pt-3 bg-gray-50 overflow-hidden">
                                     <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed mb-4">
                                         {note.content || <span className="text-gray-400 italic">No content provided.</span>}
                                     </p>
@@ -215,9 +217,10 @@ const AdminLessonNotesScreen: React.FC<AdminLessonNotesScreenProps> = ({ schoolI
                                             Re-approve
                                         </button>
                                     )}
-                                </div>
+                                </motion.div>
                             )}
-                        </div>
+                            </AnimatePresence>
+                        </motion.div>
                     ))
                 )}
             </div>

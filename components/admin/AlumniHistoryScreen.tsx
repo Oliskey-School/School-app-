@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
+import CenteredLoader from '../ui/CenteredLoader';
 import { toast } from 'react-hot-toast';
 import {
     User, CalendarDays, TrendingUp, FolderOpen, Wallet, Award,
@@ -46,7 +48,7 @@ const AlumniHistoryScreen: React.FC<AlumniHistoryScreenProps> = ({ studentId }) 
 
     useEffect(() => { fetchHistory(); }, [fetchHistory]);
 
-    if (loading) return <div className="text-center py-12 text-gray-500">Loading student record...</div>;
+    if (loading) return <CenteredLoader message="Loading student record..." className="py-12" />;
     if (!data) return <div className="text-center py-12 text-gray-500">Record unavailable.</div>;
 
     const s = data.student;
@@ -59,7 +61,7 @@ const AlumniHistoryScreen: React.FC<AlumniHistoryScreenProps> = ({ studentId }) 
 
     return (
         <div className="p-4 lg:p-6 max-w-5xl mx-auto space-y-6 pb-24">
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
                 {s.avatar_url
                     ? <img src={s.avatar_url} alt={s.full_name} className="w-16 h-16 rounded-full object-cover" />
                     : <div className="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center"><User className="w-8 h-8 text-indigo-600" /></div>}
@@ -68,18 +70,23 @@ const AlumniHistoryScreen: React.FC<AlumniHistoryScreenProps> = ({ studentId }) 
                     <p className="text-sm text-gray-500 font-mono">{s.school_generated_id || s.admission_number || ''}</p>
                     <p className="text-xs text-gray-400">{s.exit_class || ''} · {s.status} {s.exit_year ? `· ${s.exit_year}` : ''}</p>
                 </div>
-            </div>
+            </motion.div>
 
-            <div className="bg-white p-1.5 rounded-2xl shadow-sm border border-gray-100 flex overflow-x-auto gap-1">
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: 0.05 }} className="bg-white p-1.5 rounded-2xl shadow-sm border border-gray-100 flex overflow-x-auto gap-1">
                 {TABS.map(tb => (
-                    <button key={tb.key} onClick={() => setTab(tb.key)}
-                        className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-colors ${
-                            tab === tb.key ? 'bg-indigo-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
-                        {tb.icon} {tb.label}
-                    </button>
+                    <motion.button key={tb.key} whileTap={{ scale: 0.96 }} onClick={() => setTab(tb.key)}
+                        className={`relative flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap ${
+                            tab === tb.key ? 'text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
+                        {tab === tb.key && (
+                            <motion.div layoutId="alumniHistoryTab" transition={{ type: 'spring', stiffness: 400, damping: 30 }} className="absolute inset-0 bg-indigo-600 rounded-xl" />
+                        )}
+                        <span className="relative z-10 flex items-center gap-1.5">{tb.icon} {tb.label}</span>
+                    </motion.button>
                 ))}
-            </div>
+            </motion.div>
 
+            <AnimatePresence mode="wait">
+            <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
             {tab === 'overview' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
@@ -294,6 +301,8 @@ const AlumniHistoryScreen: React.FC<AlumniHistoryScreenProps> = ({ studentId }) 
                         </div>}
                 </div>
             )}
+            </motion.div>
+            </AnimatePresence>
         </div>
     );
 };

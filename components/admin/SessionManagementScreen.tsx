@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
 import {
@@ -125,18 +126,18 @@ const SessionManagementScreen = () => {
                     <AlertTriangle className="w-5 h-5 text-amber-500" />
                     <p className="text-sm font-medium text-gray-600">See a session you don't recognize? Revoke it immediately and change your password.</p>
                 </div>
-                <button onClick={handleRevokeAll} className="flex items-center space-x-2 px-5 py-2.5 bg-red-600 text-white rounded-2xl font-bold hover:bg-red-700 transition-all text-sm">
+                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={handleRevokeAll} className="flex items-center space-x-2 px-5 py-2.5 bg-red-600 text-white rounded-2xl font-bold hover:bg-red-700 transition-all text-sm">
                     <LogOut className="w-4 h-4" /><span>Revoke All Others</span>
-                </button>
+                </motion.button>
             </div>
 
             {/* Session Cards */}
             <div className="space-y-4">
                 <h2 className="text-lg font-bold text-gray-700">Active Sessions</h2>
-                {sessions.map(session => {
+                {sessions.map((session, si) => {
                     const DeviceIcon = getDeviceIcon(session.user_agent);
                     return (
-                        <div key={session.id} className={`bg-white p-6 rounded-3xl shadow-sm border transition-all hover:shadow-md ${session.is_current ? 'border-indigo-200 bg-indigo-50/30' : 'border-gray-100'}`}>
+                        <motion.div key={session.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(si, 15) * 0.03 }} className={`bg-white p-6 rounded-3xl shadow-sm border transition-all hover:shadow-md ${session.is_current ? 'border-indigo-200 bg-indigo-50/30' : 'border-gray-100'}`}>
                             <div className="flex items-start justify-between">
                                 <div className="flex items-start space-x-4">
                                     <div className={`p-3 rounded-2xl ${session.is_current ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-100 text-gray-600'}`}>
@@ -162,14 +163,14 @@ const SessionManagementScreen = () => {
                                     </div>
                                 </div>
                                 {!session.is_current && (
-                                    <button onClick={() => handleRevoke(session.id)} disabled={revoking === session.id}
+                                    <motion.button whileHover={revoking !== session.id ? { scale: 1.03 } : {}} whileTap={revoking !== session.id ? { scale: 0.97 } : {}} onClick={() => handleRevoke(session.id)} disabled={revoking === session.id}
                                         className="flex items-center space-x-2 px-4 py-2 bg-red-50 text-red-600 rounded-xl font-bold text-sm hover:bg-red-100 transition-all disabled:opacity-50">
                                         {revoking === session.id ? <RefreshCw className="w-4 h-4 animate-spin" /> : <LogOut className="w-4 h-4" />}
                                         <span>{revoking === session.id ? 'Revoking...' : 'Revoke'}</span>
-                                    </button>
+                                    </motion.button>
                                 )}
                             </div>
-                        </div>
+                        </motion.div>
                     );
                 })}
                 {sessions.length === 0 && !loading && (

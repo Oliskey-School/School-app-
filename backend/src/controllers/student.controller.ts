@@ -458,7 +458,10 @@ export const getStudentsByClass = async (req: AuthRequest, res: Response) => {
     try {
         const grade = parseInt(req.query.grade as string);
         const section = req.query.section as string;
-        const schoolId = req.query.schoolId as string || req.user.school_id;
+        // Always trust the verified token's school_id — never a client-supplied
+        // query param, which would let any authenticated user pull another
+        // school's roster by passing ?schoolId=<other-school-id>.
+        const schoolId = req.user.school_id;
         const branchId = getEffectiveBranchId(req.user, req.query.branchId as string);
         const curriculumId = req.query.curriculumId as string;
 

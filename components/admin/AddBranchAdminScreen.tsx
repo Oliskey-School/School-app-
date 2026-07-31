@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { CameraIcon, UserIcon, MailIcon, PhoneIcon, ChevronLeftIcon } from '../../constants';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
@@ -101,9 +102,9 @@ const AddBranchAdminScreen: React.FC<AddBranchAdminScreenProps> = ({ forceUpdate
     return (
         <div className="flex flex-col h-full bg-gray-50">
             <div className="p-4 bg-white border-b flex items-center gap-4">
-                <button onClick={handleBack} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                <motion.button whileTap={{ scale: 0.9 }} onClick={handleBack} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
                     <ChevronLeftIcon className="w-6 h-6 text-gray-600" />
-                </button>
+                </motion.button>
                 <h2 className="font-bold text-lg text-gray-800 tracking-tight">Add Branch Admin</h2>
             </div>
 
@@ -117,14 +118,14 @@ const AddBranchAdminScreen: React.FC<AddBranchAdminScreenProps> = ({ forceUpdate
                                 <UserIcon className="w-12 h-12 text-indigo-200" />
                             )}
                         </div>
-                        <label htmlFor="photo-upload" className="absolute bottom-0 right-0 bg-indigo-600 p-2.5 rounded-full border-2 border-white cursor-pointer hover:bg-indigo-700 shadow-lg transform group-hover:scale-110 transition-transform">
+                        <motion.label whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.92 }} htmlFor="photo-upload" className="absolute bottom-0 right-0 bg-indigo-600 p-2.5 rounded-full border-2 border-white cursor-pointer hover:bg-indigo-700 shadow-lg">
                             <CameraIcon className="text-white h-4 w-4" />
                             <input id="photo-upload" type="file" className="sr-only" accept="image/*" onChange={handleImageChange} />
-                        </label>
+                        </motion.label>
                     </div>
                 </div>
 
-                <div className="bg-white p-6 rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 space-y-5 max-w-2xl mx-auto w-full">
+                <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="bg-white p-6 rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 space-y-5 max-w-2xl mx-auto w-full">
                     <div>
                         <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5 ml-1">Full Name</label>
                         <div className="relative group">
@@ -195,15 +196,17 @@ const AddBranchAdminScreen: React.FC<AddBranchAdminScreenProps> = ({ forceUpdate
                     </div>
 
                     <div className="pt-6">
-                        <button
+                        <motion.button
+                            whileHover={!isLoading && !!selectedBranchId ? { scale: 1.01 } : {}}
+                            whileTap={!isLoading && !!selectedBranchId ? { scale: 0.96 } : {}}
                             type="submit"
                             disabled={isLoading || !selectedBranchId}
-                            className={`w-full py-4 rounded-xl text-white font-black uppercase tracking-widest shadow-xl shadow-indigo-600/20 ${isLoading ? 'bg-slate-300' : 'bg-indigo-600 hover:bg-indigo-700 active:scale-95'} transition-all`}
+                            className={`w-full py-4 rounded-xl text-white font-black uppercase tracking-widest shadow-xl shadow-indigo-600/20 ${isLoading ? 'bg-slate-300' : 'bg-indigo-600 hover:bg-indigo-700'} transition-colors`}
                         >
                             {isLoading ? 'Creating Account...' : 'Create Branch Admin'}
-                        </button>
+                        </motion.button>
                     </div>
-                </div>
+                </motion.div>
             </form>
 
             {credentials && (

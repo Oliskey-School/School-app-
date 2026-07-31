@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcrypt';
 import crypto from 'crypto';
+import axios from 'axios';
 import prisma, { getRawPrisma } from '../config/database';
 import { config } from '../config/env';
 import { IdGeneratorService } from './idGenerator.service';
@@ -230,7 +231,7 @@ export class AuthService {
 
     static async login(identifier: string, password: string) {
         const normalizedIdentifier = identifier.trim().toLowerCase();
-        
+
         // Find ALL accounts matching the identifier (email OR school_generated_id).
         // A generated ID can legitimately collide across schools/branches — e.g. in
         // the SHARED demo school every visitor's "Lekki" branch admin is
@@ -238,11 +239,19 @@ export class AuthService {
         // must not assume the first match is the right person: we pick the candidate
         // whose PASSWORD actually matches. This is also correct for live schools that
         // happen to share a school/branch code.
+        //
+        // Plain `equals` (not `mode: 'insensitive'`) on purpose: Postgres can't use
+        // the @@index([email]) / @@unique(school_generated_id) indexes for a
+        // case-insensitive comparison, so every login did a full table scan —
+        // 50 concurrent logins took 34s in testing. Both columns are always written
+        // in a fixed case (email lowercased, school_generated_id uppercased at
+        // generation), so matching the identifier's case per-field is exact AND
+        // hits the index.
         const candidates = await (getRawPrisma().user.findMany as any)({
             where: {
                 OR: [
-                    { email: { equals: normalizedIdentifier, mode: 'insensitive' } },
-                    { school_generated_id: { equals: normalizedIdentifier, mode: 'insensitive' } }
+                    { email: normalizedIdentifier },
+                    { school_generated_id: identifier.trim().toUpperCase() }
                 ]
             },
             include: {
@@ -471,9 +480,41 @@ export class AuthService {
         }
     }
 
-    static async googleLogin(email: string, name: string) {
+    /**
+     * Verifies a Google ID token server-side against Google's own tokeninfo
+     * endpoint — checks signature, expiry, AND that it was issued for THIS
+     * app (aud must match our client ID). Without this, googleLogin would
+     * trust whatever email the caller claims, letting anyone log in as any
+     * registered user with a plain POST — no Google account needed at all.
+     */
+    static async verifyGoogleIdToken(idToken: string): Promise<{ email: string; name: string }> {
+        let payload: any;
+        try {
+            const resp = await axios.get('https://oauth2.googleapis.com/tokeninfo', {
+                params: { id_token: idToken }
+            });
+            payload = resp.data;
+        } catch (err: any) {
+            throw new Error('Invalid or expired Google credential');
+        }
+
+        if (payload.aud !== config.googleClientId) {
+            throw new Error('Google credential was not issued for this application');
+        }
+        if (payload.email_verified !== 'true' && payload.email_verified !== true) {
+            throw new Error('Google account email is not verified');
+        }
+        if (!payload.email) {
+            throw new Error('Google credential did not include an email address');
+        }
+
+        return { email: payload.email, name: payload.name || payload.given_name || 'Google User' };
+    }
+
+    static async googleLogin(idToken: string) {
+        const { email } = await this.verifyGoogleIdToken(idToken);
         const normalizedEmail = email.trim().toLowerCase();
-        
+
         // 1. Find user by email (email is not unique alone — compound key includes school_id)
         let user = await prisma.user.findFirst({
             where: { email: normalizedEmail },

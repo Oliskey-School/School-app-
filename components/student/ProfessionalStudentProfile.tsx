@@ -203,7 +203,7 @@ export default function ProfessionalStudentProfile({ studentId }: StudentProfile
                     </div>
 
                     {/* Right Column - Quick Links & Performance */}
-                    <div className="space-y-6">
+                    <div className="space-y-6 lg:sticky lg:top-6 lg:self-start">
                         {/* Quick Links */}
                         <div className="bg-white rounded-2xl shadow-sm p-6">
                             <h3 className="text-lg font-bold text-gray-900 mb-4">Quick Actions</h3>

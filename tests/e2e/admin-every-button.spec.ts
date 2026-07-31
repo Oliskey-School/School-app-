@@ -91,7 +91,7 @@ async function getButtonLabel(b: Locator): Promise<string> {
 test.describe.configure({ mode: 'serial' });
 
 test('every admin screen — every clickable button passes (no 5xx, no pageerror, no ErrorBoundary)', async ({ page, baseURL }) => {
-    test.setTimeout(60 * 60 * 1000); // up to 60 min for full sweep
+    test.setTimeout(150 * 60 * 1000); // up to 150 min — admin has 189 views, far more than other roles
 
     const allApiHits: { ts: number; hit: ApiHit }[] = [];
     page.on('response', (resp: Response) => {

@@ -1,9 +1,11 @@
 ﻿import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { SaveIcon, SchoolLogoIcon, CheckCircleIcon, XCircleIcon, PhotoIcon, FileTextIcon, UploadIcon, GlobeIcon, BuildingLibraryIcon } from '../../constants';
 import { toast } from 'react-hot-toast';
 import { uploadFile } from '../../lib/storage';
+import CenteredLoader from '../ui/CenteredLoader';
 
 // --- Types ---
 interface SchoolProfile {
@@ -171,7 +173,7 @@ const SchoolOnboardingScreen: React.FC = () => {
         });
     };
 
-    if (loading) return <div className="p-8 text-center text-gray-500">Loading School Data...</div>;
+    if (loading) return <CenteredLoader message="Loading School Data..." className="p-8" />;
 
     return (
         <div className="flex flex-col h-full bg-gray-50 overflow-hidden">
@@ -189,9 +191,12 @@ const SchoolOnboardingScreen: React.FC = () => {
                             <button
                                 key={tab}
                                 onClick={() => setActiveTab(tab as any)}
-                                className={`px-4 py-2 rounded-md text-xs md:text-sm font-semibold capitalize transition-all whitespace-nowrap ${activeTab === tab ? 'bg-white shadow text-indigo-700' : 'text-gray-500 hover:text-gray-700'}`}
+                                className={`relative px-4 py-2 rounded-md text-xs md:text-sm font-semibold capitalize transition-colors whitespace-nowrap ${activeTab === tab ? 'text-indigo-700' : 'text-gray-500 hover:text-gray-700'}`}
                             >
-                                {tab}
+                                {activeTab === tab && (
+                                    <motion.div layoutId="onboardingTab" className="absolute inset-0 bg-white shadow rounded-md" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />
+                                )}
+                                <span className="relative">{tab}</span>
                             </button>
                         ))}
                     </div>
@@ -199,10 +204,11 @@ const SchoolOnboardingScreen: React.FC = () => {
             </div>
 
             <div className="flex-grow overflow-y-auto p-4 md:p-6 max-w-5xl mx-auto w-full">
-
+                <AnimatePresence mode="wait">
+                <motion.div key={activeTab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
                 {/* --- TAB 1: SCHOOL PROFILE --- */}
                 {activeTab === 'profile' && (
-                    <form onSubmit={handleSaveProfile} className="space-y-6 animate-fade-in-up">
+                    <form onSubmit={handleSaveProfile} className="space-y-6">
                         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                             <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
                                 <BuildingLibraryIcon className="w-5 h-5 mr-2 text-indigo-600" />
@@ -235,16 +241,16 @@ const SchoolOnboardingScreen: React.FC = () => {
                         </div>
 
                         <div className="flex justify-end pt-4 pb-8 md:pb-0">
-                            <button type="submit" disabled={saving} className="btn-primary w-full md:w-auto">
+                            <motion.button whileHover={!saving ? { scale: 1.02 } : {}} whileTap={!saving ? { scale: 0.98 } : {}} type="submit" disabled={saving} className="btn-primary w-full md:w-auto">
                                 {saving ? 'Saving...' : 'Save & Continue'}
-                            </button>
+                            </motion.button>
                         </div>
                     </form>
                 )}
 
                 {/* --- TAB 2: COMPLIANCE DOCUMENTS --- */}
                 {activeTab === 'compliance' && (
-                    <div className="space-y-6 animate-fade-in-up">
+                    <div className="space-y-6">
                         <div className="bg-blue-50 p-4 rounded-lg flex items-start space-x-3 border border-blue-100 text-blue-800">
                             <FileTextIcon className="w-6 h-6 flex-shrink-0 mt-0.5" />
                             <div>
@@ -254,11 +260,11 @@ const SchoolOnboardingScreen: React.FC = () => {
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            {REQUIRED_DOCS.map((docType) => {
+                            {REQUIRED_DOCS.map((docType, di) => {
                                 const existing = documents.find(d => d.document_type === docType.type);
                                 const isVerified = existing?.verification_status === 'verified';
                                 return (
-                                    <div key={docType.type} className="bg-white p-4 md:p-5 rounded-xl border border-gray-200 shadow-sm hover:border-indigo-300 transition-colors flex flex-col justify-between">
+                                    <motion.div key={docType.type} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(di, 15) * 0.03 }} className="bg-white p-4 md:p-5 rounded-xl border border-gray-200 shadow-sm hover:border-indigo-300 transition-colors flex flex-col justify-between">
                                         <div className="flex justify-between items-start mb-3">
                                             <div>
                                                 <h4 className="font-bold text-sm md:text-base text-gray-800">{docType.label}</h4>
@@ -306,7 +312,7 @@ const SchoolOnboardingScreen: React.FC = () => {
                                                 <input type="file" className="hidden" disabled={uploading === docType.type} onChange={e => handleFileUpload(e, docType.type)} />
                                             </label>
                                         )}
-                                    </div>
+                                    </motion.div>
                                 );
                             })}
                         </div>
@@ -315,7 +321,7 @@ const SchoolOnboardingScreen: React.FC = () => {
 
                 {/* --- TAB 3: CURRICULUM SELECTION --- */}
                 {activeTab === 'curriculum' && (
-                    <div className="space-y-6 animate-fade-in-up">
+                    <div className="space-y-6">
                         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                             <h2 className="text-lg font-bold text-gray-800 mb-2 flex items-center">
                                 <GlobeIcon className="w-5 h-5 mr-2 text-indigo-600" />
@@ -325,7 +331,8 @@ const SchoolOnboardingScreen: React.FC = () => {
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
                                 {/* Nigerian */}
-                                <div
+                                <motion.div
+                                    whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
                                     onClick={() => toggleCurriculum('NIGERIAN')}
                                     className={`relative p-5 md:p-6 rounded-xl border-2 cursor-pointer transition-all ${profile.curricula.includes('NIGERIAN') ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-green-300'}`}
                                 >
@@ -335,10 +342,11 @@ const SchoolOnboardingScreen: React.FC = () => {
                                     </div>
                                     <h3 className="text-lg md:text-xl font-bold text-gray-900">Nigerian National</h3>
                                     <p className="text-xs md:text-sm text-gray-600 mt-2">Standard NERDC Curriculum. Uses CA (40%) and Exam (60%) grading structure. Supports WAEC/NECO/BECE.</p>
-                                </div>
+                                </motion.div>
 
                                 {/* British */}
-                                <div
+                                <motion.div
+                                    whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
                                     onClick={() => toggleCurriculum('BRITISH')}
                                     className={`relative p-5 md:p-6 rounded-xl border-2 cursor-pointer transition-all ${profile.curricula.includes('BRITISH') ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}`}
                                 >
@@ -348,22 +356,24 @@ const SchoolOnboardingScreen: React.FC = () => {
                                     </div>
                                     <h3 className="text-lg md:text-xl font-bold text-gray-900">British National</h3>
                                     <p className="text-xs md:text-sm text-gray-600 mt-2">Cambridge/Pearson Edexcel. Uses A*-G grading scale. Supports IGCSE, O-Level, and A-Level tracks.</p>
-                                </div>
+                                </motion.div>
                             </div>
 
                             <div className="flex justify-end pt-8">
-                                <button
+                                <motion.button
+                                    whileHover={!saving ? { scale: 1.02 } : {}} whileTap={!saving ? { scale: 0.98 } : {}}
                                     onClick={handleSaveCurriculum}
                                     disabled={saving}
                                     className="btn-primary w-full md:w-auto"
                                 >
                                     {saving ? 'Saving...' : 'Save Curriculum Selection'}
-                                </button>
+                                </motion.button>
                             </div>
                         </div>
                     </div>
                 )}
-
+                </motion.div>
+                </AnimatePresence>
             </div>
 
             {/* Styles Injection for quick demo */}

@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import api from '../../lib/api';
 import { XIcon, SUBJECTS_LIST } from '../../constants';
 import { toast } from 'react-hot-toast';
@@ -98,7 +99,7 @@ const ClassFormScreen: React.FC<ClassFormScreenProps> = ({ classToEdit, schoolId
         <div className="flex flex-col h-full bg-gray-50">
             <form onSubmit={handleSubmit} className="flex-grow flex flex-col">
                 <main className="flex-grow p-4 space-y-6 overflow-y-auto">
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-4">
+                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Class Name</label>
                             <input
@@ -168,24 +169,28 @@ const ClassFormScreen: React.FC<ClassFormScreenProps> = ({ classToEdit, schoolId
                             />
                             <p className="mt-1 text-xs text-gray-400 italic">These drive the class gradebook and what each enrolled student sees, unless a student has their own subject selection.</p>
                         </div>
-                    </div>
+                    </motion.div>
                 </main>
 
                 <div className="p-4 bg-white border-t border-gray-100 flex gap-3 pb-32 lg:pb-4">
-                    <button
+                    <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                         type="button"
                         onClick={handleBack}
                         className="flex-1 py-3 px-4 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-100 transition-colors"
                     >
                         Cancel
-                    </button>
-                    <button
+                    </motion.button>
+                    <motion.button
+                        whileHover={!isLoading ? { scale: 1.02 } : {}}
+                        whileTap={!isLoading ? { scale: 0.98 } : {}}
                         type="submit"
                         disabled={isLoading}
                         className="flex-1 py-3 px-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-50"
                     >
                         {isLoading ? 'Saving...' : (classToEdit ? 'Update' : 'Create')}
-                    </button>
+                    </motion.button>
                 </div>
             </form>
         </div>

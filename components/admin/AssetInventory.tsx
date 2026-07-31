@@ -1,10 +1,12 @@
 ﻿import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { PackageIcon, QrCodeIcon, MapPinIcon, AlertCircleIcon, TrashIcon, XIcon, PlusIcon } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '../../context/AuthContext';
 import { useAutoSync } from '../../hooks/useAutoSync';
+import CenteredLoader from '../ui/CenteredLoader';
 
 const AssetInventory = () => {
     const { currentSchool } = useAuth();
@@ -96,20 +98,18 @@ const AssetInventory = () => {
                         <h2 className="text-2xl font-bold text-gray-900 font-outfit">Asset Inventory</h2>
                         <p className="text-sm text-gray-500">Track school equipment and manage property</p>
                     </div>
-                    <button 
+                    <motion.button
+                        whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                         onClick={() => setIsAdding(true)}
-                        className="flex items-center space-x-2 px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 active:scale-95"
+                        className="flex items-center space-x-2 px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200"
                     >
                         <PlusIcon size={20} />
                         <span className="font-semibold">Add Asset</span>
-                    </button>
+                    </motion.button>
                 </div>
 
                 {loading ? (
-                    <div className="py-20 text-center">
-                        <div className="animate-spin h-8 w-8 border-4 border-indigo-600 border-t-transparent rounded-full mx-auto mb-4"></div>
-                        <p className="text-gray-500 font-medium">Loading inventory...</p>
-                    </div>
+                    <CenteredLoader message="Loading inventory..." className="py-20" />
                 ) : assets.length === 0 ? (
                     <div className="py-20 text-center bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
                         <PackageIcon size={48} className="mx-auto mb-4 text-gray-300" />
@@ -117,8 +117,8 @@ const AssetInventory = () => {
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {assets.map((asset) => (
-                            <div key={asset.id} className="bg-white border border-gray-100 rounded-3xl p-5 hover:shadow-xl hover:shadow-gray-100 transition-all group relative">
+                        {assets.map((asset, ai) => (
+                            <motion.div key={asset.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(ai, 15) * 0.03 }} className="bg-white border border-gray-100 rounded-3xl p-5 hover:shadow-xl hover:shadow-gray-100 transition-all group relative">
                                 <div className="absolute top-4 right-4 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button onClick={() => setQrAsset(asset)} className="p-2 hover:bg-indigo-50 text-gray-400 hover:text-indigo-600 rounded-xl transition-colors">
                                         <QrCodeIcon size={18} />
@@ -173,21 +173,22 @@ const AssetInventory = () => {
                                         <span className="text-sm font-bold text-indigo-600">{asset.condition}</span>
                                     </div>
                                 </div>
-                            </div>
+                            </motion.div>
                         ))}
                     </div>
                 )}
             </div>
 
             {/* Add Asset Modal */}
+            <AnimatePresence>
             {isAdding && (
-                <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} transition={{ type: 'spring', stiffness: 400, damping: 32 }} className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden">
                         <div className="px-6 py-4 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
                             <h3 className="font-bold text-gray-900 font-outfit text-xl">Register New Asset</h3>
-                            <button onClick={() => setIsAdding(false)} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
+                            <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setIsAdding(false)} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
                                 <XIcon size={20} />
-                            </button>
+                            </motion.button>
                         </div>
                         <form onSubmit={handleAddAsset} className="p-6 space-y-4">
                             <div className="grid grid-cols-2 gap-4">
@@ -268,33 +269,36 @@ const AssetInventory = () => {
                                 </div>
                             </div>
                             <div className="pt-4">
-                                <button type="submit" className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-xl shadow-indigo-100 transition-all active:scale-95">
+                                <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }} type="submit" className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-xl shadow-indigo-100 transition-all">
                                     Save Asset to Inventory
-                                </button>
+                                </motion.button>
                             </div>
                         </form>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
 
             {/* Asset QR Code Modal */}
+            <AnimatePresence>
             {qrAsset && (
-                <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200 p-6 text-center space-y-4">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} transition={{ type: 'spring', stiffness: 400, damping: 32 }} className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden p-6 text-center space-y-4">
                         <div className="flex justify-between items-center">
                             <h3 className="font-bold text-gray-900 font-outfit text-lg">{qrAsset.name}</h3>
-                            <button onClick={() => setQrAsset(null)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                            <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setQrAsset(null)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
                                 <XIcon size={18} />
-                            </button>
+                            </motion.button>
                         </div>
                         <div className="flex justify-center">
                             <QRCodeCanvas value={qrAsset.qr_code || qrAsset.id} size={200} level="H" />
                         </div>
                         <p className="text-xs text-gray-400 font-mono">{qrAsset.qr_code}</p>
                         <p className="text-sm text-gray-500">Scanning this code opens the asset's purchase date, warranty, location, and maintenance history.</p>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
         </div>
     );
 };

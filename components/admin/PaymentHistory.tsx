@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import PaymentStatusBadge from '../shared/PaymentStatusBadge';
+import CenteredLoader from '../ui/CenteredLoader';
 import {
     DollarSignIcon,
     CalendarIcon,
@@ -139,34 +141,36 @@ const PaymentHistory: React.FC = () => {
 
             {/* Stats */}
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                <div className="bg-white rounded-lg p-4 border border-gray-200">
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="bg-white rounded-lg p-4 border border-gray-200">
                     <p className="text-sm text-gray-600">Total Payments</p>
                     <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
-                </div>
-                <div className="bg-white rounded-lg p-4 border border-gray-200">
+                </motion.div>
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.03 }} className="bg-white rounded-lg p-4 border border-gray-200">
                     <p className="text-sm text-gray-600">Total Amount</p>
                     <p className="text-2xl font-bold text-gray-900">₦{stats.totalAmount.toLocaleString()}</p>
-                </div>
-                <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                </motion.div>
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.06 }} className="bg-green-50 rounded-lg p-4 border border-green-200">
                     <p className="text-sm text-green-700">Completed</p>
                     <p className="text-2xl font-bold text-green-800">{stats.completed}</p>
-                </div>
-                <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
+                </motion.div>
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.09 }} className="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
                     <p className="text-sm text-yellow-700">Pending</p>
                     <p className="text-2xl font-bold text-yellow-800">{stats.pending}</p>
-                </div>
-                <div className="bg-red-50 rounded-lg p-4 border border-red-200">
+                </motion.div>
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.12 }} className="bg-red-50 rounded-lg p-4 border border-red-200">
                     <p className="text-sm text-red-700">Failed</p>
                     <p className="text-2xl font-bold text-red-800">{stats.failed}</p>
-                </div>
+                </motion.div>
             </div>
 
             {/* Filters & Search */}
             <div className="flex flex-col md:flex-row space-y-3 md:space-y-0 md:space-x-3">
                 <div className="flex space-x-2">
                     {(['all', 'completed', 'pending', 'failed'] as const).map((f) => (
-                        <button
+                        <motion.button
                             key={f}
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
                             onClick={() => setFilter(f)}
                             className={`px-4 py-2 rounded-lg font-medium transition-colors ${filter === f
                                 ? 'bg-indigo-600 text-white'
@@ -174,7 +178,7 @@ const PaymentHistory: React.FC = () => {
                                 }`}
                         >
                             {f.charAt(0).toUpperCase() + f.slice(1)}
-                        </button>
+                        </motion.button>
                     ))}
                 </div>
 
@@ -199,16 +203,14 @@ const PaymentHistory: React.FC = () => {
                 </div>
                 <div className="divide-y divide-gray-200">
                     {loading ? (
-                        <div className="p-8 text-center">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
-                        </div>
+                        <CenteredLoader className="p-8" />
                     ) : filteredTransactions.length === 0 ? (
                         <div className="p-8 text-center text-gray-500">
                             No transactions found
                         </div>
                     ) : (
-                        filteredTransactions.map((transaction) => (
-                            <div key={transaction.id} className="p-6 hover:bg-gray-50 cursor-pointer"
+                        filteredTransactions.map((transaction, ti) => (
+                            <motion.div key={transaction.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(ti, 15) * 0.02 }} className="p-6 hover:bg-gray-50 cursor-pointer"
                                 onClick={() => setSelectedTransaction(transaction)}>
                                 <div className="flex items-start justify-between">
                                     <div className="flex-1">
@@ -231,16 +233,17 @@ const PaymentHistory: React.FC = () => {
                                     </div>
                                     <DollarSignIcon className="w-6 h-6 text-green-600" />
                                 </div>
-                            </div>
+                            </motion.div>
                         ))
                     )}
                 </div>
             </div>
 
             {/* Transaction Details Modal */}
+            <AnimatePresence>
             {selectedTransaction && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} transition={{ type: 'spring', stiffness: 400, damping: 32 }} className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                         <div className="p-6">
                             <div className="flex items-center justify-between mb-6">
                                 <h3 className="text-xl font-bold text-gray-900">Payment Details</h3>
@@ -298,17 +301,20 @@ const PaymentHistory: React.FC = () => {
                             </div>
 
                             <div className="mt-6">
-                                <button
+                                <motion.button
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
                                     onClick={() => setSelectedTransaction(null)}
                                     className="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
                                 >
                                     Close
-                                </button>
+                                </motion.button>
                             </div>
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
         </div>
     );
 };

@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useBranch } from '../../context/BranchContext';
 import { toast } from 'react-hot-toast';
 import { AlertTriangle, Users, User } from 'lucide-react';
+import CenteredLoader from '../ui/CenteredLoader';
 
 interface IncidentType {
     id: string;
@@ -81,11 +83,11 @@ const ReportIncidentScreen: React.FC<ReportIncidentScreenProps> = ({ navigateTo,
         }
     };
 
-    if (loading) return <div className="text-center py-12 text-gray-500">Loading...</div>;
+    if (loading) return <CenteredLoader className="py-12" />;
 
     return (
         <div className="p-4 lg:p-6 max-w-2xl mx-auto space-y-6 pb-24">
-            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 space-y-5">
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 space-y-5">
                 <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-1">Incident Type</label>
                     <select className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
@@ -139,16 +141,16 @@ const ReportIncidentScreen: React.FC<ReportIncidentScreenProps> = ({ navigateTo,
                         ))}
                     </div>
                 </div>
-            </div>
+            </motion.div>
 
             <div className="flex gap-3">
                 {handleBack && (
-                    <button onClick={handleBack} className="flex-1 py-3 border border-gray-200 rounded-2xl text-gray-600 font-bold hover:bg-gray-50 transition-colors">Cancel</button>
+                    <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={handleBack} className="flex-1 py-3 border border-gray-200 rounded-2xl text-gray-600 font-bold hover:bg-gray-50 transition-colors">Cancel</motion.button>
                 )}
-                <button onClick={handleSubmit} disabled={saving}
+                <motion.button whileHover={!saving ? { scale: 1.02 } : {}} whileTap={!saving ? { scale: 0.98 } : {}} onClick={handleSubmit} disabled={saving}
                     className="flex-1 py-3 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200 disabled:opacity-60">
                     {saving ? 'Submitting...' : 'Submit Report'}
-                </button>
+                </motion.button>
             </div>
         </div>
     );

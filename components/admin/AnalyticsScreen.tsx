@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { ChartBarIcon, ReceiptIcon, BriefcaseIcon, TrendingUpIcon, UsersIcon, RefreshIcon } from '../../constants';
 import DonutChart from '../ui/DonutChart';
 import { api } from '../../lib/api';
@@ -14,11 +15,13 @@ const SimpleBarChart = ({ data, colors }: { data: { label: string, value: number
                 <div key={`${item.label}-${index}`} className="flex items-center space-x-2">
                     <div className="w-16 text-xs font-medium text-gray-500 text-right">{item.label}</div>
                     <div className="flex-1 bg-gray-200 rounded-full h-4">
-                        <div
-                            className={`${colors[index % colors.length]} h-4 rounded-full transition-all duration-500`}
-                            style={{ width: `${(item.value / maxValue) * 100}%` }}
+                        <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: `${(item.value / maxValue) * 100}%` }}
+                            transition={{ duration: 0.5, delay: index * 0.05, ease: 'easeOut' }}
+                            className={`${colors[index % colors.length]} h-4 rounded-full`}
                             aria-label={item.a11yLabel}
-                        ></div>
+                        ></motion.div>
                     </div>
                     <div className="w-8 text-xs font-bold text-gray-700">{item.value}%</div>
                 </div>
@@ -34,11 +37,13 @@ const SimpleVerticalBarChart = ({ data, colors }: { data: { label: string, value
             {data.map((item, index) => (
                 <div key={`${item.label}-${index}`} className="flex flex-col items-center w-1/5">
                     <div className="flex-grow flex items-end w-1/2">
-                        <div
-                            className={`${colors[index % colors.length]} w-full rounded-t-sm transition-all duration-500`}
-                            style={{ height: `${(item.value / maxValue) * 100}%` }}
+                        <motion.div
+                            initial={{ height: 0 }}
+                            animate={{ height: `${(item.value / maxValue) * 100}%` }}
+                            transition={{ duration: 0.5, delay: index * 0.05, ease: 'easeOut' }}
+                            className={`${colors[index % colors.length]} w-full rounded-t-sm`}
                             aria-label={`${item.label}: ${item.value} hours`}
-                        ></div>
+                        ></motion.div>
                     </div>
                     <span className="text-xs text-gray-500 mt-1 truncate max-w-full">{item.label}</span>
                 </div>
@@ -162,9 +167,9 @@ const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({ schoolId, currentBran
     return (
         <div className="flex flex-col h-full bg-gray-50 relative">
             <div className="absolute top-4 right-4 z-10">
-                <button onClick={loadData} className="p-2 bg-white rounded-full shadow-sm hover:bg-gray-100 text-gray-500" title="Refresh Data">
+                <motion.button whileHover={{ rotate: 90 }} whileTap={{ scale: 0.9 }} onClick={loadData} className="p-2 bg-white rounded-full shadow-sm hover:bg-gray-100 text-gray-500" title="Refresh Data">
                     <RefreshIcon className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
-                </button>
+                </motion.button>
             </div>
 
             <main className="flex-grow p-4 overflow-y-auto">
@@ -175,7 +180,7 @@ const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({ schoolId, currentBran
                 )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Student Performance */}
-                    <div className="bg-white rounded-2xl shadow-sm p-4">
+                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="bg-white rounded-2xl shadow-sm p-4">
                         <div className="flex items-center space-x-3 mb-4">
                             <div className="bg-blue-100 text-blue-600 p-2 rounded-lg"><ChartBarIcon /></div>
                             <h3 className="font-bold text-gray-800">Student Performance</h3>
@@ -183,10 +188,10 @@ const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({ schoolId, currentBran
                         {loading ? <div className="h-40 animate-pulse bg-gray-100 rounded-lg"></div> :
                             <SimpleBarChart data={metrics.performance} colors={['bg-green-500', 'bg-blue-600', 'bg-amber-500', 'bg-red-500']} />
                         }
-                    </div>
+                    </motion.div>
 
                     {/* Fee Compliance */}
-                    <div className="bg-white rounded-2xl shadow-sm p-4">
+                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.05 }} className="bg-white rounded-2xl shadow-sm p-4">
                         <div className="flex items-center space-x-3 mb-4">
                             <div className="bg-green-100 text-green-500 p-2 rounded-lg"><ReceiptIcon /></div>
                             <h3 className="font-bold text-gray-800">Fee Compliance</h3>
@@ -207,10 +212,10 @@ const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({ schoolId, currentBran
                                 </div>
                             </div>
                         }
-                    </div>
+                    </motion.div>
 
                     {/* Teacher Workload */}
-                    <div className="bg-white rounded-2xl shadow-sm p-4">
+                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.1 }} className="bg-white rounded-2xl shadow-sm p-4">
                         <div className="flex items-center space-x-3 mb-4">
                             <div className="bg-amber-100 text-amber-500 p-2 rounded-lg"><BriefcaseIcon /></div>
                             <h3 className="font-bold text-gray-800">Teacher Workload (Weekly Hours)</h3>
@@ -218,10 +223,10 @@ const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({ schoolId, currentBran
                         {loading ? <div className="h-40 animate-pulse bg-gray-100 rounded-lg"></div> :
                             <SimpleVerticalBarChart data={metrics.workload} colors={['bg-blue-400', 'bg-blue-500', 'bg-blue-600', 'bg-blue-400', 'bg-blue-500']} />
                         }
-                    </div>
+                    </motion.div>
 
                     {/* Attendance Trend */}
-                    <div className="bg-white rounded-2xl shadow-sm p-4">
+                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.15 }} className="bg-white rounded-2xl shadow-sm p-4">
                         <div className="flex items-center space-x-3 mb-2">
                             <div className="bg-indigo-100 text-indigo-500 p-2 rounded-lg"><TrendingUpIcon /></div>
                             <h3 className="font-bold text-gray-800">Attendance Trend (Last 7 Days)</h3>
@@ -229,10 +234,10 @@ const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({ schoolId, currentBran
                         {loading ? <div className="h-40 animate-pulse bg-gray-100 rounded-lg"></div> :
                             <SimpleLineChart data={metrics.attendance} color="#6366f1" />
                         }
-                    </div>
+                    </motion.div>
 
                     {/* Enrollment Trends */}
-                    <div className="bg-white rounded-2xl shadow-sm p-4 md:col-span-2">
+                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.2 }} className="bg-white rounded-2xl shadow-sm p-4 md:col-span-2">
                         <div className="flex items-center space-x-3 mb-2">
                             <div className="bg-purple-100 text-purple-500 p-2 rounded-lg"><UsersIcon /></div>
                             <h3 className="font-bold text-gray-800">Enrollment Trends</h3>
@@ -240,7 +245,7 @@ const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({ schoolId, currentBran
                         {loading ? <div className="h-40 animate-pulse bg-gray-100 rounded-lg"></div> :
                             <EnrollmentLineChart data={metrics.enrollment} color="#8b5cf6" />
                         }
-                    </div>
+                    </motion.div>
                 </div>
             </main>
         </div>

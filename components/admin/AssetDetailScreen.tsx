@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { api } from '../../lib/api';
 import { Package, MapPin, Calendar, ShieldCheck, User, Wrench } from 'lucide-react';
+import CenteredLoader from '../ui/CenteredLoader';
 
 const AssetDetailScreen = ({ assetId }: { assetId: string }) => {
     const [asset, setAsset] = useState<any | null>(null);
@@ -20,12 +22,12 @@ const AssetDetailScreen = ({ assetId }: { assetId: string }) => {
         })();
     }, [assetId]);
 
-    if (loading) return <div className="p-6 text-center text-gray-500">Loading...</div>;
+    if (loading) return <CenteredLoader className="p-6" />;
     if (error || !asset) return <div className="p-6 text-center text-gray-500">{error || 'Asset not found'}</div>;
 
     return (
         <div className="p-6 max-w-2xl mx-auto space-y-6">
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                 <div className="flex items-center gap-3 mb-4">
                     <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center flex-shrink-0">
                         <Package className="w-6 h-6" />
@@ -53,26 +55,26 @@ const AssetDetailScreen = ({ assetId }: { assetId: string }) => {
                         <div><p className="text-xs text-gray-400 uppercase font-bold">Warranty</p><p className="text-sm font-semibold text-gray-900">{asset.warranty_expiry ? `Until ${new Date(asset.warranty_expiry).toLocaleDateString()}` : 'No warranty on file'}</p></div>
                     </div>
                 </div>
-            </div>
+            </motion.div>
 
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: 0.05 }} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                 <h2 className="font-bold text-gray-900 flex items-center gap-2 mb-3"><Wrench className="w-4 h-4 text-indigo-500" /> Maintenance History</h2>
                 {(!asset.maintenance_tickets || asset.maintenance_tickets.length === 0) ? (
                     <p className="text-sm text-gray-400">No maintenance tickets on record for this asset.</p>
                 ) : (
                     <div className="space-y-2">
-                        {asset.maintenance_tickets.map((t: any) => (
-                            <div key={t.id} className="flex items-center justify-between border-b border-gray-50 pb-2">
+                        {asset.maintenance_tickets.map((t: any, ti: number) => (
+                            <motion.div key={t.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(ti, 10) * 0.03 }} className="flex items-center justify-between border-b border-gray-50 pb-2">
                                 <div>
                                     <p className="text-sm font-semibold text-gray-900">{t.issue_title}</p>
                                     <p className="text-xs text-gray-400">{new Date(t.created_at).toLocaleDateString()}</p>
                                 </div>
                                 <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-gray-100 text-gray-600">{t.status}</span>
-                            </div>
+                            </motion.div>
                         ))}
                     </div>
                 )}
-            </div>
+            </motion.div>
         </div>
     );
 };

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { Heart, TrendingUp, Users, Gift, Award } from 'lucide-react';
@@ -194,14 +195,20 @@ const DonationPortal: React.FC<DonationPortalProps> = ({ schoolId }) => {
                     </h2>
                     <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                         {topDonors.map((donor, index) => (
-                            <div key={donor.id} className="text-center">
+                            <motion.div
+                                key={donor.id}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.25, delay: index * 0.06 }}
+                                className="text-center"
+                            >
                                 <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center text-2xl font-bold text-white ${index === 0 ? 'bg-yellow-500' : index === 1 ? 'bg-gray-400' : index === 2 ? 'bg-orange-600' : 'bg-pink-500'
                                     }`}>
                                     {index + 1}
                                 </div>
                                 <p className="font-semibold text-gray-900 mt-2">{donor.donor_name}</p>
                                 <p className="text-sm text-gray-600">₦{donor.total_donated.toLocaleString()}</p>
-                            </div>
+                            </motion.div>
                         ))}
                     </div>
                 </div>
@@ -217,8 +224,14 @@ const DonationPortal: React.FC<DonationPortalProps> = ({ schoolId }) => {
                             <p className="text-lg">No active campaigns at the moment</p>
                         </div>
                     ) : (
-                        campaigns.map(campaign => (
-                            <div key={campaign.id} className="bg-white rounded-xl shadow-sm hover:shadow-lg transition-shadow overflow-hidden">
+                        campaigns.map((campaign, i) => (
+                            <motion.div
+                                key={campaign.id}
+                                initial={{ opacity: 0, y: 12 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.25, delay: Math.min(i, 10) * 0.05 }}
+                                className="bg-white rounded-xl shadow-sm hover:shadow-lg transition-shadow overflow-hidden"
+                            >
                                 {campaign.banner_image_url && (
                                     <img src={campaign.banner_image_url} alt={campaign.campaign_name} className="w-full h-48 object-cover" />
                                 )}
@@ -239,11 +252,13 @@ const DonationPortal: React.FC<DonationPortalProps> = ({ schoolId }) => {
                                             <span>Raised: ₦{campaign.raised_amount.toLocaleString()}</span>
                                             <span>Goal: ₦{campaign.goal_amount.toLocaleString()}</span>
                                         </div>
-                                        <div className="w-full bg-gray-200 rounded-full h-3">
-                                            <div
-                                                className="bg-gradient-to-r from-pink-500 to-purple-500 h-3 rounded-full transition-all duration-500"
-                                                style={{ width: `${getProgressPercentage(campaign)}%` }}
-                                            ></div>
+                                        <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                                            <motion.div
+                                                initial={{ width: 0 }}
+                                                animate={{ width: `${getProgressPercentage(campaign)}%` }}
+                                                transition={{ duration: 0.6, ease: 'easeOut' }}
+                                                className="bg-gradient-to-r from-pink-500 to-purple-500 h-3 rounded-full"
+                                            />
                                         </div>
                                         <p className="text-sm text-gray-600 mt-1">{getProgressPercentage(campaign).toFixed(0)}% funded</p>
                                     </div>
@@ -254,7 +269,9 @@ const DonationPortal: React.FC<DonationPortalProps> = ({ schoolId }) => {
                                         </p>
                                     )}
 
-                                    <button
+                                    <motion.button
+                                        whileHover={{ scale: 1.02 }}
+                                        whileTap={{ scale: 0.97 }}
                                         onClick={() => {
                                             setSelectedCampaign(campaign);
                                             setShowDonateModal(true);
@@ -262,18 +279,31 @@ const DonationPortal: React.FC<DonationPortalProps> = ({ schoolId }) => {
                                         className="w-full px-4 py-3 bg-gradient-to-r from-pink-600 to-purple-600 text-white rounded-lg hover:from-pink-700 hover:to-purple-700 font-bold transition-colors"
                                     >
                                         Donate Now
-                                    </button>
+                                    </motion.button>
                                 </div>
-                            </div>
+                            </motion.div>
                         ))
                     )}
                 </div>
             </div>
 
             {/* Donation Modal */}
+            <AnimatePresence>
             {showDonateModal && selectedCampaign && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+                >
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                        className="bg-white rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
+                    >
                         <div className="p-6">
                             <h2 className="text-2xl font-bold text-gray-900 mb-2">Donate to {selectedCampaign.campaign_name}</h2>
                             <p className="text-gray-600 mb-6">{selectedCampaign.description}</p>
@@ -283,8 +313,9 @@ const DonationPortal: React.FC<DonationPortalProps> = ({ schoolId }) => {
                                 <label className="block text-sm font-semibold text-gray-700 mb-2">Quick Select</label>
                                 <div className="grid grid-cols-3 gap-2">
                                     {suggestedAmounts.map(amount => (
-                                        <button
+                                        <motion.button
                                             key={amount}
+                                            whileTap={{ scale: 0.95 }}
                                             onClick={() => setDonationAmount(amount.toString())}
                                             className={`px-4 py-2 rounded-lg font-semibold transition-colors ${donationAmount === amount.toString()
                                                 ? 'bg-pink-600 text-white'
@@ -292,7 +323,7 @@ const DonationPortal: React.FC<DonationPortalProps> = ({ schoolId }) => {
                                                 }`}
                                         >
                                             ₦{amount.toLocaleString()}
-                                        </button>
+                                        </motion.button>
                                     ))}
                                 </div>
                             </div>
@@ -372,7 +403,8 @@ const DonationPortal: React.FC<DonationPortalProps> = ({ schoolId }) => {
 
                             {/* Actions */}
                             <div className="flex space-x-3">
-                                <button
+                                <motion.button
+                                    whileTap={{ scale: 0.96 }}
                                     onClick={() => {
                                         setShowDonateModal(false);
                                         resetForm();
@@ -380,19 +412,22 @@ const DonationPortal: React.FC<DonationPortalProps> = ({ schoolId }) => {
                                     className="flex-1 px-4 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-semibold"
                                 >
                                     Cancel
-                                </button>
-                                <button
+                                </motion.button>
+                                <motion.button
+                                    whileHover={{ scale: processing ? 1 : 1.02 }}
+                                    whileTap={{ scale: processing ? 1 : 0.96 }}
                                     onClick={handleDonate}
                                     disabled={processing}
                                     className="flex-1 px-4 py-3 bg-gradient-to-r from-pink-600 to-purple-600 text-white rounded-lg hover:from-pink-700 hover:to-purple-700 font-bold disabled:opacity-60 disabled:cursor-not-allowed"
                                 >
                                     {processing ? 'Processing…' : 'Proceed to Payment'}
-                                </button>
+                                </motion.button>
                             </div>
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
         </div>
     );
 };

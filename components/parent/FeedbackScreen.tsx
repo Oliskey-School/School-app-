@@ -1,5 +1,6 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { api } from '../../lib/api';
@@ -9,15 +10,17 @@ import { CameraIcon, ChevronRightIcon, StarIcon, CheckCircleIcon, ClockIcon } fr
 const StarRatingInput = ({ rating, setRating }: { rating: number, setRating: (r: number) => void }) => (
     <div className="flex items-center justify-center space-x-2">
         {[...Array(5)].map((_, index) => (
-            <button
+            <motion.button
                 key={index}
                 type="button"
+                whileHover={{ scale: 1.15 }}
+                whileTap={{ scale: 0.9 }}
                 onClick={() => setRating(index + 1)}
                 className="text-gray-300 transition-colors"
                 aria-label={`Rate ${index + 1} star`}
             >
                 <StarIcon filled={index < rating} className={`h-8 w-8 ${index < rating ? 'text-yellow-400' : 'text-gray-300'}`} />
-            </button>
+            </motion.button>
         ))}
     </div>
 );
@@ -93,13 +96,13 @@ const SubmitNewTab: React.FC<{ onSubmitted: () => void }> = ({ onSubmitted }) =>
             <div>
                 <label className="text-sm font-medium text-gray-700">Attach Photo (Optional)</label>
                 <input type="file" ref={fileInputRef} onChange={handleImageChange} className="hidden" accept="image/*" />
-                <button type="button" onClick={() => fileInputRef.current?.click()} className="mt-1 w-full flex items-center justify-center space-x-2 p-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-green-400 hover:text-green-600">
+                <motion.button whileTap={{ scale: 0.98 }} type="button" onClick={() => fileInputRef.current?.click()} className="mt-1 w-full flex items-center justify-center space-x-2 p-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-green-400 hover:text-green-600 transition-colors">
                     <CameraIcon className="h-5 w-5" />
                     <span>{image ? "Change Photo" : "Upload Photo"}</span>
-                </button>
-                {image && <img src={image} alt="Preview" className="mt-3 rounded-lg max-h-40 mx-auto" />}
+                </motion.button>
+                {image && <motion.img initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} src={image} alt="Preview" className="mt-3 rounded-lg max-h-40 mx-auto" />}
             </div>
-            <button type="submit" className="w-full py-3 px-4 font-medium text-white bg-green-500 rounded-lg shadow-sm hover:bg-green-600">Submit Feedback</button>
+            <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }} type="submit" className="w-full py-3 px-4 font-medium text-white bg-green-500 rounded-lg shadow-sm hover:bg-green-600 transition-colors">Submit Feedback</motion.button>
         </form>
     );
 };
@@ -167,20 +170,38 @@ const TrackStatusTab: React.FC = () => {
     return (
         <div className="p-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {complaints.length > 0 ? complaints.map(c => {
+                {complaints.length > 0 ? complaints.map((c, i) => {
                     const latestStatus = c.timeline[c.timeline.length - 1]?.status || 'Submitted';
                     const isOpen = openId === c.id;
                     return (
-                        <div key={c.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
-                            <button onClick={() => setOpenId(isOpen ? null : c.id)} className="w-full flex justify-between items-center p-4 text-left">
+                        <motion.div
+                            key={c.id}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.25, delay: Math.min(i, 10) * 0.05 }}
+                            className="bg-white rounded-lg shadow-sm overflow-hidden"
+                        >
+                            <motion.button whileTap={{ scale: 0.99 }} onClick={() => setOpenId(isOpen ? null : c.id)} className="w-full flex justify-between items-center p-4 text-left">
                                 <div>
                                     <h4 className="font-bold text-gray-800">{c.category}</h4>
                                     <span className={`mt-1 text-xs font-semibold px-2 py-0.5 rounded-full ${statusColors[latestStatus as keyof typeof statusColors]}`}>{latestStatus}</span>
                                 </div>
                                 <ChevronRightIcon className={`h-5 w-5 text-gray-400 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
-                            </button>
-                            {isOpen && <StatusTimeline complaint={c} />}
-                        </div>
+                            </motion.button>
+                            <AnimatePresence initial={false}>
+                                {isOpen && (
+                                    <motion.div
+                                        initial={{ height: 0, opacity: 0 }}
+                                        animate={{ height: 'auto', opacity: 1 }}
+                                        exit={{ height: 0, opacity: 0 }}
+                                        transition={{ type: 'spring', stiffness: 400, damping: 35 }}
+                                        className="overflow-hidden"
+                                    >
+                                        <StatusTimeline complaint={c} />
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </motion.div>
                     )
                 }) : (
                     <div className="col-span-full py-12 text-center text-gray-500">
@@ -210,13 +231,17 @@ const FeedbackScreen: React.FC<FeedbackScreenProps> = ({ forceUpdate }) => {
         <div className="flex flex-col h-full bg-gray-100">
             <div className="p-2 bg-white/80 backdrop-blur-sm border-b border-gray-200">
                 <div className="flex space-x-1 bg-gray-200 p-1 rounded-lg">
-                    <button onClick={() => setActiveTab('submit')} className={`w-1/2 py-2 text-sm font-semibold rounded-md transition-colors ${activeTab === 'submit' ? `${theme.mainBg} text-white shadow` : 'text-gray-600'}`}>Submit New</button>
-                    <button onClick={() => setActiveTab('track')} className={`w-1/2 py-2 text-sm font-semibold rounded-md transition-colors ${activeTab === 'track' ? `${theme.mainBg} text-white shadow` : 'text-gray-600'}`}>Track Status</button>
+                    <motion.button whileTap={{ scale: 0.97 }} onClick={() => setActiveTab('submit')} className={`w-1/2 py-2 text-sm font-semibold rounded-md transition-colors ${activeTab === 'submit' ? `${theme.mainBg} text-white shadow` : 'text-gray-600'}`}>Submit New</motion.button>
+                    <motion.button whileTap={{ scale: 0.97 }} onClick={() => setActiveTab('track')} className={`w-1/2 py-2 text-sm font-semibold rounded-md transition-colors ${activeTab === 'track' ? `${theme.mainBg} text-white shadow` : 'text-gray-600'}`}>Track Status</motion.button>
                 </div>
             </div>
 
             <div className="flex-grow overflow-y-auto">
-                {activeTab === 'submit' ? <SubmitNewTab onSubmitted={handleFormSubmitted} /> : <TrackStatusTab />}
+                <AnimatePresence mode="wait">
+                    <motion.div key={activeTab} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15 }}>
+                        {activeTab === 'submit' ? <SubmitNewTab onSubmitted={handleFormSubmitted} /> : <TrackStatusTab />}
+                    </motion.div>
+                </AnimatePresence>
             </div>
         </div>
     );

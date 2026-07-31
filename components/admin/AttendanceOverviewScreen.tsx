@@ -1,8 +1,10 @@
 ﻿import React, { useState, useEffect, useMemo } from 'react';
+import { motion } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { ChevronRightIcon, getFormattedClassName } from '../../constants';
 import { useAutoSync } from '../../hooks/useAutoSync';
+import CenteredLoader from '../ui/CenteredLoader';
 
 interface ClassAttendanceSummary {
     grade: number;
@@ -126,12 +128,16 @@ const AttendanceOverviewScreen: React.FC<AttendanceOverviewScreenProps> = ({ nav
             </div>
 
             <div className="flex-grow p-4 space-y-3 overflow-y-auto">
-                {loading ? <div className="text-center p-10 text-gray-500">Loading attendance data...</div> : (
+                {loading ? <CenteredLoader message="Loading attendance data..." className="p-10" /> : (
                     <>
                         {attendanceData.length === 0 && <div className="text-center p-10 text-gray-500">No classes found</div>}
                         {attendanceData.map((item, idx) => (
-                            <button
+                            <motion.button
                                 key={`${item.grade}-${item.section}`}
+                                initial={{ opacity: 0, y: 8 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.2, delay: Math.min(idx, 15) * 0.03 }}
+                                whileHover={{ scale: 1.005 }}
                                 onClick={() => navigateTo('classAttendanceDetail', getFormattedClassName(item.grade, item.section), { classInfo: item, date: selectedDate })}
                                 className="w-full bg-white rounded-xl shadow-sm p-4 text-left hover:ring-2 hover:ring-indigo-300 transition-all"
                             >
@@ -147,7 +153,7 @@ const AttendanceOverviewScreen: React.FC<AttendanceOverviewScreenProps> = ({ nav
                                         <ChevronRightIcon className="text-gray-400" />
                                     </div>
                                 </div>
-                            </button>
+                            </motion.button>
                         ))}
                     </>
                 )}

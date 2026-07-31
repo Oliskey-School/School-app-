@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { toast } from 'react-hot-toast';
 import { linkStudentToParent, unlinkStudentFromParent } from '../../services/studentService';
@@ -115,9 +116,9 @@ const LinkChildScreen: React.FC<LinkChildScreenProps> = ({ handleBack, forceUpda
     return (
         <div className="flex flex-col h-full bg-gray-50">
             <div className="hidden md:flex p-4 bg-white shadow-sm items-center">
-                <button onClick={handleBack} className="p-2 rounded-full hover:bg-gray-100 mr-2">
+                <motion.button whileTap={{ scale: 0.9 }} onClick={handleBack} className="p-2 rounded-full hover:bg-gray-100 mr-2">
                     <ChevronLeftIcon className="w-6 h-6 text-gray-600" />
-                </button>
+                </motion.button>
                 <h2 className="text-xl font-bold text-gray-800">Manage Child Accounts</h2>
             </div>
 
@@ -165,13 +166,15 @@ const LinkChildScreen: React.FC<LinkChildScreenProps> = ({ handleBack, forceUpda
                             </div>
 
                             <div className="pt-2">
-                                <button
+                                <motion.button
+                                    whileHover={{ y: loading ? 0 : -2 }}
+                                    whileTap={{ scale: loading ? 1 : 0.98 }}
                                     type="submit"
                                     disabled={loading}
-                                    className={`w-full py-3.5 rounded-xl text-white font-bold shadow-md transition-all ${loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 hover:shadow-lg transform hover:-translate-y-0.5'}`}
+                                    className={`w-full py-3.5 rounded-xl text-white font-bold shadow-md transition-shadow ${loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 hover:shadow-lg'}`}
                                 >
                                     {loading ? 'Verifying...' : 'Link Account'}
-                                </button>
+                                </motion.button>
                             </div>
 
                             <div className="bg-blue-50 p-4 rounded-xl flex items-start space-x-3">
@@ -203,8 +206,14 @@ const LinkChildScreen: React.FC<LinkChildScreenProps> = ({ handleBack, forceUpda
                                 </div>
                             ) : linkedChildren.length > 0 ? (
                                 <div className="space-y-4">
-                                    {linkedChildren.map((child) => (
-                                        <div key={child.id} className="flex items-center justify-between p-4 rounded-2xl bg-gray-50 border border-gray-100 hover:border-blue-200 transition-all group">
+                                    {linkedChildren.map((child, i) => (
+                                        <motion.div
+                                            key={child.id}
+                                            initial={{ opacity: 0, y: 10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            transition={{ duration: 0.25, delay: Math.min(i, 10) * 0.05 }}
+                                            className="flex items-center justify-between p-4 rounded-2xl bg-gray-50 border border-gray-100 hover:border-blue-200 transition-colors group"
+                                        >
                                             <div className="flex items-center space-x-4">
                                                 <div className="relative">
                                                     <img 
@@ -223,18 +232,20 @@ const LinkChildScreen: React.FC<LinkChildScreenProps> = ({ handleBack, forceUpda
                                                     </div>
                                                 </div>
                                             </div>
-                                            <button 
+                                            <motion.button
+                                                whileHover={{ scale: 1.05 }}
+                                                whileTap={{ scale: 0.9 }}
                                                 onClick={() => handleUnlinkClick(child)}
-                                                className="p-2.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
+                                                className="p-2.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
                                                 title="Remove link"
                                             >
                                                 <TrashIcon className="w-5 h-5" />
-                                            </button>
-                                        </div>
+                                            </motion.button>
+                                        </motion.div>
                                     ))}
                                 </div>
                             ) : (
-                                <div className="flex flex-col items-center justify-center py-12 text-center">
+                                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }} className="flex flex-col items-center justify-center py-12 text-center">
                                     <div className="bg-gray-100 p-4 rounded-full mb-4">
                                         <Users className="w-10 h-10 text-gray-400" />
                                     </div>
@@ -242,7 +253,7 @@ const LinkChildScreen: React.FC<LinkChildScreenProps> = ({ handleBack, forceUpda
                                     <p className="text-sm text-gray-500 mt-1 max-w-[200px] mx-auto">
                                         Use the form on the left to link your child's account.
                                     </p>
-                                </div>
+                                </motion.div>
                             )}
                         </div>
                     </div>

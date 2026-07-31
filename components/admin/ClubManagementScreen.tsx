@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { Trophy, Users, PlusCircle, X, CheckCircle2 } from 'lucide-react';
+import CenteredLoader from '../ui/CenteredLoader';
 
 const CATEGORIES = ['Academic', 'Sports', 'Arts', 'Technology', 'Community Service'];
 
@@ -94,13 +96,14 @@ const ClubManagementScreen = () => {
                     <h1 className="text-2xl font-bold text-gray-900 font-outfit">School Clubs</h1>
                     <p className="text-gray-500">Attendance, achievements, and advisors for every club.</p>
                 </div>
-                <button onClick={() => setShowAdd(v => !v)} className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl font-semibold text-sm">
+                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => setShowAdd(v => !v)} className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl font-semibold text-sm">
                     <PlusCircle className="w-4 h-4" /> New Club
-                </button>
+                </motion.button>
             </div>
 
+            <AnimatePresence>
             {showAdd && (
-                <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 space-y-2">
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 space-y-2 overflow-hidden">
                     <input value={newClub.name} onChange={e => setNewClub(c => ({ ...c, name: e.target.value }))} placeholder="Club name (e.g. Debate Club)"
                         className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400" />
                     <div className="grid grid-cols-2 gap-2">
@@ -112,12 +115,13 @@ const ClubManagementScreen = () => {
                             {teachers.map((t: any) => <option key={t.id} value={t.id}>{t.full_name}</option>)}
                         </select>
                     </div>
-                    <button onClick={handleCreate} className="bg-indigo-600 text-white text-sm font-semibold px-4 py-2 rounded-lg">Create</button>
-                </div>
+                    <motion.button whileTap={{ scale: 0.97 }} onClick={handleCreate} className="bg-indigo-600 text-white text-sm font-semibold px-4 py-2 rounded-lg">Create</motion.button>
+                </motion.div>
             )}
+            </AnimatePresence>
 
             {loading ? (
-                <div className="text-center py-12 text-gray-500">Loading...</div>
+                <CenteredLoader className="py-12" />
             ) : clubs.length === 0 ? (
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
                     <Trophy className="w-12 h-12 text-gray-300 mx-auto mb-4" />
@@ -125,22 +129,23 @@ const ClubManagementScreen = () => {
                 </div>
             ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {clubs.map((c: any) => (
-                        <button key={c.id} onClick={() => openClub(c)} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 text-left hover:border-indigo-300">
+                    {clubs.map((c: any, ci: number) => (
+                        <motion.button key={c.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(ci, 10) * 0.04 }} whileHover={{ y: -2 }} onClick={() => openClub(c)} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 text-left hover:border-indigo-300">
                             <h3 className="font-bold text-gray-900">{c.name}</h3>
                             <p className="text-xs text-gray-400">{c.category} · Advisor: {c.advisor?.full_name || 'None'}</p>
                             <p className="text-xs text-gray-500 mt-2 flex items-center gap-1"><Users className="w-3.5 h-3.5" /> {c._count?.participants || 0} members</p>
-                        </button>
+                        </motion.button>
                     ))}
                 </div>
             )}
 
+            <AnimatePresence>
             {selected && (
-                <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} transition={{ type: 'spring', stiffness: 400, damping: 32 }} className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto">
                         <div className="px-6 py-4 bg-gray-50 border-b border-gray-100 flex justify-between items-center sticky top-0">
                             <h3 className="font-bold text-gray-900 font-outfit text-xl">{selected.name}</h3>
-                            <button onClick={() => setSelected(null)} className="p-2 hover:bg-gray-200 rounded-full"><X className="w-5 h-5" /></button>
+                            <motion.button whileTap={{ scale: 0.9 }} onClick={() => setSelected(null)} className="p-2 hover:bg-gray-200 rounded-full"><X className="w-5 h-5" /></motion.button>
                         </div>
                         <div className="p-6 space-y-6">
                             <div>
@@ -158,7 +163,7 @@ const ClubManagementScreen = () => {
                                         className="border border-gray-200 rounded-lg px-3 py-2 text-sm w-32 outline-none focus:ring-2 focus:ring-indigo-400" />
                                     <input value={achievementForm.title} onChange={e => setAchievementForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. Won regional debate final"
                                         className="border border-gray-200 rounded-lg px-3 py-2 text-sm flex-1 outline-none focus:ring-2 focus:ring-indigo-400" />
-                                    <button onClick={handleAddAchievement} className="text-sm font-semibold text-indigo-600">Log</button>
+                                    <motion.button whileTap={{ scale: 0.95 }} onClick={handleAddAchievement} className="text-sm font-semibold text-indigo-600">Log</motion.button>
                                 </div>
                             </div>
                             <div>
@@ -181,12 +186,13 @@ const ClubManagementScreen = () => {
                                         ))}
                                     </div>
                                 )}
-                                <button onClick={handleSubmitAttendance} className="bg-indigo-600 text-white text-sm font-semibold px-4 py-2 rounded-lg">Save Attendance</button>
+                                <motion.button whileTap={{ scale: 0.97 }} onClick={handleSubmitAttendance} className="bg-indigo-600 text-white text-sm font-semibold px-4 py-2 rounded-lg">Save Attendance</motion.button>
                             </div>
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
         </div>
     );
 };

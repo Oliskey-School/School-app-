@@ -1,9 +1,11 @@
 import { toast } from 'react-hot-toast';
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { api } from '../../lib/api';
 import { TrashIcon, PlusIcon, CalendarIcon, UsersIcon, VideoIcon, UserIcon } from '../../constants';
 import ConfirmationModal from '../ui/ConfirmationModal';
 import { useAuth } from '../../context/AuthContext';
+import CenteredLoader from '../ui/CenteredLoader';
 
 const ManagePTAMeetingsScreen: React.FC = () => {
     const { currentSchool } = useAuth();
@@ -195,13 +197,14 @@ const ManagePTAMeetingsScreen: React.FC = () => {
                                     onChange={e => setNewItem({ ...newItem, description: e.target.value })}
                                 />
                             </div>
-                            <button
+                            <motion.button
+                                whileHover={!isSubmitting ? { scale: 1.01 } : {}} whileTap={!isSubmitting ? { scale: 0.98 } : {}}
                                 type="submit"
                                 disabled={isSubmitting}
-                                className="w-full py-3 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-purple-200"
+                                className="w-full py-3 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-purple-200"
                             >
                                 {isSubmitting ? 'Scheduling...' : 'Schedule Meeting'}
-                            </button>
+                            </motion.button>
                         </form>
                     </div>
                 </div>
@@ -216,17 +219,15 @@ const ManagePTAMeetingsScreen: React.FC = () => {
                             Upcoming Meetings
                         </h2>
                         {loading ? (
-                            <div className="flex justify-center items-center py-12">
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-                            </div>
+                            <CenteredLoader className="py-12" />
                         ) : upcomingMeetings.length === 0 ? (
                             <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 text-center text-gray-400">
                                 <p>No upcoming meetings scheduled.</p>
                             </div>
                         ) : (
                             <div className="space-y-4">
-                                {upcomingMeetings.map(meeting => (
-                                    <div key={meeting.id} className="flex flex-col md:flex-row p-4 bg-gray-50 border border-gray-100 rounded-xl hover:bg-white hover:shadow-sm transition-all">
+                                {upcomingMeetings.map((meeting, mi) => (
+                                    <motion.div key={meeting.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(mi, 15) * 0.03 }} className="flex flex-col md:flex-row p-4 bg-gray-50 border border-gray-100 rounded-xl hover:bg-white hover:shadow-sm transition-all">
                                         <div className="flex-shrink-0 w-24 text-gray-500 text-sm font-medium mb-2 md:mb-0">
                                             {new Date(meeting.date).toLocaleDateString()}
                                         </div>
@@ -249,7 +250,7 @@ const ManagePTAMeetingsScreen: React.FC = () => {
                                                 </span>
                                             </div>
                                         </div>
-                                    </div>
+                                    </motion.div>
                                 ))}
                             </div>
                         )}

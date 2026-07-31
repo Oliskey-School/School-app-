@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { SearchIcon } from '../../constants';
 // import { mockTeachers } from '../../data'; // usage removed
 import DonutChart from '../ui/DonutChart';
@@ -152,12 +153,14 @@ const TeacherAttendanceScreen: React.FC<TeacherAttendanceScreenProps> = ({ navig
 
                 {/* Actions Bar */}
                 <div className="px-4 pb-2 bg-white flex justify-end">
-                    <button
+                    <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.97 }}
                         onClick={() => navigateTo('teacherAttendanceApproval', 'Attendance Approvals')}
                         className="flex items-center space-x-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
                     >
                         <span>Review Approvals {attendanceSummary.pending > 0 && `(${attendanceSummary.pending})`}</span>
-                    </button>
+                    </motion.button>
                 </div>
 
                 {/* Search Bar */}
@@ -182,8 +185,15 @@ const TeacherAttendanceScreen: React.FC<TeacherAttendanceScreenProps> = ({ navig
                     {loading ? (
                         <div className="flex justify-center py-10"><div className="animate-spin h-8 w-8 border-4 border-indigo-500 rounded-full border-t-transparent"></div></div>
                     ) : filteredTeachers.length > 0 ? (
-                        filteredTeachers.map(teacher => (
-                            <div key={teacher.id} className="bg-white rounded-xl shadow-sm p-3 flex items-center space-x-3">
+                        filteredTeachers.map((teacher, i) => (
+                            <motion.div
+                                key={teacher.id}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.2, delay: Math.min(i, 12) * 0.03 }}
+                                whileHover={{ y: -2 }}
+                                className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow p-3 flex items-center space-x-3"
+                            >
                                 <button onClick={() => navigateTo('teacherAttendanceDetail', `${teacher.full_name || teacher.name || 'Teacher'}'s Attendance`, { teacher })} className="flex items-center space-x-3 flex-grow text-left">
                                     <img src={teacher.avatar_url || teacher.avatarUrl || 'https://i.pravatar.cc/150'} alt={teacher.full_name || teacher.name || 'Teacher'} className="w-12 h-12 rounded-full object-cover" />
                                     <div className="flex-grow">
@@ -198,15 +208,21 @@ const TeacherAttendanceScreen: React.FC<TeacherAttendanceScreenProps> = ({ navig
                                     </div>
                                 </button>
                                 {/* Removed direct toggles for clarity on "Sync" context - Admin should Approve primarily, but here we can leave simple display or add back interactions later if requested. Keeping it cleanup for now to emphasize the real status. */}
-                                <div className={`px-3 py-1 rounded-full text-xs font-bold ${statusStyles[teacher.attendanceStatus].button}`}>
+                                <motion.div
+                                    key={teacher.attendanceStatus}
+                                    initial={{ opacity: 0, scale: 0.9 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    transition={{ duration: 0.2 }}
+                                    className={`px-3 py-1 rounded-full text-xs font-bold ${statusStyles[teacher.attendanceStatus].button}`}
+                                >
                                     {teacher.attendanceStatus}
-                                </div>
-                            </div>
+                                </motion.div>
+                            </motion.div>
                         ))
                     ) : (
-                        <div className="text-center py-10">
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-10">
                             <p className="text-gray-500">No teachers found.</p>
-                        </div>
+                        </motion.div>
                     )}
                 </div>
             </main>

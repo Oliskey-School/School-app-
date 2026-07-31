@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
@@ -22,6 +23,7 @@ import {
     RefreshCw
 } from 'lucide-react';
 import { useAutoSync } from '../../hooks/useAutoSync';
+import CenteredLoader from '../ui/CenteredLoader';
 
 interface BehaviorLog {
     id: string;
@@ -130,36 +132,33 @@ const BehaviorLogScreen = () => {
                         <span>Log and monitor student behavior. Parents see entries marked as visible.</span>
                     </div>
                 </div>
-                <button onClick={() => setIsAdding(true)} className="flex items-center space-x-2 bg-indigo-600 text-white px-5 py-2.5 rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 font-bold">
+                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => setIsAdding(true)} className="flex items-center space-x-2 bg-indigo-600 text-white px-5 py-2.5 rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 font-bold">
                     <PlusIcon className="w-5 h-5" /><span>Log Behavior</span>
-                </button>
+                </motion.button>
             </header>
 
             {/* Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
                     <div className="p-3 rounded-2xl bg-indigo-50 text-indigo-600"><BarChart3 className="w-6 h-6" /></div>
                     <div><p className="text-2xl font-bold text-gray-900">{logs.length}</p><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Logs</p></div>
-                </div>
-                <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
+                </motion.div>
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.05 }} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
                     <div className="p-3 rounded-2xl bg-emerald-50 text-emerald-600"><ThumbsUp className="w-6 h-6" /></div>
                     <div><p className="text-2xl font-bold text-gray-900">{positiveCount}</p><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Positive</p></div>
-                </div>
-                <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
+                </motion.div>
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.1 }} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
                     <div className="p-3 rounded-2xl bg-red-50 text-red-600"><ThumbsDown className="w-6 h-6" /></div>
                     <div><p className="text-2xl font-bold text-gray-900">{negativeCount}</p><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Negative</p></div>
-                </div>
-                <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
+                </motion.div>
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.15 }} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
                     <div className="p-3 rounded-2xl bg-amber-50 text-amber-600"><TrendingUp className="w-6 h-6" /></div>
                     <div><p className="text-2xl font-bold text-gray-900">{totalPoints > 0 ? `+${totalPoints}` : totalPoints}</p><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Net Points</p></div>
-                </div>
+                </motion.div>
             </div>
 
             {loading ? (
-                <div className="flex flex-col items-center justify-center py-40 space-y-4">
-                    <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-                    <p className="text-gray-400 font-medium animate-pulse">Loading behavior logs...</p>
-                </div>
+                <CenteredLoader message="Loading behavior logs..." className="py-40" />
             ) : (
                 <div className="space-y-4">
                 {filteredLogs.length === 0 ? (
@@ -168,8 +167,8 @@ const BehaviorLogScreen = () => {
                         <p className="text-gray-400 font-medium">No behavior logs found.</p>
                     </div>
                 ) : (
-                    filteredLogs.map(log => (
-                        <div key={log.id} className={`p-5 rounded-2xl shadow-sm border transition-all hover:shadow-md ${
+                    filteredLogs.map((log, li) => (
+                        <motion.div key={log.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(li, 15) * 0.03 }} className={`p-5 rounded-2xl shadow-sm border transition-colors hover:shadow-md ${
                             log.type === 'positive' ? 'bg-emerald-50 border-emerald-200' :
                             log.type === 'negative' ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'
                         }`}>
@@ -202,16 +201,17 @@ const BehaviorLogScreen = () => {
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        </motion.div>
                     ))
                 )}
             </div>
             )}
 
             {/* Add Modal */}
+            <AnimatePresence>
             {isAdding && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-                    <div className="bg-white rounded-[2rem] p-8 max-w-lg w-full space-y-8 shadow-2xl max-h-[90vh] overflow-y-auto">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                    <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} transition={{ type: 'spring', stiffness: 400, damping: 32 }} className="bg-white rounded-[2rem] p-8 max-w-lg w-full space-y-8 shadow-2xl max-h-[90vh] overflow-y-auto">
                         <div>
                             <h2 className="text-2xl font-bold text-gray-900 font-outfit">Log Behavior</h2>
                             <p className="text-sm text-gray-500">Record positive or negative behavior for a student.</p>
@@ -265,12 +265,13 @@ const BehaviorLogScreen = () => {
                             </div>
                         </div>
                         <div className="flex space-x-4">
-                            <button onClick={() => { setIsAdding(false); setFormData({}); }} className="flex-grow py-4 px-6 border border-gray-100 rounded-2xl text-gray-600 font-bold hover:bg-gray-50 transition-all active:scale-95">Cancel</button>
-                            <button onClick={handleSave} className="flex-grow py-4 px-6 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 active:scale-95">Save Log</button>
+                            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => { setIsAdding(false); setFormData({}); }} className="flex-grow py-4 px-6 border border-gray-100 rounded-2xl text-gray-600 font-bold hover:bg-gray-50 transition-all">Cancel</motion.button>
+                            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={handleSave} className="flex-grow py-4 px-6 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100">Save Log</motion.button>
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
         </div>
     );
 };

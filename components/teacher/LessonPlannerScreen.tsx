@@ -181,7 +181,6 @@ const LessonPlannerScreen: React.FC<{
     const [generatedHistory, setGeneratedHistory] = useState<GeneratedHistoryEntry[]>([]);
     const [isSchemeHistoryOpen, setIsSchemeHistoryOpen] = useState(false);
     const [isGeneratedHistoryOpen, setIsGeneratedHistoryOpen] = useState(false);
-    const [toastMessage, setToastMessage] = useState('');
     const [schemeHistory, setSchemeHistory] = useState<HistoryEntry[]>([]);
     const [activeTerm, setActiveTerm] = useState<'term1' | 'term2' | 'term3'>('term1');
     const [term1Scheme, setTerm1Scheme] = useState<SchemeWeek[]>([{ week: 1, topic: '', subTopics: [] }]);
@@ -233,25 +232,35 @@ const LessonPlannerScreen: React.FC<{
         try {
             const data = await api.getGeneratedResources(schoolId || '');
 
+            // `content` is a plain string column on GeneratedResource — the actual
+            // payload is JSON stringified into it, discriminated by `content_type`.
+            const parseContent = (row: any) => {
+                try { return typeof row.content === 'string' ? JSON.parse(row.content) : row.content; }
+                catch { return null; }
+            };
+
             const schemes: HistoryEntry[] = data
-                .filter(row => row.scheme_content)
-                .map(row => ({
-                    subject: row.subject,
-                    className: row.class_name,
-                    term1Scheme: row.scheme_content.term1 || [],
-                    term2Scheme: row.scheme_content.term2 || [],
-                    term3Scheme: row.scheme_content.term3 || [],
-                    lastUpdated: row.updated_at
-                }));
+                .filter(row => row.content_type === 'scheme')
+                .map(row => {
+                    const parsed = parseContent(row) || {};
+                    return {
+                        subject: row.subject,
+                        className: row.class_name,
+                        term1Scheme: parsed.term1 || [],
+                        term2Scheme: parsed.term2 || [],
+                        term3Scheme: parsed.term3 || [],
+                        lastUpdated: row.updated_at
+                    };
+                });
             setSchemeHistory(schemes);
 
             const generated: GeneratedHistoryEntry[] = data
-                .filter(row => row.lesson_plans_content)
+                .filter(row => row.content_type === 'generated_resources')
                 .map(row => ({
                     subject: row.subject,
                     className: row.class_name,
                     lastUpdated: row.updated_at,
-                    resources: row.lesson_plans_content // Assuming this matches GeneratedResources structure
+                    resources: parseContent(row)
                 }));
             setGeneratedHistory(generated);
         } catch (error) {
@@ -274,7 +283,7 @@ const LessonPlannerScreen: React.FC<{
 
     const handleSaveScheme = useCallback(async () => {
         if (!subject.trim() || !className.trim()) {
-            setToastMessage('Please enter Subject and Class Name to save.');
+            toast.error('Please enter Subject and Class Name to save.');
             return;
         }
 
@@ -291,8 +300,8 @@ const LessonPlannerScreen: React.FC<{
                 branch_id: currentBranchId,
                 subject,
                 class_name: className,
-                term: 'All', // Defaulting as we store all 3
-                scheme_content: schemeData
+                content_type: 'scheme',
+                content: JSON.stringify(schemeData)
             });
             toast.success('Scheme of work saved to database!');
             fetchHistory(); // Refresh
@@ -356,8 +365,8 @@ const LessonPlannerScreen: React.FC<{
                 branch_id: currentBranchId,
                 subject: resources.subject,
                 class_name: resources.className,
-                term: 'All',
-                lesson_plans_content: resources
+                content_type: 'generated_resources',
+                content: JSON.stringify(resources)
             });
 
             fetchHistory();
@@ -518,8 +527,8 @@ const LessonPlannerScreen: React.FC<{
                 branch_id: currentBranchId,
                 subject: resources.subject || subject,
                 class_name: resources.className || className,
-                term: 'All',
-                lesson_plans_content: resources
+                content_type: 'generated_resources',
+                content: JSON.stringify(resources)
             });
 
             fetchHistory(); // Refresh history list

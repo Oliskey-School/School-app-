@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { StudentAssignment } from '../../types';
 import { SUBJECT_COLORS, DocumentTextIcon, PaperclipIcon } from '../../constants';
@@ -113,34 +114,34 @@ const AssignmentFeedbackScreen: React.FC<AssignmentFeedbackScreenProps> = ({ ass
     <div className="flex flex-col h-full bg-gray-50">
       <main className="flex-grow p-4 space-y-4 overflow-y-auto">
         {/* Assignment Header */}
-        <div className="bg-white p-4 rounded-xl shadow-sm">
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="bg-white p-4 rounded-xl shadow-sm">
             <div className="flex justify-between items-start mb-1">
               <h3 className="font-bold text-xl text-gray-800 pr-2 flex-1">{assignment.title}</h3>
               <span className={`px-2.5 py-1 text-xs font-semibold rounded-full flex-shrink-0 ${subjectColor}`}>
                 {assignment.subject}
               </span>
             </div>
-        </div>
+        </motion.div>
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="space-y-4">
                 {/* Grade Display */}
-                <div className="bg-white p-4 rounded-xl shadow-sm text-center">
+                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ type: 'spring', stiffness: 300, damping: 25 }} className="bg-white p-4 rounded-xl shadow-sm text-center">
                     <p className="text-sm font-medium text-gray-500">YOUR GRADE</p>
                     <p className={`text-6xl font-bold ${gradeColor}`}>{submission.grade}<span className="text-3xl text-gray-400 font-medium">/100</span></p>
-                </div>
+                </motion.div>
 
                 {/* Teacher's Feedback */}
-                <div className="bg-white p-4 rounded-xl shadow-sm">
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.1 }} className="bg-white p-4 rounded-xl shadow-sm">
                     <h4 className="font-bold text-gray-800 mb-2">Teacher's Comments</h4>
                     <div className="bg-orange-50 p-3 rounded-lg border border-orange-200">
                         <p className="text-gray-700 whitespace-pre-wrap">{submission.feedback || 'No comments provided.'}</p>
                     </div>
-                </div>
+                </motion.div>
             </div>
 
             {/* Your Submission */}
-            <div className="bg-white p-4 rounded-xl shadow-sm">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.15 }} className="bg-white p-4 rounded-xl shadow-sm">
                 <h4 className="font-bold text-gray-800 mb-2">Your Submission</h4>
                 {submission.textSubmission && (
                     <div className="mb-3">
@@ -170,7 +171,7 @@ const AssignmentFeedbackScreen: React.FC<AssignmentFeedbackScreenProps> = ({ ass
                         </div>
                     </div>
                 )}
-            </div>
+            </motion.div>
         </div>
       </main>
     </div>

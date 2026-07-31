@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -307,10 +308,10 @@ const fetchExamDetails = useCallback(async () => {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {students.map((student) => {
+                                        {students.map((student, si) => {
                                             const result = results[student.id] || { ca: '', exam: '', total: 0, grade: '' };
                                             return (
-                                                <tr key={student.id} className="border-b hover:bg-gray-50">
+                                                <motion.tr key={student.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(si, 15) * 0.02 }} className="border-b hover:bg-gray-50">
                                                     <td className="p-3">
                                                         <div>
                                                             <p className="font-semibold">{student.first_name} {student.last_name}</p>
@@ -354,18 +355,20 @@ const fetchExamDetails = useCallback(async () => {
                                                             {result.grade || '-'}
                                                         </Badge>
                                                     </td>
-                                                </tr>
-                                            );
+                                </motion.tr>
+                            );
                                         })}
                                     </tbody>
                                 </table>
                             </div>
 
                             <div className="mt-6 flex justify-end">
-                                <Button onClick={handleSave} disabled={saving} size="lg">
-                                    <Save className="h-4 w-4 mr-2" />
-                                    {saving ? 'Saving...' : 'Save Results'}
-                                </Button>
+                                <motion.div whileHover={!saving ? { scale: 1.02 } : {}} whileTap={!saving ? { scale: 0.98 } : {}}>
+                                    <Button onClick={handleSave} disabled={saving} size="lg">
+                                        <Save className="h-4 w-4 mr-2" />
+                                        {saving ? 'Saving...' : 'Save Results'}
+                                    </Button>
+                                </motion.div>
                             </div>
                         </>
                     )}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useBranch } from '../../context/BranchContext';
@@ -210,28 +211,31 @@ const TeacherAssignmentsScreen: React.FC<TeacherAssignmentsScreenProps> = ({ tea
                     </p>
                 </div>
                 <div className="flex gap-2">
-                    <button onClick={() => setShowSettings(true)}
+                    <motion.button whileHover={{ y: -1 }} whileTap={{ scale: 0.96 }} onClick={() => setShowSettings(true)}
                         className="flex items-center gap-1.5 px-3 py-2 bg-gray-100 text-gray-700 rounded-xl font-semibold text-sm hover:bg-gray-200 transition-colors">
                         <Settings className="w-4 h-4" /> Settings
-                    </button>
-                    <button onClick={() => setShowAssignClass(true)}
+                    </motion.button>
+                    <motion.button whileHover={{ y: -1 }} whileTap={{ scale: 0.96 }} onClick={() => setShowAssignClass(true)}
                         className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 text-white rounded-xl font-semibold text-sm hover:bg-indigo-700 transition-colors">
                         <UserCheck className="w-4 h-4" /> Assign Class Teacher
-                    </button>
-                    <button onClick={() => setShowAssignSubject(true)}
+                    </motion.button>
+                    <motion.button whileHover={{ y: -1 }} whileTap={{ scale: 0.96 }} onClick={() => setShowAssignSubject(true)}
                         className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 text-white rounded-xl font-semibold text-sm hover:bg-emerald-700 transition-colors">
                         <BookOpen className="w-4 h-4" /> Assign Subject Teacher
-                    </button>
+                    </motion.button>
                 </div>
             </div>
 
             <div className="bg-white p-1.5 rounded-2xl shadow-sm border border-gray-100 flex gap-1 w-fit">
                 {TABS.map(t => (
-                    <button key={t.key} onClick={() => setTab(t.key as any)}
-                        className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
-                            tab === t.key ? 'bg-indigo-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
-                        {t.icon} {t.label}
-                    </button>
+                    <motion.button key={t.key} whileTap={{ scale: 0.96 }} onClick={() => setTab(t.key as any)}
+                        className={`relative flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold ${
+                            tab === t.key ? 'text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
+                        {tab === t.key && (
+                            <motion.div layoutId="teacherAssignmentsTab" transition={{ type: 'spring', stiffness: 400, damping: 30 }} className="absolute inset-0 bg-indigo-600 rounded-xl" />
+                        )}
+                        <span className="relative z-10 flex items-center gap-1.5">{t.icon} {t.label}</span>
+                    </motion.button>
                 ))}
             </div>
 
@@ -307,8 +311,8 @@ const TeacherAssignmentsScreen: React.FC<TeacherAssignmentsScreenProps> = ({ tea
                         </div>
                     ) : (
                         <div className="divide-y divide-gray-50">
-                            {assignments.map(a => (
-                                <div key={a.id} className="px-5 py-4 flex items-center justify-between gap-3">
+                            {assignments.map((a, i) => (
+                                <motion.div key={a.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(i, 12) * 0.03 }} className="px-5 py-4 flex items-center justify-between gap-3">
                                     <div className="flex items-center gap-3">
                                         {a.teacher.avatar_url
                                             ? <img src={a.teacher.avatar_url} alt={a.teacher.full_name} className="w-9 h-9 rounded-full object-cover" />
@@ -323,11 +327,11 @@ const TeacherAssignmentsScreen: React.FC<TeacherAssignmentsScreenProps> = ({ tea
                                             </p>
                                         </div>
                                     </div>
-                                    <button onClick={() => handleRemove(a.id)}
+                                    <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => handleRemove(a.id)}
                                         className="p-2 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-500 transition-colors" title="End assignment">
                                         <Trash2 className="w-4 h-4" />
-                                    </button>
-                                </div>
+                                    </motion.button>
+                                </motion.div>
                             ))}
                         </div>
                     )}
@@ -335,9 +339,21 @@ const TeacherAssignmentsScreen: React.FC<TeacherAssignmentsScreenProps> = ({ tea
             )}
 
             {/* Assign Class Teacher modal */}
+            <AnimatePresence>
             {showAssignClass && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-                    <div className="bg-white rounded-3xl p-6 max-w-md w-full space-y-5 shadow-2xl">
+                <motion.div
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+                    onClick={() => setShowAssignClass(false)}
+                >
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="bg-white rounded-3xl p-6 max-w-md w-full space-y-5 shadow-2xl"
+                    >
                         <h2 className="text-xl font-bold text-gray-900 font-outfit">Assign Class Teacher</h2>
                         <div className="space-y-4">
                             <div>
@@ -370,20 +386,33 @@ const TeacherAssignmentsScreen: React.FC<TeacherAssignmentsScreenProps> = ({ tea
                             )}
                         </div>
                         <div className="flex space-x-3">
-                            <button onClick={() => setShowAssignClass(false)} className="flex-grow py-3 px-4 border border-gray-200 rounded-2xl text-gray-600 font-bold hover:bg-gray-50 transition-colors">Cancel</button>
-                            <button onClick={() => handleAssignClass(false)} disabled={saving}
+                            <motion.button whileTap={{ scale: 0.97 }} onClick={() => setShowAssignClass(false)} className="flex-grow py-3 px-4 border border-gray-200 rounded-2xl text-gray-600 font-bold hover:bg-gray-50 transition-colors">Cancel</motion.button>
+                            <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.97 }} onClick={() => handleAssignClass(false)} disabled={saving}
                                 className="flex-grow py-3 px-4 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200 disabled:opacity-60">
                                 {saving ? 'Assigning...' : 'Assign'}
-                            </button>
+                            </motion.button>
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
 
             {/* Assign Subject Teacher modal */}
+            <AnimatePresence>
             {showAssignSubject && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-                    <div className="bg-white rounded-3xl p-6 max-w-md w-full space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+                <motion.div
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+                    onClick={() => setShowAssignSubject(false)}
+                >
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="bg-white rounded-3xl p-6 max-w-md w-full space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto"
+                    >
                         <h2 className="text-xl font-bold text-gray-900 font-outfit">Assign Subject Teacher</h2>
                         <div className="space-y-4">
                             <div>
@@ -431,35 +460,49 @@ const TeacherAssignmentsScreen: React.FC<TeacherAssignmentsScreenProps> = ({ tea
                             </div>
                         </div>
                         <div className="flex space-x-3">
-                            <button onClick={() => setShowAssignSubject(false)} className="flex-grow py-3 px-4 border border-gray-200 rounded-2xl text-gray-600 font-bold hover:bg-gray-50 transition-colors">Cancel</button>
-                            <button onClick={() => handleAssignSubject(false)} disabled={saving}
+                            <motion.button whileTap={{ scale: 0.97 }} onClick={() => setShowAssignSubject(false)} className="flex-grow py-3 px-4 border border-gray-200 rounded-2xl text-gray-600 font-bold hover:bg-gray-50 transition-colors">Cancel</motion.button>
+                            <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.97 }} onClick={() => handleAssignSubject(false)} disabled={saving}
                                 className="flex-grow py-3 px-4 bg-emerald-600 text-white rounded-2xl font-bold hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-200 disabled:opacity-60">
                                 {saving ? 'Assigning...' : 'Assign'}
-                            </button>
+                            </motion.button>
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
 
             {/* Settings modal */}
+            <AnimatePresence>
             {showSettings && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-                    <div className="bg-white rounded-3xl p-6 max-w-sm w-full space-y-5 shadow-2xl">
+                <motion.div
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+                    onClick={() => setShowSettings(false)}
+                >
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="bg-white rounded-3xl p-6 max-w-sm w-full space-y-5 shadow-2xl"
+                    >
                         <h2 className="text-xl font-bold text-gray-900 font-outfit">Assignment Settings</h2>
                         <div className="flex items-center justify-between bg-gray-50 rounded-xl p-4">
                             <div>
                                 <p className="font-semibold text-gray-800 text-sm">Allow Co-Class Teachers</p>
                                 <p className="text-xs text-gray-500 mt-0.5">Let a class have more than one active Class Teacher.</p>
                             </div>
-                            <button onClick={handleToggleCoTeachers} disabled={saving}
-                                className={`w-12 h-7 rounded-full transition-colors relative flex-shrink-0 ${allowCoTeachers ? 'bg-indigo-600' : 'bg-gray-300'}`}>
-                                <span className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform ${allowCoTeachers ? 'translate-x-6' : 'translate-x-1'}`} />
-                            </button>
+                            <motion.button whileTap={{ scale: 0.94 }} onClick={handleToggleCoTeachers} disabled={saving}
+                                className={`w-12 h-7 rounded-full relative flex-shrink-0 transition-colors ${allowCoTeachers ? 'bg-indigo-600' : 'bg-gray-300'}`}>
+                                <motion.span layout transition={{ type: 'spring', stiffness: 500, damping: 30 }} className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow ${allowCoTeachers ? 'translate-x-6' : 'translate-x-1'}`} />
+                            </motion.button>
                         </div>
-                        <button onClick={() => setShowSettings(false)} className="w-full py-3 bg-gray-900 text-white rounded-2xl font-bold hover:bg-gray-800 transition-colors">Close</button>
-                    </div>
-                </div>
+                        <motion.button whileTap={{ scale: 0.97 }} onClick={() => setShowSettings(false)} className="w-full py-3 bg-gray-900 text-white rounded-2xl font-bold hover:bg-gray-800 transition-colors">Close</motion.button>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
         </div>
     );
 };

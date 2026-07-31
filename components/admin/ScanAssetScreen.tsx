@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
@@ -30,14 +31,14 @@ const ScanAssetScreen = () => {
     if (foundAssetId) return <AssetDetailScreen assetId={foundAssetId} />;
 
     return (
-        <div className="max-w-md mx-auto p-6 text-center space-y-4">
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="max-w-md mx-auto p-6 text-center space-y-4">
             <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto">
                 <QrCode className="w-8 h-8 text-indigo-600" />
             </div>
             <h1 className="text-xl font-bold text-gray-900 font-outfit">Scan Asset QR Code</h1>
             <p className="text-sm text-gray-500">Point the camera at the QR code on the asset.</p>
             <div id="asset-qr-reader" className="rounded-2xl overflow-hidden" />
-        </div>
+        </motion.div>
     );
 };
 

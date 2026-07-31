@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
@@ -165,7 +165,7 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return () => { cancelled = true; };
     }, [currentBranch?.id, user, currentSchool]);
 
-    const switchBranch = async (branchId: string | null) => {
+    const switchBranch = useCallback(async (branchId: string | null) => {
         try {
             if (branchId === null) {
                 // "All Branches" — not permitted for teachers (single active branch).
@@ -204,10 +204,15 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         } catch (err: any) {
             toast.error(err.message);
         }
-    };
+    }, [canSwitchBranches, allowAllOption, branches]);
+
+    const value = useMemo(
+        () => ({ currentBranch, branches, switchBranch, refreshBranches, isLoading, canSwitchBranches, allowAllOption, activeBranchGeneratedId, isMainAdmin }),
+        [currentBranch, branches, switchBranch, refreshBranches, isLoading, canSwitchBranches, allowAllOption, activeBranchGeneratedId, isMainAdmin]
+    );
 
     return (
-        <BranchContext.Provider value={{ currentBranch, branches, switchBranch, refreshBranches, isLoading, canSwitchBranches, allowAllOption, activeBranchGeneratedId, isMainAdmin }}>
+        <BranchContext.Provider value={value}>
             {children}
         </BranchContext.Provider>
     );

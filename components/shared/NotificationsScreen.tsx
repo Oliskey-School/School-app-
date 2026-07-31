@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
 import { useProfile } from '../../context/ProfileContext';
@@ -195,42 +196,51 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ userType, nav
       <div className="flex justify-between items-center p-4 pb-0">
         <h2 className="text-lg font-bold text-gray-800">Notifications</h2>
         {notifications.some(n => !n.is_read) && (
-          <button onClick={markAllAsRead} className="text-sm text-indigo-600 hover:text-indigo-800 font-medium">
+          <motion.button whileTap={{ scale: 0.96 }} onClick={markAllAsRead} className="text-sm text-indigo-600 hover:text-indigo-800 font-medium">
             Mark all as read
-          </button>
+          </motion.button>
         )}
       </div>
       <main className="flex-grow p-4 space-y-3 overflow-y-auto">
         {loading ? (
           <div className="flex justify-center pt-10"><div className="animate-spin h-8 w-8 border-4 border-indigo-500 rounded-full border-t-transparent"></div></div>
         ) : notifications.length > 0 ? (
-          notifications.map(notification => {
-            const config = NOTIFICATION_CATEGORY_CONFIG[notification.category] || NOTIFICATION_CATEGORY_CONFIG['System'];
-            const Icon = config.icon;
-            return (
-              <button
-                key={notification.id}
-                onClick={() => handleNotificationClick(notification)}
-                className={`w-full text-left bg-white rounded-xl shadow-sm p-4 flex items-start space-x-4 relative transition-all hover:shadow-md hover:ring-2 hover:ring-gray-200 ${notification.is_read ? 'opacity-70' : ''}`}
-              >
-                {!notification.is_read && (
-                  <div className="absolute top-3 right-3 h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse"></div>
-                )}
-                <div className={`flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center ${config.bg}`}>
-                  <Icon className={`w-6 h-6 ${config.color}`} />
-                </div>
-                <div className="flex-grow">
-                  <div className="flex justify-between items-center">
-                    <p className={`font-bold ${notification.is_read ? 'text-gray-700' : 'text-gray-900'}`}>{notification.title}</p>
-                    <p className="text-xs text-gray-500 flex-shrink-0 ml-2">
-                      {formatDistanceToNow(notification.timestamp)}
-                    </p>
+          <AnimatePresence>
+            {notifications.map((notification, i) => {
+              const config = NOTIFICATION_CATEGORY_CONFIG[notification.category] || NOTIFICATION_CATEGORY_CONFIG['System'];
+              const Icon = config.icon;
+              return (
+                <motion.button
+                  key={notification.id}
+                  layout
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.25, delay: Math.min(i, 10) * 0.03 }}
+                  whileHover={{ y: -1 }}
+                  whileTap={{ scale: 0.99 }}
+                  onClick={() => handleNotificationClick(notification)}
+                  className={`w-full text-left bg-white rounded-xl shadow-sm p-4 flex items-start space-x-4 relative transition-shadow hover:shadow-md hover:ring-2 hover:ring-gray-200 ${notification.is_read ? 'opacity-70' : ''}`}
+                >
+                  {!notification.is_read && (
+                    <div className="absolute top-3 right-3 h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse"></div>
+                  )}
+                  <div className={`flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center ${config.bg}`}>
+                    <Icon className={`w-6 h-6 ${config.color}`} />
                   </div>
-                  <p className={`text-sm mt-1 ${notification.is_read ? 'text-gray-600' : 'text-gray-800'}`}>{notification.summary}</p>
-                </div>
-              </button>
-            )
-          })
+                  <div className="flex-grow">
+                    <div className="flex justify-between items-center">
+                      <p className={`font-bold ${notification.is_read ? 'text-gray-700' : 'text-gray-900'}`}>{notification.title}</p>
+                      <p className="text-xs text-gray-500 flex-shrink-0 ml-2">
+                        {formatDistanceToNow(notification.timestamp)}
+                      </p>
+                    </div>
+                    <p className={`text-sm mt-1 ${notification.is_read ? 'text-gray-600' : 'text-gray-800'}`}>{notification.summary}</p>
+                  </div>
+                </motion.button>
+              )
+            })}
+          </AnimatePresence>
         ) : (
           <div className="text-center py-16">
             <p className="text-gray-500">No new notifications.</p>

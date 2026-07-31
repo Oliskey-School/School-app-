@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
@@ -119,91 +120,93 @@ const ParentTodayWidget = ({ navigateTo }: { navigateTo: (view: string, title: s
     return (
         <div className="p-6 max-w-7xl mx-auto space-y-6">
             {/* Header */}
-            <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 p-6 rounded-3xl text-white">
+            <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="bg-gradient-to-br from-indigo-600 to-indigo-800 p-6 rounded-3xl text-white"
+            >
                 <h1 className="text-2xl font-bold font-outfit">{greeting}, Parent! 👋</h1>
                 <p className="text-white/70 mt-1">Here's everything happening today</p>
                 {/* Child Selector */}
                 {children.length > 1 && (
                     <div className="flex space-x-3 mt-4">
                         {children.map((c, i) => (
-                            <button key={c.id} onClick={() => setSelectedChild(i)}
+                            <motion.button key={c.id} whileTap={{ scale: 0.95 }} onClick={() => setSelectedChild(i)}
                                 className={`px-4 py-2 rounded-2xl font-bold text-sm transition-all ${selectedChild === i ? 'bg-white text-indigo-700 shadow-lg' : 'bg-white/20 text-white/90 hover:bg-white/30'}`}>
                                 {c.name.split(' ')[0]} • {c.class_name}
-                            </button>
+                            </motion.button>
                         ))}
                     </div>
                 )}
-            </div>
+            </motion.div>
 
             {/* Summary Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <button onClick={() => navigateTo('attendanceOverview', 'Attendance')} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 text-left hover:shadow-md transition-all">
-                    <div className="flex justify-between items-start">
-                        <div className="p-2 rounded-2xl bg-emerald-50"><CircleCheck className="w-5 h-5 text-emerald-600" /></div>
-                        <span className="text-2xl">{attendanceIcon}</span>
-                    </div>
-                    <p className="font-bold text-gray-800 mt-3 capitalize">{child.attendance_status.replace('_', ' ')}</p>
-                    <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">Attendance</p>
-                </button>
-
-                <button onClick={() => navigateTo('assignments', 'Homework')} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 text-left hover:shadow-md transition-all">
-                    <div className="flex justify-between items-start">
-                        <div className="p-2 rounded-2xl bg-indigo-50"><BookOpen className="w-5 h-5 text-indigo-600" /></div>
-                        {child.homework_pending > 0 && <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{child.homework_pending}</span>}
-                    </div>
-                    <p className="font-bold text-gray-800 mt-3">{child.homework_pending} Pending</p>
-                    <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">Homework</p>
-                </button>
-
-                <button onClick={() => navigateTo('feeStatus', 'Fees')} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 text-left hover:shadow-md transition-all">
-                    <div className="flex justify-between items-start">
-                        <div className="p-2 rounded-2xl bg-amber-50"><CreditCard className="w-5 h-5 text-amber-600" /></div>
-                        {child.fee_due > 0 && <AlertTriangle className="w-4 h-4 text-red-400" />}
-                    </div>
-                    <p className="font-bold text-gray-800 mt-3">{child.fee_due > 0 ? `₦${child.fee_due.toLocaleString()}` : '✅ Paid'}</p>
-                    <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">Fee Balance</p>
-                </button>
-
-                <button onClick={() => navigateTo('busRoute', 'Bus Tracker')} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 text-left hover:shadow-md transition-all">
-                    <div className="flex justify-between items-start">
-                        <div className="p-2 rounded-2xl bg-blue-50"><Bus className="w-5 h-5 text-blue-600" /></div>
-                    </div>
-                    <p className="font-bold text-gray-800 mt-3 text-sm">{child.bus_status}</p>
-                    <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">Bus Status</p>
-                </button>
+                {[
+                    { onClick: () => navigateTo('attendanceOverview', 'Attendance'), iconBg: 'bg-emerald-50', icon: <CircleCheck className="w-5 h-5 text-emerald-600" />, corner: <span className="text-2xl">{attendanceIcon}</span>, value: <span className="capitalize">{child.attendance_status.replace('_', ' ')}</span>, label: 'Attendance' },
+                    { onClick: () => navigateTo('assignments', 'Homework'), iconBg: 'bg-indigo-50', icon: <BookOpen className="w-5 h-5 text-indigo-600" />, corner: child.homework_pending > 0 && <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{child.homework_pending}</span>, value: `${child.homework_pending} Pending`, label: 'Homework' },
+                    { onClick: () => navigateTo('feeStatus', 'Fees'), iconBg: 'bg-amber-50', icon: <CreditCard className="w-5 h-5 text-amber-600" />, corner: child.fee_due > 0 && <AlertTriangle className="w-4 h-4 text-red-400" />, value: child.fee_due > 0 ? `₦${child.fee_due.toLocaleString()}` : '✅ Paid', label: 'Fee Balance' },
+                    { onClick: () => navigateTo('busRoute', 'Bus Tracker', { studentId: child.id }), iconBg: 'bg-blue-50', icon: <Bus className="w-5 h-5 text-blue-600" />, corner: null, value: <span className="text-sm">{child.bus_status}</span>, label: 'Bus Status' },
+                ].map((card, i) => (
+                    <motion.button
+                        key={card.label}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.25, delay: i * 0.06 }}
+                        whileHover={{ y: -3 }}
+                        whileTap={{ scale: 0.97 }}
+                        onClick={card.onClick}
+                        className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 text-left hover:shadow-md transition-shadow"
+                    >
+                        <div className="flex justify-between items-start">
+                            <div className={`p-2 rounded-2xl ${card.iconBg}`}>{card.icon}</div>
+                            {card.corner}
+                        </div>
+                        <p className="font-bold text-gray-800 mt-3">{card.value}</p>
+                        <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">{card.label}</p>
+                    </motion.button>
+                ))}
             </div>
 
             {/* Quick Actions */}
             <div className="flex space-x-3 overflow-x-auto pb-2">
-                <button onClick={() => navigateTo('feeStatus', 'Pay Fees')} className="flex items-center space-x-2 bg-indigo-600 text-white px-5 py-2.5 rounded-2xl font-bold text-sm whitespace-nowrap hover:bg-indigo-700 transition-all">
+                <motion.button whileTap={{ scale: 0.96 }} onClick={() => navigateTo('feeStatus', 'Pay Fees')} className="flex items-center space-x-2 bg-indigo-600 text-white px-5 py-2.5 rounded-2xl font-bold text-sm whitespace-nowrap hover:bg-indigo-700 transition-colors">
                     <CreditCard className="w-4 h-4" /><span>Pay Fees</span>
-                </button>
-                <button onClick={() => navigateTo('parentMessages', 'Messages')} className="flex items-center space-x-2 bg-white text-gray-700 px-5 py-2.5 rounded-2xl font-bold text-sm border border-gray-100 whitespace-nowrap hover:bg-gray-50 transition-all">
+                </motion.button>
+                <motion.button whileTap={{ scale: 0.96 }} onClick={() => navigateTo('parentMessages', 'Messages')} className="flex items-center space-x-2 bg-white text-gray-700 px-5 py-2.5 rounded-2xl font-bold text-sm border border-gray-100 whitespace-nowrap hover:bg-gray-50 transition-colors">
                     <MessageSquare className="w-4 h-4" /><span>Message Teacher</span>
-                </button>
-                <button onClick={() => navigateTo('reportCard', 'Report Card')} className="flex items-center space-x-2 bg-white text-gray-700 px-5 py-2.5 rounded-2xl font-bold text-sm border border-gray-100 whitespace-nowrap hover:bg-gray-50 transition-all">
+                </motion.button>
+                <motion.button whileTap={{ scale: 0.96 }} onClick={() => navigateTo('reportCard', 'Report Card')} className="flex items-center space-x-2 bg-white text-gray-700 px-5 py-2.5 rounded-2xl font-bold text-sm border border-gray-100 whitespace-nowrap hover:bg-gray-50 transition-colors">
                     <FileText className="w-4 h-4" /><span>View Report Card</span>
-                </button>
-                <button onClick={() => navigateTo('schoolCalendar', 'Calendar')} className="flex items-center space-x-2 bg-white text-gray-700 px-5 py-2.5 rounded-2xl font-bold text-sm border border-gray-100 whitespace-nowrap hover:bg-gray-50 transition-all">
+                </motion.button>
+                <motion.button whileTap={{ scale: 0.96 }} onClick={() => navigateTo('schoolCalendar', 'Calendar')} className="flex items-center space-x-2 bg-white text-gray-700 px-5 py-2.5 rounded-2xl font-bold text-sm border border-gray-100 whitespace-nowrap hover:bg-gray-50 transition-colors">
                     <Calendar className="w-4 h-4" /><span>School Calendar</span>
-                </button>
+                </motion.button>
             </div>
 
             {/* Activity Feed */}
             <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
                 <h2 className="text-lg font-bold text-gray-800 mb-4">Today's Activity Feed</h2>
                 <div className="space-y-4">
-                    {feedItems.map(item => {
+                    {feedItems.map((item, i) => {
                         const Icon = getFeedIcon(item.type);
                         return (
-                            <div key={item.id} className="flex items-start space-x-4 py-3 border-b border-gray-50 last:border-b-0">
+                            <motion.div
+                                key={item.id}
+                                initial={{ opacity: 0, y: 8 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.2, delay: Math.min(i, 10) * 0.04 }}
+                                whileHover={{ x: 2 }}
+                                className="flex items-start space-x-4 py-3 border-b border-gray-50 last:border-b-0"
+                            >
                                 <div className={`p-2 rounded-xl bg-gray-50 ${item.icon_color}`}><Icon className="w-4 h-4" /></div>
                                 <div className="flex-grow">
                                     <p className="text-sm text-gray-800"><span className="font-bold text-indigo-600">{item.child_name}</span> — {item.description}</p>
                                     <p className="text-xs text-gray-400 mt-1">{item.time}</p>
                                 </div>
                                 <ChevronRight className="w-4 h-4 text-gray-300 mt-1" />
-                            </div>
+                            </motion.div>
                         );
                     })}
                 </div>

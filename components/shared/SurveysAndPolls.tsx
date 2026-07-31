@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useProfile } from '../../context/ProfileContext';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
@@ -188,17 +189,19 @@ const SurveysAndPolls: React.FC<SurveysAndPollsProps> = ({ schoolId }) => {
                 return (
                     <div className="flex space-x-2">
                         {[1, 2, 3, 4, 5].map(rating => (
-                            <button
+                            <motion.button
                                 key={rating}
                                 type="button"
+                                whileHover={{ scale: 1.15 }}
+                                whileTap={{ scale: 0.9 }}
                                 onClick={() => handleResponseChange(question.id, rating)}
-                                className={`p-3 rounded-lg transition-all ${responses[question.id] >= rating
+                                className={`p-3 rounded-lg transition-colors ${responses[question.id] >= rating
                                     ? 'bg-yellow-400 text-white scale-110'
                                     : 'bg-gray-200 text-gray-400 hover:bg-gray-300'
                                     }`}
                             >
                                 <Star className="h-6 w-6 fill-current" />
-                            </button>
+                            </motion.button>
                         ))}
                         <span className="ml-2 text-gray-600 self-center">
                             {responses[question.id] ? `${responses[question.id]}/5` : 'Not rated'}
@@ -209,27 +212,29 @@ const SurveysAndPolls: React.FC<SurveysAndPollsProps> = ({ schoolId }) => {
             case 'Yes/No':
                 return (
                     <div className="flex space-x-4">
-                        <button
+                        <motion.button
+                            whileTap={{ scale: 0.96 }}
                             type="button"
                             onClick={() => handleResponseChange(question.id, 'Yes')}
-                            className={`flex-1 px-6 py-3 rounded-lg font-semibold transition-all ${responses[question.id] === 'Yes'
+                            className={`flex-1 px-6 py-3 rounded-lg font-semibold transition-colors ${responses[question.id] === 'Yes'
                                 ? 'bg-green-600 text-white'
                                 : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                                 }`}
                         >
                             <ThumbsUp className="h-5 w-5 inline mr-2" />
                             Yes
-                        </button>
-                        <button
+                        </motion.button>
+                        <motion.button
+                            whileTap={{ scale: 0.96 }}
                             type="button"
                             onClick={() => handleResponseChange(question.id, 'No')}
-                            className={`flex-1 px-6 py-3 rounded-lg font-semibold transition-all ${responses[question.id] === 'No'
+                            className={`flex-1 px-6 py-3 rounded-lg font-semibold transition-colors ${responses[question.id] === 'No'
                                 ? 'bg-red-600 text-white'
                                 : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                                 }`}
                         >
                             No
-                        </button>
+                        </motion.button>
                     </div>
                 );
 
@@ -259,8 +264,14 @@ const SurveysAndPolls: React.FC<SurveysAndPollsProps> = ({ schoolId }) => {
                         <p className="text-sm">Check back later for new surveys</p>
                     </div>
                 ) : (
-                    surveys.map(survey => (
-                        <div key={survey.id} className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow p-6">
+                    surveys.map((survey, i) => (
+                        <motion.div
+                            key={survey.id}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.25, delay: Math.min(i, 10) * 0.05 }}
+                            className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow p-6"
+                        >
                             <div className="flex items-start justify-between mb-4">
                                 <div className="flex-1">
                                     <h3 className="text-xl font-bold text-gray-900 mb-2">{survey.title}</h3>
@@ -280,22 +291,37 @@ const SurveysAndPolls: React.FC<SurveysAndPollsProps> = ({ schoolId }) => {
                                         </span>
                                     </div>
                                 </div>
-                                <button
+                                <motion.button
+                                    whileHover={{ scale: 1.03 }}
+                                    whileTap={{ scale: 0.97 }}
                                     onClick={() => handleSelectSurvey(survey)}
                                     className="ml-4 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-semibold transition-colors"
                                 >
                                     Take Survey
-                                </button>
+                                </motion.button>
                             </div>
-                        </div>
+                        </motion.div>
                     ))
                 )}
             </div>
 
             {/* Survey Modal */}
+            <AnimatePresence>
             {showSurveyModal && selectedSurvey && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-                    <div className="bg-white rounded-xl max-w-2xl w-full my-8">
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto"
+                >
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                        className="bg-white rounded-xl max-w-2xl w-full my-8"
+                    >
                         <div className="p-6">
                             <h2 className="text-2xl font-bold text-gray-900 mb-2">{selectedSurvey.title}</h2>
                             <p className="text-gray-600 mb-6">{selectedSurvey.description}</p>
@@ -305,31 +331,39 @@ const SurveysAndPolls: React.FC<SurveysAndPollsProps> = ({ schoolId }) => {
                                     <CheckCircle className="h-16 w-16 text-green-600 mx-auto mb-4" />
                                     <h3 className="text-xl font-bold text-gray-900 mb-2">Already Submitted</h3>
                                     <p className="text-gray-600">Thank you for your previous response!</p>
-                                    <button
+                                    <motion.button
+                                        whileTap={{ scale: 0.96 }}
                                         onClick={() => setShowSurveyModal(false)}
                                         className="mt-6 px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-semibold"
                                     >
                                         Close
-                                    </button>
+                                    </motion.button>
                                 </div>
                             ) : (
                                 <>
                                     {/* Questions */}
                                     <div className="space-y-6 mb-6 max-h-[60vh] overflow-y-auto">
                                         {questions.map((question, index) => (
-                                            <div key={question.id} className="pb-6 border-b border-gray-200 last:border-0">
+                                            <motion.div
+                                                key={question.id}
+                                                initial={{ opacity: 0, y: 8 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                transition={{ duration: 0.2, delay: Math.min(index, 10) * 0.05 }}
+                                                className="pb-6 border-b border-gray-200 last:border-0"
+                                            >
                                                 <label className="block text-lg font-semibold text-gray-900 mb-3">
                                                     {index + 1}. {question.question_text}
                                                     {question.is_required && <span className="text-red-500 ml-1">*</span>}
                                                 </label>
                                                 {renderQuestion(question)}
-                                            </div>
+                                            </motion.div>
                                         ))}
                                     </div>
 
                                     {/* Actions */}
                                     <div className="flex space-x-3 pt-4 border-t border-gray-200">
-                                        <button
+                                        <motion.button
+                                            whileTap={{ scale: 0.96 }}
                                             onClick={() => {
                                                 setShowSurveyModal(false);
                                                 setResponses({});
@@ -337,20 +371,23 @@ const SurveysAndPolls: React.FC<SurveysAndPollsProps> = ({ schoolId }) => {
                                             className="flex-1 px-4 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-semibold"
                                         >
                                             Cancel
-                                        </button>
-                                        <button
+                                        </motion.button>
+                                        <motion.button
+                                            whileHover={{ scale: 1.02 }}
+                                            whileTap={{ scale: 0.96 }}
                                             onClick={handleSubmitSurvey}
                                             className="flex-1 px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-semibold"
                                         >
                                             Submit Survey
-                                        </button>
+                                        </motion.button>
                                     </div>
                                 </>
                             )}
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
         </div>
     );
 };

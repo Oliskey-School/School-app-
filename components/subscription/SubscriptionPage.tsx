@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { usePaystackPayment } from 'react-paystack';
 import { useAuth } from '../../context/AuthContext';
 import { useBranch } from '../../context/BranchContext';
@@ -182,14 +183,15 @@ const SubscriptionPage: React.FC<SubscriptionPageProps> = ({ navigateTo, handleB
 
                 {/* Back button */}
                 {canGoBack && (
-                    <button
+                    <motion.button
+                        whileHover={{ x: -2 }}
                         type="button"
                         onClick={goBack}
                         className="mb-6 inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-indigo-300 hover:text-indigo-700"
                     >
                         <ArrowLeft className="h-4 w-4" />
                         Back
-                    </button>
+                    </motion.button>
                 )}
 
                 {/* Free period banner */}
@@ -276,7 +278,8 @@ const SubscriptionPage: React.FC<SubscriptionPageProps> = ({ navigateTo, handleB
                 <div className="grid gap-3 grid-cols-1 md:grid-cols-3 mb-6">
 
                     {/* FREE — compact, muted gray */}
-                    <button
+                    <motion.button
+                        whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
                         type="button"
                         onClick={() => setSelectedPlan('free')}
                         className={[
@@ -309,10 +312,11 @@ const SubscriptionPage: React.FC<SubscriptionPageProps> = ({ navigateTo, handleB
                                 Current plan
                             </span>
                         )}
-                    </button>
+                    </motion.button>
 
                     {/* BASIC — white with indigo ring, featured */}
-                    <button
+                    <motion.button
+                        whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
                         type="button"
                         onClick={() => setSelectedPlan('basic')}
                         className={[
@@ -346,10 +350,11 @@ const SubscriptionPage: React.FC<SubscriptionPageProps> = ({ navigateTo, handleB
                                 Current plan
                             </span>
                         )}
-                    </button>
+                    </motion.button>
 
                     {/* ADVANCED — dark slate, premium */}
-                    <button
+                    <motion.button
+                        whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
                         type="button"
                         onClick={() => setSelectedPlan('advanced')}
                         className={[
@@ -402,12 +407,13 @@ const SubscriptionPage: React.FC<SubscriptionPageProps> = ({ navigateTo, handleB
                                 Current plan
                             </span>
                         )}
-                    </button>
+                    </motion.button>
                 </div>
 
                 {/* ── Calculator ── */}
+                <AnimatePresence>
                 {selectedPlan !== 'free' && (
-                    <div className="rounded-2xl bg-white border border-slate-200 overflow-hidden mb-4 shadow-sm">
+                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="rounded-2xl bg-white border border-slate-200 overflow-hidden mb-4 shadow-sm">
                         <div className="bg-slate-50 border-b border-slate-100 px-5 py-3">
                             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                                 Calculate your term cost
@@ -484,18 +490,20 @@ const SubscriptionPage: React.FC<SubscriptionPageProps> = ({ navigateTo, handleB
                                 You have <strong className="text-slate-600">{minStudents}</strong> enrolled student{minStudents === 1 ? '' : 's'} — minimum billable count.
                             </p>
                         </div>
-                    </div>
+                    </motion.div>
                 )}
+                </AnimatePresence>
 
                 {/* ── CTA ── */}
-                <button
+                <motion.button
+                    whileHover={!loading ? { scale: 1.01 } : {}} whileTap={!loading ? { scale: 0.98 } : {}}
                     type="button"
                     onClick={handlePay}
                     disabled={loading || (selectedPlan !== 'free' && !term && !planStatus.is_term1_free)}
-                    className="w-full py-4 rounded-2xl bg-indigo-600 text-white font-bold text-base hover:bg-indigo-700 active:scale-[0.99] transition-all duration-150 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed shadow-lg shadow-indigo-100 mb-3"
+                    className="w-full py-4 rounded-2xl bg-indigo-600 text-white font-bold text-base hover:bg-indigo-700 transition-all duration-150 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed shadow-lg shadow-indigo-100 mb-3"
                 >
                     {ctaLabel}
-                </button>
+                </motion.button>
 
                 {selectedPlan !== 'free' && term && (
                     <p className="text-center text-xs text-slate-400 mb-6">

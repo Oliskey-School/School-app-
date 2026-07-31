@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { LockIcon, EyeIcon, EyeOffIcon } from '../../constants';
 import { api } from '../../lib/api';
@@ -81,13 +82,15 @@ const ParentChangePasswordScreen: React.FC = () => {
                     </div>
                 </main>
                 <div className="p-4 mt-auto bg-gray-50 border-t border-gray-200">
-                    <button
+                    <motion.button
+                        whileHover={{ scale: loading ? 1 : 1.01 }}
+                        whileTap={{ scale: loading ? 1 : 0.97 }}
                         type="submit"
                         disabled={loading}
-                        className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 ${loading ? 'opacity-50' : ''}`}
+                        className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white bg-green-600 hover:bg-green-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 ${loading ? 'opacity-50' : ''}`}
                     >
                         {loading ? 'Updating...' : 'Update Password'}
-                    </button>
+                    </motion.button>
                 </div>
             </form>
         </div>

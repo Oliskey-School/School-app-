@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import api from '../../../lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
+import CenteredLoader from '../../ui/CenteredLoader';
 import {
     Bell,
     Send,
@@ -181,18 +183,19 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ navigate
                     <h1 className="text-3xl font-bold text-gray-900">Notification Center</h1>
                     <p className="text-gray-600 mt-1">Send announcements and alerts to schools</p>
                 </div>
-                <button
+                <motion.button
+                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                     onClick={fetchData}
                     className="flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
                 >
                     <RefreshCw className="w-4 h-4 mr-2" />
                     Refresh
-                </button>
+                </motion.button>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Create Notification Form */}
-                <div className="lg:col-span-1">
+                <div className="lg:col-span-1 lg:sticky lg:top-6 lg:self-start">
                     <Card>
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
@@ -282,18 +285,20 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ navigate
                                     Target Schools
                                 </label>
                                 <div className="flex gap-2 mb-2">
-                                    <button
+                                    <motion.button
+                                        whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                                         onClick={selectAllSchools}
                                         className="px-3 py-1 text-sm bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200"
                                     >
                                         Select All
-                                    </button>
-                                    <button
+                                    </motion.button>
+                                    <motion.button
+                                        whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                                         onClick={clearSelection}
                                         className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
                                     >
                                         Clear
-                                    </button>
+                                    </motion.button>
                                 </div>
                                 <div className="max-h-40 overflow-y-auto border border-gray-300 rounded-lg p-2 space-y-1">
                                     {schools.map(school => (
@@ -316,7 +321,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ navigate
                             </div>
 
                             {/* Send Button */}
-                            <button
+                            <motion.button
+                                whileHover={!sending ? { scale: 1.02 } : {}} whileTap={!sending ? { scale: 0.98 } : {}}
                                 onClick={handleSendNotification}
                                 disabled={sending}
                                 className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -332,7 +338,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ navigate
                                         Send Notification
                                     </>
                                 )}
-                            </button>
+                            </motion.button>
                         </CardContent>
                     </Card>
                 </div>
@@ -372,17 +378,15 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ navigate
 
                             {/* Notifications List */}
                             {loading ? (
-                                <div className="flex justify-center items-center py-12">
-                                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-                                </div>
+                                <CenteredLoader className="py-12" />
                             ) : filteredNotifications.length === 0 ? (
                                 <div className="text-center py-12 text-gray-500">
                                     No notifications found
                                 </div>
                             ) : (
                                 <div className="space-y-3 max-h-[600px] overflow-y-auto">
-                                    {filteredNotifications.map((notif) => (
-                                        <div key={notif.id} className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
+                                    {filteredNotifications.map((notif, ni) => (
+                                        <motion.div key={notif.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(ni, 15) * 0.03 }} className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
                                             <div className="flex items-start justify-between">
                                                 <div className="flex items-start gap-3 flex-1">
                                                     {getTypeIcon(notif.type)}
@@ -417,7 +421,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ navigate
                                                     </div>
                                                 </div>
                                             </div>
-                                        </div>
+                                        </motion.div>
                                     ))}
                                 </div>
                             )}

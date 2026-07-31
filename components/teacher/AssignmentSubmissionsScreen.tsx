@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
 import { Submission, Assignment, Student } from '../../types';
 import { CheckCircleIcon, ClockIcon, MailIcon, TrashIcon } from '../../constants';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { fetchStudentsByClassId } from '../../lib/database';
+import ConfirmationModal from '../ui/ConfirmationModal';
 
 interface AssignmentSubmissionsScreenProps {
     assignment: Assignment;
@@ -14,8 +16,14 @@ interface AssignmentSubmissionsScreenProps {
     schoolId: string;
 }
 
-const SubmissionCard: React.FC<{ student: Student; submission: Submission; onGrade: (submission: Submission) => void }> = ({ student, submission, onGrade }) => (
-    <div className="bg-white rounded-xl shadow-sm p-3 flex items-center space-x-3">
+const SubmissionCard: React.FC<{ student: Student; submission: Submission; onGrade: (submission: Submission) => void; index: number }> = ({ student, submission, onGrade, index }) => (
+    <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.2, delay: Math.min(index, 12) * 0.03 }}
+        whileHover={{ y: -2 }}
+        className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow p-3 flex items-center space-x-3"
+    >
         {student.avatarUrl ? (
             <img src={student.avatarUrl} alt={student.name || 'Student'} className="w-12 h-12 rounded-full object-cover" />
         ) : (
@@ -39,17 +47,25 @@ const SubmissionCard: React.FC<{ student: Student; submission: Submission; onGra
                     <span className="font-bold text-green-600 text-sm">{submission.grade}/100</span>
                 )}
             </div>
-            <button
+            <motion.button
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.96 }}
                 onClick={() => onGrade(submission)}
                 className="py-2 px-4 bg-purple-100 text-purple-700 text-sm font-semibold rounded-lg hover:bg-purple-200 transition-colors">
                 {submission.status === 'Graded' ? 'View' : 'Grade'}
-            </button>
+            </motion.button>
         </div>
-    </div>
+    </motion.div>
 );
 
-const NotSubmittedCard: React.FC<{ student: Student; onRemind: (student: Student) => void }> = ({ student, onRemind }) => (
-    <div className="bg-white rounded-xl shadow-sm p-3 flex items-center space-x-3">
+const NotSubmittedCard: React.FC<{ student: Student; onRemind: (student: Student) => void; index: number }> = ({ student, onRemind, index }) => (
+    <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.2, delay: Math.min(index, 12) * 0.03 }}
+        whileHover={{ y: -2 }}
+        className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow p-3 flex items-center space-x-3"
+    >
         {student.avatarUrl ? (
             <img src={student.avatarUrl} alt={student.name || 'Student'} className="w-12 h-12 rounded-full object-cover" />
         ) : (
@@ -61,19 +77,22 @@ const NotSubmittedCard: React.FC<{ student: Student; onRemind: (student: Student
             <p className="font-bold text-gray-800">{student.name || 'Unknown Student'}</p>
             <p className="text-sm text-red-500 font-semibold">Not Submitted</p>
         </div>
-        <button
+        <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.96 }}
             onClick={() => onRemind(student)}
             className="py-2 px-4 bg-blue-100 text-blue-700 text-sm font-semibold rounded-lg hover:bg-blue-200 transition-colors flex items-center space-x-2">
             <MailIcon className="w-4 h-4" />
             <span>Remind</span>
-        </button>
-    </div>
+        </motion.button>
+    </motion.div>
 );
 
 const AssignmentSubmissionsScreen: React.FC<AssignmentSubmissionsScreenProps> = ({ assignment, navigateTo, handleBack, forceUpdate, schoolId }) => {
     const [submissions, setSubmissions] = useState<Submission[]>([]);
     const [allClassStudents, setAllClassStudents] = useState<Student[]>([]);
     const [loading, setLoading] = useState(true);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
     const fetchData = useCallback(async () => {
         if (!assignment) return;
@@ -240,7 +259,6 @@ const AssignmentSubmissionsScreen: React.FC<AssignmentSubmissionsScreenProps> = 
 
     const handleDeleteAssignment = async () => {
         if (!assignment) return;
-        if (!window.confirm("Are you sure you want to delete this assignment? All submissions will be lost.")) return;
 
         try {
             setLoading(true);
@@ -262,18 +280,21 @@ const AssignmentSubmissionsScreen: React.FC<AssignmentSubmissionsScreenProps> = 
                 {/* Header Actions */}
                 <div className="flex justify-between items-center mb-2">
                     <h2 className="text-xl font-bold text-gray-800">{assignment.title}</h2>
-                    <button
-                        onClick={handleDeleteAssignment}
+                    <motion.button
+                        whileHover={{ scale: 1.03 }}
+                        whileTap={{ scale: 0.96 }}
+                        onClick={() => setShowDeleteConfirm(true)}
                         className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center space-x-1"
                         title="Delete Assignment"
+                        aria-label="Delete Assignment"
                     >
                         <TrashIcon className="w-5 h-5" />
                         <span className="text-sm font-semibold">Delete</span>
-                    </button>
+                    </motion.button>
                 </div>
 
                 {/* Summary Header */}
-                <div className="bg-white p-4 rounded-xl shadow-sm text-center grid grid-cols-3 divide-x divide-gray-200">
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="bg-white p-4 rounded-xl shadow-sm text-center grid grid-cols-3 divide-x divide-gray-200">
                     <div>
                         <p className="text-2xl font-bold text-purple-700">{submissions.length}/{allClassStudents.length || assignment.totalStudents}</p>
                         <p className="text-xs text-gray-500 font-medium">Submitted</p>
@@ -286,7 +307,7 @@ const AssignmentSubmissionsScreen: React.FC<AssignmentSubmissionsScreenProps> = 
                         <p className="text-2xl font-bold text-blue-600">{ungradedCount}</p>
                         <p className="text-xs text-gray-500 font-medium">Ungraded</p>
                     </div>
-                </div>
+                </motion.div>
 
                 {loading ? (
                     <div className="p-10 text-center text-gray-500">Loading submissions...</div>
@@ -296,8 +317,8 @@ const AssignmentSubmissionsScreen: React.FC<AssignmentSubmissionsScreenProps> = 
                         <div>
                             <h3 className="font-bold text-gray-700 mb-2 px-1">Submitted ({submittedStudents.length})</h3>
                             <div className="space-y-3">
-                                {submittedStudents.length > 0 ? submittedStudents.map(item => (
-                                    <SubmissionCard key={item.student.id} student={item.student} submission={item.submission} onGrade={viewOrGrade} />
+                                {submittedStudents.length > 0 ? submittedStudents.map((item, i) => (
+                                    <SubmissionCard key={item.student.id} student={item.student} submission={item.submission} onGrade={viewOrGrade} index={i} />
                                 )) : <p className="text-sm text-gray-500 p-4 bg-white rounded-xl text-center">No submissions yet.</p>}
                             </div>
                         </div>
@@ -306,14 +327,23 @@ const AssignmentSubmissionsScreen: React.FC<AssignmentSubmissionsScreenProps> = 
                         <div>
                             <h3 className="font-bold text-gray-700 mb-2 px-1">Not Submitted ({notSubmittedStudents.length})</h3>
                             <div className="space-y-3">
-                                {notSubmittedStudents.length > 0 ? notSubmittedStudents.map(student => (
-                                    <NotSubmittedCard key={student.id} student={student} onRemind={handleRemind} />
+                                {notSubmittedStudents.length > 0 ? notSubmittedStudents.map((student, i) => (
+                                    <NotSubmittedCard key={student.id} student={student} onRemind={handleRemind} index={i} />
                                 )) : <p className="text-sm text-gray-500 p-4 bg-white rounded-xl text-center">All students have submitted!</p>}
                             </div>
                         </div>
                     </div>
                 )}
             </main>
+            <ConfirmationModal
+                isOpen={showDeleteConfirm}
+                onClose={() => setShowDeleteConfirm(false)}
+                onConfirm={handleDeleteAssignment}
+                title="Delete Assignment"
+                message="Are you sure you want to delete this assignment? All submissions will be lost."
+                confirmText="Delete"
+                isDanger
+            />
         </div>
     );
 };

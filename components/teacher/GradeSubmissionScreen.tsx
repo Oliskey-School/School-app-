@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { Submission, Assignment } from '../../types';
 import { SparklesIcon, AIIcon, FileDocIcon, FilePdfIcon, FileImageIcon, DocumentTextIcon } from '../../constants';
@@ -240,18 +241,21 @@ const GradeSubmissionScreen: React.FC<GradeSubmissionScreenProps> = ({ submissio
                       className="w-full px-3 py-2 pr-12 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
                     />
                     {recognitionRef.current && (
-                      <button
+                      <motion.button
+                        whileTap={{ scale: 0.92 }}
                         type="button"
                         onClick={handleToggleRecording}
                         className={`absolute top-2 right-2 p-2 rounded-full transition-colors ${isRecording ? 'bg-red-500 text-white animate-pulse' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}
                         aria-label={isRecording ? 'Stop recording' : 'Start recording feedback'}
                       >
                         <MicrophoneIcon className="h-5 w-5" />
-                      </button>
+                      </motion.button>
                     )}
                   </div>
                   <div className="flex justify-end mt-2">
-                    <button
+                    <motion.button
+                      whileHover={!isGenerating ? { scale: 1.02 } : {}}
+                      whileTap={!isGenerating ? { scale: 0.96 } : {}}
                       type="button"
                       onClick={handleGenerateFeedback}
                       disabled={isGenerating}
@@ -263,35 +267,43 @@ const GradeSubmissionScreen: React.FC<GradeSubmissionScreenProps> = ({ submissio
                         <SparklesIcon className="w-4 h-4" />
                       )}
                       <span>{isGenerating ? 'Drafting...' : 'Draft with AI'}</span>
-                    </button>
+                    </motion.button>
                   </div>
                 </div>
 
                 {/* AI Feedback Section */}
                 <div>
-                  <button
+                  <motion.button
+                    whileHover={!isGenerating && !!grade ? { scale: 1.01 } : {}}
+                    whileTap={!isGenerating && !!grade ? { scale: 0.98 } : {}}
                     type="button"
                     onClick={handleGenerateFeedback}
                     disabled={isGenerating || !grade}
                     className="w-full flex items-center justify-center space-x-2 px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:bg-gray-100 hover:border-purple-400 hover:text-purple-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                     <AIIcon className="h-5 w-5" />
                     <span className="font-semibold">{isGenerating ? 'Generating...' : 'Generate Feedback with AI'}</span>
-                  </button>
+                  </motion.button>
+                  <AnimatePresence>
                   {aiSuggestions.length > 0 && (
-                    <div className="mt-3 space-y-2">
+                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mt-3 space-y-2 overflow-hidden">
                       <h4 className="text-xs font-semibold text-gray-500">AI Suggestions (Click to use):</h4>
                       {aiSuggestions.map((suggestion, index) => (
-                        <button
+                        <motion.button
                           type="button"
                           key={index}
+                          initial={{ opacity: 0, x: -8 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ duration: 0.2, delay: index * 0.06 }}
+                          whileHover={{ x: 2 }}
                           onClick={() => setFeedback(suggestion)}
                           className="w-full text-left p-2 bg-purple-50 text-purple-800 text-sm rounded-lg hover:bg-purple-100 transition-colors flex items-start space-x-2">
                           <SparklesIcon className="w-4 h-4 mt-0.5 flex-shrink-0 text-purple-500" />
                           <span>{suggestion}</span>
-                        </button>
+                        </motion.button>
                       ))}
-                    </div>
+                    </motion.div>
                   )}
+                  </AnimatePresence>
                 </div>
               </div>
             </div>
@@ -299,12 +311,14 @@ const GradeSubmissionScreen: React.FC<GradeSubmissionScreenProps> = ({ submissio
         </main>
 
         <div className="p-4 mt-auto bg-white border-t border-gray-200">
-          <button
+          <motion.button
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.98 }}
             type="submit"
             className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
           >
             Submit Grade
-          </button>
+          </motion.button>
         </div>
       </form>
     </div>

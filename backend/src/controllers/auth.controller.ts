@@ -4,10 +4,18 @@ import { BranchIdentityService } from '../services/branchIdentity.service';
 import { generateToken } from '../middleware/csrf.middleware';
 import prisma from '../config/database';
 
+// Matches csrf.middleware.ts's reasoning: nginx serves the SPA and API
+// same-origin in production (see deploy/nginx.conf), so 'lax' is both
+// stronger than 'none' and sufficient. 'none' would additionally send these
+// auth cookies on genuine cross-site requests, widening the CSRF surface for
+// no benefit under this deployment. Override with COOKIE_SAMESITE=none only
+// if the API is ever deployed on a different origin than the SPA.
+const PROD_SAME_SITE = (process.env.COOKIE_SAMESITE as 'lax' | 'strict' | 'none' | undefined) || 'lax';
+
 const COOKIE_OPTIONS: any = {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    sameSite: process.env.NODE_ENV === 'production' ? PROD_SAME_SITE : 'lax',
     path: '/',
 };
 
@@ -133,10 +141,10 @@ export const refresh = async (req: Request, res: Response) => {
 
 export const googleLogin = async (req: Request, res: Response) => {
     try {
-        const { email, name } = req.body;
-        if (!email) throw new Error('Email is required for Google Login');
-        const { user, token, refreshToken } = await AuthService.googleLogin(email, name);
-        
+        const { credential } = req.body;
+        if (!credential) throw new Error('Google credential is required');
+        const { user, token, refreshToken } = await AuthService.googleLogin(credential);
+
         res.cookie('access_token', token, { ...COOKIE_OPTIONS, maxAge: 15 * 60 * 1000 });
         res.cookie('refresh_token', refreshToken, { ...COOKIE_OPTIONS, maxAge: 7 * 24 * 60 * 60 * 1000 });
 

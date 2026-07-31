@@ -1,19 +1,29 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { BookOpenIcon, SaveIcon, ChevronRightIcon } from '../../constants';
 import { api } from '../../lib/api';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { useAuth } from '../../context/AuthContext';
+import CenteredLoader from '../ui/CenteredLoader';
 
 const Accordion: React.FC<{ title: string; children: React.ReactNode; defaultOpen?: boolean }> = ({ title, children, defaultOpen = false }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   return (
     <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-      <button onClick={() => setIsOpen(!isOpen)} className="w-full flex justify-between items-center p-4 text-left font-bold text-gray-800">
+      <motion.button whileTap={{ scale: 0.99 }} onClick={() => setIsOpen(!isOpen)} className="w-full flex justify-between items-center p-4 text-left font-bold text-gray-800">
         <span>{title}</span>
-        <ChevronRightIcon className={`transition-transform ${isOpen ? 'rotate-90' : ''}`} />
-      </button>
-      {isOpen && <div className="p-4 border-t">{children}</div>}
+        <motion.span animate={{ rotate: isOpen ? 90 : 0 }} transition={{ type: 'spring', stiffness: 400, damping: 30 }}>
+          <ChevronRightIcon />
+        </motion.span>
+      </motion.button>
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+            <div className="p-4 border-t">{children}</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
@@ -99,16 +109,18 @@ const AcademicSettingsScreen: React.FC = () => {
     <div className="p-4 space-y-4 bg-gray-50 h-full flex flex-col">
       <div className="flex justify-between items-center mb-2">
         <h2 className="text-xl font-bold text-gray-800">Academic Configuration</h2>
-        <button
+        <motion.button
+          whileHover={!(saving || loading) ? { scale: 1.02 } : {}}
+          whileTap={!(saving || loading) ? { scale: 0.98 } : {}}
           onClick={saveSettings}
           disabled={saving || loading}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
         >
           {saving ? 'Saving...' : 'Save Changes'}
-        </button>
+        </motion.button>
       </div>
 
-      {loading ? <p className="text-center text-gray-500">Loading settings...</p> : (
+      {loading ? <CenteredLoader message="Loading settings..." className="py-8" /> : (
         <>
           <Accordion title="School Calendar" defaultOpen>
             <div className="space-y-3">

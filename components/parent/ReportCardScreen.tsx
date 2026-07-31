@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { SchoolLogoIcon, DocumentTextIcon } from '../../constants';
 import { Student, ReportCard, Rating } from '../../types';
@@ -72,9 +73,9 @@ const TermReport: React.FC<{ report: ReportCard, student: Student, schoolName?: 
             <SectionHeader title="Academic Performance" />
             <div className="overflow-x-auto text-sm">
                 <table className="min-w-full border-collapse border border-gray-300">
-                    <thead className="bg-green-50 text-left text-gray-700 font-sans font-bold">
+                    <thead className="sticky top-0 z-10 bg-green-50 text-left text-gray-700 font-sans font-bold">
                         <tr>
-                            <th className="p-2 border border-gray-300">Subject</th>
+                            <th className="sticky left-0 z-10 bg-green-50 p-2 border border-gray-300 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]">Subject</th>
                             <th className="p-2 border border-gray-300 w-16 text-center">CA (40)</th>
                             <th className="p-2 border border-gray-300 w-16 text-center">Exam (60)</th>
                             <th className="p-2 border border-gray-300 w-16 text-center bg-green-100">Total (100)</th>
@@ -86,7 +87,7 @@ const TermReport: React.FC<{ report: ReportCard, student: Student, schoolName?: 
                         {report.academicRecords && report.academicRecords.length > 0 ? (
                             report.academicRecords.map((record, index) => (
                                 <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                                    <td className="p-2 border border-gray-300 font-semibold">{record.subject}</td>
+                                    <td className={`sticky left-0 z-[5] p-2 border border-gray-300 font-semibold shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>{record.subject}</td>
                                     <td className="p-2 border border-gray-300 text-center">{record.ca}</td>
                                     <td className="p-2 border border-gray-300 text-center">{record.exam}</td>
                                     <td className="p-2 border border-gray-300 text-center font-bold">{record.total}</td>
@@ -295,34 +296,41 @@ const ReportCardScreen: React.FC<ReportCardScreenProps> = ({ student, term, sess
                             const isUniqueSession = publishedReportsSummary.filter(r => r.term === report.term).length > 1;
 
                             return (
-                                <button
+                                <motion.button
                                     key={reportKey}
+                                    whileTap={{ scale: 0.96 }}
                                     onClick={() => setActiveReportKey(reportKey)}
-                                    className={`px-3 py-1.5 text-sm font-sans font-semibold rounded-md transition-colors whitespace-nowrap ${activeReportKey === reportKey ? 'bg-white text-green-600 shadow-sm' : 'text-gray-600'
+                                    className={`relative px-3 py-1.5 text-sm font-sans font-semibold rounded-md whitespace-nowrap ${activeReportKey === reportKey ? 'text-green-600' : 'text-gray-600'
                                         }`}
                                 >
-                                    {report.term} {isUniqueSession ? `(${report.session})` : ''}
-                                </button>
+                                    {activeReportKey === reportKey && (
+                                        <motion.div layoutId="reportTermTab" transition={{ type: 'spring', stiffness: 400, damping: 30 }} className="absolute inset-0 bg-white rounded-md shadow-sm" />
+                                    )}
+                                    <span className="relative z-10">{report.term} {isUniqueSession ? `(${report.session})` : ''}</span>
+                                </motion.button>
                             );
                         })}
                     </div>
                     <div className="flex items-center gap-2">
                         {navigateTo && (
-                            <button
+                            <motion.button
+                                whileTap={{ scale: 0.96 }}
                                 onClick={() => navigateTo('selectReportTerm', 'Select Term', { student })}
                                 className="px-3 py-2 text-sm font-sans font-semibold text-green-700 hover:underline"
                             >
                                 Change Year/Term
-                            </button>
+                            </motion.button>
                         )}
-                        <button
+                        <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.96 }}
                             onClick={handlePrint}
                             disabled={!activeReport || loading}
                             className="flex items-center space-x-2 px-4 py-2 bg-green-500 text-white font-sans font-semibold rounded-lg shadow-md hover:bg-green-600 disabled:opacity-50"
                         >
                             <DocumentTextIcon className="w-5 h-5" />
                             <span className="hidden sm:inline">Print</span>
-                        </button>
+                        </motion.button>
                     </div>
                 </div>
 
@@ -331,14 +339,18 @@ const ReportCardScreen: React.FC<ReportCardScreenProps> = ({ student, term, sess
                         <PremiumLoader message="Fetching report details..." />
                     </div>
                 ) : activeReport ? (
-                    <TermReport
-                        report={activeReport}
-                        student={student}
-                        schoolName={currentSchool?.name}
-                        logoUrl={currentSchool?.logoUrl}
-                        motto={currentSchool?.motto}
-                        address={currentSchool?.address}
-                    />
+                    <AnimatePresence mode="wait">
+                        <motion.div key={activeReportKey} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
+                            <TermReport
+                                report={activeReport}
+                                student={student}
+                                schoolName={currentSchool?.name}
+                                logoUrl={currentSchool?.logoUrl}
+                                motto={currentSchool?.motto}
+                                address={currentSchool?.address}
+                            />
+                        </motion.div>
+                    </AnimatePresence>
                 ) : (
                     <div className="p-12 text-center bg-white rounded-xl shadow-sm border border-gray-100">
                         <p className="text-gray-500 italic">Select a term to view the report.</p>

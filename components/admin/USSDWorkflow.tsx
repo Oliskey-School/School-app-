@@ -1,9 +1,10 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { Hash, Smartphone, Info } from 'lucide-react';
 
 const USSDWorkflow: React.FC = () => {
     return (
-        <div className="p-6 max-w-3xl mx-auto">
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="p-6 max-w-3xl mx-auto">
             <div className="flex items-center gap-3 mb-8">
                 <div className="p-3 bg-green-100 rounded-xl">
                     <Hash className="w-7 h-7 text-green-600" />
@@ -43,7 +44,7 @@ const USSDWorkflow: React.FC = () => {
                     Contact <span className="font-semibold text-green-600">support@oliskey.com</span> to set up USSD access for your school.
                 </p>
             </div>
-        </div>
+        </motion.div>
     );
 };
 

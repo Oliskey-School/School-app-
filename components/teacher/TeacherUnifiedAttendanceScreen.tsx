@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { ChevronRightIcon, LockIcon } from '../../constants';
 import { getFormattedClassName } from '../../constants';
 import { api } from '../../lib/api';
@@ -49,17 +50,22 @@ const TeacherSelectClassForAttendance: React.FC<TeacherSelectClassForAttendanceP
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {uniqueClasses.map(classInfo => {
+                {uniqueClasses.map((classInfo, i) => {
                     const formattedClassName = getFormattedClassName(classInfo.grade, classInfo.section);
 
                     return (
-                        <div
+                        <motion.div
                             key={classInfo.id}
-                            className="relative w-full rounded-xl shadow-sm bg-white hover:ring-2 hover:ring-purple-200 transition-all overflow-hidden"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.2, delay: Math.min(i, 12) * 0.04 }}
+                            whileHover={{ y: -2 }}
+                            className="relative w-full rounded-xl shadow-sm hover:shadow-md bg-white hover:ring-2 hover:ring-purple-200 transition-shadow overflow-hidden"
                         >
-                            <button
+                            <motion.button
+                                whileTap={{ scale: 0.98 }}
                                 onClick={() => handleSelectClass(classInfo)}
-                                className="w-full p-4 flex items-center justify-between text-left hover:bg-purple-50 cursor-pointer"
+                                className="w-full p-4 flex items-center justify-between text-left hover:bg-purple-50 cursor-pointer transition-colors"
                             >
                                 <div className="flex-1">
                                     <div className="flex items-center space-x-2">
@@ -70,14 +76,15 @@ const TeacherSelectClassForAttendance: React.FC<TeacherSelectClassForAttendanceP
                                     <p className="text-sm text-gray-600">{classInfo.subject}</p>
                                 </div>
                                 <ChevronRightIcon className="text-gray-400" />
-                            </button>
-                            <button
+                            </motion.button>
+                            <motion.button
+                                whileTap={{ scale: 0.98 }}
                                 onClick={(e) => handleSelectByTrack(e, classInfo)}
                                 className="w-full px-4 py-2 text-xs font-bold text-purple-600 bg-purple-50 hover:bg-purple-100 border-t border-purple-100 transition-colors"
                             >
                                 Mark by Curriculum Track (Nigerian/British)
-                            </button>
-                        </div>
+                            </motion.button>
+                        </motion.div>
                     )
                 })}
             </div>

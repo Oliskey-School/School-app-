@@ -1,6 +1,8 @@
 ﻿
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { SearchIcon, CheckCircleIcon, ClockIcon, PublishIcon, FilterIcon, RefreshIcon, ChevronDownIcon, EyeIcon, XCircleIcon, ChevronRightIcon, BuildingLibraryIcon, BookOpenIcon, UserIcon } from '../../constants';
+import CenteredLoader from '../ui/CenteredLoader';
 import ReportCardPreview from './ReportCardPreview';
 import { StudentReportInfo, ReportCard, Student } from '../../types';
 import { api } from '../../lib/api';
@@ -224,13 +226,14 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
                   <button
                     key={tab}
                     onClick={() => setActiveTab(mappedTab)}
-                    className={`flex items-center gap-2 px-3 md:px-4 py-2 text-[9px] md:text-xs font-black rounded-lg transition-all duration-300 whitespace-nowrap min-w-[80px] md:min-w-0 justify-center ${isActive
-                      ? 'bg-white text-indigo-600 shadow-sm border border-gray-100'
+                    className={`relative flex items-center gap-2 px-3 md:px-4 py-2 text-[9px] md:text-xs font-black rounded-lg transition-colors duration-300 whitespace-nowrap min-w-[80px] md:min-w-0 justify-center ${isActive
+                      ? 'text-indigo-600'
                       : 'text-gray-500 hover:text-gray-700'
                       }`}
                   >
-                    <span>{tab.toUpperCase()}</span>
-                    <span className={`px-1.5 py-0.5 text-[8px] md:text-[9px] rounded-md ${isActive ? 'bg-indigo-50 text-indigo-600' : 'bg-gray-200 text-gray-500'}`}>
+                    {isActive && <motion.div layoutId="reportPublishTab" className="absolute inset-0 bg-white shadow-sm border border-gray-100 rounded-lg" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />}
+                    <span className="relative">{tab.toUpperCase()}</span>
+                    <span className={`relative px-1.5 py-0.5 text-[8px] md:text-[9px] rounded-md ${isActive ? 'bg-indigo-50 text-indigo-600' : 'bg-gray-200 text-gray-500'}`}>
                       {getCount(mappedTab)}
                     </span>
                   </button>
@@ -270,17 +273,17 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
       {/* Main Grid View */}
       <main className="flex-grow p-4 md:px-8 md:py-8 overflow-y-auto w-full max-w-7xl mx-auto custom-scrollbar">
         {isLoading && studentsWithReports.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-32 animate-fade-in text-center">
-            <div className="w-16 h-16 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
-            <p className="mt-6 text-gray-500 font-black uppercase tracking-widest text-xs">Accessing Neural Records...</p>
-          </div>
+          <CenteredLoader message="Accessing Neural Records..." className="py-32" />
         ) : filteredStudents.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredStudents.map((student, idx) => (
-              <div
+              <motion.div
                 key={student.id}
-                className="bg-white rounded-3xl md:rounded-[2rem] p-4 md:p-6 border border-gray-100 hover:border-indigo-200 transition-all duration-500 group flex flex-col h-full animate-scale-in hover:shadow-xl"
-                style={{ animationDelay: `${idx * 30}ms` }}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25, delay: Math.min(idx, 20) * 0.03 }}
+                whileHover={{ y: -3 }}
+                className="bg-white rounded-3xl md:rounded-[2rem] p-4 md:p-6 border border-gray-100 hover:border-indigo-200 transition-colors duration-500 group flex flex-col h-full hover:shadow-xl"
               >
                 {/* User Info Section */}
                 <div className="flex items-start justify-between mb-4 md:mb-6">
@@ -381,7 +384,7 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
                     </div>
                   )}
                 </div>
-              </div>
+              </motion.div>
             ))}
           </div>
         ) : (

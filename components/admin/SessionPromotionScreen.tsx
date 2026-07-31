@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { GraduationCap, ArrowUpCircle, AlertTriangle, CheckCircle2, Users } from 'lucide-react';
 import { api } from '../../lib/api';
@@ -80,7 +81,7 @@ const SessionPromotionScreen: React.FC<SessionPromotionScreenProps> = ({ schoolI
     return (
         <div className="flex flex-col h-full bg-gray-50 overflow-y-auto">
             <main className="flex-grow p-4 sm:p-6 space-y-6 max-w-4xl mx-auto w-full">
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                     <div className="flex items-center gap-3 mb-1">
                         <div className="p-2.5 rounded-xl bg-indigo-100">
                             <ArrowUpCircle className="w-6 h-6 text-indigo-600" />
@@ -118,10 +119,10 @@ const SessionPromotionScreen: React.FC<SessionPromotionScreenProps> = ({ schoolI
                             className="w-full sm:w-64 p-3 bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                         />
                     </div>
-                </div>
+                </motion.div>
 
                 {/* Per-grade preview */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: 0.05 }} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                     <h2 className="font-bold text-gray-800 mb-4">What will happen</h2>
                     {loading ? (
                         <p className="text-sm text-gray-400 py-6 text-center">Loading students…</p>
@@ -149,30 +150,34 @@ const SessionPromotionScreen: React.FC<SessionPromotionScreenProps> = ({ schoolI
                         congratulated automatically on their dashboards.
                     </div>
 
+                    <AnimatePresence>
                     {result && (
-                        <div className="mt-4 flex items-start gap-2 rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800">
+                        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mt-4 flex items-start gap-2 rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800 overflow-hidden">
                             <CheckCircle2 className="w-4 h-4 flex-none mt-0.5" />
                             Done: {result.promoted} promoted, {result.graduated} graduated
                             {result.unplaced > 0 && ` — ${result.unplaced} moved up but have no matching class yet (create the class, then enrol them)`}.
-                        </div>
+                        </motion.div>
                     )}
+                    </AnimatePresence>
 
                     <div className="mt-5 flex gap-3">
                         {handleBack && (
-                            <button onClick={handleBack} className="px-5 py-3 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-100">
+                            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={handleBack} className="px-5 py-3 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-100">
                                 Back
-                            </button>
+                            </motion.button>
                         )}
-                        <button
+                        <motion.button
+                            whileHover={!(promoting || loading || students.length === 0 || !toSession.trim()) ? { scale: 1.01 } : {}}
+                            whileTap={!(promoting || loading || students.length === 0 || !toSession.trim()) ? { scale: 0.98 } : {}}
                             onClick={() => setConfirmOpen(true)}
                             disabled={promoting || loading || students.length === 0 || !toSession.trim()}
                             className="flex-1 py-3 px-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2"
                         >
                             <ArrowUpCircle className="w-5 h-5" />
                             {promoting ? 'Promoting…' : `Promote ${students.length} Students to ${toSession}`}
-                        </button>
+                        </motion.button>
                     </div>
-                </div>
+                </motion.div>
             </main>
 
             <ConfirmationModal

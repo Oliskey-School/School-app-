@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { ShieldIcon, AlertTriangleIcon, CheckCircleIcon } from '../../constants';
@@ -61,21 +62,25 @@ const AnonymousReporting: React.FC = () => {
     if (showSuccess) {
         return (
             <div className="p-6 max-w-2xl mx-auto">
-                <div className="bg-white rounded-xl shadow-lg p-8 text-center">
-                    <CheckCircleIcon className="w-16 h-16 text-green-600 mx-auto mb-4" />
+                <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="bg-white rounded-xl shadow-lg p-8 text-center">
+                    <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 300, damping: 20 }}>
+                        <CheckCircleIcon className="w-16 h-16 text-green-600 mx-auto mb-4" />
+                    </motion.div>
                     <h2 className="text-2xl font-bold text-gray-900 mb-2">Report Submitted Successfully</h2>
                     <p className="text-gray-600 mb-6">
                         Your anonymous report has been received. Save this tracking code to check the status of your report.
                     </p>
 
-                    <div className="bg-indigo-50 border-2 border-indigo-500 rounded-lg p-6 mb-6">
+                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="bg-indigo-50 border-2 border-indigo-500 rounded-lg p-6 mb-6">
                         <p className="text-sm text-gray-600 mb-2">Your Tracking Code:</p>
                         <p className="text-3xl font-bold text-indigo-600 font-mono">{trackingCode}</p>
                         <p className="text-xs text-gray-500 mt-2">Please save this code. You will need it to check updates.</p>
-                    </div>
+                    </motion.div>
 
                     <div className="space-y-3">
-                        <button
+                        <motion.button
+                            whileHover={{ scale: 1.01 }}
+                            whileTap={{ scale: 0.98 }}
                             onClick={() => {
                                 navigator.clipboard.writeText(trackingCode);
                                 toast.success('Tracking code copied to clipboard');
@@ -83,8 +88,9 @@ const AnonymousReporting: React.FC = () => {
                             className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
                         >
                             Copy Tracking Code
-                        </button>
-                        <button
+                        </motion.button>
+                        <motion.button
+                            whileTap={{ scale: 0.98 }}
                             onClick={() => {
                                 setShowSuccess(false);
                                 setTrackingCode('');
@@ -92,9 +98,9 @@ const AnonymousReporting: React.FC = () => {
                             className="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
                         >
                             Submit Another Report
-                        </button>
+                        </motion.button>
                     </div>
-                </div>
+                </motion.div>
             </div>
         );
     }
@@ -139,8 +145,9 @@ const AnonymousReporting: React.FC = () => {
                         </label>
                         <div className="grid grid-cols-4 gap-2">
                             {['Low', 'Medium', 'High', 'Critical'].map((level) => (
-                                <button
+                                <motion.button
                                     key={level}
+                                    whileTap={{ scale: 0.95 }}
                                     type="button"
                                     onClick={() => setFormData({ ...formData, severity: level })}
                                     className={`px-4 py-2 rounded-lg font-medium transition-colors ${formData.severity === level
@@ -152,7 +159,7 @@ const AnonymousReporting: React.FC = () => {
                                         }`}
                                 >
                                     {level}
-                                </button>
+                                </motion.button>
                             ))}
                         </div>
                     </div>
@@ -184,27 +191,37 @@ const AnonymousReporting: React.FC = () => {
                         />
                     </div>
 
-                    {formData.severity === 'Critical' && (
-                        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                            <div className="flex items-start space-x-2">
-                                <AlertTriangleIcon className="w-5 h-5 text-red-600 mt-0.5" />
-                                <div className="text-sm text-red-800">
-                                    <p className="font-semibold mb-1">Immediate Help Available</p>
-                                    <p>If you or someone else is in immediate danger, please contact:</p>
-                                    <p className="font-mono mt-2">Emergency: 112 or 199</p>
-                                    <p className="font-mono">Child Helpline: 08008008001</p>
+                    <AnimatePresence>
+                        {formData.severity === 'Critical' && (
+                            <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                                exit={{ opacity: 0, height: 0 }}
+                                transition={{ duration: 0.2 }}
+                                className="bg-red-50 border border-red-200 rounded-lg p-4 overflow-hidden"
+                            >
+                                <div className="flex items-start space-x-2">
+                                    <AlertTriangleIcon className="w-5 h-5 text-red-600 mt-0.5" />
+                                    <div className="text-sm text-red-800">
+                                        <p className="font-semibold mb-1">Immediate Help Available</p>
+                                        <p>If you or someone else is in immediate danger, please contact:</p>
+                                        <p className="font-mono mt-2">Emergency: 112 or 199</p>
+                                        <p className="font-mono">Child Helpline: 08008008001</p>
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
-                    )}
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
 
-                    <button
+                    <motion.button
+                        whileHover={{ scale: isSubmitting ? 1 : 1.01 }}
+                        whileTap={{ scale: isSubmitting ? 1 : 0.98 }}
                         type="submit"
                         disabled={isSubmitting}
                         className="w-full px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {isSubmitting ? 'Submitting Anonymously...' : 'Submit Anonymous Report'}
-                    </button>
+                    </motion.button>
 
                     <p className="text-xs text-gray-500 text-center">
                         By submitting this report, you help create a safer school environment for everyone.

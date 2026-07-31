@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import Header from '../ui/Header';
 import { useProfile } from '../../context/ProfileContext';
 import { api } from '../../lib/api';
@@ -20,8 +21,6 @@ interface ExamOfficerDashboardProps {
 
 const ExamOfficerDashboard: React.FC<ExamOfficerDashboardProps> = ({ onLogout, setIsHomePage, currentUser }) => {
     const { profile } = useProfile();
-    
-    if (!profile) return <div className="p-8 text-center text-gray-500 font-medium">Loading exam dashboard...</div>;
 
     // Real stats from the database — start at zero, fill from the API (no mock data).
     const [examStats, setExamStats] = useState({
@@ -61,13 +60,22 @@ const ExamOfficerDashboard: React.FC<ExamOfficerDashboardProps> = ({ onLogout, s
         return () => { active = false; };
     }, []);
 
+    if (!profile) return <div className="p-8 text-center text-gray-500 font-medium">Loading exam dashboard...</div>;
+
     const StatCard: React.FC<{
         title: string;
         value: string | number;
         icon: React.ReactElement;
         color: string;
-    }> = ({ title, value, icon, color }) => (
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+        index: number;
+    }> = ({ title, value, icon, color, index }) => (
+        <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, delay: index * 0.05 }}
+            whileHover={{ y: -2 }}
+            className="bg-white rounded-xl shadow-sm p-6 border border-gray-100"
+        >
             <div className="flex items-start justify-between">
                 <div className="flex-1">
                     <p className="text-sm text-gray-600 font-medium">{title}</p>
@@ -77,7 +85,7 @@ const ExamOfficerDashboard: React.FC<ExamOfficerDashboardProps> = ({ onLogout, s
                     {React.cloneElement(icon, { className: 'w-6 h-6 text-white' })}
                 </div>
             </div>
-        </div>
+        </motion.div>
     );
 
     return (
@@ -91,36 +99,36 @@ const ExamOfficerDashboard: React.FC<ExamOfficerDashboardProps> = ({ onLogout, s
             />
 
             <main className="flex-1 overflow-y-auto p-6 space-y-6">
-                <div className="bg-gradient-to-r from-amber-600 to-amber-800 rounded-xl p-6 text-white">
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="bg-gradient-to-r from-amber-600 to-amber-800 rounded-xl p-6 text-white">
                     <h2 className="text-2xl font-bold">Welcome, {profile.name}</h2>
                     <p className="mt-2 text-amber-100">Manage exams and candidates</p>
-                </div>
+                </motion.div>
 
                 <div>
                     <h3 className="text-lg font-bold text-gray-900 mb-4">Examination Overview</h3>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <StatCard title="Upcoming Exams" value={examStats.upcomingExams} icon={<CalendarIcon />} color="bg-amber-500" />
-                        <StatCard title="Total Candidates" value={examStats.totalCandidates} icon={<UserGroupIcon />} color="bg-indigo-500" />
-                        <StatCard title="Completed Exams" value={examStats.completedExams} icon={<CheckCircleIcon />} color="bg-green-500" />
-                        <StatCard title="Pending Results" value={examStats.pendingResults} icon={<ClockIcon />} color="bg-yellow-500" />
+                        <StatCard index={0} title="Upcoming Exams" value={examStats.upcomingExams} icon={<CalendarIcon />} color="bg-amber-500" />
+                        <StatCard index={1} title="Total Candidates" value={examStats.totalCandidates} icon={<UserGroupIcon />} color="bg-indigo-500" />
+                        <StatCard index={2} title="Completed Exams" value={examStats.completedExams} icon={<CheckCircleIcon />} color="bg-green-500" />
+                        <StatCard index={3} title="Pending Results" value={examStats.pendingResults} icon={<ClockIcon />} color="bg-yellow-500" />
                     </div>
                 </div>
 
                 <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
                     <h3 className="text-lg font-bold text-gray-900 mb-4">Quick Actions</h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <button className="flex items-center justify-center space-x-2 px-4 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-medium">
+                        <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="flex items-center justify-center space-x-2 px-4 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-medium">
                             <CalendarIcon className="w-5 h-5" />
                             <span>Schedule Exam</span>
-                        </button>
-                        <button className="flex items-center justify-center space-x-2 px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium">
+                        </motion.button>
+                        <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="flex items-center justify-center space-x-2 px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium">
                             <UserGroupIcon className="w-5 h-5" />
                             <span>Manage Candidates</span>
-                        </button>
-                        <button className="flex items-center justify-center space-x-2 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium">
+                        </motion.button>
+                        <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="flex items-center justify-center space-x-2 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium">
                             <DocumentTextIcon className="w-5 h-5" />
                             <span>Generate Reports</span>
-                        </button>
+                        </motion.button>
                     </div>
                 </div>
             </main>

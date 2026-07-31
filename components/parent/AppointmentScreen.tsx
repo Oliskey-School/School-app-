@@ -1,4 +1,5 @@
 ﻿import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
@@ -222,7 +223,12 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
     if (isBooked) {
         return (
             <div className="flex flex-col items-center justify-center h-full p-8 bg-gradient-to-br from-green-50 to-white text-center">
-                <div className="bg-white p-8 rounded-3xl shadow-xl w-full max-w-md border border-gray-100 transform transition-all animate-fade-in-up">
+                <motion.div
+                    initial={{ opacity: 0, y: 16, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                    className="bg-white p-8 rounded-3xl shadow-xl w-full max-w-md border border-gray-100"
+                >
                     <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
                         <CheckCircleIcon className="w-10 h-10 text-green-600" />
                     </div>
@@ -259,13 +265,15 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
                         </div>
                     </div>
 
-                    <button
+                    <motion.button
+                        whileHover={{ y: -1 }}
+                        whileTap={{ scale: 0.97 }}
                         onClick={() => { setIsBooked(false); setSelectedTeacher(null); setSelectedSlot(null); setReason(''); }}
-                        className="w-full py-3.5 bg-gray-900 text-white font-bold rounded-xl shadow-lg hover:bg-black transition-transform transform hover:-translate-y-0.5 active:translate-y-0"
+                        className="w-full py-3.5 bg-gray-900 text-white font-bold rounded-xl shadow-lg hover:bg-black transition-shadow"
                     >
                         Book Another Appointment
-                    </button>
-                </div>
+                    </motion.button>
+                </motion.div>
             </div>
         );
     }
@@ -289,29 +297,33 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
                                 You need to link your account to at least one student before you can book appointments with teachers. 
                                 Linking ensures you see the correct teachers for your child's classes.
                             </p>
-                            <button 
+                            <motion.button
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.97 }}
                                 onClick={() => navigateTo('linkChild', 'Link Child')}
-                                className="mt-8 px-8 py-3 bg-green-600 text-white font-bold rounded-xl shadow-lg shadow-green-100 hover:bg-green-700 transition-all flex items-center mx-auto space-x-2"
+                                className="mt-8 px-8 py-3 bg-green-600 text-white font-bold rounded-xl shadow-lg shadow-green-100 hover:bg-green-700 transition-colors flex items-center mx-auto space-x-2"
                             >
                                 <span>Link a Student Now</span>
                                 <ChevronRightIcon className="w-5 h-5" />
-                            </button>
+                            </motion.button>
                         </div>
                     ) : (
                         <>
                             <div className="flex space-x-2 bg-gray-200/50 p-1.5 rounded-xl w-max">
-                                <button 
+                                <motion.button
+                                    whileTap={{ scale: 0.96 }}
                                     onClick={() => setActiveTab('book')}
-                                    className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'book' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                                    className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${activeTab === 'book' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
                                 >
                                     Book Appointment
-                                </button>
-                                <button 
+                                </motion.button>
+                                <motion.button
+                                    whileTap={{ scale: 0.96 }}
                                     onClick={() => setActiveTab('history')}
-                                    className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'history' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                                    className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${activeTab === 'history' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
                                 >
                                     History & Responses
-                                </button>
+                                </motion.button>
                             </div>
 
                             {activeTab === 'history' ? (
@@ -325,8 +337,14 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
                                             <p className="text-gray-500 mt-2">You haven't booked any appointments yet.</p>
                                         </div>
                                     ) : (
-                                        appointments.map(apt => (
-                                            <div key={apt.id} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm mt-4 transition-all hover:shadow-md">
+                                        appointments.map((apt, i) => (
+                                            <motion.div
+                                                key={apt.id}
+                                                initial={{ opacity: 0, y: 10 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                transition={{ duration: 0.25, delay: Math.min(i, 10) * 0.05 }}
+                                                className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm mt-4 hover:shadow-md transition-shadow"
+                                            >
                                                 <div className="flex justify-between items-start mb-4">
                                                     <div>
                                                         <h3 className="font-bold text-lg text-gray-900">{apt.title || 'Meeting'}</h3>
@@ -349,7 +367,7 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
                                                         <p className="text-gray-800 font-medium">{apt.notes}</p>
                                                     </div>
                                                 )}
-                                            </div>
+                                            </motion.div>
                                         ))
                                     )}
                                 </div>
@@ -363,10 +381,12 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
 
                                 <div className="flex space-x-4 overflow-x-auto pb-4 px-2 -mx-2 no-scrollbar">
                                     {students.map(student => (
-                                        <button
+                                        <motion.button
                                             key={student.id}
+                                            whileHover={{ scale: selectedStudent?.id === student.id ? 1.05 : 1.02 }}
+                                            whileTap={{ scale: 0.97 }}
                                             onClick={() => setSelectedStudent(student)}
-                                            className={`flex-none w-40 p-4 rounded-2xl border transition-all duration-300 text-center relative group ${selectedStudent?.id === student.id
+                                            className={`flex-none w-40 p-4 rounded-2xl border transition-colors duration-300 text-center relative group ${selectedStudent?.id === student.id
                                                 ? 'bg-white border-sky-500 ring-2 ring-sky-200 shadow-lg scale-105'
                                                 : 'bg-white border-gray-200 hover:border-sky-300 hover:shadow-md'
                                                 }`}
@@ -391,7 +411,7 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
                                             </div>
                                             <h3 className="font-bold text-gray-800 text-sm truncate">{student.name}</h3>
                                             <p className="text-xs text-gray-500 mt-1 truncate">Grade {student.grade}</p>
-                                        </button>
+                                        </motion.button>
                                     ))}
                                 </div>
                             </section>
@@ -406,10 +426,12 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
                                     <div className="flex space-x-4 overflow-x-auto pb-4 px-2 -mx-2 no-scrollbar">
                                         {activeTeachers.length > 0 ? (
                                             activeTeachers.map(teacher => (
-                                                <button
+                                                <motion.button
                                                     key={teacher.id}
+                                                    whileHover={{ scale: selectedTeacher?.id === teacher.id ? 1.05 : 1.02 }}
+                                                    whileTap={{ scale: 0.97 }}
                                                     onClick={() => setSelectedTeacher(teacher)}
-                                                    className={`flex-none w-40 p-4 rounded-2xl border transition-all duration-300 text-center relative group ${selectedTeacher?.id === teacher.id
+                                                    className={`flex-none w-40 p-4 rounded-2xl border transition-colors duration-300 text-center relative group ${selectedTeacher?.id === teacher.id
                                                         ? 'bg-white border-green-500 ring-2 ring-green-200 shadow-lg scale-105'
                                                         : 'bg-white border-gray-200 hover:border-green-300 hover:shadow-md'
                                                         }`}
@@ -434,7 +456,7 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
                                                     </div>
                                                     <h3 className="font-bold text-gray-800 text-sm truncate">{teacher.name}</h3>
                                                     <p className="text-xs text-gray-500 mt-1 truncate">{teacher.subjects?.[0] || 'General'}</p>
-                                                </button>
+                                                </motion.button>
                                             ))
                                         ) : (
                                             <div className="flex flex-col items-center justify-center w-full py-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
@@ -463,17 +485,18 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
                                             {calendarDays.map((date, idx) => {
                                                 const isSelected = date.toDateString() === selectedDate.toDateString();
                                                 return (
-                                                    <button
+                                                    <motion.button
                                                         key={idx}
+                                                        whileTap={{ scale: 0.95 }}
                                                         onClick={() => setSelectedDate(date)}
-                                                        className={`flex flex-col items-center justify-center min-w-[3.5rem] py-3 rounded-xl transition-all ${isSelected
-                                                            ? 'bg-green-600 text-white shadow-md transform scale-105'
+                                                        className={`flex flex-col items-center justify-center min-w-[3.5rem] py-3 rounded-xl transition-colors ${isSelected
+                                                            ? 'bg-green-600 text-white shadow-md scale-105'
                                                             : 'text-gray-500 hover:bg-gray-50'
                                                             }`}
                                                     >
                                                         <span className="text-xs font-medium uppercase">{date.toLocaleDateString('en-US', { weekday: 'short' })}</span>
                                                         <span className="text-lg font-bold mt-1">{date.getDate()}</span>
-                                                    </button>
+                                                    </motion.button>
                                                 );
                                             })}
                                         </div>
@@ -482,11 +505,12 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
 
                                         <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
                                             {availableSlots.map(slot => (
-                                                <button
+                                                <motion.button
                                                     key={slot.time}
+                                                    whileTap={{ scale: slot.isBooked ? 1 : 0.95 }}
                                                     onClick={() => !slot.isBooked && setSelectedSlot(slot.time)}
                                                     disabled={slot.isBooked}
-                                                    className={`py-2 px-3 text-sm font-semibold rounded-lg border transition-all ${slot.isBooked
+                                                    className={`py-2 px-3 text-sm font-semibold rounded-lg border transition-colors ${slot.isBooked
                                                         ? 'bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed line-through'
                                                         : selectedSlot === slot.time
                                                             ? 'bg-green-50 border-green-500 text-green-700 ring-1 ring-green-500'
@@ -494,7 +518,7 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
                                                         }`}
                                                 >
                                                     {slot.time}
-                                                </button>
+                                                </motion.button>
                                             ))}
                                         </div>
                                     </div>
@@ -516,14 +540,16 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
                                         />
                                         <div className="text-right mt-2 text-xs text-gray-400">{reason.length} / 500</div>
 
-                                        <button
+                                        <motion.button
+                                            whileHover={{ scale: 1.01 }}
+                                            whileTap={{ scale: 0.98 }}
                                             onClick={handleBooking}
                                             disabled={isBooking || !selectedStudent || !selectedTeacher || !selectedSlot || !reason}
-                                            className="w-full py-4 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg shadow-green-100 disabled:bg-gray-200 disabled:shadow-none disabled:text-gray-400 disabled:cursor-not-allowed transition-all transform active:scale-[0.98] flex items-center justify-center space-x-2"
+                                            className="w-full py-4 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg shadow-green-100 disabled:bg-gray-200 disabled:shadow-none disabled:text-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2"
                                         >
                                             <span>{isBooking ? 'Booking...' : 'Confirm Appointment'}</span>
                                             <ChevronRightIcon className="w-5 h-5" />
-                                        </button>
+                                        </motion.button>
                                     </div>
                                 </section>
                             </div>

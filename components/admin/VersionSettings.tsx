@@ -1,7 +1,9 @@
 ﻿import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
+import CenteredLoader from '../ui/CenteredLoader';
 
 interface AppVersion {
     id: string;
@@ -57,11 +59,7 @@ export default function VersionSettings() {
     };
 
     if (loading) {
-        return (
-            <div className="flex justify-center items-center p-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            </div>
-        );
+        return <CenteredLoader className="p-12" />;
     }
 
     return (
@@ -87,9 +85,10 @@ export default function VersionSettings() {
                         No published versions found.
                     </div>
                 ) : (
-                    versions.map((v) => (
-                        <div 
-                            key={v.id} 
+                    versions.map((v, vi) => (
+                        <motion.div
+                            key={v.id}
+                            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(vi, 15) * 0.03 }}
                             className={`p-5 flex items-center justify-between transition-all hover:bg-gray-50 ${
                                 currentSchool?.platform_version === v.version ? 'bg-blue-50 ring-1 ring-blue-200 rounded-lg' : ''
                             }`}
@@ -111,7 +110,9 @@ export default function VersionSettings() {
                             </div>
 
                             <div>
-                                <button
+                                <motion.button
+                                    whileHover={switching === null && currentSchool?.platform_version !== v.version ? { scale: 1.03 } : {}}
+                                    whileTap={switching === null && currentSchool?.platform_version !== v.version ? { scale: 0.97 } : {}}
                                     onClick={() => handleSwitchVersion(v.version)}
                                     disabled={switching !== null || currentSchool?.platform_version === v.version}
                                     className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
@@ -123,9 +124,9 @@ export default function VersionSettings() {
                                     }`}
                                 >
                                     {switching === v.version ? 'Switching...' : currentSchool?.platform_version === v.version ? 'Selected' : 'Use this Version'}
-                                </button>
+                                </motion.button>
                             </div>
-                        </div>
+                        </motion.div>
                     ))
                 )}
             </div>

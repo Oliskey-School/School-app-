@@ -68,7 +68,10 @@ export const getGeneratedResources = async (req: AuthRequest, res: Response) => 
     try {
         let teacherId = (req.query.teacherId || req.query.teacher_id) as string;
 
-        if (req.user.role === 'teacher' && !teacherId) {
+        // req.user.role comes straight from the JWT/Prisma Role enum, which is
+        // uppercase ("TEACHER") — comparing against lowercase never matched, so
+        // a teacher's own history request always fell through to the 400 below.
+        if ((req.user.role || '').toLowerCase() === 'teacher' && !teacherId) {
             const teacher = await prisma.teacher.findUnique({
                 where: { user_id: req.user.id },
                 select: { id: true }

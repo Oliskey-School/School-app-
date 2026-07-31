@@ -9,8 +9,11 @@ const db = prisma as any;
 
 export const getScholarships = async (req: AuthRequest, res: Response) => {
     try {
-        const schoolId = req.query.school_id as string || req.user.school_id;
-        const branchId = (req.query.branch_id as string) || getEffectiveBranchId(req.user, req.headers['x-branch-id'] as string);
+        // Always trust the verified token — never a client-supplied query param,
+        // which would otherwise let any authenticated user read another
+        // school/branch's scholarship data by overriding these values.
+        const schoolId = req.user.school_id;
+        const branchId = getEffectiveBranchId(req.user, req.headers['x-branch-id'] as string);
 
         const where: any = { school_id: schoolId, deleted_at: null };
         if (branchId) where.branch_id = branchId;

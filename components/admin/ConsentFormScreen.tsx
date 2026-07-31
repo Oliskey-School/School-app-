@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
@@ -116,9 +117,9 @@ const ConsentFormScreen = () => {
                         <span>NDPR Compliance — Collect and manage data processing consent.</span>
                     </div>
                 </div>
-                <button onClick={handleExport} className="flex items-center space-x-2 bg-indigo-600 text-white px-5 py-2.5 rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 font-bold">
+                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={handleExport} className="flex items-center space-x-2 bg-indigo-600 text-white px-5 py-2.5 rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 font-bold">
                     <Download className="w-5 h-5" /><span>Export NDPR Report</span>
-                </button>
+                </motion.button>
             </header>
 
             {/* Stats */}
@@ -145,21 +146,24 @@ const ConsentFormScreen = () => {
             <div className="flex p-1 bg-gray-100 rounded-xl w-fit">
                 {(['overview', 'records', 'templates'] as const).map(tab => (
                     <button key={tab} onClick={() => setActiveTab(tab)}
-                        className={`px-5 py-2 rounded-lg font-bold text-sm capitalize transition-all ${activeTab === tab ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}>
-                        {tab}
+                        className={`relative px-5 py-2 rounded-lg font-bold text-sm capitalize transition-colors ${activeTab === tab ? 'text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}>
+                        {activeTab === tab && (
+                            <motion.div layoutId="consentTab" className="absolute inset-0 bg-white shadow-sm rounded-lg" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />
+                        )}
+                        <span className="relative">{tab}</span>
                     </button>
                 ))}
             </div>
 
             {activeTab === 'overview' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {CONSENT_TYPES.map(ct => {
+                    {CONSENT_TYPES.map((ct, cti) => {
                         const typeRecords = records.filter(r => r.consent_type === ct.value);
                         const typeGranted = typeRecords.filter(r => r.status === 'granted').length;
                         const typePending = typeRecords.filter(r => r.status === 'pending').length;
                         const Icon = ct.icon;
                         return (
-                            <div key={ct.value} className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                            <motion.div key={ct.value} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: cti * 0.03 }} className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
                                 <div className="flex items-center space-x-3 mb-3">
                                     <div className="p-3 rounded-2xl bg-indigo-50 text-indigo-600"><Icon className="w-5 h-5" /></div>
                                     <h3 className="font-bold text-gray-800">{ct.label}</h3>
@@ -171,7 +175,7 @@ const ConsentFormScreen = () => {
                                         {typePending > 0 && <span className="text-xs font-bold bg-amber-50 text-amber-600 px-3 py-1 rounded-full">{typePending} pending</span>}
                                     </div>
                                 </div>
-                            </div>
+                            </motion.div>
                         );
                     })}
                 </div>
@@ -216,8 +220,8 @@ const ConsentFormScreen = () => {
                                             </div>
                                         </td>
                                     </tr>
-                                ) : filteredRecords.map(record => (
-                                    <tr key={record.id} className="hover:bg-gray-50/30 transition-colors">
+                                ) : filteredRecords.map((record, ri) => (
+                                    <motion.tr key={record.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(ri, 15) * 0.02 }} className="hover:bg-gray-50/30 transition-colors">
                                         <td className="px-6 py-4 font-bold text-gray-800 text-sm">{record.parent_name}</td>
                                         <td className="px-6 py-4">
                                             <div><span className="font-bold text-gray-700 text-sm">{record.student_name}</span></div>
@@ -239,7 +243,7 @@ const ConsentFormScreen = () => {
                                                 </button>
                                             )}
                                         </td>
-                                    </tr>
+                                    </motion.tr>
                                 ))}
                             </tbody>
                         </table>
@@ -249,10 +253,10 @@ const ConsentFormScreen = () => {
 
             {activeTab === 'templates' && (
                 <div className="space-y-4">
-                    {CONSENT_TYPES.map(ct => {
+                    {CONSENT_TYPES.map((ct, cti) => {
                         const Icon = ct.icon;
                         return (
-                            <div key={ct.value} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                            <motion.div key={ct.value} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: cti * 0.03 }} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center space-x-4">
                                         <div className="p-3 rounded-2xl bg-indigo-50 text-indigo-600"><Icon className="w-5 h-5" /></div>
@@ -270,7 +274,7 @@ const ConsentFormScreen = () => {
                                         </button>
                                     </div>
                                 </div>
-                            </div>
+                            </motion.div>
                         );
                     })}
                     <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex items-start space-x-3">

@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { DollarSign, Plus, TrendingUp, TrendingDown, BarChart2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAutoSync } from '../../hooks/useAutoSync';
+import CenteredLoader from '../ui/CenteredLoader';
 
 interface BudgetEntry {
     id: string;
@@ -120,31 +122,29 @@ const BudgetPlanner: React.FC = () => {
         allocated > 0 ? Math.min((spent / allocated) * 100, 100) : 0;
 
     if (loading) {
-        return (
-            <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-            </div>
-        );
+        return <CenteredLoader className="h-64" />;
     }
 
     return (
         <div className="p-6 max-w-7xl mx-auto">
             {/* Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl p-6 text-white mb-6">
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl p-6 text-white mb-6">
                 <div className="flex justify-between items-center">
                     <div>
                         <h1 className="text-3xl font-bold mb-2">💼 Budget Planner</h1>
                         <p className="text-blue-100">Annual budget management and category tracking</p>
                     </div>
-                    <button
+                    <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={() => setShowCreateModal(true)}
                         className="px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-blue-50 font-semibold flex items-center space-x-2"
                     >
                         <Plus className="h-5 w-5" />
                         <span>Add Entry</span>
-                    </button>
+                    </motion.button>
                 </div>
-            </div>
+            </motion.div>
 
             {/* Year Selector */}
             <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
@@ -172,21 +172,21 @@ const BudgetPlanner: React.FC = () => {
                 <>
                     {/* Summary Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                        <div className="bg-blue-50 rounded-xl shadow-sm p-6 border border-blue-100">
+                        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="bg-blue-50 rounded-xl shadow-sm p-6 border border-blue-100">
                             <p className="text-sm text-gray-500 mb-1">Total Allocated</p>
                             <p className="text-2xl font-bold text-gray-900">₦{totalAllocated.toLocaleString()}</p>
-                        </div>
-                        <div className="bg-orange-50 rounded-xl shadow-sm p-6 border border-orange-100">
+                        </motion.div>
+                        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.05 }} className="bg-orange-50 rounded-xl shadow-sm p-6 border border-orange-100">
                             <p className="text-sm text-gray-500 mb-1">Total Spent</p>
                             <p className="text-2xl font-bold text-orange-600">₦{totalSpent.toLocaleString()}</p>
-                        </div>
-                        <div className={`rounded-xl shadow-sm p-6 border ${totalRemaining >= 0 ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'}`}>
+                        </motion.div>
+                        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.1 }} className={`rounded-xl shadow-sm p-6 border ${totalRemaining >= 0 ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'}`}>
                             <p className="text-sm text-gray-500 mb-1">Remaining</p>
                             <p className={`text-2xl font-bold ${totalRemaining >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                                 ₦{Math.abs(totalRemaining).toLocaleString()}
                                 {totalRemaining < 0 && ' (over)'}
                             </p>
-                        </div>
+                        </motion.div>
                     </div>
 
                     {/* Entries Table */}
@@ -209,7 +209,7 @@ const BudgetPlanner: React.FC = () => {
                                         const remaining = (entry.allocated_amount || 0) - (entry.spent_amount || 0);
                                         const utilization = getUtilization(entry.spent_amount, entry.allocated_amount);
                                         return (
-                                            <tr key={entry.id} className="hover:bg-gray-50">
+                                            <motion.tr key={entry.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15 }} className="hover:bg-gray-50">
                                                 <td className="px-4 py-3 text-sm text-gray-700 font-mono">{entry.fiscal_year}</td>
                                                 <td className="px-4 py-3 text-sm font-medium text-gray-900">{entry.category}</td>
                                                 <td className="px-4 py-3 text-sm text-right text-gray-900">₦{(entry.allocated_amount || 0).toLocaleString()}</td>
@@ -228,7 +228,7 @@ const BudgetPlanner: React.FC = () => {
                                                         </div>
                                                     </div>
                                                 </td>
-                                            </tr>
+                                            </motion.tr>
                                         );
                                     })}
                                 </tbody>
@@ -239,9 +239,10 @@ const BudgetPlanner: React.FC = () => {
             )}
 
             {/* Create Entry Modal */}
+            <AnimatePresence>
             {showCreateModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl max-w-md w-full p-6">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} transition={{ type: 'spring', stiffness: 400, damping: 32 }} className="bg-white rounded-xl max-w-md w-full p-6">
                         <h2 className="text-2xl font-bold text-gray-900 mb-4">Add Budget Entry</h2>
 
                         <div className="space-y-4">
@@ -288,22 +289,27 @@ const BudgetPlanner: React.FC = () => {
                         </div>
 
                         <div className="flex space-x-3 mt-6">
-                            <button
+                            <motion.button
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
                                 onClick={() => { setShowCreateModal(false); resetForm(); }}
                                 className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-semibold"
                             >
                                 Cancel
-                            </button>
-                            <button
+                            </motion.button>
+                            <motion.button
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
                                 onClick={createEntry}
                                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold"
                             >
                                 Add Entry
-                            </button>
+                            </motion.button>
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
         </div>
     );
 };

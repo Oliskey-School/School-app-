@@ -1,15 +1,19 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { api } from '../../lib/api';
 import { LearningResource } from '../../types';
 import { DocumentTextIcon, PlayIcon, SearchIcon, ElearningIcon, ChevronRightIcon } from '../../constants';
 
-const ResourceCard: React.FC<{ resource: LearningResource }> = ({ resource }) => {
+const ResourceCard: React.FC<{ resource: LearningResource; index: number }> = ({ resource, index }) => {
     const isVideo = resource.type === 'Video';
     const isPDF = resource.type === 'PDF';
 
     return (
-        <a
+        <motion.a
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, delay: Math.min(index, 12) * 0.04 }}
             href={resource.url || '#'}
             target="_blank"
             rel="noopener noreferrer"
@@ -73,7 +77,7 @@ const ResourceCard: React.FC<{ resource: LearningResource }> = ({ resource }) =>
                     </span>
                 </div>
             </div>
-        </a>
+        </motion.a>
     );
 };
 
@@ -149,16 +153,17 @@ const LearningResourcesScreen: React.FC = () => {
                     {/* Filter Pills */}
                     <div className="flex space-x-2 overflow-x-auto pb-1 no-scrollbar">
                         {subjects.map((subject: string) => (
-                            <button
+                            <motion.button
                                 key={subject}
+                                whileTap={{ scale: 0.95 }}
                                 onClick={() => setSelectedSubject(subject)}
-                                className={`px-5 py-2 text-sm font-semibold rounded-full flex-shrink-0 transition-all duration-200 whitespace-nowrap border ${selectedSubject === subject
+                                className={`px-5 py-2 text-sm font-semibold rounded-full flex-shrink-0 transition-colors duration-200 whitespace-nowrap border ${selectedSubject === subject
                                         ? 'bg-green-600 text-white border-green-600 shadow-md shadow-green-200'
                                         : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                                     } `}
                             >
                                 {subject}
-                            </button>
+                            </motion.button>
                         ))}
                     </div>
                 </div>
@@ -172,8 +177,8 @@ const LearningResourcesScreen: React.FC = () => {
                     </div>
                 ) : filteredResources.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-20">
-                        {filteredResources.map(resource => (
-                            <ResourceCard key={resource.id} resource={resource} />
+                        {filteredResources.map((resource, i) => (
+                            <ResourceCard key={resource.id} resource={resource} index={i} />
                         ))}
                     </div>
                 ) : (
@@ -186,12 +191,14 @@ const LearningResourcesScreen: React.FC = () => {
                         <p className="text-gray-500 max-w-xs mx-auto">
                             We couldn't find any resources matching your search or filter criteria.
                         </p>
-                        <button
+                        <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.97 }}
                             onClick={() => { setSelectedSubject('All'); setSearchQuery(''); }}
                             className="mt-6 px-6 py-2 bg-gray-900 text-white rounded-lg font-medium shadow-lg hover:shadow-xl transition-shadow"
                         >
                             Clear Filters
-                        </button>
+                        </motion.button>
                     </div>
                 )}
             </main>

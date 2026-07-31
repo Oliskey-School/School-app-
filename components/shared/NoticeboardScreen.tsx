@@ -1,5 +1,6 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { PinIcon } from '../../constants';
 import { api } from '../../lib/api';
 import { Notice, AnnouncementCategory } from '../../types';
@@ -18,11 +19,16 @@ const categoryStyles: { [key in AnnouncementCategory]: { bg: string, text: strin
   'Test Reminder': { bg: 'bg-amber-50', text: 'text-amber-800', border: 'border-amber-200' },
 };
 
-const NoticeCard: React.FC<{ notice: Notice }> = ({ notice }) => {
+const NoticeCard: React.FC<{ notice: Notice; index: number }> = ({ notice, index }) => {
   const styles = categoryStyles[notice.category] || categoryStyles['General'];
 
   return (
-    <div className={`rounded-xl shadow-sm border ${styles.border} overflow-hidden`}>
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25, delay: Math.min(index, 10) * 0.04 }}
+      whileHover={{ y: -2 }}
+      className={`rounded-xl shadow-sm hover:shadow-md transition-shadow border ${styles.border} overflow-hidden`}>
       <div className={`${styles.bg} p-4`}>
         {notice.video_url ? (
           <video src={notice.video_url} controls className="w-full h-40 object-cover rounded-lg mb-3 bg-black"></video>
@@ -47,7 +53,7 @@ const NoticeCard: React.FC<{ notice: Notice }> = ({ notice }) => {
           <p className="text-gray-800">Please watch the video announcement above.</p>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 };
 
@@ -96,8 +102,8 @@ const NoticeboardScreen: React.FC<NoticeboardScreenProps> = ({ userType, schoolI
     <div className="flex flex-col h-full bg-gray-100">
       <main className="flex-grow p-4 space-y-4 overflow-y-auto">
         {relevantNotices.length > 0 ? (
-          relevantNotices.map(notice => (
-            <NoticeCard key={notice.id} notice={notice} />
+          relevantNotices.map((notice, i) => (
+            <NoticeCard key={notice.id} notice={notice} index={i} />
           ))
         ) : (
           <div className="text-center py-10">

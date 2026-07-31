@@ -96,10 +96,7 @@ const HelpSupportScreen: React.FC = () => {
                 <div className="col-span-1 md:col-span-1 bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
                     <HelpingHandIcon className="w-10 h-10 text-indigo-500 mb-4" />
                     <h3 className="text-lg font-bold text-gray-900 mb-2">KB / Documentation</h3>
-                    <p className="text-sm text-gray-600 mb-4">Find answers to common questions in our documentation portal.</p>
-                    <button className="w-full py-2 bg-gray-50 text-indigo-600 font-semibold rounded-lg hover:bg-indigo-50 transition-colors">
-                        Browse Guides
-                    </button>
+                    <p className="text-sm text-gray-600 mb-4">Find answers to common questions, or open a ticket below and our support team will get back to you.</p>
                 </div>
 
                 {/* Tickets List */}
@@ -118,7 +115,7 @@ const HelpSupportScreen: React.FC = () => {
                             </div>
                         ) : (
                             tickets.map(ticket => (
-                                <div key={ticket.id} className="p-6 hover:bg-gray-50 transition-colors cursor-pointer group">
+                                <div key={ticket.id} className="p-6">
                                     <div className="flex items-start justify-between">
                                         <div className="flex-1">
                                             <div className="flex items-center space-x-2 mb-1">
@@ -126,7 +123,7 @@ const HelpSupportScreen: React.FC = () => {
                                                     }`}>
                                                     {ticket.priority}
                                                 </span>
-                                                <h4 className="font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">{ticket.title}</h4>
+                                                <h4 className="font-bold text-gray-900">{ticket.title}</h4>
                                             </div>
                                             <p className="text-sm text-gray-600 line-clamp-2">{ticket.description}</p>
                                             <div className="flex items-center space-x-4 mt-3 text-xs text-gray-400">

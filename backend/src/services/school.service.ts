@@ -1,5 +1,5 @@
 import prisma from '../config/database';
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { config } from '../config/env';
 import { Role } from '@prisma/client';

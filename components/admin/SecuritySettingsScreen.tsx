@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { ShieldCheckIcon, ClockIcon as HistoryIcon, LockIcon, LoginIcon } from '../../constants';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
@@ -76,7 +77,7 @@ const SecuritySettingsScreen: React.FC = () => {
 
     return (
         <div className="p-4 space-y-5 bg-gray-50">
-            <div className="bg-white p-4 rounded-xl shadow-sm">
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="bg-white p-4 rounded-xl shadow-sm">
                 <h3 className="font-bold text-gray-800 mb-3">Password Policy</h3>
                 <div className="space-y-3 text-sm text-gray-700">
                     <div className="flex justify-between items-center">
@@ -96,30 +97,32 @@ const SecuritySettingsScreen: React.FC = () => {
                         <input type="checkbox" checked={passwordPolicy.requireSpecial} onChange={e => setPasswordPolicy({ ...passwordPolicy, requireSpecial: e.target.checked })} />
                     </div>
                 </div>
-                <button
+                <motion.button
+                    whileHover={!isLoading ? { scale: 1.01 } : {}}
+                    whileTap={!isLoading ? { scale: 0.98 } : {}}
                     onClick={handleSavePolicy}
                     disabled={isLoading}
                     className="mt-4 w-full bg-indigo-600 text-white font-bold py-2 rounded-xl hover:bg-indigo-700 transition disabled:opacity-50"
                 >
                     {isLoading ? 'Saving...' : 'Save Policy'}
-                </button>
-            </div>
+                </motion.button>
+            </motion.div>
 
-            <div className="bg-white p-4 rounded-xl shadow-sm">
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: 0.05 }} className="bg-white p-4 rounded-xl shadow-sm">
                 <h3 className="font-bold text-gray-800 mb-3">Recent System Logins</h3>
                 <ul className="space-y-3">
                     {loginHistory.map((item, index) => (
-                        <li key={index} className="flex items-center space-x-4">
+                        <motion.li key={index} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: index * 0.03 }} className="flex items-center space-x-4">
                             <LoginIcon className="text-gray-400 h-6 w-6" />
                             <div className="flex-grow">
                                 <p className="font-semibold text-gray-700">{item.device}</p>
                                 <p className="text-sm text-gray-500">{item.location} - {item.time}</p>
                             </div>
                             {item.isCurrent && <span className="text-xs font-semibold text-green-700 bg-green-100 px-2 py-1 rounded-full">Active now</span>}
-                        </li>
+                        </motion.li>
                     ))}
                 </ul>
-            </div>
+            </motion.div>
         </div>
     );
 };

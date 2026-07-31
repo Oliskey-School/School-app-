@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { Plug, ToggleLeft, ToggleRight, RefreshCw, AlertCircle, CheckCircle, Plus } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import CenteredLoader from '../ui/CenteredLoader';
 
 interface Integration {
     id: number;
@@ -151,7 +153,8 @@ const IntegrationHub: React.FC = () => {
             <div className="bg-white rounded-xl shadow-sm mb-6">
                 <div className="border-b border-gray-200">
                     <div className="flex space-x-8 px-6">
-                        <button
+                        <motion.button
+                            whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                             onClick={() => setActiveTab('government')}
                             className={`py-4 px-2 border-b-2 font-semibold transition-colors ${activeTab === 'government'
                                 ? 'border-teal-600 text-teal-600'
@@ -159,8 +162,9 @@ const IntegrationHub: React.FC = () => {
                                 }`}
                         >
                             🏛️ Government Systems
-                        </button>
-                        <button
+                        </motion.button>
+                        <motion.button
+                            whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                             onClick={() => setActiveTab('marketplace')}
                             className={`py-4 px-2 border-b-2 font-semibold transition-colors ${activeTab === 'marketplace'
                                 ? 'border-teal-600 text-teal-600'
@@ -168,15 +172,13 @@ const IntegrationHub: React.FC = () => {
                                 }`}
                         >
                             🏪 App Marketplace
-                        </button>
+                        </motion.button>
                     </div>
                 </div>
             </div>
 
             {loading ? (
-                <div className="flex justify-center py-12">
-                    <div className="w-10 h-10 border-4 border-teal-600 border-t-transparent rounded-full animate-spin"></div>
-                </div>
+                <CenteredLoader className="py-12" />
             ) : (
                 <>
                     {/* Government Systems Tab */}
@@ -189,8 +191,8 @@ const IntegrationHub: React.FC = () => {
                             </div>
 
                             <div className="grid grid-cols-1 gap-4">
-                                {integrations.map(integration => (
-                                    <div key={integration.id} className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+                                {integrations.map((integration, ii) => (
+                                    <motion.div key={integration.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(ii, 15) * 0.03 }} className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
                                         <div className="flex items-start justify-between">
                                             <div className="flex items-start space-x-4 flex-1">
                                                 <div className="p-3 bg-teal-100 rounded-lg">
@@ -227,7 +229,8 @@ const IntegrationHub: React.FC = () => {
                                             </div>
 
                                             <div className="flex space-x-2">
-                                                <button
+                                                <motion.button
+                                                    whileHover={integration.is_active ? { scale: 1.03 } : {}} whileTap={integration.is_active ? { scale: 0.97 } : {}}
                                                     onClick={() => syncIntegration(integration.id, integration.integration_name)}
                                                     disabled={!integration.is_active}
                                                     className={`px-4 py-2 rounded-lg font-semibold flex items-center space-x-2 ${integration.is_active
@@ -238,9 +241,10 @@ const IntegrationHub: React.FC = () => {
                                                 >
                                                     <RefreshCw className="h-4 w-4" />
                                                     <span>Sync</span>
-                                                </button>
+                                                </motion.button>
 
-                                                <button
+                                                <motion.button
+                                                    whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                                                     onClick={() => toggleIntegration(integration.id, integration.is_active)}
                                                     className={`px-4 py-2 rounded-lg font-semibold flex items-center space-x-2 ${integration.is_active
                                                         ? 'bg-red-100 text-red-700 hover:bg-red-200'
@@ -258,10 +262,10 @@ const IntegrationHub: React.FC = () => {
                                                             <span>Enable</span>
                                                         </>
                                                     )}
-                                                </button>
+                                                </motion.button>
                                             </div>
                                         </div>
-                                    </div>
+                                    </motion.div>
                                 ))}
                             </div>
                         </div>
@@ -271,10 +275,10 @@ const IntegrationHub: React.FC = () => {
                     {activeTab === 'marketplace' && (
                         <div>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {thirdPartyApps.map(app => {
+                                {thirdPartyApps.map((app, ai) => {
                                     const isInstalled = installedApps.includes(app.id);
                                     return (
-                                        <div key={app.id} className="bg-white rounded-xl shadow-sm p-6 border border-gray-200 hover:shadow-md transition-shadow">
+                                        <motion.div key={app.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(ai, 15) * 0.03 }} className="bg-white rounded-xl shadow-sm p-6 border border-gray-200 hover:shadow-md transition-shadow">
                                             <div className="flex items-start justify-between mb-4">
                                                 <div className="text-4xl">{getCategoryIcon(app.category)}</div>
                                                 {app.is_verified && (
@@ -300,22 +304,24 @@ const IntegrationHub: React.FC = () => {
                                             </div>
 
                                             {isInstalled ? (
-                                                <button
+                                                <motion.button
+                                                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                                                     onClick={() => uninstallApp(app.id, app.app_name)}
                                                     className="w-full px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 font-semibold"
                                                 >
                                                     Uninstall
-                                                </button>
+                                                </motion.button>
                                             ) : (
-                                                <button
+                                                <motion.button
+                                                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                                                     onClick={() => installApp(app.id, app.app_name)}
                                                     className="w-full px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-semibold flex items-center justify-center space-x-2"
                                                 >
                                                     <Plus className="h-4 w-4" />
                                                     <span>Install</span>
-                                                </button>
+                                                </motion.button>
                                             )}
-                                        </div>
+                                        </motion.div>
                                     );
                                 })}
                             </div>

@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { DEFAULT_AVATAR } from '../../lib/avatar';
 import { SUBJECT_COLORS, CalendarIcon, ChevronLeftIcon, RefreshIcon, THEME_CONFIG } from '../../constants';
@@ -26,6 +27,30 @@ const formatTime12Hour = (timeStr: string) => {
 // Timetable Builder) so students/teachers/parents see the published times.
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+
+const toMinutes = (t: string): number => {
+    const [h, m] = (t || '0:0').split(':').map((n) => parseInt(n, 10));
+    return (Number.isFinite(h) ? h : 0) * 60 + (Number.isFinite(m) ? m : 0);
+};
+
+// Resolve a saved row's start_time to a period column. Exact match covers the
+// normal case (the Timetable Builder always snaps to a period's exact start).
+// A row saved with an off-grid time (imported data, a school with a schedule
+// that changed after the row was saved, etc.) would otherwise silently vanish
+// from the grid — fall back to whichever period's time range contains it, or
+// failing that, whichever period starts closest to it, so a real published
+// lesson is never dropped outright.
+const matchPeriod = (periods: PeriodDef[], st: string): PeriodDef | undefined => {
+    const exact = periods.find((p) => p.start === st);
+    if (exact) return exact;
+    const stMin = toMinutes(st);
+    const inRange = periods.find((p) => toMinutes(p.start) <= stMin && stMin < toMinutes(p.end));
+    if (inRange) return inRange;
+    return periods.reduce<PeriodDef | undefined>((closest, p) => {
+        if (!closest) return p;
+        return Math.abs(toMinutes(p.start) - stMin) < Math.abs(toMinutes(closest.start) - stMin) ? p : closest;
+    }, undefined);
+};
 
 // --- SUB-COMPONENTS (Read-Only) ---
 
@@ -218,7 +243,7 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
                         // Match by start_time so each entry lands in its actual period
                         // column — order-based mapping breaks for teachers who only
                         // teach specific periods (e.g. only Period 4 would show as Period 1).
-                        const period = teaching.find(p => p.start === st);
+                        const period = matchPeriod(teaching, st);
                         if (!period) return;
                         const key = `${d}-${period.name}`;
                         const rows = byDay[d][st];
@@ -337,9 +362,9 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
                     </div>
                 </div>
 
-                <button onClick={() => window.location.reload()} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400 hover:text-gray-600">
+                <motion.button whileHover={{ rotate: 90 }} whileTap={{ scale: 0.9 }} transition={{ duration: 0.2 }} onClick={() => window.location.reload()} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400 hover:text-gray-600" aria-label="Refresh timetable">
                     <RefreshIcon className="w-5 h-5" />
-                </button>
+                </motion.button>
             </div>
 
             <main className="flex-1 overflow-auto bg-gray-50/50 relative p-0 md:p-6">
@@ -350,15 +375,16 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
                 {context.userType === 'parent' && students && students.length > 1 && (
                     <div className="flex space-x-3 overflow-x-auto p-4 bg-white border-b border-gray-200 scrollbar-hide mb-4 shadow-sm">
                         {students.map(s => (
-                            <button
+                            <motion.button
                                 key={s.id}
+                                whileTap={{ scale: 0.96 }}
                                 onClick={() => setSelectedStudent(s)}
-                                className={`flex items-center space-x-2 px-4 py-2 rounded-xl border-2 transition-all flex-shrink-0 ${selectedStudent?.id === s.id ? `${theme.mainBg} text-white border-transparent shadow-sm` : 'bg-white text-gray-700 border-gray-100 hover:border-indigo-300'
+                                className={`flex items-center space-x-2 px-4 py-2 rounded-xl border-2 transition-colors flex-shrink-0 ${selectedStudent?.id === s.id ? `${theme.mainBg} text-white border-transparent shadow-sm` : 'bg-white text-gray-700 border-gray-100 hover:border-indigo-300'
                                     }`}
                             >
                                 <img src={s.avatarUrl || DEFAULT_AVATAR} className="w-6 h-6 rounded-full" alt={s.name} />
                                 <span className="font-semibold text-sm">{s.name}</span>
-                            </button>
+                            </motion.button>
                         ))}
                     </div>
                 )}
@@ -368,13 +394,14 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
                         {/* Day Tabs */}
                         <div className="flex overflow-x-auto p-4 space-x-3 bg-white border-b border-gray-200 snap-x sticky top-0 z-20 shadow-sm no-scrollbar">
                             {DAYS.map(day => (
-                                <button
+                                <motion.button
                                     key={day}
+                                    whileTap={{ scale: 0.94 }}
                                     onClick={() => setSelectedDay(day)}
-                                    className={`flex-shrink-0 snap-start px-5 py-2.5 rounded-full font-bold text-sm transition-all border ${selectedDay === day ? `${theme.mainBg} border-transparent text-white shadow-md` : 'bg-white border-gray-200 text-gray-500'}`}
+                                    className={`flex-shrink-0 snap-start px-5 py-2.5 rounded-full font-bold text-sm transition-colors border ${selectedDay === day ? `${theme.mainBg} border-transparent text-white shadow-md` : 'bg-white border-gray-200 text-gray-500'}`}
                                 >
                                     {day.slice(0, 3)}
-                                </button>
+                                </motion.button>
                             ))}
                         </div>
                         <div className="flex-1 overflow-y-auto p-4">

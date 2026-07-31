@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useBranch } from '../../context/BranchContext';
@@ -145,17 +146,18 @@ const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigat
                     <p className="text-slate-500 font-medium">Manage multiple campuses and locations.</p>
                 </div>
                 {!isAddingBranch && (
-                    <button
+                    <motion.button
+                        whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                         onClick={() => setIsAddingBranch(true)}
-                        className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg shadow-indigo-600/20 hover:bg-indigo-700 transition-all active:scale-95"
+                        className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg shadow-indigo-600/20 hover:bg-indigo-700 transition-all"
                     >
                         <Plus className="w-5 h-5" /> Add Branch
-                    </button>
+                    </motion.button>
                 )}
             </div>
 
             {isAddingBranch ? (
-                <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 p-8 animate-slide-in-up">
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ type: 'spring', stiffness: 400, damping: 32 }} className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 p-8">
                     <div className="flex justify-between items-center mb-8">
                         <h3 className="text-xl font-bold text-slate-800">{editingBranch ? 'Edit Branch' : 'Create New Branch'}</h3>
                         <button onClick={resetForm} className="text-slate-400 hover:text-slate-600 font-bold uppercase text-xs tracking-widest">Cancel</button>
@@ -278,26 +280,28 @@ const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigat
                         </div>
 
                         <div className="md:col-span-2 flex justify-end gap-4 pt-4 border-t border-slate-100 mt-4">
-                            <button
+                            <motion.button
+                                whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                                 type="button"
                                 onClick={resetForm}
                                 className="px-8 py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all"
                             >
                                 Cancel
-                            </button>
-                            <button
+                            </motion.button>
+                            <motion.button
+                                whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                                 type="submit"
-                                className="px-10 py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-xl shadow-indigo-600/20 hover:bg-indigo-700 transition-all active:scale-95"
+                                className="px-10 py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-xl shadow-indigo-600/20 hover:bg-indigo-700 transition-all"
                             >
                                 {editingBranch ? 'Update Branch' : 'Create Branch'}
-                            </button>
+                            </motion.button>
                         </div>
                     </form>
-                </div>
+                </motion.div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                    {branches.map(branch => (
-                        <div key={branch.id} className="group bg-white rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-xl hover:border-indigo-100 transition-all duration-300 overflow-hidden relative">
+                    {branches.map((branch, bi) => (
+                        <motion.div key={branch.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(bi, 15) * 0.03 }} className="group bg-white rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-xl hover:border-indigo-100 transition-all duration-300 overflow-hidden relative">
                             {branch.is_main && (
                                 <div className="absolute top-0 right-0 px-4 py-1.5 bg-indigo-600 text-white text-xs font-black uppercase tracking-widest rounded-bl-2xl">
                                     Main Campus
@@ -327,31 +331,34 @@ const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigat
                                 </div>
 
                                 <div className="flex gap-2 mt-8 pt-6 border-t border-slate-50 flex-wrap">
-                                    <button
+                                    <motion.button
+                                        whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                                         onClick={() => handleEdit(branch)}
                                         className="flex-1 flex items-center justify-center gap-2 py-3 bg-slate-50 text-slate-600 rounded-xl font-bold hover:bg-slate-100 hover:text-slate-900 transition-all text-sm"
                                     >
                                         <Edit2 className="w-4 h-4" /> Edit
-                                    </button>
+                                    </motion.button>
                                     {navigateTo && (
-                                        <button
+                                        <motion.button
+                                            whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                                             onClick={() => navigateTo('addBranchAdmin', 'Assign Branch Admin', { branchId: branch.id })}
                                             className="flex-1 flex items-center justify-center gap-2 py-3 bg-indigo-50 text-indigo-600 rounded-xl font-bold hover:bg-indigo-100 hover:text-indigo-700 transition-all text-sm"
                                         >
                                             <UserPlus className="w-4 h-4" /> Assign Admin
-                                        </button>
+                                        </motion.button>
                                     )}
                                     {!branch.is_main && (
-                                        <button
+                                        <motion.button
+                                            whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                                             onClick={() => handleDelete(branch.id)}
                                             className="w-12 flex items-center justify-center bg-red-50 text-red-500 rounded-xl font-bold hover:bg-red-100 hover:text-red-700 transition-all"
                                         >
                                             <Trash2 className="w-4 h-4" />
-                                        </button>
+                                        </motion.button>
                                     )}
                                 </div>
                             </div>
-                        </div>
+                        </motion.div>
                     ))}
 
                     {branches.length === 0 && (
@@ -361,12 +368,13 @@ const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigat
                             </div>
                             <h3 className="text-xl font-bold text-slate-800">No branches found</h3>
                             <p className="text-slate-500 mt-2 max-w-xs mx-auto">Start by adding your institution's first or main campus.</p>
-                            <button
+                            <motion.button
+                                whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                                 onClick={() => setIsAddingBranch(true)}
                                 className="mt-8 px-8 py-3 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg hover:bg-indigo-700 transition-all"
                             >
                                 Add Your First Branch
-                            </button>
+                            </motion.button>
                         </div>
                     )}
                 </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Clock, AlertCircle, CheckCircle, Flag, ChevronLeft, ChevronRight, Menu, X } from 'lucide-react';
+import { Clock, AlertCircle, CheckCircle, Flag, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { api } from '../../../lib/api';
@@ -30,7 +30,6 @@ import { useGamification } from '../../../context/GamificationContext'; // Added
 import { format } from 'date-fns';
 
 // Real leaderboard should be fetched from API
-const LEADERBOARD: any[] = [];
 
 const CBTExamGame: React.FC<CBTExamGameProps> = ({ onBack }) => {
     // ... existing state
@@ -41,7 +40,6 @@ const CBTExamGame: React.FC<CBTExamGameProps> = ({ onBack }) => {
     const [answers, setAnswers] = useState<Record<number, number>>({});
     const [markedForReview, setMarkedForReview] = useState<Set<number>>(new Set());
     const [timeLeft, setTimeLeft] = useState(15 * 60);
-    const [showPalette, setShowPalette] = useState(false);
     const [startTime, setStartTime] = useState<number>(0);
 
     // Setup State
@@ -259,7 +257,7 @@ const CBTExamGame: React.FC<CBTExamGameProps> = ({ onBack }) => {
                             <p className="text-gray-500 font-medium animate-pulse">Generating questions with Gemini AI...</p>
                         </div>
                     ) : gameState === 'result' ? (
-                        <div className="max-w-4xl mx-auto w-full grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in zoom-in duration-300">
+                        <div className="max-w-lg mx-auto w-full animate-in fade-in zoom-in duration-300">
                             {/* Score Card */}
                             <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 flex flex-col items-center justify-center text-center space-y-6">
                                 <div className={`w-32 h-32 rounded-full flex items-center justify-center border-8 ${Math.round((questions.filter(q => answers[q.id] === q.correctAnswer).length / totalQuestions) * 100) >= 70 ? 'bg-green-50 border-green-500' : 'bg-red-50 border-red-500'
@@ -296,35 +294,6 @@ const CBTExamGame: React.FC<CBTExamGameProps> = ({ onBack }) => {
                                     <button onClick={onBack} className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700">
                                         Exit
                                     </button>
-                                </div>
-                            </div>
-
-                            {/* Leaderboard Card */}
-                            <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100 flex flex-col">
-                                <div className="flex items-center gap-2 mb-6 text-gray-800">
-                                    <Flag className="text-yellow-500 fill-current" />
-                                    <h3 className="text-xl font-bold">Top Students</h3>
-                                </div>
-                                <div className="space-y-3 flex-1">
-                                    {LEADERBOARD.map((entry, idx) => (
-                                        <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 border border-gray-100">
-                                            <div className="flex items-center gap-3">
-                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-white ${idx === 0 ? 'bg-yellow-400 shadow-md' : idx === 1 ? 'bg-gray-400' : 'bg-orange-400'}`}>
-                                                    {idx + 1}
-                                                </div>
-                                                <span className="font-bold text-gray-700">{entry.name}</span>
-                                            </div>
-                                            <div className="text-right">
-                                                <div className="font-bold text-blue-600">{entry.score}%</div>
-                                                <div className="text-xs text-gray-400 font-mono">{entry.time}</div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                    {/* User's Current Score Placeholder */}
-                                    <div className="mt-4 p-3 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-between animate-pulse">
-                                        <span className="font-bold text-blue-800">Your Score</span>
-                                        <span className="font-bold text-blue-600">{Math.round((questions.filter(q => answers[q.id] === q.correctAnswer).length / totalQuestions) * 100)}%</span>
-                                    </div>
                                 </div>
                             </div>
                         </div>

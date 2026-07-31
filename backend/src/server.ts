@@ -35,6 +35,14 @@ const start = async () => {
             console.log(`📍 API Base URL: http://localhost:${config.port}/api`);
             console.log(`🔌 Real-time sync (Socket.io) enabled.`);
 
+            // Tell PM2 the process is actually ready to accept traffic. Without this,
+            // PM2's `wait_ready: true` (ecosystem.config.js) waits out the full
+            // listen_timeout with no signal ever arriving, treats startup as failed,
+            // and force-restarts the process — an infinite crash-loop in production.
+            if (typeof process.send === 'function') {
+                process.send('ready');
+            }
+
             // Lead DevSecOps: Start background task worker
             try {
                 const { startWorker } = require('./services/queue.service');

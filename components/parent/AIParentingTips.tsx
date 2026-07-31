@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import AIFeatureLock from '../shared/AIFeatureLock';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { getAIClient, AI_MODEL_NAME, SchemaType as Type } from '../../lib/ai';
@@ -19,14 +20,14 @@ interface AIParentingTipsScreenProps {
 }
 
 const AIParentingTipsScreen: React.FC<AIParentingTipsScreenProps> = ({ student }) => {
-    if (!student) return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Select a child to see tailored parenting tips.</div>;
     const [tips, setTips] = useState<Tip[] | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [academicData, setAcademicData] = useState(student.academicPerformance || []);
-    const [behaviorData, setBehaviorData] = useState(student.behaviorNotes || []);
+    const [academicData, setAcademicData] = useState(student?.academicPerformance || []);
+    const [behaviorData, setBehaviorData] = useState(student?.behaviorNotes || []);
 
     const generateTips = useCallback(async () => {
+        if (!student) return;
         setIsLoading(true);
         setError(null);
         try {
@@ -45,7 +46,7 @@ const AIParentingTipsScreen: React.FC<AIParentingTipsScreenProps> = ({ student }
                 setBehaviorData(currentBehavior);
             }
 
-            const ai = getAIClient(import.meta.env.VITE_GEMINI_API_KEY || '');
+            const ai = getAIClient();
 
             const academicSummary = currentAcademic
                 ?.slice(-4) // get latest 4 records
@@ -109,7 +110,7 @@ const AIParentingTipsScreen: React.FC<AIParentingTipsScreenProps> = ({ student }
         } finally {
             setIsLoading(false);
         }
-    }, [student.id, academicData, behaviorData]);
+    }, [student?.id, academicData, behaviorData]);
 
     // Real-time synchronization
     useAutoSync(['academic_performance', 'behavior_notes'], generateTips);
@@ -123,6 +124,10 @@ const AIParentingTipsScreen: React.FC<AIParentingTipsScreenProps> = ({ student }
         'Areas for Support': <TrendingUpIcon className="h-6 w-6 text-amber-500" />,
         'Conversation Starters': <MessagesIcon className="h-6 w-6 text-sky-500" />,
     };
+
+    if (!student) {
+        return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Select a child to see tailored parenting tips.</div>;
+    }
 
     if (isLoading) {
         return (
@@ -139,6 +144,12 @@ const AIParentingTipsScreen: React.FC<AIParentingTipsScreenProps> = ({ student }
             <div className="p-6 flex flex-col items-center justify-center h-full text-center bg-gray-50">
                 <h2 className="text-xl font-bold text-red-600">Oops!</h2>
                 <p className="text-gray-600 mt-2">{error}</p>
+                <button
+                    onClick={() => generateTips()}
+                    className="mt-4 px-5 py-2 bg-green-600 text-white text-sm font-bold rounded-xl hover:bg-green-700 transition-colors"
+                >
+                    Retry
+                </button>
             </div>
         );
     }
@@ -152,7 +163,13 @@ const AIParentingTipsScreen: React.FC<AIParentingTipsScreenProps> = ({ student }
                 <p className="text-sm text-green-700">Artificial intelligence analyzing grades and behavior.</p>
             </div>
             {tips?.map((tipSection, index) => (
-                <div key={index} className="bg-white rounded-xl shadow-sm p-4">
+                <motion.div
+                    key={index}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: index * 0.1 }}
+                    className="bg-white rounded-xl shadow-sm p-4"
+                >
                     <div className="flex items-center space-x-3 mb-3">
                         {categoryIcons[tipSection.category] || <SparklesIcon className="h-6 w-6 text-gray-500" />}
                         <h4 className="font-bold text-lg text-gray-800">{tipSection.category}</h4>
@@ -162,7 +179,7 @@ const AIParentingTipsScreen: React.FC<AIParentingTipsScreenProps> = ({ student }
                             <li key={idx} className="prose prose-sm max-w-none"><ReactMarkdown remarkPlugins={[remarkGfm]}>{item}</ReactMarkdown></li>
                         ))}
                     </ul>
-                </div>
+                </motion.div>
             ))}
         </div>
         </AIFeatureLock>

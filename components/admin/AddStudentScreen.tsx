@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { User as UserIcon, Phone as PhoneIcon, Mail as MailIcon, Camera as CameraIcon, X as XMarkIcon, AlertTriangle as ExclamationTriangleIcon, Search as SearchIcon, CheckCircle as CheckCircleIcon, ChevronDown as ChevronDownIcon } from 'lucide-react';
@@ -80,18 +81,29 @@ const MultiSelect: React.FC<{
                 onClick={() => setIsOpen(true)}
             >
                 {/* Selected Tags */}
+                <AnimatePresence initial={false}>
                 {selected.map(item => (
-                    <span key={item} className="flex items-center gap-1 bg-indigo-100 text-indigo-800 text-sm font-medium px-2 py-1 rounded-md">
+                    <motion.span
+                        key={item}
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.8 }}
+                        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                        className="flex items-center gap-1 bg-indigo-100 text-indigo-800 text-sm font-medium px-2 py-1 rounded-md"
+                    >
                         {item}
-                        <button
+                        <motion.button
+                            whileHover={{ scale: 1.15 }}
+                            whileTap={{ scale: 0.9 }}
                             type="button"
                             onClick={(e) => { e.stopPropagation(); toggleSelection(item); }}
                             className="text-indigo-600 hover:text-indigo-800 focus:outline-none"
                         >
                             <XMarkIcon className="w-4 h-4" />
-                        </button>
-                    </span>
+                        </motion.button>
+                    </motion.span>
                 ))}
+                </AnimatePresence>
 
                 {/* Input Field */}
                 <div className="flex-grow flex items-center min-w-[120px]">
@@ -109,25 +121,34 @@ const MultiSelect: React.FC<{
             </div>
 
             {/* Dropdown Menu */}
+            <AnimatePresence>
             {isOpen && (
-                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                <motion.div
+                    initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+                >
                     {filteredOptions.length > 0 ? (
                         filteredOptions.map(option => (
-                            <div
+                            <motion.div
                                 key={option}
+                                whileHover={{ x: 2 }}
                                 onClick={() => toggleSelection(option)}
-                                className="px-4 py-2 hover:bg-indigo-50 cursor-pointer text-sm text-gray-700 flex items-center justify-between"
+                                className="px-4 py-2 hover:bg-indigo-50 cursor-pointer text-sm text-gray-700 flex items-center justify-between transition-colors"
                             >
                                 <span>{option}</span>
-                            </div>
+                            </motion.div>
                         ))
                     ) : (
                         <div className="px-4 py-3 text-sm text-gray-500 text-center">
                             {options.length === 0 ? "No options available" : "No matching options"}
                         </div>
                     )}
-                </div>
+                </motion.div>
             )}
+            </AnimatePresence>
         </div>
     );
 };
@@ -845,10 +866,10 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                                     <UserIcon className="w-12 h-12 text-gray-400" />
                                 )}
                             </div>
-                            <label htmlFor="photo-upload" className="absolute bottom-0 right-0 bg-indigo-600 p-2 rounded-full border-2 border-white cursor-pointer hover:bg-indigo-700">
+                            <motion.label whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.92 }} htmlFor="photo-upload" className="absolute bottom-0 right-0 bg-indigo-600 p-2 rounded-full border-2 border-white cursor-pointer hover:bg-indigo-700">
                                 <CameraIcon className="text-white h-4 w-4" />
                                 <input id="photo-upload" name="photo-upload" type="file" className="sr-only" accept="image/*" onChange={handleImageChange} />
-                            </label>
+                            </motion.label>
                         </div>
                     </div>
 
@@ -1099,20 +1120,23 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
 
                 {/* Action Button */}
                 <div className="p-4 mt-auto bg-gray-50 pb-32 lg:pb-4 flex gap-3">
-                    <button
+                    <motion.button
+                        whileTap={{ scale: 0.97 }}
                         type="button"
                         onClick={handleBack}
                         className="flex-1 py-3 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
                     >
                         Cancel
-                    </button>
-                    <button
+                    </motion.button>
+                    <motion.button
+                        whileHover={!isLoading ? { scale: 1.01 } : {}}
+                        whileTap={!isLoading ? { scale: 0.97 } : {}}
                         type="submit"
                         disabled={isLoading}
                         className={`flex-1 flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white ${isLoading ? 'bg-gray-400' : 'bg-indigo-600 hover:bg-indigo-700'} focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors`}
                     >
                         {isLoading ? 'Saving...' : (studentToEdit ? 'Update Student' : 'Save Student')}
-                    </button>
+                    </motion.button>
                 </div>
             </form>
 

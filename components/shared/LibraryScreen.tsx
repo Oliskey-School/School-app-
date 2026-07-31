@@ -1,6 +1,7 @@
 
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
 import { DigitalResource, VideoLesson } from '../../types';
@@ -10,7 +11,7 @@ interface LibraryScreenProps {
     navigateTo: (view: string, title: string, props?: any) => void;
 }
 
-const ResourceCard: React.FC<{ resource: DigitalResource, onClick: () => void }> = ({ resource, onClick }) => {
+const ResourceCard: React.FC<{ resource: DigitalResource, onClick: () => void, index: number }> = ({ resource, onClick, index }) => {
     const TypeIcon = RESOURCE_TYPE_CONFIG[resource.type].icon;
     const typeColor = RESOURCE_TYPE_CONFIG[resource.type].color;
 
@@ -23,9 +24,14 @@ const ResourceCard: React.FC<{ resource: DigitalResource, onClick: () => void }>
     };
 
     return (
-        <button
+        <motion.button
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, delay: Math.min(index, 12) * 0.04 }}
+            whileHover={{ y: -4 }}
+            whileTap={{ scale: 0.98 }}
             onClick={onClick}
-            className="block w-full text-left bg-white rounded-xl shadow-md overflow-hidden group transform hover:-translate-y-1 transition-transform duration-200"
+            className="block w-full text-left bg-white rounded-xl shadow-md hover:shadow-lg overflow-hidden group transition-shadow duration-200"
         >
             <div className="relative h-32 bg-gray-200">
                 {resource.thumbnailUrl ? (
@@ -70,7 +76,7 @@ const ResourceCard: React.FC<{ resource: DigitalResource, onClick: () => void }>
                     )}
                 </div>
             </div>
-        </button>
+        </motion.button>
     );
 };
 
@@ -144,8 +150,9 @@ const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigateTo }) => {
                 {/* Language Filter Row */}
                 <div className="flex space-x-2 overflow-x-auto pb-1 scrollbar-hide">
                     {languages.map(lang => (
-                        <button
+                        <motion.button
                             key={lang}
+                            whileTap={{ scale: 0.95 }}
                             onClick={() => setSelectedLanguage(lang)}
                             className={`px-3 py-1 text-xs font-bold rounded-full border transition-all ${selectedLanguage === lang
                                     ? 'bg-gray-800 text-white border-gray-800'
@@ -153,15 +160,16 @@ const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigateTo }) => {
                                 }`}
                         >
                             {lang}
-                        </button>
+                        </motion.button>
                     ))}
                 </div>
 
                 {/* Subject Filter Row */}
                 <div className="flex space-x-2 overflow-x-auto pb-2 -mb-2">
                     {subjects.map((subject: string) => (
-                        <button
+                        <motion.button
                             key={subject}
+                            whileTap={{ scale: 0.95 }}
                             onClick={() => setSelectedSubject(subject)}
                             className={`px-4 py-1.5 text-sm font-semibold rounded-full flex-shrink-0 transition-colors ${selectedSubject === subject
                                 ? 'bg-orange-500 text-white shadow'
@@ -169,7 +177,7 @@ const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigateTo }) => {
                                 }`}
                         >
                             {subject}
-                        </button>
+                        </motion.button>
                     ))}
                 </div>
             </div>
@@ -194,10 +202,11 @@ const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigateTo }) => {
                             <div key={subject}>
                                 <h2 className="text-xl font-bold text-gray-800 mb-3">{subject}</h2>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                                    {resourcesBySubject[subject].map(resource => (
+                                    {resourcesBySubject[subject].map((resource, i) => (
                                         <ResourceCard
                                             key={resource.id}
                                             resource={resource}
+                                            index={i}
                                             onClick={() => handleResourceClick(resource)}
                                         />
                                     ))}

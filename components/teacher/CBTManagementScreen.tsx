@@ -317,7 +317,12 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
                         </div>
 
                         {/* Upload Area */}
-                        <div className="border-2 border-dashed border-slate-300 rounded-xl flex flex-col justify-center items-center p-6 cursor-pointer hover:bg-slate-50 hover:border-indigo-400 transition-all group" onClick={() => fileInputRef.current?.click()}>
+                        <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="w-full border-2 border-dashed border-slate-300 rounded-xl flex flex-col justify-center items-center p-6 cursor-pointer hover:bg-slate-50 hover:border-indigo-400 transition-all group"
+                            aria-label="Upload question bank Excel file"
+                        >
                             <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".xlsx, .xls" className="hidden" />
                             {isUploading ? (
                                 <div className="text-center animate-pulse">
@@ -333,7 +338,7 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
                                     <p className="text-xs text-slate-400 mt-1">Columns: No, Question, A, B, C, D, Answer</p>
                                 </div>
                             )}
-                        </div>
+                        </button>
                     </div>
                 </div>
 
@@ -403,6 +408,7 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
                                                     }}
                                                     className="text-red-500 hover:bg-red-50 p-2 rounded-full transition-colors"
                                                     title="Delete Exam"
+                                                    aria-label="Delete Exam"
                                                 >
                                                     <TrashIcon className="w-5 h-5" />
                                                 </button>

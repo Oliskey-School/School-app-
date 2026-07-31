@@ -7,7 +7,8 @@ import { getEffectiveBranchId } from '../utils/branchScope';
 export const getStats = async (req: AuthRequest, res: Response) => {
     try {
         console.log(`[DashboardController] getStats requested. User Role: ${req.user.role}`);
-        const schoolId = req.params.schoolId || req.user.school_id || (req.query.schoolId as string) || (req.query.school_id as string);
+        // Always trust the verified token's school_id, never a client-supplied param/query value.
+        const schoolId = req.user.school_id;
         let teacherId = (req.query.teacherId || req.query.teacher_id) as string | undefined;
 
         if (req.user.role === 'TEACHER' && !teacherId) {
@@ -36,7 +37,7 @@ export const getStats = async (req: AuthRequest, res: Response) => {
 
 export const getAuditLogs = async (req: AuthRequest, res: Response) => {
     try {
-        const schoolId = req.params.schoolId || req.user.school_id || (req.query.schoolId as string) || (req.query.school_id as string);
+        const schoolId = req.user.school_id;
         const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
         const branchId = getEffectiveBranchId(req.user, (req.query.branchId || req.query.branch_id) as string);
         const logs = await DashboardService.getAuditLogs(schoolId, limit, branchId);
@@ -58,7 +59,7 @@ export const getParentTodayUpdate = async (req: AuthRequest, res: Response) => {
 export const globalSearch = async (req: AuthRequest, res: Response) => {
     try {
         const { term } = req.query;
-        const schoolId = (req.query.schoolId as string) || req.user.school_id;
+        const schoolId = req.user.school_id;
 
         if (!term) {
             return res.status(400).json({ message: 'Search term is required' });

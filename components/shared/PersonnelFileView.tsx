@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import {
@@ -239,7 +240,12 @@ const PersonnelFileView: React.FC<PersonnelFileViewProps> = ({ teacherId, mode }
     return (
         <div className="p-4 lg:p-6 max-w-5xl mx-auto space-y-6 pb-24">
             {/* Header */}
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+            <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4"
+            >
                 {t.avatar_url
                     ? <img src={t.avatar_url} alt={t.full_name} className="w-16 h-16 rounded-full object-cover" />
                     : <div className="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center">
@@ -252,31 +258,39 @@ const PersonnelFileView: React.FC<PersonnelFileViewProps> = ({ teacherId, mode }
                 </div>
                 {mode === 'admin' && (
                     <div className="flex flex-col sm:flex-row gap-2">
-                        <button onClick={() => setShowAddRecord(true)}
+                        <motion.button whileHover={{ y: -1 }} whileTap={{ scale: 0.96 }} onClick={() => setShowAddRecord(true)}
                             className="flex items-center gap-1.5 px-3 py-2 bg-indigo-50 text-indigo-700 rounded-xl font-semibold text-sm hover:bg-indigo-100 transition-colors">
                             <PlusIcon className="w-4 h-4" /> Add Record
-                        </button>
-                        <button onClick={() => setShowIssueQuery(true)}
+                        </motion.button>
+                        <motion.button whileHover={{ y: -1 }} whileTap={{ scale: 0.96 }} onClick={() => setShowIssueQuery(true)}
                             className="flex items-center gap-1.5 px-3 py-2 bg-amber-50 text-amber-700 rounded-xl font-semibold text-sm hover:bg-amber-100 transition-colors">
                             <Mail className="w-4 h-4" /> Issue Query Letter
-                        </button>
+                        </motion.button>
                     </div>
                 )}
-            </div>
+            </motion.div>
 
             {/* Tabs */}
-            <div className="bg-white p-1.5 rounded-2xl shadow-sm border border-gray-100 flex overflow-x-auto gap-1">
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: 0.05 }} className="bg-white p-1.5 rounded-2xl shadow-sm border border-gray-100 flex overflow-x-auto gap-1">
                 {TABS.map(tb => (
-                    <button key={tb.key} onClick={() => setTab(tb.key)}
-                        className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-colors ${
-                            tab === tb.key ? 'bg-indigo-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
-                        {tb.icon} {tb.label}
-                        {tb.key === 'queries' && queries.some(q => q.status === 'pending') && (
-                            <span className="w-2 h-2 rounded-full bg-amber-400" />
+                    <motion.button key={tb.key} whileTap={{ scale: 0.96 }} onClick={() => setTab(tb.key)}
+                        className={`relative flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap ${
+                            tab === tb.key ? 'text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
+                        {tab === tb.key && (
+                            <motion.div layoutId="personnelFileTab" transition={{ type: 'spring', stiffness: 400, damping: 30 }} className="absolute inset-0 bg-indigo-600 rounded-xl" />
                         )}
-                    </button>
+                        <span className="relative z-10 flex items-center gap-1.5">
+                            {tb.icon} {tb.label}
+                            {tb.key === 'queries' && queries.some(q => q.status === 'pending') && (
+                                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                            )}
+                        </span>
+                    </motion.button>
                 ))}
-            </div>
+            </motion.div>
+
+            <AnimatePresence mode="wait">
+            <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
 
             {/* ---- Overview ---- */}
             {tab === 'overview' && (
@@ -414,10 +428,10 @@ const PersonnelFileView: React.FC<PersonnelFileViewProps> = ({ teacherId, mode }
                     {records.length === 0
                         ? <p className="px-5 py-6 text-sm text-gray-400 text-center">No records in the file yet.</p>
                         : <div className="divide-y divide-gray-50">
-                            {records.map((r: any) => {
+                            {records.map((r: any, i: number) => {
                                 const meta = RECORD_META[r.type] || RECORD_META.note;
                                 return (
-                                    <div key={r.id} className="px-5 py-4">
+                                    <motion.div key={r.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(i, 10) * 0.04 }} className="px-5 py-4">
                                         <div className="flex items-center justify-between gap-3">
                                             <span className={`flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full ${meta.classes}`}>
                                                 {meta.icon} {meta.label}
@@ -427,7 +441,7 @@ const PersonnelFileView: React.FC<PersonnelFileViewProps> = ({ teacherId, mode }
                                         <h4 className="font-bold text-gray-900 mt-2">{r.title}</h4>
                                         {r.details && <p className="text-sm text-gray-600 mt-0.5 whitespace-pre-wrap">{r.details}</p>}
                                         <AttachmentLinks urls={r.attachment_urls} />
-                                    </div>
+                                    </motion.div>
                                 );
                             })}
                         </div>}
@@ -443,12 +457,12 @@ const PersonnelFileView: React.FC<PersonnelFileViewProps> = ({ teacherId, mode }
                             <p className="text-gray-500 font-semibold">No query letters on file.</p>
                         </div>
                     )}
-                    {queries.map((q: any) => {
+                    {queries.map((q: any, qi: number) => {
                         const st = QUERY_STATUS[q.status] || QUERY_STATUS.pending;
                         const canRespond = mode === 'teacher' && q.status === 'pending';
                         const canClose = mode === 'admin' && ['pending', 'responded'].includes(q.status);
                         return (
-                            <div key={q.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                            <motion.div key={q.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(qi, 10) * 0.05 }} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                                 <div className="px-5 py-4 border-b border-gray-50">
                                     <div className="flex flex-wrap items-center justify-between gap-2">
                                         <h4 className="font-bold text-gray-900">{q.subject}</h4>
@@ -543,16 +557,30 @@ const PersonnelFileView: React.FC<PersonnelFileViewProps> = ({ teacherId, mode }
                                         </button>
                                     )}
                                 </div>
-                            </div>
+                            </motion.div>
                         );
                     })}
                 </div>
             )}
+            </motion.div>
+            </AnimatePresence>
 
             {/* ---- Add Record modal (admin) ---- */}
+            <AnimatePresence>
             {showAddRecord && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-                    <div className="bg-white rounded-3xl p-6 max-w-md w-full space-y-5 shadow-2xl animate-in zoom-in-95 duration-200">
+                <motion.div
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+                    onClick={() => setShowAddRecord(false)}
+                >
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="bg-white rounded-3xl p-6 max-w-md w-full space-y-5 shadow-2xl"
+                    >
                         <h2 className="text-xl font-bold text-gray-900 font-outfit">Add Record to File</h2>
                         <div className="space-y-4">
                             <div>
@@ -593,21 +621,34 @@ const PersonnelFileView: React.FC<PersonnelFileViewProps> = ({ teacherId, mode }
                             <p className="text-xs text-gray-400">Records are permanent. They can be corrected only on the day they are written.</p>
                         </div>
                         <div className="flex space-x-3">
-                            <button onClick={() => setShowAddRecord(false)}
-                                className="flex-grow py-3 px-4 border border-gray-200 rounded-2xl text-gray-600 font-bold hover:bg-gray-50 transition-colors">Cancel</button>
-                            <button onClick={handleAddRecord} disabled={saving}
+                            <motion.button whileTap={{ scale: 0.97 }} onClick={() => setShowAddRecord(false)}
+                                className="flex-grow py-3 px-4 border border-gray-200 rounded-2xl text-gray-600 font-bold hover:bg-gray-50 transition-colors">Cancel</motion.button>
+                            <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.97 }} onClick={handleAddRecord} disabled={saving}
                                 className="flex-grow py-3 px-4 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200 disabled:opacity-60">
                                 {saving ? 'Saving...' : 'Add to File'}
-                            </button>
+                            </motion.button>
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
 
             {/* ---- Issue Query modal (admin) ---- */}
+            <AnimatePresence>
             {showIssueQuery && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-                    <div className="bg-white rounded-3xl p-6 max-w-md w-full space-y-5 shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+                <motion.div
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+                    onClick={() => setShowIssueQuery(false)}
+                >
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="bg-white rounded-3xl p-6 max-w-md w-full space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto"
+                    >
                         <h2 className="text-xl font-bold text-gray-900 font-outfit">Issue Query Letter</h2>
                         <p className="text-sm text-gray-500 -mt-3">To: <span className="font-semibold text-gray-800">{t.full_name}</span></p>
                         <div className="space-y-4">
@@ -645,21 +686,34 @@ const PersonnelFileView: React.FC<PersonnelFileViewProps> = ({ teacherId, mode }
                                 onChange={urls => setQueryForm({ ...queryForm, attachment_urls: urls })} />
                         </div>
                         <div className="flex space-x-3">
-                            <button onClick={() => setShowIssueQuery(false)}
-                                className="flex-grow py-3 px-4 border border-gray-200 rounded-2xl text-gray-600 font-bold hover:bg-gray-50 transition-colors">Cancel</button>
-                            <button onClick={handleIssueQuery} disabled={saving}
+                            <motion.button whileTap={{ scale: 0.97 }} onClick={() => setShowIssueQuery(false)}
+                                className="flex-grow py-3 px-4 border border-gray-200 rounded-2xl text-gray-600 font-bold hover:bg-gray-50 transition-colors">Cancel</motion.button>
+                            <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.97 }} onClick={handleIssueQuery} disabled={saving}
                                 className="flex-grow py-3 px-4 bg-amber-600 text-white rounded-2xl font-bold hover:bg-amber-700 transition-colors shadow-lg shadow-amber-200 disabled:opacity-60">
                                 {saving ? 'Sending...' : 'Send Query Letter'}
-                            </button>
+                            </motion.button>
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
 
             {/* ---- Close Query modal (admin) ---- */}
+            <AnimatePresence>
             {closingQuery && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-                    <div className="bg-white rounded-3xl p-6 max-w-md w-full space-y-5 shadow-2xl animate-in zoom-in-95 duration-200">
+                <motion.div
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+                    onClick={() => setClosingQuery(null)}
+                >
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="bg-white rounded-3xl p-6 max-w-md w-full space-y-5 shadow-2xl"
+                    >
                         <h2 className="text-xl font-bold text-gray-900 font-outfit">Close Query Letter</h2>
                         <p className="text-sm text-gray-500 -mt-3">"{closingQuery.subject}"</p>
                         <div className="space-y-4">
@@ -688,16 +742,17 @@ const PersonnelFileView: React.FC<PersonnelFileViewProps> = ({ teacherId, mode }
                             )}
                         </div>
                         <div className="flex space-x-3">
-                            <button onClick={() => setClosingQuery(null)}
-                                className="flex-grow py-3 px-4 border border-gray-200 rounded-2xl text-gray-600 font-bold hover:bg-gray-50 transition-colors">Cancel</button>
-                            <button onClick={handleCloseQuery} disabled={saving}
+                            <motion.button whileTap={{ scale: 0.97 }} onClick={() => setClosingQuery(null)}
+                                className="flex-grow py-3 px-4 border border-gray-200 rounded-2xl text-gray-600 font-bold hover:bg-gray-50 transition-colors">Cancel</motion.button>
+                            <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.97 }} onClick={handleCloseQuery} disabled={saving}
                                 className="flex-grow py-3 px-4 bg-gray-900 text-white rounded-2xl font-bold hover:bg-gray-800 transition-colors disabled:opacity-60">
                                 {saving ? 'Closing...' : 'Close Query'}
-                            </button>
+                            </motion.button>
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
         </div>
     );
 };

@@ -1,4 +1,4 @@
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcrypt';
 import prisma from '../config/database';
 import { EmailService } from './email.service';
 import { IdGeneratorService } from './idGenerator.service';
@@ -138,10 +138,16 @@ export class OnboardingService {
                 await tx.branch.createMany({ data: branchesToCreate });
             }
 
+            // The school code is already guaranteed globally unique (checked above,
+            // enforced by a DB unique constraint), so the canonical
+            // {SCHOOL_CODE}_{BRANCH_CODE}_ADM_{NUMBER} id can never collide with another
+            // school's admin — no random suffix needed. Appending one here (as a previous
+            // version did) corrupted the one non-negotiable global ID format for every
+            // founding admin account and broke downstream sequence parsing that expects
+            // the last underscore-segment to be numeric.
             let adminSchoolGeneratedId: string;
             try {
-                const generatedId = await IdGeneratorService.generateSchoolId(schoolId, mainBranchId, 'admin', tx);
-                adminSchoolGeneratedId = `${generatedId}_${require('crypto').randomBytes(2).toString('hex').toUpperCase()}`;
+                adminSchoolGeneratedId = await IdGeneratorService.generateSchoolId(schoolId, mainBranchId, 'admin', tx);
             } catch (idErr: any) {
                 console.warn('[Onboarding] IdGenerator fallback:', idErr.message);
                 const timestampSuffix = Date.now().toString().slice(-6);

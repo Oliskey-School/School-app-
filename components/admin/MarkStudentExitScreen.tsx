@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { AlertTriangle } from 'lucide-react';
@@ -18,6 +19,21 @@ const MarkStudentExitScreen: React.FC<MarkStudentExitScreenProps> = ({ student, 
     const [saving, setSaving] = useState(false);
     const [form, setForm] = useState({ status: 'Transferred', reason: '', exit_date: todayStr() });
 
+    if (!student) {
+        return (
+            <div className="p-4 lg:p-6 max-w-2xl mx-auto space-y-4">
+                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
+                    <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-amber-700">No student was selected. Please go back and try again.</p>
+                </div>
+                <button onClick={handleBack}
+                    className="w-full py-3 border border-gray-200 rounded-2xl text-gray-600 font-bold hover:bg-gray-50 transition-colors">
+                    Go Back
+                </button>
+            </div>
+        );
+    }
+
     const handleSubmit = async () => {
         if (!window.confirm(`Mark ${student.name} as ${form.status}? Their record will move to the Past Students archive and remain permanently accessible.`)) return;
         setSaving(true);
@@ -34,15 +50,15 @@ const MarkStudentExitScreen: React.FC<MarkStudentExitScreenProps> = ({ student, 
 
     return (
         <div className="p-4 lg:p-6 max-w-2xl mx-auto space-y-6 pb-24">
-            <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-3">
+            <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-3">
                 <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
                 <div>
                     <p className="font-bold text-red-900">Mark {student.name} as Left the School</p>
                     <p className="text-sm text-red-700">Their full record is never deleted — it moves to the Past Students archive and stays permanently accessible.</p>
                 </div>
-            </div>
+            </motion.div>
 
-            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 space-y-4">
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.05 }} className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 space-y-4">
                 <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-1">Status</label>
                     <select className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
@@ -66,17 +82,20 @@ const MarkStudentExitScreen: React.FC<MarkStudentExitScreenProps> = ({ student, 
                         value={form.exit_date}
                         onChange={e => setForm({ ...form, exit_date: e.target.value })} />
                 </div>
-            </div>
+            </motion.div>
 
             <div className="flex gap-3">
-                <button onClick={handleBack}
+                <motion.button whileTap={{ scale: 0.97 }} onClick={handleBack}
                     className="flex-1 py-3 border border-gray-200 rounded-2xl text-gray-600 font-bold hover:bg-gray-50 transition-colors">
                     Cancel
-                </button>
-                <button onClick={handleSubmit} disabled={saving}
+                </motion.button>
+                <motion.button
+                    whileHover={!saving ? { scale: 1.01 } : {}}
+                    whileTap={!saving ? { scale: 0.97 } : {}}
+                    onClick={handleSubmit} disabled={saving}
                     className="flex-1 py-3 bg-red-600 text-white rounded-2xl font-bold hover:bg-red-700 transition-colors shadow-lg shadow-red-200 disabled:opacity-60">
                     {saving ? 'Saving...' : 'Confirm & Archive'}
-                </button>
+                </motion.button>
             </div>
         </div>
     );

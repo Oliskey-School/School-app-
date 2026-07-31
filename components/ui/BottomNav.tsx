@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { motion } from 'framer-motion';
 import { DashboardType } from '../../types';
 import { AdminIcon, TeacherNavIcon, ParentNavIcon, StudentNavIcon, THEME_CONFIG } from '../../constants';
 
@@ -23,16 +24,21 @@ const BottomNav: React.FC<BottomNavProps> = ({ activeDashboard, setActiveDashboa
       {navItems.map((item) => {
         const isActive = activeDashboard === item.type;
         return (
-          <button
+          <motion.button
             key={item.type}
+            whileTap={{ scale: 0.9 }}
             onClick={() => setActiveDashboard(item.type)}
             aria-label={`${item.type} Dashboard`}
             className={`flex flex-col items-center justify-center space-y-1 transition-colors duration-200 ${isActive ? theme.iconColor : 'text-gray-400'}`}
           >
-            <div className={`p-2 rounded-full ${isActive ? theme.cardBg : 'bg-transparent'}`}>
+            <motion.div
+              layout
+              transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+              className={`p-2 rounded-full ${isActive ? theme.cardBg : 'bg-transparent'}`}
+            >
               {React.cloneElement(item.icon, { className: 'h-7 w-7' })}
-            </div>
-          </button>
+            </motion.div>
+          </motion.button>
         );
       })}
     </div>

@@ -20,6 +20,32 @@ export const createFee = async (req: AuthRequest, res: Response) => {
     }
 };
 
+export const notifyFeeAssignment = async (req: AuthRequest, res: Response) => {
+    try {
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can trigger fee notifications' });
+        const { feeId } = req.body;
+        if (!feeId) return res.status(400).json({ message: 'feeId is required' });
+        await FeeService.notifyFeeAssignment(req.user.school_id, feeId);
+        res.json({ success: true });
+    } catch (error: any) {
+        // Best-effort notification — never surface as a hard failure to the client.
+        console.error('notifyFeeAssignment failed:', error.message);
+        res.json({ success: true });
+    }
+};
+
+export const notifyPaymentConfirmation = async (req: AuthRequest, res: Response) => {
+    try {
+        const { reference } = req.body;
+        if (!reference) return res.status(400).json({ message: 'reference is required' });
+        await FeeService.notifyPaymentConfirmation(req.user.school_id, reference);
+        res.json({ success: true });
+    } catch (error: any) {
+        console.error('notifyPaymentConfirmation failed:', error.message);
+        res.json({ success: true });
+    }
+};
+
 export const getAllFees = async (req: AuthRequest, res: Response) => {
     try {
         // Whole-school fee/billing list — admin (finance) only, same gate as

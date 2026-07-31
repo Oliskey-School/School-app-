@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
@@ -144,7 +145,7 @@ const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ onLogout, setIs
                         <h2 className="text-xl font-semibold text-gray-800 mb-4">Overview</h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                             {stats.map((stat, index) => (
-                                <div key={index} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                                <motion.div key={index} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: index * 0.03 }} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                                     <div className="flex items-center justify-between">
                                         <div>
                                             <p className="text-sm font-medium text-gray-500">{stat.title}</p>
@@ -154,7 +155,7 @@ const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ onLogout, setIs
                                             <stat.icon className={`h-6 w-6 ${stat.color.replace('bg-', 'text-')}`} />
                                         </div>
                                     </div>
-                                </div>
+                                </motion.div>
                             ))}
                         </div>
                     </div>
@@ -171,8 +172,8 @@ const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ onLogout, setIs
                                     <p className="text-sm text-gray-500">Loading appointments…</p>
                                 ) : upcomingAppointments.length === 0 ? (
                                     <p className="text-sm text-gray-500">No appointments scheduled for today.</p>
-                                ) : upcomingAppointments.map((apt) => (
-                                    <div key={apt.id} className="flex items-center p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors">
+                                ) : upcomingAppointments.map((apt, ai) => (
+                                    <motion.div key={apt.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(ai, 15) * 0.03 }} className="flex items-center p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors">
                                         <div className="flex-shrink-0 w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-bold">
                                             {apt.student[0]}
                                         </div>
@@ -187,16 +188,16 @@ const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ onLogout, setIs
                                                 {apt.status}
                                             </span>
                                         </div>
-                                    </div>
+                                    </motion.div>
                                 ))}
                             </div>
                         </div>
 
                         {/* Quick Actions Column */}
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 lg:sticky lg:top-6 lg:self-start">
                             <h3 className="text-lg font-bold text-gray-800 mb-6">Quick Actions</h3>
                             <div className="space-y-3">
-                                <button className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-indigo-50 hover:text-indigo-600 transition-colors group">
+                                <motion.button whileHover={{ x: 2 }} className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-indigo-50 hover:text-indigo-600 transition-colors group">
                                     <div className="flex items-center">
                                         <div className="p-2 bg-white rounded-md shadow-sm group-hover:shadow-md transition-shadow">
                                             <MessageSquareIcon className="h-5 w-5 text-gray-500 group-hover:text-indigo-500" />
@@ -204,8 +205,8 @@ const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ onLogout, setIs
                                         <span className="ml-3 font-medium">Log Session Note</span>
                                     </div>
                                     <span className="text-gray-400 group-hover:text-indigo-500">→</span>
-                                </button>
-                                <button className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-indigo-50 hover:text-indigo-600 transition-colors group">
+                                </motion.button>
+                                <motion.button whileHover={{ x: 2 }} className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-indigo-50 hover:text-indigo-600 transition-colors group">
                                     <div className="flex items-center">
                                         <div className="p-2 bg-white rounded-md shadow-sm group-hover:shadow-md transition-shadow">
                                             <UserIcon className="h-5 w-5 text-gray-500 group-hover:text-indigo-500" />
@@ -213,8 +214,8 @@ const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ onLogout, setIs
                                         <span className="ml-3 font-medium">Student Lookup</span>
                                     </div>
                                     <span className="text-gray-400 group-hover:text-indigo-500">→</span>
-                                </button>
-                                <button className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-indigo-50 hover:text-indigo-600 transition-colors group">
+                                </motion.button>
+                                <motion.button whileHover={{ x: 2 }} className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-indigo-50 hover:text-indigo-600 transition-colors group">
                                     <div className="flex items-center">
                                         <div className="p-2 bg-white rounded-md shadow-sm group-hover:shadow-md transition-shadow">
                                             <HeartIcon className="h-5 w-5 text-gray-500 group-hover:text-indigo-500" />
@@ -222,7 +223,7 @@ const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ onLogout, setIs
                                         <span className="ml-3 font-medium">Wellness Report</span>
                                     </div>
                                     <span className="text-gray-400 group-hover:text-indigo-500">→</span>
-                                </button>
+                                </motion.button>
                             </div>
 
                             <div className="mt-8">

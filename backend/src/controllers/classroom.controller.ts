@@ -24,6 +24,11 @@ async function resolveTeacherId(req: AuthRequest): Promise<string | null> {
 
 export const getClassrooms = async (req: AuthRequest, res: Response) => {
     try {
+        // Admin-only, like create/update/delete — the list includes each room's
+        // qr_token, and the whole point of the scan feature is proving physical
+        // presence. Any non-admin role able to list tokens could fake a scan
+        // without ever being in the room.
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can view the classroom list' });
         const branchId = getEffectiveBranchId(req.user, (req.query.branchId || req.query.branch_id) as string);
         const result = await ClassroomService.getClassrooms(req.user.school_id, branchId);
         res.json(result);

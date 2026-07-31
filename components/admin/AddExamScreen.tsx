@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { Exam } from '../../types';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
+import CenteredLoader from '../ui/CenteredLoader';
 
 
 interface AddExamScreenProps {
@@ -46,7 +48,7 @@ const AddExamScreen: React.FC<AddExamScreenProps> = ({ onSave, examToEdit }) => 
               if (c) {
                 const name = `${getGradeDisplayName(c.grade)}${c.section ? ' ' + c.section : ''}`;
                 if (!addedClassKeys.has(name)) {
-                  finalClasses.push({ name });
+                  finalClasses.push({ name, id: c.id });
                   addedClassKeys.add(name);
                 }
               }
@@ -93,7 +95,8 @@ const AddExamScreen: React.FC<AddExamScreenProps> = ({ onSave, examToEdit }) => 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (examType && date && className && subject) {
-      onSave({ type: examType, date, className, subject });
+      const classId = availableClasses.find(c => c.name === className)?.id;
+      onSave({ type: examType, date, className, classId, subject });
     } else {
       toast.error('Please fill all fields.');
     }
@@ -102,14 +105,14 @@ const AddExamScreen: React.FC<AddExamScreenProps> = ({ onSave, examToEdit }) => 
   const examTypes = ['Mid-term', 'Final', 'Quiz', 'Test', 'Assessment', 'WAEC', 'NECO', 'IGCSE', 'CHECKPOINT'];
 
   if (loading && availableClasses.length === 0) {
-    return <div className="p-8 text-center text-gray-500">Loading form data...</div>;
+    return <CenteredLoader message="Loading form data..." className="p-8" />;
   }
 
   return (
     <div className="flex flex-col h-full bg-gray-50">
       <form onSubmit={handleSubmit} className="flex-grow flex flex-col">
         <main className="flex-grow p-4 space-y-4 overflow-y-auto">
-          <div className="space-y-4 bg-white p-4 rounded-xl shadow-sm">
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="space-y-4 bg-white p-4 rounded-xl shadow-sm">
             <div>
               <label htmlFor="examType" className="block text-sm font-medium text-gray-700 mb-1">Exam Type</label>
               <select id="examType" value={examType} onChange={e => setExamType(e.target.value)} required className="w-full px-3 py-3 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:ring-sky-500 focus:border-sky-500">
@@ -136,12 +139,12 @@ const AddExamScreen: React.FC<AddExamScreenProps> = ({ onSave, examToEdit }) => 
                 {availableSubjects.map(sub => <option key={sub.name} value={sub.name}>{sub.name}</option>)}
               </select>
             </div>
-          </div>
+          </motion.div>
         </main>
         <div className="p-4 mt-auto bg-gray-50 border-t border-gray-200">
-          <button type="submit" className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white bg-sky-500 hover:bg-sky-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500">
+          <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }} type="submit" className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white bg-sky-500 hover:bg-sky-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500">
             {examToEdit ? 'Update Exam' : 'Save Exam'}
-          </button>
+          </motion.button>
         </div>
       </form>
     </div>

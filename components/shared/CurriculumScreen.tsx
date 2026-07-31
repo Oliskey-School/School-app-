@@ -1,5 +1,6 @@
 
 import React, { useMemo, useEffect, useState, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { getCurriculum } from '../../curriculumData';
 import { CurriculumSubject, CurriculumSubjectCategory, Department } from '../../types';
@@ -92,7 +93,12 @@ const CurriculumScreen: React.FC<CurriculumScreenProps> = ({ level, department }
   ];
 
   if (loading && dbSubjects.length === 0) {
-    return <div className="p-8 text-center text-gray-500">Loading curriculum...</div>;
+    return (
+        <div className="flex flex-col items-center justify-center py-16">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500 mb-3" />
+            <p className="text-gray-400 text-sm font-medium">Loading curriculum...</p>
+        </div>
+    );
   }
 
   return (
@@ -104,22 +110,35 @@ const CurriculumScreen: React.FC<CurriculumScreenProps> = ({ level, department }
           <p className="mt-1 text-sm text-gray-500">Could not find subjects for the selected level ({level}).</p>
         </div>
       ) : (
-        categoryOrder.map(category => {
+        categoryOrder.map((category, catIdx) => {
           if (!groupedSubjects[category]) return null;
 
           return (
-            <div key={category} className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
+            <motion.div
+              key={category}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25, delay: Math.min(catIdx, 8) * 0.06 }}
+              whileHover={{ y: -2 }}
+              className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden border border-gray-100"
+            >
               <div className="p-4 border-b border-gray-200 bg-gray-50/50">
                 <CategoryBadge category={category} />
               </div>
               <div className="divide-y divide-gray-100">
-                {groupedSubjects[category]!.map(subject => (
-                  <div key={subject.name} className="px-4 py-3 flex items-center hover:bg-gray-50 transition-colors">
+                {groupedSubjects[category]!.map((subject, i) => (
+                  <motion.div
+                    key={subject.name}
+                    initial={{ opacity: 0, x: -6 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.2, delay: Math.min(i, 10) * 0.03 }}
+                    className="px-4 py-3 flex items-center hover:bg-gray-50 transition-colors"
+                  >
                     <p className="font-medium text-gray-800">{subject.name}</p>
-                  </div>
+                  </motion.div>
                 ))}
               </div>
-            </div>
+            </motion.div>
           );
         })
       )}

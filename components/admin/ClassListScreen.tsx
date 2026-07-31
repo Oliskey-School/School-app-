@@ -1,4 +1,5 @@
 ﻿import React, { useState, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/api';
 import { fetchClasses, fetchStudentsByClassId } from '../../lib/database';
@@ -164,7 +165,7 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId,
                     </button>
                 </div>
 
-                {Object.keys(groupedClasses).sort((a, b) => Number(b) - Number(a)).map(gradeStr => {
+                {Object.keys(groupedClasses).sort((a, b) => Number(b) - Number(a)).map((gradeStr, gi) => {
                     const grade = Number(gradeStr);
                     const gradeData = groupedClasses[grade];
                     const gradeColorClass = gradeColors[grade] || 'bg-gray-200 text-gray-800';
@@ -172,7 +173,7 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId,
                     const formattedClassName = gradeData.name;
 
                     return (
-                        <div key={grade} className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
+                        <motion.div key={grade} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(gi, 10) * 0.04 }} className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
                             <div className={`${bgColor} p-4`}>
                                 <h3 className={`font-bold text-lg ${textColor}`}>{formattedClassName}</h3>
                             </div>
@@ -217,17 +218,21 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId,
                                                 </div>
                                             </div>
 
+                                            <AnimatePresence>
                                             {expandedClassId === cls.id && (
-                                                <div className="border-t border-gray-100 p-3 bg-gray-50/30">
+                                                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.2 }} className="border-t border-gray-100 p-3 bg-gray-50/30 overflow-hidden">
                                                     {loadingStudents[cls.id] ? (
                                                         <div className="py-4">
                                                             <CenteredLoader size="sm" className="min-h-[50px]" />
                                                         </div>
                                                     ) : (classStudents[cls.id]?.length || 0) > 0 ? (
                                                         <div className="space-y-4">
-                                                            {classStudents[cls.id].map(student => (
-                                                                <div
+                                                            {classStudents[cls.id].map((student, sti) => (
+                                                                <motion.div
                                                                     key={student.id}
+                                                                    initial={{ opacity: 0 }}
+                                                                    animate={{ opacity: 1 }}
+                                                                    transition={{ duration: 0.15, delay: Math.min(sti, 15) * 0.02 }}
                                                                     className="w-full bg-white border border-gray-100 rounded-xl p-3 shadow-sm hover:border-indigo-200 transition-all group"
                                                                 >
                                                                     <div className="flex flex-col md:flex-row md:items-center gap-4">
@@ -275,7 +280,7 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId,
                                                                             </button>
                                                                         </div>
                                                                     </div>
-                                                                </div>
+                                                                </motion.div>
                                                             ))}
                                                         </div>
                                                     ) : (
@@ -283,8 +288,9 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId,
                                                             <p className="text-sm text-gray-400 italic font-medium">No students enrolled in this section yet</p>
                                                         </div>
                                                     )}
-                                                </div>
+                                                </motion.div>
                                             )}
+                                            </AnimatePresence>
                                         </div>
                                     ))
                                 ) : (
@@ -306,7 +312,7 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId,
                                     </div>
                                 )}
                             </div>
-                        </div>
+                        </motion.div>
                     );
                 })}
 

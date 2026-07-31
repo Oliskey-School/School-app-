@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { SearchIcon } from '../../constants';
 import { useProfile } from '../../context/ProfileContext';
@@ -44,10 +45,12 @@ const ContactRow: React.FC<{
     selected?: boolean;
     onToggle?: () => void;
 }> = ({ contact, onSelect, loading, selectable, selected, onToggle }) => (
-    <button
+    <motion.button
+        layout
+        whileTap={{ scale: 0.98 }}
         onClick={selectable ? onToggle : onSelect}
         disabled={loading}
-        className={`w-full flex items-center gap-3 p-3.5 text-left rounded-xl transition-all border active:scale-[0.99] disabled:opacity-50 ${
+        className={`w-full flex items-center gap-3 p-3.5 text-left rounded-xl transition-colors border disabled:opacity-50 ${
             selected
                 ? 'bg-orange-50 border-orange-200'
                 : 'bg-white/70 border-gray-100/60 hover:bg-white/90'
@@ -56,11 +59,16 @@ const ContactRow: React.FC<{
         <div className="relative flex-shrink-0">
             <Avatar contact={contact} />
             {selectable && selected && (
-                <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center ring-2 ring-white">
+                <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 20 }}
+                    className="absolute -bottom-0.5 -right-0.5 w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center ring-2 ring-white"
+                >
                     <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                     </svg>
-                </div>
+                </motion.div>
             )}
         </div>
         <div className="flex-1 min-w-0">
@@ -86,7 +94,7 @@ const ContactRow: React.FC<{
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
         )}
-    </button>
+    </motion.button>
 );
 
 // â”€â”€â”€ Group name bottom sheet â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -98,7 +106,12 @@ const GroupNameSheet: React.FC<{
 }> = ({ count, onConfirm, onBack, creating }) => {
     const [name, setName] = useState('');
     return (
-        <div className="absolute inset-0 bg-white/95 backdrop-blur-md flex flex-col z-20">
+        <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 24 }}
+            transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+            className="absolute inset-0 bg-white/95 backdrop-blur-md flex flex-col z-20">
             <div className="p-4 border-b border-gray-100/60 flex items-center gap-3">
                 <button onClick={onBack} className="p-2 rounded-full hover:bg-gray-100 transition-colors">
                     <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -135,7 +148,9 @@ const GroupNameSheet: React.FC<{
             </div>
 
             <div className="p-4 border-t border-gray-100/60">
-                <button
+                <motion.button
+                    whileHover={{ scale: (!name.trim() || creating) ? 1 : 1.01 }}
+                    whileTap={{ scale: (!name.trim() || creating) ? 1 : 0.98 }}
                     onClick={() => name.trim() && onConfirm(name.trim())}
                     disabled={!name.trim() || creating}
                     className="w-full py-3.5 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
@@ -146,9 +161,9 @@ const GroupNameSheet: React.FC<{
                             Creating...
                         </>
                     ) : 'Create Group Chat'}
-                </button>
+                </motion.button>
             </div>
-        </div>
+        </motion.div>
     );
 };
 
@@ -293,14 +308,16 @@ const NewMessageScreen: React.FC<NewMessageScreenProps> = ({ navigateTo }) => {
     return (
         <div className="relative flex flex-col h-full bg-gray-50/80 backdrop-blur-sm">
             {/* Group name sheet overlay */}
-            {showNameSheet && (
-                <GroupNameSheet
-                    count={selected.length}
-                    onConfirm={handleCreateGroup}
-                    onBack={() => setShowNameSheet(false)}
-                    creating={creatingGroup}
-                />
-            )}
+            <AnimatePresence>
+                {showNameSheet && (
+                    <GroupNameSheet
+                        count={selected.length}
+                        onConfirm={handleCreateGroup}
+                        onBack={() => setShowNameSheet(false)}
+                        creating={creatingGroup}
+                    />
+                )}
+            </AnimatePresence>
 
             {/* Header */}
             <div className="p-4 bg-white/80 backdrop-blur-md border-b border-gray-100/60 sticky top-0 z-10 flex-shrink-0">
@@ -398,10 +415,11 @@ const NewMessageScreen: React.FC<NewMessageScreenProps> = ({ navigateTo }) => {
                     {!searchTerm && (
                         <div className="flex gap-1 px-4 pt-3 pb-1 overflow-x-auto no-scrollbar flex-shrink-0">
                             {displayTabs.map(tab => (
-                                <button
+                                <motion.button
                                     key={tab}
+                                    whileTap={{ scale: 0.95 }}
                                     onClick={() => setActiveTab(tab)}
-                                    className={`flex-shrink-0 px-3 py-1.5 text-xs font-semibold rounded-full transition-all ${
+                                    className={`flex-shrink-0 px-3 py-1.5 text-xs font-semibold rounded-full transition-colors ${
                                         activeTab === tab
                                             ? 'bg-gray-800 text-white shadow-sm'
                                             : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
@@ -409,7 +427,7 @@ const NewMessageScreen: React.FC<NewMessageScreenProps> = ({ navigateTo }) => {
                                 >
                                     {tab}
                                     <span className="ml-1 opacity-60">({contacts[tab]?.length || 0})</span>
-                                </button>
+                                </motion.button>
                             ))}
                         </div>
                     )}
@@ -421,16 +439,22 @@ const NewMessageScreen: React.FC<NewMessageScreenProps> = ({ navigateTo }) => {
                                 <p className="text-sm text-gray-500">No contacts match "{searchTerm || activeTab.toLowerCase()}"</p>
                             </div>
                         ) : (
-                            (searchTerm && allFiltered ? allFiltered : filteredContacts).map(contact => (
-                                <ContactRow
+                            (searchTerm && allFiltered ? allFiltered : filteredContacts).map((contact, i) => (
+                                <motion.div
                                     key={contact.userId}
-                                    contact={contact}
-                                    onSelect={() => handleDirectChat(contact)}
-                                    loading={startingChat === contact.userId}
-                                    selectable={groupMode}
-                                    selected={isSelected(contact)}
-                                    onToggle={() => toggleSelect(contact)}
-                                />
+                                    initial={{ opacity: 0, y: 6 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.2, delay: Math.min(i, 12) * 0.03 }}
+                                >
+                                    <ContactRow
+                                        contact={contact}
+                                        onSelect={() => handleDirectChat(contact)}
+                                        loading={startingChat === contact.userId}
+                                        selectable={groupMode}
+                                        selected={isSelected(contact)}
+                                        onToggle={() => toggleSelect(contact)}
+                                    />
+                                </motion.div>
                             ))
                         )}
                     </div>
@@ -438,19 +462,29 @@ const NewMessageScreen: React.FC<NewMessageScreenProps> = ({ navigateTo }) => {
             )}
 
             {/* Group mode: floating Next button when contacts selected */}
-            {groupMode && selected.length > 0 && !showNameSheet && (
-                <div className="absolute bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-sm border-t border-gray-100/60">
-                    <button
-                        onClick={() => setShowNameSheet(true)}
-                        className="w-full py-3.5 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg shadow-orange-500/25"
+            <AnimatePresence>
+                {groupMode && selected.length > 0 && !showNameSheet && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 16 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 16 }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                        className="absolute bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-sm border-t border-gray-100/60"
                     >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                        </svg>
-                        Next â€” {selected.length} member{selected.length !== 1 ? 's' : ''} selected
-                    </button>
-                </div>
-            )}
+                        <motion.button
+                            whileHover={{ scale: 1.01 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => setShowNameSheet(true)}
+                            className="w-full py-3.5 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg shadow-orange-500/25"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                            </svg>
+                            Next — {selected.length} member{selected.length !== 1 ? 's' : ''} selected
+                        </motion.button>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };

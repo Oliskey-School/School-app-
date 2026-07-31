@@ -1,6 +1,7 @@
 
 
 import React from 'react';
+import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 // FIX: Corrected import for MessagesIcon and added HomeIcon and SettingsIcon.
 import { HomeIcon, BellIcon, UserIcon as ProfileIcon, DocumentTextIcon, PhoneIcon, PlayIcon, AnalyticsIcon, MegaphoneIcon, SettingsIcon, MessagesIcon, ElearningIcon, SparklesIcon, UserGroupIcon, GameControllerIcon, ChartBarIcon, ClockIcon } from '../../constants';
@@ -12,15 +13,18 @@ const NavItem: React.FC<{ icon: React.ReactElement<{ className?: string }>, labe
   // without a key yet), so the bottom nav follows the chosen language everywhere.
   const text = navId ? t(`nav.${navId}`, { defaultValue: label }) : label;
   return (
-  <button
+  <motion.button
+    whileTap={{ scale: 0.88 }}
     onClick={onClick}
     aria-current={isActive ? 'page' : undefined}
     aria-label={text}
     className={`flex-1 flex flex-col items-center justify-center space-y-1 transition-colors duration-200 ${isActive ? activeColor : 'text-gray-500'}`}
   >
-    {React.cloneElement(icon, { className: `h-6 w-6`, 'aria-hidden': true } as any)}
+    <motion.div animate={{ scale: isActive ? 1.1 : 1 }} transition={{ type: 'spring', stiffness: 400, damping: 20 }}>
+      {React.cloneElement(icon, { className: `h-6 w-6`, 'aria-hidden': true } as any)}
+    </motion.div>
     <span className="text-xs font-medium">{text}</span>
-  </button>
+  </motion.button>
   );
 };
 

@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import AIInsightsPanel from '../shared/AIInsightsPanel';
 import {
@@ -243,39 +244,60 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
     return { type: 'after_school' as const };
   }, [now, todaySchedule]);
 
-  const quickActions = [
-    // Class Teacher only — the class-wide management hub.
-    ...(isClassTeacher ? [{
-      label: "My Class", icon: <UserGroupIcon className="h-7 w-7" />,
-      action: () => navigateTo('myClassHub', 'My Class', { teacherId, schoolId, currentBranchId, classId: myRoles.class_teacher_of[0]?.id })
-    }] : []),
-    { label: "Add Student", icon: <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>, action: () => navigateTo('addStudent', 'Add Student', { schoolId }) },
-    { label: "My Attendance", icon: <CheckCircleIcon className="h-7 w-7" />, action: () => navigateTo('teacherSelfAttendance', 'My Attendance', { teacherId }) },
-    { label: "Scan Classroom", icon: <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2M7 12h10" /></svg>, action: () => navigateTo('scanClassroom', 'Scan Classroom', { teacherId }) },
-    { label: "My File", icon: <BriefcaseIcon className="h-7 w-7" />, action: () => navigateTo('myPersonnelFile', 'My Personnel File', { teacherId }) },
-    { label: "Report Incident", icon: <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>, action: () => navigateTo('mySopCases', 'My Reported Cases') },
-    { label: "Substitute Requests", icon: <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4M16 17H4m0 0l4 4m-4-4l4-4" /></svg>, action: () => navigateTo('substituteAssignments', 'Substitute Assignments') },
-    { label: "At-Risk Students", icon: <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>, action: () => navigateTo('myAtRiskStudents', 'At-Risk Students') },
-    { label: "Observation Feedback", icon: <ClipboardListIcon className="h-7 w-7" />, action: () => navigateTo('myObservations', 'Classroom Observation Feedback') },
-    { label: "Report an Issue", icon: <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" /></svg>, action: () => navigateTo('reportMaintenanceIssue', 'Report an Issue') },
-    { label: "Student Gate", icon: <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>, action: () => navigateTo('studentGate', 'Student Departure') },
-    { label: "Attendance", icon: <TeacherAttendanceIcon className="h-7 w-7" />, action: () => navigateTo('selectClassForAttendance', 'Select Class', { teacherId, schoolId }) },
-    { label: "Assessments", icon: <ClipboardListIcon className="h-7 w-7" />, action: () => navigateTo('assessmentsHub', 'Assessments & Quizzes', { teacherId, branchId: currentBranchId }) },
-    { label: "Lesson Notes", icon: <BookOpenIcon className="h-7 w-7" />, action: () => navigateTo('lessonNotesUpload', 'Upload Lesson Notes', { teacherId }) },
-    { label: "Resources", icon: <BriefcaseIcon className="h-7 w-7" />, action: () => navigateTo('resources', 'Resource Hub', { schoolId }) },
-    { label: "Appointments", icon: <CalendarPlusIcon className="h-7 w-7" />, action: () => navigateTo('appointments', 'Appointments', { teacherId }) },
-    { label: "Virtual Class", icon: <VideoIcon className="h-7 w-7" />, action: () => navigateTo('virtualClass', 'Virtual Classroom', { teacherId, schoolId }) },
-    { label: "AI Planner", icon: <SparklesIcon className="h-7 w-7" />, action: () => navigateTo('lessonPlanner', 'AI Lesson Planner', { teacherId }) },
-    { label: "Gradebook", icon: <CalculatorIcon className="h-7 w-7" />, action: () => navigateTo('classGradebook', 'Class Gradebook', { teacherId }) },
-    { label: "Exams", icon: <ClipboardListIcon className="h-7 w-7" />, action: () => navigateTo('examManagement', 'Manage Exams', { schoolId, teacherId, branchId: currentBranchId }) },
-    { label: "Forum", icon: <UserGroupIcon className="h-7 w-7" />, action: () => navigateTo('collaborationForum', 'Teacher Forum', { schoolId }) },
-    { label: "Reports", icon: <BookOpenIcon className="h-7 w-7" />, action: () => navigateTo('reports', 'Student Reports', { teacherId, schoolId }) },
+  const atRiskIcon = <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>;
+
+  const quickActionGroups = [
+    {
+      title: 'Teaching',
+      items: [
+        // Class Teacher only — the class-wide management hub.
+        ...(isClassTeacher ? [{
+          label: "My Class", icon: <UserGroupIcon className="h-7 w-7" />,
+          action: () => navigateTo('myClassHub', 'My Class', { teacherId, schoolId, currentBranchId, classId: myRoles.class_teacher_of[0]?.id })
+        }] : []),
+        { label: "Attendance", icon: <TeacherAttendanceIcon className="h-7 w-7" />, action: () => navigateTo('selectClassForAttendance', 'Select Class', { teacherId, schoolId }) },
+        { label: "Gradebook", icon: <CalculatorIcon className="h-7 w-7" />, action: () => navigateTo('classGradebook', 'Class Gradebook', { teacherId }) },
+        { label: "Exams", icon: <ClipboardListIcon className="h-7 w-7" />, action: () => navigateTo('examManagement', 'Manage Exams', { schoolId, teacherId, branchId: currentBranchId }) },
+        { label: "Assessments", icon: <ClipboardListIcon className="h-7 w-7" />, action: () => navigateTo('assessmentsHub', 'Assessments & Quizzes', { teacherId, branchId: currentBranchId }) },
+        { label: "AI Planner", icon: <SparklesIcon className="h-7 w-7" />, action: () => navigateTo('lessonPlanner', 'AI Lesson Planner', { teacherId }) },
+        { label: "Lesson Notes", icon: <BookOpenIcon className="h-7 w-7" />, action: () => navigateTo('lessonNotesUpload', 'Upload Lesson Notes', { teacherId }) },
+        { label: "Reports", icon: <BookOpenIcon className="h-7 w-7" />, action: () => navigateTo('reports', 'Student Reports', { teacherId, schoolId }) },
+      ],
+    },
+    {
+      title: 'Students',
+      items: [
+        { label: "Add Student", icon: <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>, action: () => navigateTo('addStudent', 'Add Student', { schoolId }) },
+        { label: "At-Risk Students", icon: atRiskIcon, action: () => navigateTo('myAtRiskStudents', 'At-Risk Students') },
+        { label: "Observation Feedback", icon: <ClipboardListIcon className="h-7 w-7" />, action: () => navigateTo('myObservations', 'Classroom Observation Feedback') },
+        { label: "Student Gate", icon: <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>, action: () => navigateTo('studentGate', 'Student Departure') },
+      ],
+    },
+    {
+      title: 'Communication',
+      items: [
+        { label: "Appointments", icon: <CalendarPlusIcon className="h-7 w-7" />, action: () => navigateTo('appointments', 'Appointments', { teacherId }) },
+        { label: "Virtual Class", icon: <VideoIcon className="h-7 w-7" />, action: () => navigateTo('virtualClass', 'Virtual Classroom', { teacherId, schoolId }) },
+        { label: "Forum", icon: <UserGroupIcon className="h-7 w-7" />, action: () => navigateTo('collaborationForum', 'Teacher Forum', { schoolId }) },
+      ],
+    },
+    {
+      title: 'Support & Resources',
+      items: [
+        { label: "My File", icon: <BriefcaseIcon className="h-7 w-7" />, action: () => navigateTo('myPersonnelFile', 'My Personnel File', { teacherId }) },
+        { label: "Scan Classroom", icon: <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2M7 12h10" /></svg>, action: () => navigateTo('scanClassroom', 'Scan Classroom', { teacherId }) },
+        { label: "Substitute Requests", icon: <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4M16 17H4m0 0l4 4m-4-4l4-4" /></svg>, action: () => navigateTo('substituteAssignments', 'Substitute Assignments') },
+        { label: "Resources", icon: <BriefcaseIcon className="h-7 w-7" />, action: () => navigateTo('resources', 'Resource Hub', { schoolId }) },
+        { label: "Report Incident", icon: <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>, action: () => navigateTo('mySopCases', 'My Reported Cases') },
+        { label: "Report an Issue", icon: <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" /></svg>, action: () => navigateTo('reportMaintenanceIssue', 'Report an Issue') },
+      ],
+    },
   ];
 
   return (
     <div className="p-4 lg:p-6 space-y-6 bg-gray-50">
       {!currentUser?.user_metadata?.email_verified && <EmailVerificationPrompt />}
-      <div className={`p-5 rounded-2xl text-white shadow-lg ${theme.mainBg}`}>
+      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className={`p-5 rounded-2xl text-white shadow-lg ${theme.mainBg}`}>
         <h3 className="text-2xl font-bold">Welcome, {teacherProfile?.name || 'Teacher'}!</h3>
         <p className="text-sm opacity-90 mt-1">Ready to inspire today?</p>
         {(isClassTeacher || isSubjectTeacher) && (
@@ -292,11 +314,15 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
             ))}
           </div>
         )}
-      </div>
+      </motion.div>
 
       <div className="grid grid-cols-2 gap-4">
-        <StatCard label="Total Students" value={statsLoading ? '...' : stats.totalStudents} icon={<BriefcaseIcon />} />
-        <StatCard label="Total Assigned Classes" value={statsLoading ? '...' : stats.totalClasses} icon={<ViewGridIcon />} />
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: 0.05 }}>
+          <StatCard label="Total Students" value={statsLoading ? '...' : stats.totalStudents} icon={<BriefcaseIcon />} />
+        </motion.div>
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: 0.1 }}>
+          <StatCard label="Total Assigned Classes" value={statsLoading ? '...' : stats.totalClasses} icon={<ViewGridIcon />} />
+        </motion.div>
       </div>
 
       <AIInsightsPanel />
@@ -312,12 +338,17 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
             ))
           ) : teacherClasses.length > 0 ? (
             teacherClasses.map((c, i) => (
-              <button
+              <motion.button
                 key={i}
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.2, delay: Math.min(i, 10) * 0.04 }}
+                whileHover={{ y: -2 }}
+                whileTap={{ scale: 0.97 }}
                 onClick={() => navigateTo('classDetail', c.name || getFormattedClassName(c.grade, c.section, true, c.subject), {
                   classInfo: { ...c, schoolId, branchId: currentBranchId }
                 })}
-                className="min-w-[180px] bg-white p-4 rounded-2xl shadow-sm hover:shadow-md transition-all text-left border border-purple-100 hover:border-purple-300 group"
+                className="min-w-[180px] bg-white p-4 rounded-2xl shadow-sm hover:shadow-md transition-shadow text-left border border-purple-100 hover:border-purple-300 group"
               >
                 <div className="flex justify-between items-start mb-1">
                   <p className="font-bold text-gray-800 text-base">{c.name || getFormattedClassName(c.grade, c.section)}</p>
@@ -326,7 +357,7 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
                   <div className={`w-2 h-2 rounded-full ${SUBJECT_COLORS[c.subject] || 'bg-purple-400'}`}></div>
                   <p className="text-xs font-semibold text-purple-600 truncate">{c.subject}</p>
                 </div>
-              </button>
+              </motion.button>
             ))
           ) : (
             <div className="bg-white p-4 rounded-2xl shadow-sm border border-dashed border-gray-300 w-full text-center text-gray-500 text-sm">
@@ -357,9 +388,18 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
                   <div className="h-4 bg-gray-200 rounded w-12"></div>
                 </div>
               ) : ungradedAssignments.length > 0 ? ungradedAssignments.slice(0, 1).map(a => (
-                <button key={a.id} onClick={() => navigateTo('assignmentSubmissions', `Submissions: ${a.title}`, {
-                  assignment: a, schoolId, teacherId, branchId: currentBranchId
-                })} className="w-full text-left bg-white p-3 rounded-xl shadow-sm hover:bg-purple-50 flex justify-between items-center">
+                <motion.button
+                  key={a.id}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.25 }}
+                  whileHover={{ y: -2 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => navigateTo('assignmentSubmissions', `Submissions: ${a.title}`, {
+                    assignment: a, schoolId, teacherId, branchId: currentBranchId
+                  })}
+                  className="w-full text-left bg-white p-3 rounded-xl shadow-sm hover:shadow-md transition-shadow flex justify-between items-center"
+                >
                   <div>
                     <p className="font-bold text-gray-800">{a.title}</p>
                     <p className="text-sm text-gray-500">{a.class_name}</p>
@@ -368,25 +408,39 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
                     <span>View</span>
                     <ChevronRightIcon className="w-5 h-5" />
                   </div>
-                </button>
-              )) : <div className="bg-white p-4 rounded-xl shadow-sm text-center text-gray-500">No pending tasks. Great job!</div>}
+                </motion.button>
+              )) : <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white p-4 rounded-xl shadow-sm text-center text-gray-500">No pending tasks. Great job!</motion.div>}
             </div>
           </div>
 
-          <div>
-            <h3 className="text-lg font-bold text-gray-800 mb-2 px-1">Quick Actions</h3>
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 sm:gap-3">
-              {quickActions.map(action => (
-                <button key={action.label} onClick={action.action} className={`${theme.cardBg} p-2 sm:p-3 rounded-xl shadow-sm flex flex-col items-center justify-center space-y-1 sm:space-y-2 hover:bg-purple-200 transition-colors`}>
-                  <div className={`${theme.iconColor} flex-shrink-0`}>{React.cloneElement(action.icon as React.ReactElement, { className: "h-6 w-6 sm:h-7 sm:w-7" })}</div>
-                  <span className={`font-semibold ${theme.textColor} text-center text-xs leading-tight`}>{action.label}</span>
-                </button>
-              ))}
-            </div>
+          <div className="space-y-5">
+            <h3 className="text-lg font-bold text-gray-800 px-1">Quick Actions</h3>
+            {quickActionGroups.filter(group => group.items.length > 0).map((group) => (
+              <div key={group.title}>
+                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-1">{group.title}</h4>
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 sm:gap-3">
+                  {group.items.map((action, i) => (
+                    <motion.button
+                      key={action.label}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.2, delay: Math.min(i, 12) * 0.02 }}
+                      whileHover={{ y: -2 }}
+                      whileTap={{ scale: 0.94 }}
+                      onClick={action.action}
+                      className={`${theme.cardBg} p-2 sm:p-3 rounded-xl shadow-sm flex flex-col items-center justify-center space-y-1 sm:space-y-2 hover:bg-purple-200 transition-colors`}
+                    >
+                      <div className={`${theme.iconColor} flex-shrink-0`}>{React.cloneElement(action.icon as React.ReactElement, { className: "h-6 w-6 sm:h-7 sm:w-7" })}</div>
+                      <span className={`font-semibold ${theme.textColor} text-center text-xs leading-tight`}>{action.label}</span>
+                    </motion.button>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
-        <div className="lg:col-span-1 space-y-6">
+        <div className="lg:col-span-1 space-y-6 lg:sticky lg:top-6 lg:self-start">
           <div>
             <h3 className="text-lg font-bold text-gray-800 mb-2 px-1">Today's Schedule</h3>
             {loading ? (
@@ -416,17 +470,18 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
               <div className="space-y-3">
 
                 {/* ── Real-time status banner ── */}
+                <AnimatePresence mode="wait">
                 {scheduleStatus.type === 'before_school' && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
+                  <motion.div key="before" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="bg-blue-50 border border-blue-200 rounded-xl p-3">
                     <p className="text-xs font-bold text-blue-600 uppercase tracking-wide mb-0.5">Before School</p>
                     <p className="text-sm font-semibold text-blue-800">
                       First class at {formatTime12Hour((scheduleStatus as any).next.start_time)}
                     </p>
                     <p className="text-xs text-blue-600">{(scheduleStatus as any).next.subject} — {(scheduleStatus as any).next.class_name}</p>
-                  </div>
+                  </motion.div>
                 )}
                 {scheduleStatus.type === 'in_class' && (
-                  <div className="bg-green-50 border-2 border-green-300 rounded-xl p-3 flex items-start gap-2.5">
+                  <motion.div key="inclass" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="bg-green-50 border-2 border-green-300 rounded-xl p-3 flex items-start gap-2.5">
                     <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse flex-shrink-0 mt-1" />
                     <div>
                       <p className="text-xs font-bold text-green-700 uppercase tracking-wide mb-0.5">In Class Now</p>
@@ -436,24 +491,25 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
                         <p className="text-xs text-green-600 mt-0.5">Ends at {formatTime12Hour((scheduleStatus as any).current.end_time)}</p>
                       )}
                     </div>
-                  </div>
+                  </motion.div>
                 )}
                 {scheduleStatus.type === 'break' && (
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+                  <motion.div key="break" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="bg-amber-50 border border-amber-200 rounded-xl p-3">
                     <p className="text-xs font-bold text-amber-600 uppercase tracking-wide mb-0.5">On Break</p>
                     <p className="text-sm font-semibold text-amber-800">
                       Next: {(scheduleStatus as any).next.subject} at {formatTime12Hour((scheduleStatus as any).next.start_time)}
                     </p>
                     <p className="text-xs text-amber-600">{(scheduleStatus as any).next.class_name}</p>
-                  </div>
+                  </motion.div>
                 )}
                 {scheduleStatus.type === 'after_school' && (
-                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-center">
+                  <motion.div key="afterschool" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-center">
                     <p className="text-lg mb-0.5">🏠</p>
                     <p className="font-bold text-slate-700 text-sm">Closing Time</p>
                     <p className="text-xs text-slate-500">All classes done for today. See you tomorrow!</p>
-                  </div>
+                  </motion.div>
                 )}
+                </AnimatePresence>
 
                 {/* ── Period list — highlights the current lesson ── */}
                 {todaySchedule.slice(0, 4).map((entry, i) => {
@@ -463,9 +519,13 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
                   const isCurrent = nowMins >= start && nowMins < end;
                   const isPast    = nowMins >= end;
                   return (
-                    <div key={i} className={`flex items-center space-x-3 p-3 rounded-xl shadow-sm transition-all ${
-                      isCurrent ? 'bg-green-50 border-2 border-green-300' :
-                      isPast    ? 'bg-white opacity-50' : 'bg-white'
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0, x: -8 }}
+                      animate={{ opacity: isPast ? 0.5 : 1, x: 0 }}
+                      transition={{ duration: 0.2, delay: Math.min(i, 6) * 0.05 }}
+                      className={`flex items-center space-x-3 p-3 rounded-xl shadow-sm ${
+                      isCurrent ? 'bg-green-50 border-2 border-green-300' : 'bg-white'
                     }`}>
                       <div className="w-16 text-center flex-shrink-0">
                         <p className={`font-bold text-sm ${isCurrent ? 'text-green-700' : 'text-gray-800'}`}>
@@ -482,7 +542,7 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
                         <p className={`font-semibold truncate ${isCurrent ? 'text-green-900' : 'text-gray-800'}`}>{entry.subject}</p>
                         <p className="text-xs text-gray-500">({entry.class_name})</p>
                       </div>
-                    </div>
+                    </motion.div>
                   );
                 })}
 

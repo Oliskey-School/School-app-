@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import {
     CheckCircle2, Circle, Clock, Paperclip, FileText, Send, ChevronRight,
     AlertTriangle, ArrowRight, Mail
 } from 'lucide-react';
+import CenteredLoader from '../ui/CenteredLoader';
 
 interface SOPCaseDetailViewProps {
     caseId: string;
@@ -136,7 +138,7 @@ const SOPCaseDetailView: React.FC<SOPCaseDetailViewProps> = ({ caseId, mode }) =
         }
     };
 
-    if (loading) return <div className="text-center py-12 text-gray-500">Loading case...</div>;
+    if (loading) return <CenteredLoader message="Loading case..." className="py-12" />;
     if (!caseData) return <div className="text-center py-12 text-gray-500">Case not found.</div>;
 
     const stages = caseData.incident_type.stages;
@@ -146,7 +148,7 @@ const SOPCaseDetailView: React.FC<SOPCaseDetailViewProps> = ({ caseId, mode }) =
 
     return (
         <div className="p-4 lg:p-6 max-w-4xl mx-auto space-y-6 pb-24">
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
                         <p className="text-xs font-bold text-indigo-600 uppercase tracking-wider">{caseData.incident_type.name}</p>
@@ -164,10 +166,10 @@ const SOPCaseDetailView: React.FC<SOPCaseDetailViewProps> = ({ caseId, mode }) =
                         <p className="text-sm text-red-700 font-semibold">A critical alert was sent when this case was reported.</p>
                     </div>
                 )}
-            </div>
+            </motion.div>
 
             {/* Stage timeline */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.05 }} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="px-5 py-4 border-b border-gray-100"><h3 className="font-bold text-gray-900">Workflow</h3></div>
                 <div className="divide-y divide-gray-50">
                     {stages.map((stage: any) => {
@@ -195,16 +197,16 @@ const SOPCaseDetailView: React.FC<SOPCaseDetailViewProps> = ({ caseId, mode }) =
                         <textarea rows={2} placeholder="Notes for this stage (optional)"
                             className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                             value={advanceNotes} onChange={e => setAdvanceNotes(e.target.value)} />
-                        <button onClick={handleAdvance} disabled={advancing}
+                        <motion.button whileHover={!advancing ? { scale: 1.01 } : {}} whileTap={!advancing ? { scale: 0.98 } : {}} onClick={handleAdvance} disabled={advancing}
                             className="w-full flex items-center justify-center gap-2 py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 transition-colors disabled:opacity-60">
                             <ArrowRight className="w-4 h-4" /> {advancing ? 'Completing...' : `Complete "${currentStage.name}"`}
-                        </button>
+                        </motion.button>
                     </div>
                 )}
-            </div>
+            </motion.div>
 
             {/* Evidence */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.1 }} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="px-5 py-4 border-b border-gray-100 flex justify-between items-center">
                     <h3 className="font-bold text-gray-900">Evidence</h3>
                     {!isArchived && (
@@ -225,14 +227,14 @@ const SOPCaseDetailView: React.FC<SOPCaseDetailViewProps> = ({ caseId, mode }) =
                             </a>
                         ))}
                     </div>}
-            </div>
+            </motion.div>
 
             {/* Decisions */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.15 }} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="px-5 py-4 border-b border-gray-100 flex justify-between items-center">
                     <h3 className="font-bold text-gray-900">Decisions</h3>
                     {canAct && (
-                        <button onClick={() => setShowDecision(true)} className="text-sm font-semibold text-indigo-600 hover:text-indigo-800">+ Record Decision</button>
+                        <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => setShowDecision(true)} className="text-sm font-semibold text-indigo-600 hover:text-indigo-800">+ Record Decision</motion.button>
                     )}
                 </div>
                 {caseData.decisions.length === 0
@@ -246,14 +248,14 @@ const SOPCaseDetailView: React.FC<SOPCaseDetailViewProps> = ({ caseId, mode }) =
                             </div>
                         ))}
                     </div>}
-            </div>
+            </motion.div>
 
             {/* Letters */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.2 }} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="px-5 py-4 border-b border-gray-100 flex justify-between items-center">
                     <h3 className="font-bold text-gray-900">Letters</h3>
                     {canAct && (
-                        <button onClick={() => setShowLetter(true)} className="text-sm font-semibold text-indigo-600 hover:text-indigo-800">+ Generate Letter</button>
+                        <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => setShowLetter(true)} className="text-sm font-semibold text-indigo-600 hover:text-indigo-800">+ Generate Letter</motion.button>
                     )}
                 </div>
                 {caseData.letters.length === 0
@@ -271,12 +273,13 @@ const SOPCaseDetailView: React.FC<SOPCaseDetailViewProps> = ({ caseId, mode }) =
                             </div>
                         ))}
                     </div>}
-            </div>
+            </motion.div>
 
             {/* Record Decision modal */}
+            <AnimatePresence>
             {showDecision && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-                    <div className="bg-white rounded-3xl p-6 max-w-md w-full space-y-5 shadow-2xl">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+                    <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} transition={{ type: 'spring', stiffness: 400, damping: 32 }} className="bg-white rounded-3xl p-6 max-w-md w-full space-y-5 shadow-2xl">
                         <h2 className="text-xl font-bold text-gray-900 font-outfit">Record Decision</h2>
                         <div className="space-y-4">
                             <div>
@@ -300,20 +303,22 @@ const SOPCaseDetailView: React.FC<SOPCaseDetailViewProps> = ({ caseId, mode }) =
                             </div>
                         </div>
                         <div className="flex space-x-3">
-                            <button onClick={() => setShowDecision(false)} className="flex-grow py-3 px-4 border border-gray-200 rounded-2xl text-gray-600 font-bold hover:bg-gray-50 transition-colors">Cancel</button>
-                            <button onClick={handleRecordDecision} disabled={savingDecision}
+                            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => setShowDecision(false)} className="flex-grow py-3 px-4 border border-gray-200 rounded-2xl text-gray-600 font-bold hover:bg-gray-50 transition-colors">Cancel</motion.button>
+                            <motion.button whileHover={!savingDecision ? { scale: 1.02 } : {}} whileTap={!savingDecision ? { scale: 0.98 } : {}} onClick={handleRecordDecision} disabled={savingDecision}
                                 className="flex-grow py-3 px-4 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200 disabled:opacity-60">
                                 {savingDecision ? 'Saving...' : 'Record'}
-                            </button>
+                            </motion.button>
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
 
             {/* Generate/Send Letter modal */}
+            <AnimatePresence>
             {showLetter && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-                    <div className="bg-white rounded-3xl p-6 max-w-lg w-full space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+                    <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} transition={{ type: 'spring', stiffness: 400, damping: 32 }} className="bg-white rounded-3xl p-6 max-w-lg w-full space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
                         <h2 className="text-xl font-bold text-gray-900 font-outfit">Generate Letter</h2>
                         <div className="space-y-4">
                             <div className="grid grid-cols-2 gap-4">
@@ -334,10 +339,10 @@ const SOPCaseDetailView: React.FC<SOPCaseDetailViewProps> = ({ caseId, mode }) =
                                 </div>
                             </div>
                             {!letterDraft ? (
-                                <button onClick={handleGenerateLetter} disabled={savingLetter}
+                                <motion.button whileHover={!savingLetter ? { scale: 1.01 } : {}} whileTap={!savingLetter ? { scale: 0.98 } : {}} onClick={handleGenerateLetter} disabled={savingLetter}
                                     className="w-full flex items-center justify-center gap-2 py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 transition-colors disabled:opacity-60">
                                     <FileText className="w-4 h-4" /> {savingLetter ? 'Drafting...' : 'Auto-Draft Letter'}
-                                </button>
+                                </motion.button>
                             ) : (
                                 <div>
                                     <label className="block text-sm font-semibold text-gray-700 mb-1">Letter Text (editable)</label>
@@ -347,17 +352,18 @@ const SOPCaseDetailView: React.FC<SOPCaseDetailViewProps> = ({ caseId, mode }) =
                             )}
                         </div>
                         <div className="flex space-x-3">
-                            <button onClick={() => { setShowLetter(false); setLetterDraft(''); }} className="flex-grow py-3 px-4 border border-gray-200 rounded-2xl text-gray-600 font-bold hover:bg-gray-50 transition-colors">Close</button>
+                            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => { setShowLetter(false); setLetterDraft(''); }} className="flex-grow py-3 px-4 border border-gray-200 rounded-2xl text-gray-600 font-bold hover:bg-gray-50 transition-colors">Close</motion.button>
                             {letterDraft && caseData.letters[0]?.status !== 'sent' && (
-                                <button onClick={() => handleSendLetter(caseData.letters[0]?.id)} disabled={!recipientId}
+                                <motion.button whileHover={recipientId ? { scale: 1.02 } : {}} whileTap={recipientId ? { scale: 0.98 } : {}} onClick={() => handleSendLetter(caseData.letters[0]?.id)} disabled={!recipientId}
                                     className="flex-grow flex items-center justify-center gap-2 py-3 px-4 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200 disabled:opacity-60">
                                     <Send className="w-4 h-4" /> Send Letter
-                                </button>
+                                </motion.button>
                             )}
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
         </div>
     );
 };

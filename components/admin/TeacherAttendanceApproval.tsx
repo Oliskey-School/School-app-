@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import {
@@ -117,10 +118,10 @@ const TeacherAttendanceApproval: React.FC<TeacherAttendanceApprovalProps> = ({ n
                 </div>
 
                 <div className="flex items-center space-x-4">
-                    <div className="bg-indigo-50 px-4 py-2 rounded-lg border border-indigo-100 flex items-center space-x-2">
+                    <motion.div layout className="bg-indigo-50 px-4 py-2 rounded-lg border border-indigo-100 flex items-center space-x-2">
                         <ClockIcon className="h-5 w-5 text-indigo-600" />
                         <span className="font-semibold text-indigo-700">{pendingRequests.length} Pending</span>
-                    </div>
+                    </motion.div>
                 </div>
             </div>
 
@@ -150,17 +151,27 @@ const TeacherAttendanceApproval: React.FC<TeacherAttendanceApprovalProps> = ({ n
                         <p className="text-gray-500 animate-pulse">Loading approval requests...</p>
                     </div>
                 ) : filteredRequests.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-20 text-center">
+                    <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.25 }} className="flex flex-col items-center justify-center py-20 text-center">
                         <div className="bg-green-50 p-6 rounded-full mb-4">
                             <CheckCircleIcon className="h-12 w-12 text-green-500" />
                         </div>
                         <h3 className="text-xl font-bold text-gray-800">All Caught Up!</h3>
                         <p className="text-gray-500 mt-2 max-w-md">There are no pending attendance requests matching your search. Great job keeping up with approvals.</p>
-                    </div>
+                    </motion.div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                        <AnimatePresence>
                         {filteredRequests.map((request, index) => (
-                            <div key={request.id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-300 flex flex-col animate-fade-in-up" style={{ animationDelay: `${index * 50}ms` }}>
+                            <motion.div
+                                key={request.id}
+                                layout
+                                initial={{ opacity: 0, y: 14 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.95 }}
+                                transition={{ duration: 0.25, delay: Math.min(index, 12) * 0.05 }}
+                                whileHover={{ y: -3 }}
+                                className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-300 flex flex-col"
+                            >
 
                                 <div className="flex items-center space-x-4 mb-5">
                                     <div className="relative">
@@ -197,25 +208,38 @@ const TeacherAttendanceApproval: React.FC<TeacherAttendanceApprovalProps> = ({ n
                                 </div>
 
                                 <div className="mt-auto grid grid-cols-2 gap-3">
-                                    <button
+                                    <motion.button
+                                        whileHover={{ y: -2 }}
+                                        whileTap={{ scale: 0.96, y: 0 }}
                                         onClick={() => handleReject(request.id)}
                                         disabled={processingId === request.id}
-                                        className="flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl border border-gray-200 text-gray-700 font-semibold hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all focus:ring-2 focus:ring-red-200 disabled:opacity-50"
+                                        className="flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl border border-gray-200 text-gray-700 font-semibold hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors focus:ring-2 focus:ring-red-200 disabled:opacity-50"
                                     >
-                                        <XCircleIcon className="h-5 w-5" />
+                                        {processingId === request.id ? (
+                                            <span className="h-5 w-5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+                                        ) : (
+                                            <XCircleIcon className="h-5 w-5" />
+                                        )}
                                         <span>Reject</span>
-                                    </button>
-                                    <button
+                                    </motion.button>
+                                    <motion.button
+                                        whileHover={{ y: -2 }}
+                                        whileTap={{ scale: 0.96, y: 0 }}
                                         onClick={() => handleApprove(request.id)}
                                         disabled={processingId === request.id}
-                                        className="flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl bg-indigo-600 text-white font-semibold shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:shadow-indigo-300 hover:-translate-y-0.5 transition-all focus:ring-2 focus:ring-indigo-400 disabled:opacity-50 disabled:hover:translate-y-0"
+                                        className="flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl bg-indigo-600 text-white font-semibold shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:shadow-indigo-300 transition-colors focus:ring-2 focus:ring-indigo-400 disabled:opacity-50"
                                     >
-                                        <CheckCircleIcon className="h-5 w-5 text-white" />
+                                        {processingId === request.id ? (
+                                            <span className="h-5 w-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                                        ) : (
+                                            <CheckCircleIcon className="h-5 w-5 text-white" />
+                                        )}
                                         <span>Approve</span>
-                                    </button>
+                                    </motion.button>
                                 </div>
-                            </div>
+                            </motion.div>
                         ))}
+                        </AnimatePresence>
                     </div>
                 )}
             </div>

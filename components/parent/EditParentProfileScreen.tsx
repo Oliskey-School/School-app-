@@ -1,18 +1,20 @@
 
 import React, { useState, useEffect } from 'react';
-import { UserIcon, MailIcon, PhoneIcon, CameraIcon } from '../../constants';
+import { motion } from 'framer-motion';
+import { UserIcon, MailIcon, PhoneIcon, CameraIcon, ChevronRightIcon } from '../../constants';
 import { useProfile } from '../../context/ProfileContext';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
-import { LockIcon, EyeIcon, EyeOffIcon } from 'lucide-react';
+import { LockIcon } from 'lucide-react';
 
 interface EditParentProfileScreenProps {
     parentId?: string | null;
+    navigateTo?: (view: string, title: string, props?: any) => void;
     onProfileUpdate?: (data?: { name: string; avatarUrl: string }) => void;
 }
 
-const EditParentProfileScreen: React.FC<EditParentProfileScreenProps> = ({ onProfileUpdate }) => {
+const EditParentProfileScreen: React.FC<EditParentProfileScreenProps> = ({ navigateTo, onProfileUpdate }) => {
     // 1. Use centralized Profile Context
     const { profile, updateProfile } = useProfile();
     const { user: authUser } = useAuth();
@@ -27,11 +29,7 @@ const EditParentProfileScreen: React.FC<EditParentProfileScreenProps> = ({ onPro
 
     // Account Security State
     const [username, setUsername] = useState(authUser?.user_metadata?.username || '');
-    const [newPassword, setNewPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
-    const [showPassword, setShowPassword] = useState(false);
     const [updatingUsername, setUpdatingUsername] = useState(false);
-    const [updatingPassword, setUpdatingPassword] = useState(false);
 
     // Sync with context if it loads late or changes
     useEffect(() => {
@@ -95,30 +93,6 @@ const EditParentProfileScreen: React.FC<EditParentProfileScreenProps> = ({ onPro
         }
     };
 
-    const handleUpdatePassword = async () => {
-        if (!newPassword) return;
-        if (newPassword !== confirmPassword) {
-            toast.error('Passwords do not match');
-            return;
-        }
-        if (newPassword.length < 6) {
-            toast.error('Password must be at least 6 characters');
-            return;
-        }
-
-        setUpdatingPassword(true);
-        try {
-            await api.patch('/auth/update-password', { password: newPassword });
-            toast.success('Password updated successfully!');
-            setNewPassword('');
-            setConfirmPassword('');
-        } catch (err: any) {
-            toast.error(err.message || 'Error updating password');
-        } finally {
-            setUpdatingPassword(false);
-        }
-    };
-
     if (!profile) return <div className="p-8 text-center text-gray-500">Profile not found.</div>;
 
     return (
@@ -129,10 +103,10 @@ const EditParentProfileScreen: React.FC<EditParentProfileScreenProps> = ({ onPro
                     <div className="flex justify-center">
                         <div className="relative">
                             <img src={avatar} alt="Parent Avatar" className="w-28 h-28 rounded-full object-cover shadow-md flex-shrink-0 aspect-square" />
-                            <label htmlFor="photo-upload" className="absolute bottom-0 right-0 bg-green-500 p-2 rounded-full border-2 border-white cursor-pointer hover:bg-green-600">
+                            <motion.label whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }} htmlFor="photo-upload" className="absolute bottom-0 right-0 bg-green-500 p-2 rounded-full border-2 border-white cursor-pointer hover:bg-green-600">
                                 <CameraIcon className="text-white h-4 w-4" />
                                 <input id="photo-upload" name="photo-upload" type="file" className="sr-only" accept="image/*" onChange={handleImageChange} />
-                            </label>
+                            </motion.label>
                         </div>
                     </div>
 
@@ -183,57 +157,33 @@ const EditParentProfileScreen: React.FC<EditParentProfileScreenProps> = ({ onPro
                                                     placeholder="Enter new username"
                                                 />
                                             </div>
-                                            <button
+                                            <motion.button
+                                                whileTap={{ scale: 0.95 }}
                                                 type="button"
                                                 onClick={handleUpdateUsername}
                                                 disabled={updatingUsername || !username || username === authUser?.user_metadata?.username}
                                                 className="px-4 py-2 bg-slate-800 text-white text-xs font-bold rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-colors"
                                             >
                                                 {updatingUsername ? '...' : 'Update'}
-                                            </button>
+                                            </motion.button>
                                         </div>
                                     </div>
 
-                                    <div className="space-y-3 p-4 bg-green-50/50 rounded-xl border border-green-100">
-                                        <div className="flex items-center space-x-2 mb-2">
-                                            <LockIcon className="w-4 h-4 text-green-600" />
-                                            <span className="text-xs font-bold text-green-700 uppercase">Change Password</span>
-                                        </div>
-
-                                        <div className="relative">
-                                            <input
-                                                type={showPassword ? "text" : "password"}
-                                                value={newPassword}
-                                                onChange={e => setNewPassword(e.target.value)}
-                                                className="w-full bg-white border border-green-200 text-gray-800 text-sm rounded-lg focus:ring-green-500 focus:border-green-500 block p-3 transition-all"
-                                                placeholder="New Password"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowPassword(!showPassword)}
-                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                                            >
-                                                {showPassword ? <EyeOffIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
-                                            </button>
-                                        </div>
-
-                                        <input
-                                            type={showPassword ? "text" : "password"}
-                                            value={confirmPassword}
-                                            onChange={e => setConfirmPassword(e.target.value)}
-                                            className="w-full bg-white border border-green-200 text-gray-800 text-sm rounded-lg focus:ring-green-500 focus:border-green-500 block p-3 transition-all"
-                                            placeholder="Confirm New Password"
-                                        />
-
-                                        <button
+                                    {navigateTo && (
+                                        <motion.button
+                                            whileHover={{ scale: 1.01 }}
+                                            whileTap={{ scale: 0.98 }}
                                             type="button"
-                                            onClick={handleUpdatePassword}
-                                            disabled={updatingPassword || !newPassword}
-                                            className="w-full py-3 bg-green-600 text-white text-sm font-bold rounded-lg hover:bg-green-700 shadow-md shadow-green-500/20 disabled:opacity-50 transition-all"
+                                            onClick={() => navigateTo('parentChangePassword', 'Change Password')}
+                                            className="w-full flex items-center justify-between p-4 bg-green-50/50 rounded-xl border border-green-100 hover:bg-green-50 transition-colors"
                                         >
-                                            {updatingPassword ? 'Updating...' : 'Change Password'}
-                                        </button>
-                                    </div>
+                                            <span className="flex items-center space-x-2">
+                                                <LockIcon className="w-4 h-4 text-green-600" />
+                                                <span className="text-xs font-bold text-green-700 uppercase">Change Password</span>
+                                            </span>
+                                            <ChevronRightIcon className="w-4 h-4 text-green-400" />
+                                        </motion.button>
+                                    )}
                                 </div>
                             </div>
                         )}
@@ -241,13 +191,15 @@ const EditParentProfileScreen: React.FC<EditParentProfileScreenProps> = ({ onPro
                 </main>
 
                 <div className="p-4 mt-auto bg-gray-50 border-t border-gray-200">
-                    <button
+                    <motion.button
+                        whileHover={{ scale: saving ? 1 : 1.01 }}
+                        whileTap={{ scale: saving ? 1 : 0.97 }}
                         type="submit"
                         disabled={saving}
-                        className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white ${saving ? 'bg-green-400' : 'bg-green-600 hover:bg-green-700'} focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500`}
+                        className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white transition-colors ${saving ? 'bg-green-400' : 'bg-green-600 hover:bg-green-700'} focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500`}
                     >
                         {saving ? 'Saving...' : 'Save Changes'}
-                    </button>
+                    </motion.button>
                 </div>
             </form>
         </div>

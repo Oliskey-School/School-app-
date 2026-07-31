@@ -1,5 +1,6 @@
 ﻿
 import React, { useEffect, useState, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { Student, Teacher } from '../../types';
 import { fetchClassSubjects } from '../../lib/database';
@@ -176,19 +177,21 @@ const SubjectsScreen: React.FC<SubjectsScreenProps> = ({ navigateTo, student }) 
                 <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest px-2">Select Term</h3>
                 <div className="grid grid-cols-3 gap-3">
                   {[1, 2, 3].map(t => (
-                    <button
+                    <motion.button
                       key={t}
+                      whileHover={{ y: -1 }}
+                      whileTap={{ scale: 0.96 }}
                       onClick={() => {
                         setSelectedTerm(t);
                         loadTopics(selectedSubject.id, t);
                       }}
-                      className={`p-4 rounded-2xl border-2 transition-all font-black ${selectedTerm === t
+                      className={`p-4 rounded-2xl border-2 transition-colors font-black ${selectedTerm === t
                         ? 'border-orange-500 bg-orange-50 text-orange-600'
                         : 'border-gray-50 bg-gray-50 text-gray-400 hover:bg-white hover:border-orange-200 hover:text-gray-600'
                         }`}
                     >
                       Term {t}
-                    </button>
+                    </motion.button>
                   ))}
                 </div>
               </div>
@@ -215,7 +218,13 @@ const SubjectsScreen: React.FC<SubjectsScreenProps> = ({ navigateTo, student }) 
                 ) : (
                   <div className="space-y-3">
                     {topics.map((topic, idx) => (
-                      <div key={topic.id} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+                      <motion.div
+                        key={topic.id}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.25, delay: Math.min(idx, 10) * 0.04 }}
+                        className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-shadow"
+                      >
                         <div className="flex items-start gap-4">
                           <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center text-orange-600 font-black text-sm">
                             {topic.week_number || idx + 1}
@@ -225,18 +234,20 @@ const SubjectsScreen: React.FC<SubjectsScreenProps> = ({ navigateTo, student }) 
                             <p className="text-sm text-gray-500 leading-relaxed">{topic.content}</p>
                           </div>
                         </div>
-                      </div>
+                      </motion.div>
                     ))}
                   </div>
                 )}
 
-                <button
+                <motion.button
+                  whileHover={{ y: -1, boxShadow: '0 12px 24px -8px rgba(249, 115, 22, 0.4)' }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={() => navigateTo('classroom', `${selectedSubject.name} Classroom`, { subjectName: selectedSubject.name })}
-                  className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black shadow-lg shadow-orange-200 hover:bg-orange-600 transition-all flex items-center justify-center gap-2"
+                  className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black shadow-lg shadow-orange-200 hover:bg-orange-600 transition-colors flex items-center justify-center gap-2"
                 >
                   <GlobeIcon className="w-5 h-5" />
                   Go to {selectedSubject.name} Classroom
-                </button>
+                </motion.button>
               </div>
             )}
           </div>
@@ -254,16 +265,21 @@ const SubjectsScreen: React.FC<SubjectsScreenProps> = ({ navigateTo, student }) 
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {subjects.filter(s => s && s.name && s.name !== 'Subject').map(subject => {
+                {subjects.filter(s => s && s.name && s.name !== 'Subject').map((subject, i) => {
                   const subjectName = subject.name;
                   const colorClass = SUBJECT_COLORS[subjectName] || 'bg-gray-200 text-gray-800';
                   const [bgColor, textColor] = colorClass.split(' ');
 
                   return (
-                    <button
+                    <motion.button
                       key={subject.id || subjectName}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.25, delay: Math.min(i, 10) * 0.04 }}
+                      whileHover={{ y: -2 }}
+                      whileTap={{ scale: 0.98 }}
                       onClick={() => setSelectedSubject(subject)}
-                      className="w-full bg-white rounded-xl shadow-sm p-4 flex items-center justify-between text-left hover:bg-gray-50 hover:ring-2 hover:ring-orange-200 transition-all"
+                      className="w-full bg-white rounded-xl shadow-sm p-4 flex items-center justify-between text-left hover:shadow-md hover:ring-2 hover:ring-orange-200 transition-shadow"
                     >
                       <div className="flex items-center space-x-4">
                         <div className={`w-12 h-12 rounded-lg ${bgColor} flex items-center justify-center`}>
@@ -274,8 +290,8 @@ const SubjectsScreen: React.FC<SubjectsScreenProps> = ({ navigateTo, student }) 
                             <h3 className="font-bold text-lg text-gray-800">{subjectName}</h3>
                             {subject.curriculum_type && (
                               <span className={`text-xs px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
-                                subject.curriculum_type.toLowerCase().includes('british') 
-                                ? 'bg-blue-100 text-blue-700' 
+                                subject.curriculum_type.toLowerCase().includes('british')
+                                ? 'bg-blue-100 text-blue-700'
                                 : 'bg-green-100 text-green-700'
                               }`}>
                                 {subject.curriculum_type}
@@ -288,7 +304,7 @@ const SubjectsScreen: React.FC<SubjectsScreenProps> = ({ navigateTo, student }) 
                         </div>
                       </div>
                       <ChevronRightIcon className="text-gray-400" />
-                    </button>
+                    </motion.button>
                   );
                 })}
               </div>

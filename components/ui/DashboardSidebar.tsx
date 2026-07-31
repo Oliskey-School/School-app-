@@ -1,4 +1,5 @@
 import React, { cloneElement } from 'react';
+import { motion } from 'framer-motion';
 import { HomeIcon, BellIcon, UserIcon as ProfileIcon, DocumentTextIcon, PhoneIcon, PlayIcon, AnalyticsIcon, MegaphoneIcon, SettingsIcon, MessagesIcon, ElearningIcon, SparklesIcon, UserGroupIcon, GameControllerIcon, ChartBarIcon, ClockIcon, LogoutIcon, ReportIcon, CheckCircleIcon, BuildingLibraryIcon, SUBJECT_COLORS, getFormattedClassName } from '../../constants';
 import { useTeacherClasses } from '../../hooks/useTeacherClasses';
 
@@ -11,14 +12,16 @@ interface SidebarItemProps {
 }
 
 const SidebarItem = ({ icon, label, isActive, onClick, activeColor }: SidebarItemProps & { id?: string }) => (
-    <button
+    <motion.button
+        whileHover={{ x: 2 }}
+        whileTap={{ scale: 0.98 }}
         onClick={onClick}
         className={`w-full flex items-center space-x-3 px-6 py-4 transition-colors duration-200 ${isActive ? `bg-gray-50 border-r-4 ${activeColor} border-current` : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
             }`}
     >
         {cloneElement(icon, { className: `h-6 w-6 ${isActive ? activeColor : ''}` })}
         <span className={`font-medium ${isActive ? 'text-gray-900' : ''}`}>{label}</span>
-    </button>
+    </motion.button>
 );
 
 export const StudentSidebar = ({ activeScreen, setActiveScreen, onLogout, schoolName, logoUrl }: { activeScreen: string, setActiveScreen: (screen: string) => void, onLogout?: () => void, schoolName?: string, logoUrl?: string }) => {
@@ -60,13 +63,15 @@ export const StudentSidebar = ({ activeScreen, setActiveScreen, onLogout, school
 
             {onLogout && (
                 <div className="p-4 border-t border-gray-100">
-                    <button
+                    <motion.button
+                        whileHover={{ x: 2 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={onLogout}
                         className="w-full flex items-center space-x-3 px-4 py-3 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                     >
                         <LogoutIcon className="h-6 w-6" />
                         <span className="font-medium">Logout</span>
-                    </button>
+                    </motion.button>
                 </div>
             )}
         </div>
@@ -104,13 +109,15 @@ export const AdminSidebar = ({ activeScreen, setActiveScreen, onLogout, schoolNa
 
             {onLogout && (
                 <div className="p-4 border-t border-gray-100">
-                    <button
+                    <motion.button
+                        whileHover={{ x: 2 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={onLogout}
                         className="w-full flex items-center space-x-3 px-4 py-3 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                     >
                         <LogoutIcon className="h-6 w-6" />
                         <span className="font-medium">Logout</span>
-                    </button>
+                    </motion.button>
                 </div>
             )}
         </div>
@@ -158,13 +165,15 @@ export const TeacherSidebar = ({ activeScreen, setActiveScreen, onLogout, school
 
             {onLogout && (
                 <div className="p-4 border-t border-gray-100">
-                    <button
+                    <motion.button
+                        whileHover={{ x: 2 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={onLogout}
                         className="w-full flex items-center space-x-3 px-4 py-3 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                     >
                         <LogoutIcon className="h-6 w-6" />
                         <span className="font-medium">Logout</span>
-                    </button>
+                    </motion.button>
                 </div>
             )}
         </div>
@@ -210,13 +219,15 @@ export const ParentSidebar = ({ activeScreen, setActiveScreen, onLogout, schoolN
 
             {onLogout && (
                 <div className="p-4 border-t border-gray-100">
-                    <button
+                    <motion.button
+                        whileHover={{ x: 2 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={onLogout}
                         className="w-full flex items-center space-x-3 px-4 py-3 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                     >
                         <LogoutIcon className="h-6 w-6" />
                         <span className="font-medium">Logout</span>
-                    </button>
+                    </motion.button>
                 </div>
             )}
         </div>
@@ -260,13 +271,15 @@ export const InspectorSidebar = ({ activeScreen, setActiveScreen, onLogout, scho
 
             {onLogout && (
                 <div className="p-4 border-t border-gray-100">
-                    <button
+                    <motion.button
+                        whileHover={{ x: 2 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={onLogout}
                         className="w-full flex items-center space-x-3 px-4 py-3 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                     >
                         <LogoutIcon className="h-6 w-6" />
                         <span className="font-medium">Logout</span>
-                    </button>
+                    </motion.button>
                 </div>
             )}
         </div>

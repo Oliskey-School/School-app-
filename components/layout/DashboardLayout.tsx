@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import Header from '../ui/Header';
 import PromotionCelebration from '../shared/PromotionCelebration';
 import { useAuth } from '../../context/AuthContext';
@@ -27,6 +28,10 @@ interface DashboardLayoutProps {
     hideHeader?: boolean;
     hideSidebar?: boolean;
     hidePadding?: boolean;
+    // Like hidePadding's scroll/overflow mechanics (own bounded flex scroll area so a
+    // child's sticky footer truly docks to the viewport, not the page), but keeps the
+    // normal centered/padded content width instead of going full-bleed.
+    stickyFooterLayout?: boolean;
     hideBottomNav?: boolean;
     onLogout?: () => void;
 }
@@ -34,7 +39,7 @@ interface DashboardLayoutProps {
 import { useProfile } from '../../context/ProfileContext';
 import { useAutoSync } from '../../hooks/useAutoSync';
 
-const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBack, activeScreen = 'home', setActiveScreen = () => { }, hideHeader = false, hideSidebar = false, hidePadding = false, hideBottomNav = false, onLogout }) => {
+const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBack, activeScreen = 'home', setActiveScreen = () => { }, hideHeader = false, hideSidebar = false, hidePadding = false, stickyFooterLayout = false, hideBottomNav = false, onLogout }) => {
     const { t } = useTranslation();
     const { user, role, signOut, currentSchool, isDemo, switchDemoRole } = useAuth();
     const { profile, refreshProfile } = useProfile(); // Use Profile Context
@@ -173,9 +178,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
             {!hideSidebar && (
                 <aside className={`fixed inset-y-0 left-0 z-[60] w-72 bg-white shadow-2xl transform transition-transform duration-300 ease-in-out lg:hidden ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
                     <div className="absolute top-4 right-4">
-                        <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200">
+                        <motion.button whileTap={{ scale: 0.9 }} onClick={() => setIsMobileMenuOpen(false)} className="p-2 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200">
                             <X className="h-5 w-5" />
-                        </button>
+                        </motion.button>
                     </div>
                     <div className="p-4 border-b border-gray-50 bg-gray-50/30">
                         <BranchSwitcher align="left" />
@@ -195,7 +200,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
                             <span className="hidden sm:inline">{t('dashboard.demoMode')}</span>
                             <span className="sm:hidden">Demo</span>
                         </span>
-                        <button
+                        <motion.button
+                            whileTap={{ scale: 0.95 }}
                             onClick={() => {
                                 sessionStorage.removeItem('is_demo_mode');
                                 window.location.href = '/';
@@ -203,7 +209,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
                             className="bg-white text-blue-700 font-bold px-3 py-1 rounded-lg text-[10px] hover:bg-blue-50 transition flex-shrink-0"
                         >
                             {t('dashboard.createYourSchool')}
-                        </button>
+                        </motion.button>
                     </div>
                 )}
 
@@ -223,15 +229,15 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
                     />
                 )}
 
-                <div className={`flex-1 ${hidePadding && !isLocked ? 'overflow-hidden' : 'overflow-y-auto'} overflow-x-hidden relative ${!hideHeader ? '-mt-8 sm:-mt-10 md:-mt-12 lg:-mt-16' : ''} ${!hidePadding ? 'pb-24 lg:pb-12' : 'pb-0'}`}>
+                <div className={`flex-1 ${(hidePadding || stickyFooterLayout) && !isLocked ? 'overflow-hidden' : 'overflow-y-auto'} overflow-x-hidden relative ${!hideHeader ? '-mt-8 sm:-mt-10 md:-mt-12 lg:-mt-16' : ''} ${!hidePadding && !stickyFooterLayout ? 'pb-24 lg:pb-12' : 'pb-0'}`}>
                     {isLocked ? (
                         <div className={`w-full min-h-full ${!hideHeader ? 'pt-8 sm:pt-10 md:pt-12 lg:pt-16' : ''}`}>
                             <PlanLockScreen isAdmin={isAdmin} schoolName={currentSchool?.name} />
                         </div>
                     ) : (
-                        <main className={`${hidePadding ? 'h-full flex flex-col' : 'min-h-full'} ${!hideHeader ? 'pt-8 sm:pt-10 md:pt-12 lg:pt-16' : ''} ${!hidePadding ? 'px-4 sm:px-6 lg:px-8 max-w-7xl' : 'px-0 max-w-none'} mx-auto w-full`}>
+                        <main className={`${hidePadding || stickyFooterLayout ? 'h-full flex flex-col' : 'min-h-full'} ${!hideHeader ? 'pt-8 sm:pt-10 md:pt-12 lg:pt-16' : ''} ${!hidePadding ? 'px-4 sm:px-6 lg:px-8 max-w-7xl' : 'px-0 max-w-none'} mx-auto w-full`}>
                             <RenewalBanner />
-                            <div className={`animate-slide-in-up w-full ${hidePadding ? 'flex-1 min-h-0' : 'h-full'}`}>
+                            <div className={`animate-slide-in-up w-full ${hidePadding || stickyFooterLayout ? 'flex-1 min-h-0' : 'h-full'}`}>
                                 {children}
                             </div>
                         </main>
@@ -239,7 +245,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
                 </div>
 
                 {/* Flex spacer — reserves nav height in overflow-hidden layouts so content never slides under the fixed nav */}
-                {!hideBottomNav && hidePadding && (
+                {!hideBottomNav && (hidePadding || stickyFooterLayout) && (
                     <div className="lg:hidden flex-shrink-0 h-16" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }} />
                 )}
 

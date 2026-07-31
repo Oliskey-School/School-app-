@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
 import { useAutoSync } from '../../hooks/useAutoSync';
@@ -62,21 +63,24 @@ const DEFAULT_ROLES_PERMISSIONS = [
 ];
 
 const PermissionToggle = ({ enabled, onToggle, disabled = false }: { enabled: boolean, onToggle: () => void, disabled?: boolean }) => (
-    <button
+    <motion.button
         type="button"
         role="switch"
         aria-checked={enabled}
         onClick={onToggle}
         disabled={disabled}
+        whileTap={!disabled ? { scale: 0.92 } : {}}
         className={`relative inline-flex items-center h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 ${enabled ? 'bg-sky-600' : 'bg-gray-300'
             } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
     >
-        <span
+        <motion.span
             aria-hidden="true"
-            className={`inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${enabled ? 'translate-x-5' : 'translate-x-0'
+            layout
+            transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+            className={`inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 ${enabled ? 'translate-x-5' : 'translate-x-0'
                 }`}
         />
-    </button>
+    </motion.button>
 );
 
 const permissionIcons: { [key: string]: React.ReactNode } = {
@@ -191,10 +195,10 @@ const UserRolesScreen: React.FC = () => {
     return (
         <div className="flex flex-col h-full bg-gray-100">
             <main className="flex-grow p-4 space-y-4 overflow-y-auto pb-20">
-                {DEFAULT_ROLES_PERMISSIONS.map(role => {
+                {DEFAULT_ROLES_PERMISSIONS.map((role, ri) => {
                     const IconComponent = role.icon;
                     return (
-                        <div key={role.id} className="bg-white rounded-2xl shadow-sm overflow-hidden">
+                        <motion.div key={role.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: ri * 0.05 }} className="bg-white rounded-2xl shadow-sm overflow-hidden">
                             <div className="p-4 flex items-center space-x-4 bg-gray-50 border-b border-gray-200">
                                 <div className="text-sky-500">
                                     <IconComponent className="h-8 w-8" />
@@ -219,19 +223,21 @@ const UserRolesScreen: React.FC = () => {
                                     </li>
                                 ))}
                             </ul>
-                        </div>
+                        </motion.div>
                     );
                 })}
             </main>
 
             <div className="p-4 bg-white border-t border-gray-200 sticky bottom-0">
-                <button
+                <motion.button
+                    whileHover={!isLoading ? { scale: 1.01 } : {}}
+                    whileTap={!isLoading ? { scale: 0.98 } : {}}
                     onClick={handleSave}
                     disabled={isLoading}
-                    className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white ${isLoading ? 'bg-sky-400' : 'bg-sky-500 hover:bg-sky-600'} focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500`}
+                    className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white ${isLoading ? 'bg-sky-400' : 'bg-sky-500 hover:bg-sky-600'} focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 transition-colors`}
                 >
                     {isLoading ? 'Saving...' : 'Save Changes'}
-                </button>
+                </motion.button>
             </div>
         </div>
     );

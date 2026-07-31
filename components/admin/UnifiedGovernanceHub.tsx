@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { Shield, Sparkles, TrendingUp, Globe, Target, Layers, ArrowRight, Award, Zap } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
@@ -29,9 +30,9 @@ const UnifiedGovernanceHub: React.FC = () => {
     }, [currentSchool]);
 
     return (
-        <div className="p-6 max-w-7xl mx-auto space-y-10 animate-in fade-in duration-700">
+        <div className="p-6 max-w-7xl mx-auto space-y-10">
             {/* Hero Section */}
-            <div className="relative overflow-hidden bg-gray-900 rounded-[2.5rem] p-10 text-white shadow-2xl">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="relative overflow-hidden bg-gray-900 rounded-[2.5rem] p-10 text-white shadow-2xl">
                 <div className="absolute top-0 right-0 w-1/3 h-full bg-gradient-to-l from-indigo-500/20 to-transparent"></div>
                 <div className="relative z-10 space-y-6 max-w-3xl">
                     <div className="inline-flex items-center gap-2 bg-indigo-500/20 border border-indigo-500/30 px-4 py-1.5 rounded-full text-indigo-300 text-sm font-bold uppercase tracking-widest">
@@ -47,42 +48,42 @@ const UnifiedGovernanceHub: React.FC = () => {
                         Current Track: <span className="text-emerald-400">{currentSchool?.curriculum_type || 'Unset'}</span>
                     </p>
                     <div className="flex gap-4 pt-4">
-                        <button className="bg-white text-gray-900 px-8 py-3 rounded-2xl font-black hover:bg-gray-100 transition shadow-lg shadow-white/5 active:scale-95">
+                        <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="bg-white text-gray-900 px-8 py-3 rounded-2xl font-black hover:bg-gray-100 transition shadow-lg shadow-white/5">
                             Download Strategy Deck
-                        </button>
-                        <button className="bg-gray-800 text-white px-8 py-3 rounded-2xl font-bold border border-gray-700 hover:bg-gray-700 transition active:scale-95">
+                        </motion.button>
+                        <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="bg-gray-800 text-white px-8 py-3 rounded-2xl font-bold border border-gray-700 hover:bg-gray-700 transition">
                             Active Entities: {stats ? (stats.students + stats.teachers) : '...'}
-                        </button>
+                        </motion.button>
                     </div>
                 </div>
-            </div>
+            </motion.div>
 
             {/* Core Pillars */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center pt-6">
-                <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm space-y-4">
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.05 }} className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm space-y-4">
                     <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-3xl flex items-center justify-center mx-auto shadow-sm">
                         <Shield className="w-8 h-8" />
                     </div>
                     <h3 className="text-xl font-bold text-gray-900">Compliance</h3>
                     <p className="text-2xl font-black text-blue-600">{stats?.policies || 0} Active Policies</p>
                     <p className="text-gray-500 text-xs italic">Ministry Standards Met</p>
-                </div>
-                <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm space-y-4">
+                </motion.div>
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.1 }} className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm space-y-4">
                     <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-3xl flex items-center justify-center mx-auto shadow-sm">
                         <Layers className="w-8 h-8" />
                     </div>
                     <h3 className="text-xl font-bold text-gray-900">Audits</h3>
                     <p className="text-2xl font-black text-emerald-600">{stats?.inspections || 0} Inspections</p>
                     <p className="text-gray-500 text-xs italic">Digital Audit Trail</p>
-                </div>
-                <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm space-y-4">
+                </motion.div>
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.15 }} className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm space-y-4">
                     <div className="w-16 h-16 bg-purple-50 text-purple-600 rounded-3xl flex items-center justify-center mx-auto shadow-sm">
                         <Globe className="w-8 h-8" />
                     </div>
                     <h3 className="text-xl font-bold text-gray-900">Reach</h3>
                     <p className="text-2xl font-black text-purple-600">100% Edge Ready</p>
                     <p className="text-gray-500 text-xs italic">Multi-Channel Access</p>
-                </div>
+                </motion.div>
             </div>
 
             {/* Operational Health Showcase */}
@@ -102,30 +103,32 @@ const UnifiedGovernanceHub: React.FC = () => {
                             { label: 'Ministry Reporting API', progress: 85, color: 'bg-emerald-500' },
                             { label: 'External Exam Export Logic', progress: 100, color: 'bg-blue-500' },
                             { label: 'Multi-Role Permissions', progress: 92, color: 'bg-purple-500' },
-                        ].map(item => (
+                        ].map((item, idx) => (
                             <div key={item.label} className="space-y-2">
                                 <div className="flex justify-between text-xs font-bold uppercase tracking-wider text-gray-500">
                                     <span>{item.label}</span>
                                     <span>{item.progress}%</span>
                                 </div>
                                 <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                                    <div
-                                        className={`${item.color} h-full rounded-full transition-all duration-1000`}
-                                        style={{ width: `${item.progress}%` }}
+                                    <motion.div
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${item.progress}%` }}
+                                        transition={{ duration: 0.6, delay: idx * 0.1, ease: 'easeOut' }}
+                                        className={`${item.color} h-full rounded-full`}
                                     />
                                 </div>
                             </div>
                         ))}
                     </div>
 
-                    <button className="w-full flex items-center justify-center gap-2 py-4 bg-gray-50 border rounded-2xl font-bold text-gray-700 hover:bg-gray-100 transition mt-4">
+                    <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }} className="w-full flex items-center justify-center gap-2 py-4 bg-gray-50 border rounded-2xl font-bold text-gray-700 hover:bg-gray-100 transition mt-4">
                         View Detailed Audit Logs
                         <ArrowRight className="w-4 h-4" />
-                    </button>
+                    </motion.button>
                 </div>
 
                 <div className="space-y-8">
-                    <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 p-8 rounded-[2rem] text-white shadow-xl shadow-indigo-100 flex items-center justify-between group overflow-hidden relative">
+                    <motion.div whileHover={{ scale: 1.01 }} className="bg-gradient-to-br from-indigo-600 to-indigo-800 p-8 rounded-[2rem] text-white shadow-xl shadow-indigo-100 flex items-center justify-between group overflow-hidden relative">
                         <div className="space-y-1 relative z-10">
                             <p className="text-indigo-200 text-sm font-bold uppercase tracking-widest">Growth Metric</p>
                             <h4 className="text-3xl font-black">Market Expansion</h4>
@@ -135,7 +138,7 @@ const UnifiedGovernanceHub: React.FC = () => {
                         <div className="h-12 w-12 bg-white/10 rounded-2xl flex items-center justify-center relative z-10 backdrop-blur-sm">
                             <Award className="w-6 h-6" />
                         </div>
-                    </div>
+                    </motion.div>
 
                     <div className="bg-white p-8 rounded-[2rem] border border-gray-100 shadow-xl shadow-gray-100/50">
                         <h4 className="text-xl font-bold mb-6">Certified Security Pro</h4>

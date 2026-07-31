@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import PaymentStatusBadge from '../shared/PaymentStatusBadge';
@@ -236,7 +237,7 @@ const PaymentRecording: React.FC = () => {
             </div>
 
             {/* Payment Form */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                 <form onSubmit={handleSubmit} className="space-y-6">
                     {/* Teacher Selection */}
                     <div>
@@ -285,8 +286,9 @@ const PaymentRecording: React.FC = () => {
                         </div>
                     )}
 
+                    <AnimatePresence>
                     {formData.payslip_id !== '' && (
-                        <>
+                        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="space-y-6 overflow-hidden">
                             {/* Payment Details */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
@@ -460,19 +462,22 @@ const PaymentRecording: React.FC = () => {
 
                             {/* Submit Button */}
                             <div className="flex space-x-3 pt-4">
-                                <button
+                                <motion.button
+                                    whileHover={!submitting ? { scale: 1.01 } : {}}
+                                    whileTap={!submitting ? { scale: 0.98 } : {}}
                                     type="submit"
                                     disabled={submitting}
                                     className="flex-1 flex items-center justify-center space-x-2 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium disabled:bg-gray-400"
                                 >
                                     <CheckCircleIcon className="w-5 h-5" />
                                     <span>{submitting ? 'Recording...' : 'Record Payment'}</span>
-                                </button>
+                                </motion.button>
                             </div>
-                        </>
+                        </motion.div>
                     )}
+                    </AnimatePresence>
                 </form>
-            </div>
+            </motion.div>
         </div>
     );
 };

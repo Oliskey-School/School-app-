@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
 import {
@@ -316,19 +317,20 @@ const CustomReportBuilder = () => {
                         <span>Build custom reports from any data source.</span>
                     </div>
                 </div>
-                <button onClick={() => setShowSaved(!showSaved)} className="flex items-center space-x-2 bg-white border border-gray-200 px-5 py-2.5 rounded-2xl hover:bg-gray-50 transition-all font-bold text-gray-600">
+                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => setShowSaved(!showSaved)} className="flex items-center space-x-2 bg-white border border-gray-200 px-5 py-2.5 rounded-2xl hover:bg-gray-50 transition-all font-bold text-gray-600">
                     <FileSpreadsheet className="w-5 h-5" />
                     <span>Saved Reports ({savedReports.length})</span>
-                </button>
+                </motion.button>
             </header>
 
             {/* Saved Reports Drawer */}
+            <AnimatePresence>
             {showSaved && (
-                <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 space-y-4">
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 space-y-4 overflow-hidden">
                     <h2 className="text-lg font-bold text-gray-800">Saved Report Templates</h2>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {savedReports.map(report => (
-                            <div key={report.id} className="p-4 bg-gray-50 rounded-2xl hover:bg-indigo-50 cursor-pointer transition-colors group relative"
+                        {savedReports.map((report, ri) => (
+                            <motion.div key={report.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: ri * 0.04 }} className="p-4 bg-gray-50 rounded-2xl hover:bg-indigo-50 cursor-pointer transition-colors group relative"
                                 onClick={() => { setSelectedSource(report.data_source); setSelectedFields(report.fields); setStep('preview'); setShowSaved(false); }}>
                                 <h3 className="font-bold text-gray-800 group-hover:text-indigo-600">{report.name}</h3>
                                 <p className="text-sm text-gray-500 mt-1">{report.description}</p>
@@ -339,11 +341,12 @@ const CustomReportBuilder = () => {
                                 <button onClick={(e) => handleDeleteReport(report.id, e)} className="absolute top-3 right-3 p-1.5 opacity-0 group-hover:opacity-100 hover:bg-red-50 rounded-lg text-red-500 transition-all">
                                     <Trash2 className="w-4 h-4" />
                                 </button>
-                            </div>
+                            </motion.div>
                         ))}
                     </div>
-                </div>
+                </motion.div>
             )}
+            </AnimatePresence>
 
             {/* Progress Steps */}
             <div className="flex p-1.5 bg-gray-100 rounded-2xl overflow-x-auto">
@@ -354,37 +357,39 @@ const CustomReportBuilder = () => {
                         else if (s.key === 'filters' && selectedFields.length > 0) setStep('filters');
                         else if (s.key === 'preview' && selectedFields.length > 0) setStep('preview');
                     }}
-                        className={`flex items-center space-x-2 px-5 py-2 rounded-xl transition-all font-bold whitespace-nowrap ${step === s.key ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-                        <span className="text-sm">{s.label}</span>
+                        className={`relative flex items-center space-x-2 px-5 py-2 rounded-xl transition-colors font-bold whitespace-nowrap ${step === s.key ? 'text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}>
+                        {step === s.key && <motion.div layoutId="reportBuilderStep" className="absolute inset-0 bg-white rounded-xl shadow-sm" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />}
+                        <span className="relative text-sm">{s.label}</span>
                     </button>
                 ))}
             </div>
 
+            <AnimatePresence mode="wait">
             {/* Step 1: Data Source */}
             {step === 'source' && (
-                <div className="space-y-6">
+                <motion.div key="source" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="space-y-6">
                     <h2 className="text-lg font-bold text-gray-700">Select Data Source</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {DATA_SOURCES.map(source => {
+                        {DATA_SOURCES.map((source, si) => {
                             const Icon = source.icon;
                             return (
-                            <button key={source.id} onClick={() => { setSelectedSource(source.id); setSelectedFields([]); setStep('fields'); }}
-                                className={`p-6 rounded-3xl border-2 text-left transition-all hover:shadow-md ${selectedSource === source.id ? 'border-indigo-500 bg-indigo-50/50' : 'border-gray-100 bg-white hover:border-indigo-200'}`}>
+                            <motion.button key={source.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: si * 0.04 }} whileHover={{ y: -2 }} onClick={() => { setSelectedSource(source.id); setSelectedFields([]); setStep('fields'); }}
+                                className={`p-6 rounded-3xl border-2 text-left transition-colors hover:shadow-md ${selectedSource === source.id ? 'border-indigo-500 bg-indigo-50/50' : 'border-gray-100 bg-white hover:border-indigo-200'}`}>
                                 <div className={`p-3 rounded-2xl ${source.color} w-fit`}>
                                     <Icon className="w-6 h-6" />
                                 </div>
                                 <h3 className="text-lg font-bold text-gray-900 mt-4">{source.name}</h3>
                                 <p className="text-sm text-gray-500 mt-1">{source.fields.length} available fields</p>
-                            </button>
+                            </motion.button>
                             );
                         })}
                     </div>
-                </div>
+                </motion.div>
             )}
 
             {/* Step 2: Select Fields */}
             {step === 'fields' && currentSource && (
-                <div className="space-y-6">
+                <motion.div key="fields" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="space-y-6">
                     <div className="flex justify-between items-center">
                         <h2 className="text-lg font-bold text-gray-700">Select Columns — {currentSource.name}</h2>
                         <div className="flex space-x-3">
@@ -411,12 +416,12 @@ const CustomReportBuilder = () => {
                         <button onClick={() => setStep('source')} className="px-6 py-3 border border-gray-100 rounded-2xl text-gray-600 font-bold hover:bg-gray-50">← Back</button>
                         <button onClick={() => { if (selectedFields.length === 0) { toast.error('Select at least one column'); return; } setStep('filters'); }} className="px-8 py-3 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-100">Next → Filters</button>
                     </div>
-                </div>
+                </motion.div>
             )}
 
             {/* Step 3: Filters */}
             {step === 'filters' && (
-                <div className="space-y-6">
+                <motion.div key="filters" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="space-y-6">
                     <div className="flex justify-between items-center">
                         <h2 className="text-lg font-bold text-gray-700">Add Filters (Optional)</h2>
                         <button onClick={handleAddFilter} className="flex items-center space-x-2 bg-white border border-gray-200 px-4 py-2 rounded-2xl hover:bg-gray-50 transition-all font-bold text-gray-600">
@@ -455,12 +460,12 @@ const CustomReportBuilder = () => {
                         <button onClick={() => setStep('fields')} className="px-6 py-3 border border-gray-100 rounded-2xl text-gray-600 font-bold hover:bg-gray-50">← Back</button>
                         <button onClick={() => setStep('preview')} className="px-8 py-3 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-100">Next → Preview</button>
                     </div>
-                </div>
+                </motion.div>
             )}
 
             {/* Step 4: Preview */}
             {step === 'preview' && (
-                <div className="space-y-6">
+                <motion.div key="preview" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="space-y-6">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <h2 className="text-lg font-bold text-gray-700">Report Preview</h2>
                         <div className="flex items-center space-x-3">
@@ -531,8 +536,9 @@ const CustomReportBuilder = () => {
                         <button onClick={() => setStep('filters')} className="px-6 py-3 border border-gray-100 rounded-2xl text-gray-600 font-bold hover:bg-gray-50">← Back to Filters</button>
                         <button onClick={() => { setStep('source'); setSelectedSource(null); setSelectedFields([]); setFilters([]); setGroupBy(''); }} className="px-6 py-3 text-indigo-600 font-bold hover:underline">Build New Report</button>
                     </div>
-                </div>
+                </motion.div>
             )}
+            </AnimatePresence>
         </div>
     );
 };

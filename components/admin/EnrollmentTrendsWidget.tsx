@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import {
     TrendingUp,
@@ -11,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
+import CenteredLoader from '../ui/CenteredLoader';
 
 interface MonthData {
     month: string;
@@ -55,35 +57,39 @@ const EnrollmentTrendsWidget = () => {
                     <h3 className="font-bold text-gray-800 font-outfit text-lg">Enrollment Trends</h3>
                     <p className="text-xs text-gray-400">Real-time enrollment tracking</p>
                 </div>
-                <div className="flex p-0.5 bg-gray-100 rounded-lg">
-                    <button onClick={() => setPeriod('6m')} className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${period === '6m' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-500'}`}>6M</button>
-                    <button onClick={() => setPeriod('12m')} className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${period === '12m' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-500'}`}>12M</button>
+                <div className="relative flex p-0.5 bg-gray-100 rounded-lg">
+                    <button onClick={() => setPeriod('6m')} className={`relative px-3 py-1 rounded-md text-xs font-bold transition-colors ${period === '6m' ? 'text-indigo-600' : 'text-gray-500'}`}>
+                        {period === '6m' && <motion.div layoutId="enrollTrendTab" className="absolute inset-0 bg-white shadow-sm rounded-md" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />}
+                        <span className="relative">6M</span>
+                    </button>
+                    <button onClick={() => setPeriod('12m')} className={`relative px-3 py-1 rounded-md text-xs font-bold transition-colors ${period === '12m' ? 'text-indigo-600' : 'text-gray-500'}`}>
+                        {period === '12m' && <motion.div layoutId="enrollTrendTab" className="absolute inset-0 bg-white shadow-sm rounded-md" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />}
+                        <span className="relative">12M</span>
+                    </button>
                 </div>
             </div>
 
             {loading ? (
-                <div className="flex items-center justify-center h-48">
-                    <RefreshCw className="w-6 h-6 text-indigo-500 animate-spin" />
-                </div>
+                <CenteredLoader className="h-48" />
             ) : (
                 <>
                     {/* Mini stats */}
                     <div className="grid grid-cols-3 gap-3 mb-5">
-                        <div className="bg-emerald-50 p-3 rounded-xl text-center">
+                        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="bg-emerald-50 p-3 rounded-xl text-center">
                             <p className="text-xl font-bold text-emerald-700">{totalEnrolled}</p>
                             <p className="text-xs font-bold text-emerald-500">Enrolled</p>
-                        </div>
-                        <div className="bg-red-50 p-3 rounded-xl text-center">
+                        </motion.div>
+                        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.03 }} className="bg-red-50 p-3 rounded-xl text-center">
                             <p className="text-xl font-bold text-red-700">{totalWithdrawn}</p>
                             <p className="text-xs font-bold text-red-500">Withdrawn</p>
-                        </div>
-                        <div className="bg-indigo-50 p-3 rounded-xl text-center">
+                        </motion.div>
+                        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.06 }} className="bg-indigo-50 p-3 rounded-xl text-center">
                             <div className="flex items-center justify-center space-x-1">
                                 {netGrowth >= 0 ? <TrendingUp className="w-4 h-4 text-emerald-600" /> : <TrendingDown className="w-4 h-4 text-red-600" />}
                                 <p className="text-xl font-bold text-indigo-700">{netGrowth > 0 ? `+${netGrowth}` : netGrowth}</p>
                             </div>
                             <p className="text-xs font-bold text-indigo-500">Net Growth</p>
-                        </div>
+                        </motion.div>
                     </div>
 
                     {/* Bar Chart */}
@@ -91,8 +97,8 @@ const EnrollmentTrendsWidget = () => {
                         {displayData.map((d, i) => (
                             <div key={i} className="flex-1 flex flex-col items-center">
                                 <div className="flex flex-col items-center w-full space-y-0.5">
-                                    <div className="w-full bg-emerald-400 rounded-t" style={{ height: `${Math.max((d.enrolled / maxVal) * 100, 2)}px` }} title={`+${d.enrolled} enrolled`} />
-                                    {d.withdrawn > 0 && <div className="w-full bg-red-300 rounded-b" style={{ height: `${Math.max((d.withdrawn / maxVal) * 100, 2)}px` }} title={`-${d.withdrawn} withdrawn`} />}
+                                    <motion.div initial={{ height: 0 }} animate={{ height: `${Math.max((d.enrolled / maxVal) * 100, 2)}px` }} transition={{ duration: 0.5, delay: Math.min(i, 12) * 0.05, ease: 'easeOut' }} className="w-full bg-emerald-400 rounded-t" title={`+${d.enrolled} enrolled`} />
+                                    {d.withdrawn > 0 && <motion.div initial={{ height: 0 }} animate={{ height: `${Math.max((d.withdrawn / maxVal) * 100, 2)}px` }} transition={{ duration: 0.5, delay: Math.min(i, 12) * 0.05 + 0.05, ease: 'easeOut' }} className="w-full bg-red-300 rounded-b" title={`-${d.withdrawn} withdrawn`} />}
                                 </div>
                                 <span className="text-xs text-gray-400 mt-1 font-bold">{d.month.split(' ')[0].slice(0, 3)}</span>
                             </div>

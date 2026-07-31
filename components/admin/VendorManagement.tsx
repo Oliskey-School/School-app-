@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { PlusIcon, TrashIcon, EditIcon, X } from 'lucide-react';
 import { useAutoSync } from '../../hooks/useAutoSync';
+import CenteredLoader from '../ui/CenteredLoader';
 
 const EMPTY_FORM = {
     vendor_name: '',
@@ -105,17 +107,19 @@ const VendorManagement = () => {
                         <h2 className="text-xl font-bold text-gray-800">Vendor Management</h2>
                         <p className="text-sm text-gray-500">Manage suppliers and purchase orders</p>
                     </div>
-                    <button
+                    <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={openCreate}
                         className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
                     >
                         <PlusIcon size={20} />
                         <span>Add Vendor</span>
-                    </button>
+                    </motion.button>
                 </div>
 
                 {loading ? (
-                    <div className="py-8 text-center text-gray-500">Loading vendors...</div>
+                    <CenteredLoader message="Loading vendors..." className="py-8" />
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="min-w-full divide-y divide-gray-200">
@@ -137,8 +141,8 @@ const VendorManagement = () => {
                                         </td>
                                     </tr>
                                 ) : (
-                                    vendors.map((vendor) => (
-                                        <tr key={vendor.id} className="hover:bg-gray-50">
+                                    vendors.map((vendor, vi) => (
+                                        <motion.tr key={vendor.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(vi, 15) * 0.02 }} className="hover:bg-gray-50">
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="font-medium text-gray-900">{vendor.vendor_name}</div>
                                                 <div className="text-xs text-gray-500">{vendor.vendor_code}</div>
@@ -163,7 +167,7 @@ const VendorManagement = () => {
                                                 <button onClick={() => openEdit(vendor)} className="text-indigo-600 hover:text-indigo-900 mr-3"><EditIcon size={16} /></button>
                                                 <button onClick={() => handleDelete(vendor)} className="text-red-600 hover:text-red-900"><TrashIcon size={16} /></button>
                                             </td>
-                                        </tr>
+                                        </motion.tr>
                                     ))
                                 )}
                             </tbody>
@@ -172,12 +176,13 @@ const VendorManagement = () => {
                 )}
             </div>
 
+            <AnimatePresence>
             {showModal && (
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4" onClick={() => !saving && setShowModal(false)}>
-                    <div className="bg-white rounded-xl shadow-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4" onClick={() => !saving && setShowModal(false)}>
+                    <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} transition={{ type: 'spring', stiffness: 400, damping: 32 }} className="bg-white rounded-xl shadow-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-between p-5 border-b border-gray-100">
                             <h3 className="text-lg font-bold text-gray-800">{editingId ? 'Edit Vendor' : 'Add Vendor'}</h3>
-                            <button onClick={() => setShowModal(false)} className="p-1 text-gray-400 hover:text-gray-600 rounded-full"><X size={20} /></button>
+                            <motion.button whileTap={{ scale: 0.9 }} onClick={() => setShowModal(false)} className="p-1 text-gray-400 hover:text-gray-600 rounded-full"><X size={20} /></motion.button>
                         </div>
                         <div className="p-5 space-y-4">
                             <div>
@@ -244,16 +249,17 @@ const VendorManagement = () => {
                             </div>
                         </div>
                         <div className="flex gap-3 p-5 border-t border-gray-100">
-                            <button onClick={() => setShowModal(false)} disabled={saving} className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 transition-colors disabled:opacity-50">
+                            <motion.button whileHover={!saving ? { scale: 1.02 } : {}} whileTap={!saving ? { scale: 0.98 } : {}} onClick={() => setShowModal(false)} disabled={saving} className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 transition-colors disabled:opacity-50">
                                 Cancel
-                            </button>
-                            <button onClick={handleSave} disabled={saving} className="flex-1 py-2.5 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50">
+                            </motion.button>
+                            <motion.button whileHover={!saving ? { scale: 1.02 } : {}} whileTap={!saving ? { scale: 0.98 } : {}} onClick={handleSave} disabled={saving} className="flex-1 py-2.5 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50">
                                 {saving ? 'Saving...' : editingId ? 'Update Vendor' : 'Add Vendor'}
-                            </button>
+                            </motion.button>
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
         </div>
     );
 };

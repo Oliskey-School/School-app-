@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { AlertTriangle, CheckCircle2, RefreshCcw, ShieldAlert } from 'lucide-react';
+import CenteredLoader from '../ui/CenteredLoader';
 
 interface RiskReason { category: string; detail: string; points: number; }
 interface FlaggedStudent {
@@ -77,10 +79,10 @@ const AtRiskStudentsScreen = () => {
                     <h1 className="text-2xl font-bold text-gray-900 font-outfit">At-Risk Students</h1>
                     <p className="text-gray-500">Students flagged from attendance, homework, fees, behaviour, and exam scores.</p>
                 </div>
-                <button onClick={handleScan} disabled={scanning}
+                <motion.button whileHover={!scanning ? { scale: 1.02 } : {}} whileTap={!scanning ? { scale: 0.98 } : {}} onClick={handleScan} disabled={scanning}
                     className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl font-semibold text-sm hover:bg-indigo-700 disabled:opacity-60">
                     <RefreshCcw className={`w-4 h-4 ${scanning ? 'animate-spin' : ''}`} /> {scanning ? 'Scanning...' : 'Run Scan Now'}
-                </button>
+                </motion.button>
             </div>
 
             <div className="bg-white p-1.5 rounded-2xl shadow-sm border border-gray-100 flex gap-1 w-fit">
@@ -93,7 +95,7 @@ const AtRiskStudentsScreen = () => {
             </div>
 
             {loading ? (
-                <div className="text-center py-12 text-gray-500">Loading...</div>
+                <CenteredLoader className="py-12" />
             ) : students.length === 0 ? (
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
                     <CheckCircle2 className="w-12 h-12 text-green-300 mx-auto mb-4" />
@@ -102,8 +104,8 @@ const AtRiskStudentsScreen = () => {
                 </div>
             ) : (
                 <div className="space-y-4">
-                    {students.map(s => (
-                        <div key={s.id} className={`bg-white rounded-2xl shadow-sm border p-5 ${LEVEL_STYLES[s.level] || 'border-gray-100'}`}>
+                    {students.map((s, si) => (
+                        <motion.div key={s.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(si, 15) * 0.03 }} className={`bg-white rounded-2xl shadow-sm border p-5 ${LEVEL_STYLES[s.level] || 'border-gray-100'}`}>
                             <div className="flex flex-wrap items-start justify-between gap-3">
                                 <div className="flex items-center gap-3">
                                     <ShieldAlert className="w-8 h-8 flex-shrink-0" />
@@ -128,7 +130,7 @@ const AtRiskStudentsScreen = () => {
                                     </li>
                                 ))}
                             </ul>
-                        </div>
+                        </motion.div>
                     ))}
                 </div>
             )}

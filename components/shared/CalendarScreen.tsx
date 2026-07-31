@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { ChevronLeftIcon, ChevronRightIcon, EVENT_TYPE_CONFIG, CakeIcon, CalendarIcon, ClockIcon } from '../../constants';
@@ -126,23 +127,34 @@ const CalendarScreen: React.FC<CalendarScreenProps & { schoolId?: string }> = ({
                 <div className="bg-white rounded-3xl shadow-xl shadow-gray-100 p-6 border border-gray-100">
                     {/* Header */}
                     <div className="flex justify-between items-center mb-8">
-                        <button
+                        <motion.button
+                            whileTap={{ scale: 0.9 }}
                             onClick={goToPreviousMonth}
                             className="p-3 rounded-xl hover:bg-gray-50 text-gray-400 hover:text-green-600 transition-colors"
                             aria-label="Previous month"
                         >
                             <ChevronLeftIcon className="h-6 w-6" />
-                        </button>
-                        <h3 className="font-extrabold text-xl text-gray-800 tracking-tight">
-                            {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
-                        </h3>
-                        <button
+                        </motion.button>
+                        <AnimatePresence mode="wait">
+                            <motion.h3
+                                key={currentDate.toISOString().slice(0, 7)}
+                                initial={{ opacity: 0, y: -6 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: 6 }}
+                                transition={{ duration: 0.15 }}
+                                className="font-extrabold text-xl text-gray-800 tracking-tight"
+                            >
+                                {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
+                            </motion.h3>
+                        </AnimatePresence>
+                        <motion.button
+                            whileTap={{ scale: 0.9 }}
                             onClick={goToNextMonth}
                             className="p-3 rounded-xl hover:bg-gray-50 text-gray-400 hover:text-green-600 transition-colors"
                             aria-label="Next month"
                         >
                             <ChevronRightIcon className="h-6 w-6" />
-                        </button>
+                        </motion.button>
                     </div>
 
                     {/* Week Days */}
@@ -168,9 +180,10 @@ const CalendarScreen: React.FC<CalendarScreenProps & { schoolId?: string }> = ({
 
                             return (
                                 <div key={day.toString()} className="flex flex-col items-center py-1">
-                                    <button
+                                    <motion.button
+                                        whileTap={{ scale: 0.92 }}
                                         onClick={() => setSelectedDate(day)}
-                                        className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-medium transition-all duration-200 relative
+                                        className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-medium transition-colors duration-200 relative
                                         ${isSelected
                                                 ? 'bg-green-600 text-white shadow-lg shadow-green-200 scale-110 z-10'
                                                 : isToday
@@ -189,7 +202,7 @@ const CalendarScreen: React.FC<CalendarScreenProps & { schoolId?: string }> = ({
                                                 <span className={`h-1 w-1 rounded-full ${isSelected ? 'bg-white' : 'bg-green-500'}`}></span>
                                             )}
                                         </div>
-                                    </button>
+                                    </motion.button>
                                 </div>
                             );
                         })}
@@ -207,7 +220,12 @@ const CalendarScreen: React.FC<CalendarScreenProps & { schoolId?: string }> = ({
                         </h3>
                     </div>
 
-                    {selectedDateEvents.length === 0 && selectedDateBirthdays.length === 0 ? (
+                    {loading ? (
+                        <div className="bg-white rounded-3xl p-10 text-center border border-gray-100 flex flex-col items-center">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mb-4" />
+                            <p className="text-gray-400 text-sm">Loading events...</p>
+                        </div>
+                    ) : selectedDateEvents.length === 0 && selectedDateBirthdays.length === 0 ? (
                         <div className="bg-white rounded-3xl p-10 text-center border border-gray-100 flex flex-col items-center">
                             <div className="bg-gray-50 p-4 rounded-full mb-4">
                                 <CalendarIcon className="w-8 h-8 text-gray-300" />
@@ -219,7 +237,14 @@ const CalendarScreen: React.FC<CalendarScreenProps & { schoolId?: string }> = ({
                         <div className="space-y-4">
                             {/* Birthdays */}
                             {selectedDateBirthdays.map((bday, index) => (
-                                <div key={`bday-${index}`} className="group bg-gradient-to-r from-pink-50 to-white rounded-2xl p-5 border border-pink-100 shadow-sm flex items-center space-x-4 transition-transform hover:scale-[1.01]">
+                                <motion.div
+                                    key={`bday-${index}`}
+                                    initial={{ opacity: 0, y: 8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.2, delay: index * 0.05 }}
+                                    whileHover={{ scale: 1.01 }}
+                                    className="group bg-gradient-to-r from-pink-50 to-white rounded-2xl p-5 border border-pink-100 shadow-sm"
+                                ><div className="flex items-center space-x-4">
                                     <div className="p-3 bg-pink-500 text-white rounded-xl shadow-md shadow-pink-200">
                                         <CakeIcon className="w-6 h-6" />
                                     </div>
@@ -229,6 +254,7 @@ const CalendarScreen: React.FC<CalendarScreenProps & { schoolId?: string }> = ({
                                         <p className="text-sm text-gray-500">Don't forget to send wishes!</p>
                                     </div>
                                 </div>
+                                </motion.div>
                             ))}
 
                             {/* Events timeline */}
@@ -237,7 +263,13 @@ const CalendarScreen: React.FC<CalendarScreenProps & { schoolId?: string }> = ({
                                 const Icon = config.icon;
 
                                 return (
-                                    <div key={event.id} className="relative pl-6">
+                                    <motion.div
+                                        key={event.id}
+                                        initial={{ opacity: 0, y: 8 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ duration: 0.2, delay: idx * 0.05 }}
+                                        className="relative pl-6"
+                                    >
                                         {/* Timeline line */}
                                         {idx !== selectedDateEvents.length - 1 && (
                                             <div className="absolute left-6 top-8 bottom-[-16px] w-0.5 bg-gray-200"></div>
@@ -272,7 +304,7 @@ const CalendarScreen: React.FC<CalendarScreenProps & { schoolId?: string }> = ({
                                                 {/* Attendees or extra info could go here */}
                                             </div>
                                         </div>
-                                    </div>
+                                    </motion.div>
                                 );
                             })}
                         </div>

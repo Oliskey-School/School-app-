@@ -48,17 +48,8 @@ export const PaystackButton: React.FC<PaystackButtonProps> = ({ fee, email, onSu
 
             // Send payment confirmation notification
             try {
-                // Fetch the transaction that was just verified
-                const { data: transaction } = await api
-                    .from('transactions')
-                    .select('id')
-                    .eq('reference', reference.reference)
-                    .single();
-
-                if (transaction?.id) {
-                    const { sendPaymentConfirmation } = await import('../../lib/payment-notifications');
-                    await sendPaymentConfirmation({ transactionId: transaction.id });
-                }
+                const { sendPaymentConfirmation } = await import('../../lib/payment-notifications');
+                await sendPaymentConfirmation({ reference: reference.reference });
             } catch (notifError) {
                 console.error('Error sending payment notification:', notifError);
                 // Don't fail the payment if notification fails

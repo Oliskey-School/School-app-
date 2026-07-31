@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, RotateCcw, Check, Layers, Square } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -153,12 +154,12 @@ const AppearancePanel: React.FC = () => {
         <div className="mt-6">
           <p className="text-[11px] font-black text-gray-500 uppercase tracking-widest mb-2">Theme</p>
           <div className="grid grid-cols-2 gap-2">
-            <button onClick={() => update({ mode: 'normal' })} className={modeBtn(a.mode === 'normal')}>
+            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => update({ mode: 'normal' })} className={modeBtn(a.mode === 'normal')}>
               <Square className="w-4 h-4" /> Normal
-            </button>
-            <button onClick={() => update({ mode: 'glass' })} className={modeBtn(a.mode === 'glass')}>
+            </motion.button>
+            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => update({ mode: 'glass' })} className={modeBtn(a.mode === 'glass')}>
               <Layers className="w-4 h-4" /> Liquid Glass
-            </button>
+            </motion.button>
           </div>
         </div>
 
@@ -169,16 +170,17 @@ const AppearancePanel: React.FC = () => {
             {Object.entries(ACCENTS).map(([key, { label, swatch }]) => {
               const active = a.accent === key;
               return (
-                <button
+                <motion.button
                   key={key}
+                  whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}
                   onClick={() => update({ accent: key })}
                   title={label}
                   aria-label={label}
-                  className="w-9 h-9 rounded-full flex items-center justify-center transition-transform hover:scale-110 active:scale-95"
+                  className="w-9 h-9 rounded-full flex items-center justify-center"
                   style={{ background: swatch, boxShadow: active ? `0 0 0 2px #fff, 0 0 0 4px ${swatch}` : 'none' }}
                 >
                   {active && <Check className="w-4 h-4 text-white" strokeWidth={3} />}
-                </button>
+                </motion.button>
               );
             })}
           </div>
@@ -186,23 +188,26 @@ const AppearancePanel: React.FC = () => {
         </div>
 
         {/* Glass fine-tuning (glass mode only) */}
+        <AnimatePresence>
         {a.mode === 'glass' && (
-          <div className="mt-6 pt-5 border-t border-gray-200/70">
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mt-6 pt-5 border-t border-gray-200/70 overflow-hidden">
             <p className="text-[11px] font-black text-gray-500 uppercase tracking-widest mb-3">Glass fine-tuning</p>
             <Slider label="Blur" min={0} max={40} step={1} value={a.glass.blur} display={`${a.glass.blur}px`} onChange={(v) => updateGlass({ blur: v })} />
             <Slider label="Frost" min={0.3} max={0.95} step={0.01} value={a.glass.opacity} display={`${Math.round(a.glass.opacity * 100)}%`} onChange={(v) => updateGlass({ opacity: v })} />
             <Slider label="Sheen" min={0} max={1} step={0.01} value={a.glass.sheen} display={`${Math.round(a.glass.sheen * 100)}%`} onChange={(v) => updateGlass({ sheen: v })} />
             <Slider label="Vividness" min={100} max={220} step={5} value={a.glass.saturate} display={`${a.glass.saturate}%`} onChange={(v) => updateGlass({ saturate: v })} />
             <Slider label="Depth" min={0} max={0.3} step={0.01} value={a.glass.shadow} display={`${Math.round(a.glass.shadow * 100)}%`} onChange={(v) => updateGlass({ shadow: v })} />
-          </div>
+          </motion.div>
         )}
+        </AnimatePresence>
 
-        <button
+        <motion.button
+          whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
           onClick={() => save(DEFAULTS)}
           className="mt-6 w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-2xl bg-indigo-600 text-white text-[11px] font-black uppercase tracking-wide hover:bg-indigo-500 transition-colors"
         >
           <RotateCcw className="w-3.5 h-3.5" /> Reset to default
-        </button>
+        </motion.button>
       </div>
     </div>
   );

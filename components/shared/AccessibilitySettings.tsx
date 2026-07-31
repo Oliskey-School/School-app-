@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { useProfile } from '../../context/ProfileContext';
 import { toast } from 'react-hot-toast';
 
@@ -65,7 +66,7 @@ const AccessibilitySettings: React.FC = () => {
 
     return (
         <div className="p-6 max-w-2xl mx-auto">
-            <div className="bg-white rounded-xl shadow-lg p-8">
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="bg-white rounded-xl shadow-lg p-8">
                 <h2 className="text-2xl font-bold text-gray-900 mb-6">Accessibility Settings</h2>
 
                 <div className="space-y-6">
@@ -152,15 +153,16 @@ const AccessibilitySettings: React.FC = () => {
                         </select>
                     </div>
 
-                    <button
+                    <motion.button
+                        whileHover={!loading ? { scale: 1.01 } : {}} whileTap={!loading ? { scale: 0.98 } : {}}
                         onClick={handleSave}
                         disabled={loading}
                         className="w-full px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-bold disabled:opacity-50"
                     >
                         {loading ? 'Saving...' : 'Save Settings'}
-                    </button>
+                    </motion.button>
                 </div>
-            </div>
+            </motion.div>
         </div>
     );
 };

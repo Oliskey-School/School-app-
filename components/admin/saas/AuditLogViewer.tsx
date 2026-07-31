@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { api } from '../../../lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
+import CenteredLoader from '../../ui/CenteredLoader';
 import {
     Shield,
     Search,
@@ -141,20 +143,22 @@ export const AuditLogViewer: React.FC<AuditLogViewerProps> = ({ navigateTo }) =>
                     <p className="text-gray-600 mt-1">Security and activity monitoring</p>
                 </div>
                 <div className="flex gap-2">
-                    <button
+                    <motion.button
+                        whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                         onClick={fetchAuditLogs}
                         className="flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
                     >
                         <RefreshCw className="w-4 h-4 mr-2" />
                         Refresh
-                    </button>
-                    <button
+                    </motion.button>
+                    <motion.button
+                        whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                         onClick={exportToCSV}
                         className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
                     >
                         <Download className="w-4 h-4 mr-2" />
                         Export CSV
-                    </button>
+                    </motion.button>
                 </div>
             </div>
 
@@ -257,9 +261,7 @@ export const AuditLogViewer: React.FC<AuditLogViewerProps> = ({ navigateTo }) =>
                 </CardHeader>
                 <CardContent>
                     {loading ? (
-                        <div className="flex justify-center items-center py-12">
-                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-                        </div>
+                        <CenteredLoader className="py-12" />
                     ) : filteredLogs.length === 0 ? (
                         <div className="text-center py-12 text-gray-500">
                             No audit logs found
@@ -278,8 +280,8 @@ export const AuditLogViewer: React.FC<AuditLogViewerProps> = ({ navigateTo }) =>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                    {filteredLogs.map((log) => (
-                                        <tr key={log.id} className="hover:bg-gray-50">
+                                    {filteredLogs.map((log, li) => (
+                                        <motion.tr key={log.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(li, 15) * 0.02 }} className="hover:bg-gray-50">
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                 {formatDate(log.created_at)}
                                             </td>
@@ -319,7 +321,7 @@ export const AuditLogViewer: React.FC<AuditLogViewerProps> = ({ navigateTo }) =>
                                                     </details>
                                                 )}
                                             </td>
-                                        </tr>
+                                        </motion.tr>
                                     ))}
                                 </tbody>
                             </table>

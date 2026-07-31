@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { CalendarIcon, EyeIcon, EditIcon, PlusIcon, CheckCircleIcon, ClockIcon, TIMETABLE_PERIODS, TIMETABLE_DOW } from '../../constants';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
+import CenteredLoader from '../ui/CenteredLoader';
 
 
 interface TimetableOverviewProps {
@@ -109,11 +111,7 @@ const TimetableOverview: React.FC<TimetableOverviewProps> = ({ navigateTo, schoo
     };
 
     if (loading) {
-        return (
-            <div className="flex items-center justify-center h-full">
-                <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-indigo-600"></div>
-            </div>
-        );
+        return <CenteredLoader className="h-full" />;
     }
 
     return (
@@ -125,13 +123,15 @@ const TimetableOverview: React.FC<TimetableOverviewProps> = ({ navigateTo, schoo
                         <h2 className="text-2xl font-bold text-gray-800">Timetable Management</h2>
                         <p className="text-gray-600 text-sm mt-1">Manage schedules for Junior and Senior Secondary</p>
                     </div>
-                    <button
+                    <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={() => navigateTo('timetableGenerator', 'Generate Timetable')}
                         className="flex items-center justify-center space-x-2 px-4 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm font-semibold"
                     >
                         <PlusIcon className="w-5 h-5" />
                         <span>Create New Timetable</span>
-                    </button>
+                    </motion.button>
                 </div>
 
                 {/* Level Tabs (Main Switch) */}
@@ -145,7 +145,7 @@ const TimetableOverview: React.FC<TimetableOverviewProps> = ({ navigateTo, schoo
                         >
                             {level} Secondary
                             {levelFilter === level && (
-                                <span className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-600 rounded-t-full"></span>
+                                <motion.span layoutId="timetableLevelTab" className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-600 rounded-t-full" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />
                             )}
                         </button>
                     ))}
@@ -180,10 +180,14 @@ const TimetableOverview: React.FC<TimetableOverviewProps> = ({ navigateTo, schoo
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {filteredTimetables.map((tt) => (
-                            <div
+                        {filteredTimetables.map((tt, ti) => (
+                            <motion.div
                                 key={tt.className}
-                                className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-lg transition-all duration-200 group"
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.2, delay: Math.min(ti, 15) * 0.04 }}
+                                whileHover={{ y: -2 }}
+                                className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-lg transition-shadow duration-200 group"
                             >
                                 <div className="flex items-start justify-between mb-4">
                                     <div className="flex items-center space-x-3">
@@ -269,7 +273,7 @@ const TimetableOverview: React.FC<TimetableOverviewProps> = ({ navigateTo, schoo
                                         <span>Manage</span>
                                     </button>
                                 </div>
-                            </div>
+                            </motion.div>
                         ))}
                     </div>
                 )}

@@ -121,16 +121,8 @@ export const FlutterwaveWrapper: React.FC<FlutterwaveWrapperProps> = ({
                             await verifyTransaction(txRef);
 
                             // Send payment confirmation
-                            const { data: transaction } = await api
-                                .from('transactions')
-                                .select('id')
-                                .eq('reference', txRef)
-                                .single();
-
-                            if (transaction?.id) {
-                                const { sendPaymentConfirmation } = await import('../../lib/payment-notifications');
-                                await sendPaymentConfirmation({ transactionId: transaction.id });
-                            }
+                            const { sendPaymentConfirmation } = await import('../../lib/payment-notifications');
+                            await sendPaymentConfirmation({ reference: txRef });
 
                             toast.success('Payment successful!');
                             if (onSuccess) onSuccess();

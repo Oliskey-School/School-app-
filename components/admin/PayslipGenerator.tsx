@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { generatePayslip, savePayslip, approvePayslip, PayslipItem, generateBulkPayslips } from '../../lib/payslipGenerator';
@@ -197,13 +198,14 @@ const PayslipGenerator: React.FC = () => {
                     <h2 className="text-2xl font-bold text-gray-900">Payslip Generator</h2>
                     <p className="text-sm text-gray-600 mt-1">Generate monthly payslips for teachers</p>
                 </div>
-                <button
+                <motion.button
+                    whileHover={!generating ? { scale: 1.02 } : {}} whileTap={!generating ? { scale: 0.98 } : {}}
                     onClick={handleBulkGenerate}
                     disabled={generating}
                     className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium disabled:bg-gray-400"
                 >
                     Bulk Generate All
-                </button>
+                </motion.button>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -317,13 +319,14 @@ const PayslipGenerator: React.FC = () => {
                         </div>
                     </div>
 
-                    <button
+                    <motion.button
+                        whileHover={!generating && selectedTeacher ? { scale: 1.01 } : {}} whileTap={!generating && selectedTeacher ? { scale: 0.98 } : {}}
                         onClick={handleGeneratePreview}
                         disabled={generating || !selectedTeacher}
                         className="w-full px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium disabled:bg-gray-400"
                     >
                         {generating ? 'Generating...' : 'Generate Preview'}
-                    </button>
+                    </motion.button>
                 </div>
 
                 {/* Preview */}
@@ -331,7 +334,7 @@ const PayslipGenerator: React.FC = () => {
                     <h3 className="text-lg font-bold text-gray-900 mb-4">Payslip Preview</h3>
 
                     {preview ? (
-                        <div className="space-y-4">
+                        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="space-y-4">
                             <div className="p-4 bg-gray-50 rounded-lg">
                                 <h4 className="font-semibold text-gray-900">{preview.teacher_name}</h4>
                                 <p className="text-sm text-gray-600">
@@ -370,14 +373,15 @@ const PayslipGenerator: React.FC = () => {
                                 </div>
                             </div>
 
-                            <button
+                            <motion.button
+                                whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
                                 onClick={handleSavePayslip}
                                 className="w-full px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center justify-center space-x-2"
                             >
                                 <CheckCircleIcon className="w-5 h-5" />
                                 <span>Save Payslip</span>
-                            </button>
-                        </div>
+                            </motion.button>
+                        </motion.div>
                     ) : (
                         <div className="text-center py-12 text-gray-500">
                             <DocumentTextIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />

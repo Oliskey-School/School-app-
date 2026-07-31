@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { motion } from 'framer-motion';
 import { DashboardType } from '../../types';
 import { api } from '../../lib/api';
 import { useProfile } from '../../context/ProfileContext';
@@ -205,8 +206,19 @@ const GlobalSearchScreen: React.FC<GlobalSearchScreenProps> = ({ dashboardType, 
     };
 
     return (
-        <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex flex-col animate-fade-in">
-            <div className="p-4 border-b border-gray-200">
+        <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex flex-col"
+        >
+            <motion.div
+                initial={{ opacity: 0, y: -12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25, delay: 0.05 }}
+                className="p-4 border-b border-gray-200"
+            >
                 <div className="relative">
                     <span className="absolute inset-y-0 left-0 flex items-center pl-3">
                         <SearchIcon className="text-gray-500" />
@@ -219,14 +231,14 @@ const GlobalSearchScreen: React.FC<GlobalSearchScreenProps> = ({ dashboardType, 
                         autoFocus
                         className={`w-full pl-10 pr-10 py-3 text-lg bg-white border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent ${isSearching ? 'opacity-70' : ''}`}
                     />
-                    <button onClick={onClose} className="absolute inset-y-0 right-0 flex items-center pr-3">
+                    <motion.button whileTap={{ scale: 0.9 }} onClick={onClose} className="absolute inset-y-0 right-0 flex items-center pr-3">
                         <XCircleIcon className="text-gray-400 hover:text-gray-600 w-7 h-7" />
-                    </button>
+                    </motion.button>
                     <div className="absolute right-12 inset-y-0 flex items-center">
                         <VoiceSearchWidget onSearch={(text) => setSearchTerm(text)} showInput={false} />
                     </div>
                 </div>
-            </div>
+            </motion.div>
             <div className="flex-grow overflow-y-auto p-4">
                 {searchTerm.trim().length > 1 && results.length === 0 && (
                     <div className="text-center py-16">
@@ -235,12 +247,27 @@ const GlobalSearchScreen: React.FC<GlobalSearchScreenProps> = ({ dashboardType, 
                     </div>
                 )}
                 {/* FIX: Explicitly typed the parameters of the `map` callback to resolve a TypeScript type inference issue. */}
-                {Object.entries(groupedResults).map(([type, items]: [string, SearchResult[]]) => (
-                    <div key={type} className="mb-6">
+                {Object.entries(groupedResults).map(([type, items]: [string, SearchResult[]], groupIdx) => (
+                    <motion.div
+                        key={type}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.2, delay: Math.min(groupIdx, 6) * 0.05 }}
+                        className="mb-6"
+                    >
                         <h3 className="font-bold text-gray-500 uppercase text-sm tracking-wider px-2 mb-2">{type}s</h3>
                         <div className="space-y-2">
-                            {items.map(item => (
-                                <button key={item.id} onClick={() => handleResultClick(item)} className="w-full text-left flex items-center p-3 bg-white rounded-lg shadow-sm hover:bg-sky-50 transition-colors">
+                            {items.map((item, i) => (
+                                <motion.button
+                                    key={item.id}
+                                    initial={{ opacity: 0, y: 6 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.15, delay: Math.min(i, 10) * 0.03 }}
+                                    whileHover={{ x: 2 }}
+                                    whileTap={{ scale: 0.98 }}
+                                    onClick={() => handleResultClick(item)}
+                                    className="w-full text-left flex items-center p-3 bg-white rounded-lg shadow-sm hover:shadow-md hover:bg-sky-50 transition-colors"
+                                >
                                     <div className="p-2 bg-gray-100 rounded-lg mr-4">
                                         {getIconForType(item.type as SearchResult['type'])}
                                     </div>
@@ -248,13 +275,13 @@ const GlobalSearchScreen: React.FC<GlobalSearchScreenProps> = ({ dashboardType, 
                                         <p className="font-semibold text-gray-800">{item.title}</p>
                                         <p className="text-sm text-gray-500">{item.subtitle}</p>
                                     </div>
-                                </button>
+                                </motion.button>
                             ))}
                         </div>
-                    </div>
+                    </motion.div>
                 ))}
             </div>
-        </div>
+        </motion.div>
     );
 };
 

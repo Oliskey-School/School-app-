@@ -1,5 +1,6 @@
 ﻿
 import React, { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
     ChevronLeft,
     Sparkles,
@@ -19,6 +20,11 @@ import { getAIClient, AI_MODEL_NAME } from '../../lib/ai';
 import ConfirmationModal from '../ui/ConfirmationModal';
 import DonutChart from '../ui/DonutChart';
 import ReactMarkdown from 'react-markdown';
+
+const fadeUp = {
+    hidden: { opacity: 0, y: 16 },
+    show: { opacity: 1, y: 0 },
+};
 
 interface StudentProfileDashboardProps {
     student: Student;
@@ -148,7 +154,7 @@ const StudentProfileDashboard: React.FC<StudentProfileDashboardProps> = ({
     const handleGenerateSummary = async () => {
         setIsGeneratingSummary(true);
         try {
-            const ai = getAIClient(import.meta.env.VITE_GEMINI_API_KEY || '');
+            const ai = getAIClient();
             const academicStr = subjectRows
                 .map(p => `${p.subject}: ${p.score !== null ? `${p.score}%` : 'no result yet'}`)
                 .join(', ') || 'No data';
@@ -204,9 +210,14 @@ const StudentProfileDashboard: React.FC<StudentProfileDashboardProps> = ({
                 <h1 className="text-2xl font-bold tracking-tight">{student.name}</h1>
             </header>
 
-            <main className="flex-1 p-6 space-y-6 overflow-y-auto">
+            <main className="flex-1 min-h-0 p-6 space-y-6 overflow-y-auto">
                 {/* Profile Card Overlay */}
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-center gap-6 -mt-12 mx-2">
+                <motion.div
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-center gap-6 -mt-12 mx-2"
+                >
                     <img
                         src={s.avatarUrl || s.avatar_url || student.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${student.name}`}
                         alt={student.name}
@@ -216,80 +227,123 @@ const StudentProfileDashboard: React.FC<StudentProfileDashboardProps> = ({
                         <h2 className="text-xl font-bold text-gray-900">{student.name}</h2>
                         <p className="text-[#5D5CDE] font-medium">Primary {student.grade}{student.section}</p>
                     </div>
-                </div>
+                </motion.div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <motion.div
+                    initial="hidden"
+                    animate="show"
+                    variants={{ show: { transition: { staggerChildren: 0.06, delayChildren: 0.05 } } }}
+                    className="grid grid-cols-1 lg:grid-cols-3 gap-6"
+                >
                     {/* Academic Performance (Left - 2/3) */}
                     <div className="lg:col-span-2 space-y-6">
-                        <section className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                        <motion.section variants={fadeUp} transition={{ duration: 0.35 }} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-200">
                             <div className="flex items-center gap-2 mb-4">
                                 <BookOpen className="w-5 h-5 text-[#5D5CDE]" />
                                 <h3 className="font-bold text-gray-800">Academic Performance</h3>
                             </div>
 
-                            <div className="bg-[#F8F9FF] rounded-xl p-6 flex justify-between items-center">
-                                <span className="font-semibold text-gray-700">Overall Average</span>
-                                <span className="text-3xl font-bold text-[#5D5CDE]">{averageScore}%</span>
-                            </div>
-
-                            {/* Detailed Subject Breakdown — one row per subject the
-                                student takes; '—' until a result is recorded */}
-                            <div className="mt-8 space-y-4">
-                                {subjectRows.length > 0 ? (
-                                    subjectRows.map((p, idx) => (
-                                        <div key={idx} className="flex items-center gap-4">
-                                            <div className="w-24 text-sm font-bold text-gray-500 truncate">{p.subject}</div>
-                                            <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
-                                                <div
-                                                    className="h-full bg-[#5D5CDE] rounded-full transition-all duration-1000"
-                                                    style={{ width: `${p.score ?? 0}%` }}
-                                                ></div>
+                            {loading ? (
+                                <div className="animate-pulse space-y-6">
+                                    <div className="h-16 bg-gray-100 rounded-xl"></div>
+                                    <div className="space-y-4">
+                                        {Array.from({ length: 3 }).map((_, i) => (
+                                            <div key={i} className="flex items-center gap-4">
+                                                <div className="w-24 h-3 bg-gray-200 rounded"></div>
+                                                <div className="flex-1 h-3 bg-gray-100 rounded-full"></div>
+                                                <div className="w-10 h-3 bg-gray-200 rounded"></div>
                                             </div>
-                                            <div className="w-10 text-sm font-bold text-[#5D5CDE] text-right">{p.score !== null ? `${p.score}%` : '—'}</div>
-                                        </div>
-                                    ))
-                                ) : (
-                                    <div className="py-10 text-center text-gray-400 font-medium italic">
-                                        No subject records found.
+                                        ))}
                                     </div>
-                                )}
-                            </div>
-                        </section>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="bg-[#F8F9FF] rounded-xl p-6 flex justify-between items-center">
+                                        <span className="font-semibold text-gray-700">Overall Average</span>
+                                        <span className="text-3xl font-bold text-[#5D5CDE]">{averageScore}%</span>
+                                    </div>
+
+                                    {/* Detailed Subject Breakdown — one row per subject the
+                                        student takes; '—' until a result is recorded */}
+                                    <div className="mt-8 space-y-4">
+                                        {subjectRows.length > 0 ? (
+                                            subjectRows.map((p, idx) => (
+                                                <motion.div
+                                                    key={idx}
+                                                    initial={{ opacity: 0, x: -8 }}
+                                                    animate={{ opacity: 1, x: 0 }}
+                                                    transition={{ duration: 0.25, delay: idx * 0.04 }}
+                                                    className="flex items-center gap-4"
+                                                >
+                                                    <div className="w-24 text-sm font-bold text-gray-500 truncate">{p.subject}</div>
+                                                    <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
+                                                        <motion.div
+                                                            initial={{ width: 0 }}
+                                                            animate={{ width: `${p.score ?? 0}%` }}
+                                                            transition={{ duration: 0.8, ease: 'easeOut' }}
+                                                            className="h-full bg-[#5D5CDE] rounded-full"
+                                                        ></motion.div>
+                                                    </div>
+                                                    <div className="w-10 text-sm font-bold text-[#5D5CDE] text-right">{p.score !== null ? `${p.score}%` : '—'}</div>
+                                                </motion.div>
+                                            ))
+                                        ) : (
+                                            <div className="py-10 text-center text-gray-400 font-medium italic">
+                                                No subject records found.
+                                            </div>
+                                        )}
+                                    </div>
+                                </>
+                            )}
+                        </motion.section>
                     </div>
 
                     {/* Right Column (1/3) */}
-                    <div className="space-y-6">
+                    <div className="space-y-6 lg:sticky lg:top-6 lg:self-start">
                         {/* AI Summary Card */}
-                        <section className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                        <motion.section variants={fadeUp} transition={{ duration: 0.35 }} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-200">
                             <div className="flex items-center gap-2 mb-4">
                                 <Sparkles className="w-5 h-5 text-[#5956E9]" />
                                 <h3 className="font-bold text-gray-800">AI-Generated Summary</h3>
                             </div>
 
-                            {summary ? (
-                                <div className="text-sm text-gray-700 leading-relaxed bg-[#F8F9FF] p-4 rounded-xl">
-                                    <ReactMarkdown>{summary}</ReactMarkdown>
-                                </div>
-                            ) : (
-                                <button
-                                    onClick={handleGenerateSummary}
-                                    disabled={isGeneratingSummary}
-                                    className="w-full flex items-center justify-center gap-2 py-4 bg-[#EEF2FF] text-[#5D5CDE] font-bold rounded-xl hover:bg-[#E0E7FF] transition-all disabled:opacity-50"
-                                >
-                                    {isGeneratingSummary ? (
-                                        <div className="w-5 h-5 border-2 border-[#5D5CDE] border-t-transparent rounded-full animate-spin"></div>
-                                    ) : (
-                                        <>
-                                            <Sparkles className="w-4 h-4" />
-                                            <span>Generate Summary</span>
-                                        </>
-                                    )}
-                                </button>
-                            )}
-                        </section>
+                            <AnimatePresence mode="wait">
+                                {summary ? (
+                                    <motion.div
+                                        key="summary"
+                                        initial={{ opacity: 0, y: 6 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ duration: 0.3 }}
+                                        className="text-sm text-gray-700 leading-relaxed bg-[#F8F9FF] p-4 rounded-xl"
+                                    >
+                                        <ReactMarkdown>{summary}</ReactMarkdown>
+                                    </motion.div>
+                                ) : (
+                                    <motion.button
+                                        key="generate"
+                                        initial={{ opacity: 1 }}
+                                        exit={{ opacity: 0 }}
+                                        whileHover={{ scale: 1.01 }}
+                                        whileTap={{ scale: 0.98 }}
+                                        onClick={handleGenerateSummary}
+                                        disabled={isGeneratingSummary}
+                                        className="w-full flex items-center justify-center gap-2 py-4 bg-[#EEF2FF] text-[#5D5CDE] font-bold rounded-xl hover:bg-[#E0E7FF] transition-all disabled:opacity-50"
+                                    >
+                                        {isGeneratingSummary ? (
+                                            <div className="w-5 h-5 border-2 border-[#5D5CDE] border-t-transparent rounded-full animate-spin"></div>
+                                        ) : (
+                                            <>
+                                                <Sparkles className="w-4 h-4" />
+                                                <span>Generate Summary</span>
+                                            </>
+                                        )}
+                                    </motion.button>
+                                )}
+                            </AnimatePresence>
+                        </motion.section>
 
                         {/* Personal Information Card */}
-                        <section className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                        <motion.section variants={fadeUp} transition={{ duration: 0.35 }} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-200">
                             <div className="flex items-center gap-2 mb-4">
                                 <div className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center">
                                     <Edit className="w-3 h-3 text-indigo-600" />
@@ -328,56 +382,67 @@ const StudentProfileDashboard: React.FC<StudentProfileDashboardProps> = ({
                                     </div>
                                 )}
                             </div>
-                        </section>
+                        </motion.section>
 
                         {/* Attendance Summary */}
-                        <section className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                        <motion.section variants={fadeUp} transition={{ duration: 0.35 }} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-200">
                             <div className="flex items-center gap-2 mb-6">
                                 <CheckCircle2 className="w-5 h-5 text-emerald-500" />
                                 <h3 className="font-bold text-gray-800">Attendance Summary</h3>
                             </div>
 
-                            <div className="flex flex-col items-center">
-                                <div className="relative">
-                                    <DonutChart
-                                        percentage={attendancePercentage}
-                                        color="#5D5CDE"
-                                        size={140}
-                                        strokeWidth={12}
-                                    />
-                                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                        <span className="text-3xl font-bold text-gray-800">{attendancePercentage}%</span>
-                                        <span className="text-xs text-gray-500 font-medium">Present</span>
+                            {loading ? (
+                                <div className="animate-pulse flex flex-col items-center">
+                                    <div className="w-[140px] h-[140px] rounded-full bg-gray-100"></div>
+                                    <div className="grid grid-cols-2 gap-x-8 gap-y-3 mt-8 w-full border-t border-gray-50 pt-6">
+                                        {Array.from({ length: 4 }).map((_, i) => (
+                                            <div key={i} className="h-3 bg-gray-100 rounded w-3/4"></div>
+                                        ))}
                                     </div>
                                 </div>
+                            ) : (
+                                <div className="flex flex-col items-center">
+                                    <div className="relative">
+                                        <DonutChart
+                                            percentage={attendancePercentage}
+                                            color="#5D5CDE"
+                                            size={140}
+                                            strokeWidth={12}
+                                        />
+                                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                            <span className="text-3xl font-bold text-gray-800">{attendancePercentage}%</span>
+                                            <span className="text-xs text-gray-500 font-medium">Present</span>
+                                        </div>
+                                    </div>
 
-                                <div className="grid grid-cols-2 gap-x-8 gap-y-3 mt-8 w-full border-t border-gray-50 pt-6">
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-2 h-2 rounded-full bg-[#5D5CDE]"></div>
-                                        <span className="text-xs font-semibold text-gray-500">Present</span>
-                                        <span className="text-xs font-bold text-gray-800 ml-auto">{attendanceData.present}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                                        <span className="text-xs font-semibold text-gray-500">Absent</span>
-                                        <span className="text-xs font-bold text-gray-800 ml-auto">{attendanceData.absent}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-2 h-2 rounded-full bg-amber-500"></div>
-                                        <span className="text-xs font-semibold text-gray-500">Late</span>
-                                        <span className="text-xs font-bold text-gray-800 ml-auto">{attendanceData.late}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-2 h-2 rounded-full bg-[#8E8DFF]"></div>
-                                        <span className="text-xs font-semibold text-gray-500">On Leave</span>
-                                        <span className="text-xs font-bold text-gray-800 ml-auto">{attendanceData.leave}</span>
+                                    <div className="grid grid-cols-2 gap-x-8 gap-y-3 mt-8 w-full border-t border-gray-50 pt-6">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-2 h-2 rounded-full bg-[#5D5CDE]"></div>
+                                            <span className="text-xs font-semibold text-gray-500">Present</span>
+                                            <span className="text-xs font-bold text-gray-800 ml-auto">{attendanceData.present}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                                            <span className="text-xs font-semibold text-gray-500">Absent</span>
+                                            <span className="text-xs font-bold text-gray-800 ml-auto">{attendanceData.absent}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-2 h-2 rounded-full bg-amber-500"></div>
+                                            <span className="text-xs font-semibold text-gray-500">Late</span>
+                                            <span className="text-xs font-bold text-gray-800 ml-auto">{attendanceData.late}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-2 h-2 rounded-full bg-[#8E8DFF]"></div>
+                                            <span className="text-xs font-semibold text-gray-500">On Leave</span>
+                                            <span className="text-xs font-bold text-gray-800 ml-auto">{attendanceData.leave}</span>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        </section>
+                            )}
+                        </motion.section>
 
                         {/* Behavioral Notes */}
-                        <section className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                        <motion.section variants={fadeUp} transition={{ duration: 0.35 }} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-200">
                             <div className="flex items-center gap-2 mb-4">
                                 <ClipboardList className="w-5 h-5 text-purple-500" />
                                 <h3 className="font-bold text-gray-800">Behavioral Notes</h3>
@@ -386,7 +451,13 @@ const StudentProfileDashboard: React.FC<StudentProfileDashboardProps> = ({
                             <div className="space-y-4">
                                 {behaviorNotes && behaviorNotes.length > 0 ? (
                                     behaviorNotes.map((note, idx) => (
-                                        <div key={idx} className="bg-[#F8F9FF] p-4 rounded-xl border border-[#FAFAFF]">
+                                        <motion.div
+                                            key={idx}
+                                            initial={{ opacity: 0, y: 8 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            transition={{ duration: 0.25, delay: idx * 0.05 }}
+                                            className="bg-[#F8F9FF] p-4 rounded-xl border border-[#FAFAFF]"
+                                        >
                                             <p className="text-sm text-gray-700 leading-relaxed font-medium">{note.note}</p>
                                             {(note.by || note.date) && (
                                                 <div className="flex justify-between items-center mt-3 pt-3 border-t border-white text-xs font-bold text-gray-400 uppercase tracking-wider">
@@ -394,49 +465,61 @@ const StudentProfileDashboard: React.FC<StudentProfileDashboardProps> = ({
                                                     <span>{note.date ? new Date(note.date).toLocaleDateString() : ''}</span>
                                                 </div>
                                             )}
-                                        </div>
+                                        </motion.div>
                                     ))
                                 ) : (
                                     <p className="text-sm text-gray-400 text-center py-6 font-medium">No behavioral notes recorded.</p>
                                 )}
                             </div>
-                        </section>
+                        </motion.section>
                     </div>
-                </div>
+                </motion.div>
             </main>
 
             {/* Admin Action Bar (Docked Bottom) */}
             <div className="bg-white/80 backdrop-blur-md border-t border-gray-100 p-4 sticky bottom-0 z-10">
                 <p className="text-xs font-bold text-gray-400 text-center uppercase tracking-widest mb-3">Admin Actions</p>
                 <div className="grid grid-cols-4 gap-3">
-                    <button
+                    <motion.button
+                        whileHover={{ y: -2, boxShadow: '0 8px 16px -4px rgba(93, 92, 222, 0.25)' }}
+                        whileTap={{ scale: 0.95, y: 0 }}
+                        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                         onClick={() => navigateTo('addStudent', `Edit ${student.name}`, { studentToEdit: student })}
-                        className="flex flex-col items-center justify-center gap-1.5 py-4 bg-[#EEF2FF] text-[#5D5CDE] rounded-2xl hover:bg-[#E0E7FF] transition-all"
+                        className="flex flex-col items-center justify-center gap-1.5 py-4 bg-[#EEF2FF] text-[#5D5CDE] rounded-2xl hover:bg-[#E0E7FF] transition-colors"
                     >
                         <Edit className="w-5 h-5" />
                         <span className="text-xs font-bold">Edit</span>
-                    </button>
-                    <button
+                    </motion.button>
+                    <motion.button
+                        whileHover={{ y: -2, boxShadow: '0 8px 16px -4px rgba(93, 92, 222, 0.25)' }}
+                        whileTap={{ scale: 0.95, y: 0 }}
+                        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                         onClick={() => navigateTo('adminSelectTermForReport', `Select Term`, { student })}
-                        className="flex flex-col items-center justify-center gap-1.5 py-4 bg-[#EEF2FF] text-[#5D5CDE] rounded-2xl hover:bg-[#E0E7FF] transition-all"
+                        className="flex flex-col items-center justify-center gap-1.5 py-4 bg-[#EEF2FF] text-[#5D5CDE] rounded-2xl hover:bg-[#E0E7FF] transition-colors"
                     >
                         <FileText className="w-5 h-5" />
                         <span className="text-xs font-bold">Reports</span>
-                    </button>
-                    <button
+                    </motion.button>
+                    <motion.button
+                        whileHover={{ y: -2, boxShadow: '0 8px 16px -4px rgba(93, 92, 222, 0.25)' }}
+                        whileTap={{ scale: 0.95, y: 0 }}
+                        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                         onClick={() => navigateTo('idCardManagement', 'Student ID Card', { initialUser: student, initialView: 'students' })}
-                        className="flex flex-col items-center justify-center gap-1.5 py-4 bg-[#EEF2FF] text-[#5D5CDE] rounded-2xl hover:bg-[#E0E7FF] transition-all"
+                        className="flex flex-col items-center justify-center gap-1.5 py-4 bg-[#EEF2FF] text-[#5D5CDE] rounded-2xl hover:bg-[#E0E7FF] transition-colors"
                     >
                         <CreditCard className="w-5 h-5" />
                         <span className="text-xs font-bold">ID Card</span>
-                    </button>
-                    <button
+                    </motion.button>
+                    <motion.button
+                        whileHover={{ y: -2, boxShadow: '0 8px 16px -4px rgba(220, 38, 38, 0.25)' }}
+                        whileTap={{ scale: 0.95, y: 0 }}
+                        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                         onClick={() => setShowDeleteModal(true)}
-                        className="flex flex-col items-center justify-center gap-1.5 py-4 bg-[#FFE5E5] text-red-600 rounded-2xl hover:bg-[#FFD9D9] transition-all"
+                        className="flex flex-col items-center justify-center gap-1.5 py-4 bg-[#FFE5E5] text-red-600 rounded-2xl hover:bg-[#FFD9D9] transition-colors"
                     >
                         <Trash2 className="w-5 h-5" />
                         <span className="text-xs font-bold">Delete</span>
-                    </button>
+                    </motion.button>
                 </div>
             </div>
 

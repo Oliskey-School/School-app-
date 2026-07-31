@@ -200,9 +200,12 @@ const TeacherCommunicationScreen: React.FC = () => {
     const VideoPreviewUI = () => (
         <div className="bg-white p-4 rounded-xl shadow-sm space-y-3">
             <video src={videoBlobUrl!} controls className="w-full aspect-video bg-black rounded-lg"></video>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 items-center">
                 <button type="button" onClick={handleDiscardVideo} className="w-full py-2 bg-gray-200 text-gray-800 font-bold rounded-lg">Discard</button>
-                <div className="w-full py-2 bg-green-500 text-white font-bold rounded-lg flex items-center justify-center">Video Attached ✓</div>
+                <div className="w-full flex items-center justify-center gap-1.5 text-green-700 font-semibold text-sm" aria-live="polite">
+                    <span className="w-2 h-2 rounded-full bg-green-500" />
+                    Video Attached
+                </div>
             </div>
         </div>
     );
@@ -212,7 +215,7 @@ const TeacherCommunicationScreen: React.FC = () => {
             <form onSubmit={handleSend} className="flex-grow flex flex-col">
                 <main className="flex-grow p-4 overflow-y-auto">
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                        <div className="lg:col-span-1 space-y-5">
+                        <div className="lg:col-span-1 space-y-5 lg:sticky lg:top-6 lg:self-start">
                             <div>
                                 <h3 className="text-lg font-bold text-gray-800 mb-2">1. Select Classes</h3>
                                 <div className="grid grid-cols-2 gap-3">
@@ -235,6 +238,23 @@ const TeacherCommunicationScreen: React.FC = () => {
                                     <button type="button" onClick={() => { setMode('text'); stopStream(); }} className={`w-1/2 py-2 text-sm font-semibold rounded-md ${mode === 'text' ? 'bg-white shadow' : 'text-gray-600'}`}>Text</button>
                                     <button type="button" onClick={() => setMode('video')} className={`w-1/2 py-2 text-sm font-semibold rounded-md ${mode === 'video' ? 'bg-white shadow' : 'text-gray-600'}`}>Video</button>
                                 </div>
+                            </div>
+
+                            <div>
+                                <label htmlFor="announcement-category" className="text-lg font-bold text-gray-800 mb-2 block">Category</label>
+                                <select
+                                    id="announcement-category"
+                                    value={selectedCategory}
+                                    onChange={(e) => setSelectedCategory(e.target.value as AnnouncementCategory)}
+                                    className="w-full px-4 py-2 text-gray-800 bg-white border rounded-lg font-semibold shadow-sm"
+                                >
+                                    <option value="General">General</option>
+                                    <option value="Homework">Homework</option>
+                                    <option value="Test Reminder">Test Reminder</option>
+                                    <option value="Event">Event</option>
+                                    <option value="Urgent">Urgent</option>
+                                    <option value="Holiday">Holiday</option>
+                                </select>
                             </div>
                         </div>
 

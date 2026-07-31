@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
 import {
@@ -94,22 +95,22 @@ const BackupRestoreScreen = () => {
 
             {/* Stats */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
                     <div className="p-3 rounded-2xl bg-indigo-50 text-indigo-600"><Database className="w-6 h-6" /></div>
                     <div><p className="text-2xl font-bold text-gray-900">{backups.length}</p><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Backups</p></div>
-                </div>
-                <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
+                </motion.div>
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.03 }} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
                     <div className="p-3 rounded-2xl bg-emerald-50 text-emerald-600"><CheckCircle2 className="w-6 h-6" /></div>
                     <div><p className="text-2xl font-bold text-gray-900">{backups.filter(b => b.status === 'completed').length}</p><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Successful</p></div>
-                </div>
-                <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
+                </motion.div>
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.06 }} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
                     <div className="p-3 rounded-2xl bg-blue-50 text-blue-600"><HardDrive className="w-6 h-6" /></div>
                     <div><p className="text-2xl font-bold text-gray-900">24.3 MB</p><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Latest Size</p></div>
-                </div>
-                <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
+                </motion.div>
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.09 }} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
                     <div className="p-3 rounded-2xl bg-amber-50 text-amber-600"><Clock className="w-6 h-6" /></div>
                     <div><p className="text-2xl font-bold text-gray-900">Daily</p><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Auto Schedule</p></div>
-                </div>
+                </motion.div>
             </div>
 
             {/* Action Bar */}
@@ -118,11 +119,11 @@ const BackupRestoreScreen = () => {
                     <Info className="w-5 h-5 text-blue-500" />
                     <p className="text-sm text-blue-700"><strong>Your database is backed up automatically.</strong> Manual backups create an additional snapshot you can restore from at any time.</p>
                 </div>
-                <button onClick={handleCreateBackup} disabled={isBackingUp}
+                <motion.button whileHover={!isBackingUp ? { scale: 1.02 } : {}} whileTap={!isBackingUp ? { scale: 0.98 } : {}} onClick={handleCreateBackup} disabled={isBackingUp}
                     className="flex items-center space-x-2 bg-indigo-600 text-white px-6 py-3 rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 font-bold disabled:opacity-60">
                     {isBackingUp ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
                     <span>{isBackingUp ? 'Creating Backup...' : 'Create Manual Backup'}</span>
-                </button>
+                </motion.button>
             </div>
 
             {/* Backup List */}
@@ -140,8 +141,8 @@ const BackupRestoreScreen = () => {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
-                        {backups.map(backup => (
-                            <tr key={backup.id} className="hover:bg-gray-50/30 transition-colors">
+                        {backups.map((backup, bi) => (
+                            <motion.tr key={backup.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(bi, 15) * 0.02 }} className="hover:bg-gray-50/30 transition-colors">
                                 <td className="px-6 py-5">
                                     <div className="flex items-center space-x-3">
                                         <div className={`p-2 rounded-xl bg-purple-50`}>
@@ -167,7 +168,7 @@ const BackupRestoreScreen = () => {
                                         <button onClick={() => handleDelete(backup.id)} className="p-1.5 hover:bg-red-50 rounded-xl text-gray-400 hover:text-red-500 transition-all"><Trash2 className="w-4 h-4" /></button>
                                     </div>
                                 </td>
-                            </tr>
+                            </motion.tr>
                         ))}
                         {backups.length === 0 && !loading && (
                             <tr>

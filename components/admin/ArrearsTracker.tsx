@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
@@ -10,6 +11,7 @@ import {
     CheckCircleIcon
 } from '../../constants';
 import { useAutoSync } from '../../hooks/useAutoSync';
+import CenteredLoader from '../ui/CenteredLoader';
 
 interface Arrears {
     id: string;
@@ -144,7 +146,8 @@ const ArrearsTracker: React.FC = () => {
             {/* Filters */}
             <div className="flex space-x-2">
                 {(['all', 'pending', 'partial', 'paid'] as const).map((f) => (
-                    <button
+                    <motion.button
+                        whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                         key={f}
                         onClick={() => setFilter(f)}
                         className={`px-4 py-2 rounded-lg font-medium transition-colors ${filter === f
@@ -153,7 +156,7 @@ const ArrearsTracker: React.FC = () => {
                             }`}
                     >
                         {f.charAt(0).toUpperCase() + f.slice(1)}
-                    </button>
+                    </motion.button>
                 ))}
             </div>
 
@@ -164,16 +167,14 @@ const ArrearsTracker: React.FC = () => {
                 </div>
                 <div className="divide-y divide-gray-200">
                     {loading ? (
-                        <div className="p-8 text-center">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
-                        </div>
+                        <CenteredLoader className="p-8" />
                     ) : filteredArrears.length === 0 ? (
                         <div className="p-8 text-center text-gray-500">
                             No arrears found
                         </div>
                     ) : (
-                        filteredArrears.map((arrear) => (
-                            <div key={arrear.id} className="p-6 hover:bg-gray-50">
+                        filteredArrears.map((arrear, ai) => (
+                            <motion.div key={arrear.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(ai, 15) * 0.03 }} className="p-6 hover:bg-gray-50">
                                 <div className="flex items-start justify-between">
                                     <div className="flex-1">
                                         <div className="flex items-center space-x-2 mb-2">
@@ -199,24 +200,26 @@ const ArrearsTracker: React.FC = () => {
                                         </div>
                                     </div>
                                     {arrear.status === 'Pending' && (
-                                        <button
+                                        <motion.button
+                                            whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                                             onClick={() => setSelectedArrear(arrear)}
                                             className="ml-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium"
                                         >
                                             Resolve
-                                        </button>
+                                        </motion.button>
                                     )}
                                 </div>
-                            </div>
+                            </motion.div>
                         ))
                     )}
                 </div>
             </div>
 
             {/* Resolve Modal */}
+            <AnimatePresence>
             {selectedArrear && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} transition={{ type: 'spring', stiffness: 400, damping: 32 }} className="bg-white rounded-xl shadow-xl max-w-md w-full">
                         <div className="p-6">
                             <h3 className="text-xl font-bold text-gray-900 mb-4">Resolve Arrear</h3>
 
@@ -246,24 +249,27 @@ const ArrearsTracker: React.FC = () => {
                             </div>
 
                             <div className="flex space-x-3">
-                                <button
+                                <motion.button
+                                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                                     onClick={handleMarkAsPaid}
                                     className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
                                 >
                                     <CheckCircleIcon className="w-5 h-5" />
                                     <span>Mark as Paid</span>
-                                </button>
-                                <button
+                                </motion.button>
+                                <motion.button
+                                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                                     onClick={() => setSelectedArrear(null)}
                                     className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
                                 >
                                     Cancel
-                                </button>
+                                </motion.button>
                             </div>
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
         </div>
     );
 };

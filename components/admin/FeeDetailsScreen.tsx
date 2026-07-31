@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { MailIcon, PlusIcon } from '../../constants';
 import { StudentFeeInfo } from '../../types';
 import { api } from '../../lib/api';
@@ -59,23 +60,23 @@ const FeeDetailsScreen: React.FC<FeeDetailsScreenProps> = ({ student, navigateTo
   return (
     <div className="flex flex-col h-full bg-gray-50">
       <main className="flex-grow p-4 space-y-4 overflow-y-auto">
-        <div className="bg-white p-4 rounded-xl shadow-sm flex items-center space-x-4">
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="bg-white p-4 rounded-xl shadow-sm flex items-center space-x-4">
           <img src={avatarUrl} alt={name} className="w-16 h-16 rounded-full object-cover" />
           <div>
             <p className="font-bold text-xl text-gray-800">{name}</p>
             <p className="font-medium text-gray-500">Grade {grade}{section}</p>
           </div>
-        </div>
+        </motion.div>
 
         <div className="grid grid-cols-2 gap-4 text-center">
-          <div className="bg-white p-3 rounded-xl shadow-sm">
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.05 }} className="bg-white p-3 rounded-xl shadow-sm">
             <p className="text-sm text-gray-500">Amount Paid</p>
             <p className="font-bold text-lg text-green-600">{formatter.format(paidAmount)}</p>
-          </div>
-          <div className="bg-white p-3 rounded-xl shadow-sm">
+          </motion.div>
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.1 }} className="bg-white p-3 rounded-xl shadow-sm">
             <p className="text-sm text-gray-500">Balance</p>
             <p className={`font-bold text-lg ${balance > 0 ? 'text-red-600' : 'text-gray-800'}`}>{formatter.format(balance)}</p>
-          </div>
+          </motion.div>
         </div>
 
         <div className="bg-white p-4 rounded-xl shadow-sm">
@@ -125,7 +126,9 @@ const FeeDetailsScreen: React.FC<FeeDetailsScreenProps> = ({ student, navigateTo
       </main>
 
       <div className="p-4 mt-auto bg-white border-t space-y-3">
-        <button
+        <motion.button
+          whileHover={{ scale: 1.01 }}
+          whileTap={{ scale: 0.98 }}
           onClick={() => {
             if (navigateTo) navigateTo('recordPayment', `Record Payment — ${name}`, { student });
             else toast('Use the "Record Payment" button on the fee row in Fee Management to log a payment.', { icon: 'ℹ️' });
@@ -133,8 +136,10 @@ const FeeDetailsScreen: React.FC<FeeDetailsScreenProps> = ({ student, navigateTo
           className="w-full flex justify-center items-center space-x-2 py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white bg-sky-500 hover:bg-sky-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500">
           <PlusIcon className="h-5 w-5" />
           <span>Record Payment</span>
-        </button>
-        <button
+        </motion.button>
+        <motion.button
+          whileHover={!sendingReminder ? { scale: 1.01 } : {}}
+          whileTap={!sendingReminder ? { scale: 0.98 } : {}}
           disabled={sendingReminder}
           onClick={async () => {
             if (balance <= 0) { toast('This student has no outstanding balance.', { icon: '✅' }); return; }
@@ -162,7 +167,7 @@ const FeeDetailsScreen: React.FC<FeeDetailsScreenProps> = ({ student, navigateTo
           className="w-full flex justify-center items-center space-x-2 py-3 px-4 border border-gray-300 rounded-lg shadow-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 disabled:opacity-50">
           <MailIcon className="h-5 w-5" />
           <span>{sendingReminder ? 'Sending…' : 'Send Reminder'}</span>
-        </button>
+        </motion.button>
       </div>
     </div>
   );

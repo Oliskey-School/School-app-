@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
 import { AlertTriangle, Send, X, Radio } from 'lucide-react';
@@ -22,10 +23,10 @@ export const EmergencyBroadcastModal: React.FC<EmergencyBroadcastModalProps> = (
     const [isSending, setIsSending] = useState(false);
     const [success, setSuccess] = useState(false);
 
-    if (!isOpen) return null;
-
     return (
-        <div className="fixed inset-0 z-[100] flex flex-col bg-white overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
+        <AnimatePresence>
+        {isOpen && (
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} transition={{ duration: 0.25 }} className="fixed inset-0 z-[100] flex flex-col bg-white overflow-hidden">
             <div className="flex-1 flex flex-col w-full max-w-4xl mx-auto overflow-y-auto">
 
                 {/* Header */}
@@ -45,27 +46,28 @@ export const EmergencyBroadcastModal: React.FC<EmergencyBroadcastModalProps> = (
                             </p>
                         </div>
                     </div>
-                    <button 
-                        onClick={onClose} 
+                    <motion.button
+                        whileTap={{ scale: 0.9 }}
+                        onClick={onClose}
                         className="p-2 hover:bg-red-100 rounded-full transition-colors group"
                     >
                         <X className="w-8 h-8 text-gray-400 group-hover:text-red-600" />
-                    </button>
+                    </motion.button>
                 </div>
 
                 {/* Content */}
                 <div className="p-6">
                     {success ? (
-                        <div className="text-center py-8">
+                        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ type: 'spring', stiffness: 400, damping: 30 }} className="text-center py-8">
                             <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
                                 <Send className="w-8 h-8" />
                             </div>
                             <h3 className="text-xl font-bold text-gray-900 mb-2">Broadcast Sent</h3>
                             <p className="text-gray-500 mb-6">Your emergency alert has been queued for delivery.</p>
-                            <button onClick={onClose} className="px-6 py-2 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-black">
+                            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={onClose} className="px-6 py-2 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-black">
                                 Close
-                            </button>
-                        </div>
+                            </motion.button>
+                        </motion.div>
                     ) : (
                         <Formik
                             initialValues={{
@@ -135,7 +137,9 @@ export const EmergencyBroadcastModal: React.FC<EmergencyBroadcastModalProps> = (
                                     </div>
 
                                     <div className="pt-2">
-                                        <button
+                                        <motion.button
+                                            whileHover={!isSending ? { scale: 1.01 } : {}}
+                                            whileTap={!isSending ? { scale: 0.98 } : {}}
                                             type="submit"
                                             disabled={isSending}
                                             className="w-full flex items-center justify-center px-4 py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-colors shadow-lg shadow-red-200 disabled:opacity-50"
@@ -148,7 +152,7 @@ export const EmergencyBroadcastModal: React.FC<EmergencyBroadcastModalProps> = (
                                                     SEND EMERGENCY ALERT
                                                 </>
                                             )}
-                                        </button>
+                                        </motion.button>
                                         <p className="text-center text-xs text-gray-400 mt-2">
                                             This action is verified and logged.
                                         </p>
@@ -159,6 +163,8 @@ export const EmergencyBroadcastModal: React.FC<EmergencyBroadcastModalProps> = (
                     )}
                 </div>
             </div>
-        </div>
+        </motion.div>
+        )}
+        </AnimatePresence>
     );
 };

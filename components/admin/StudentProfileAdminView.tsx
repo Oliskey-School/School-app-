@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Student, ClassInfo } from '../../types';
 import { toast } from 'react-hot-toast';
 import {
@@ -24,6 +25,7 @@ import ConfirmationModal from '../ui/ConfirmationModal';
 import { api } from '../../lib/api';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import StudentTeacherTimeline from '../shared/StudentTeacherTimeline';
+import CenteredLoader from '../ui/CenteredLoader';
 
 
 interface StudentProfileAdminViewProps {
@@ -59,48 +61,50 @@ const ClassSelectionModal: React.FC<{
         }
     }, [isOpen, schoolId, currentBranchId]);
 
-    if (!isOpen) return null;
-
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
-                <div className="p-6 border-b flex justify-between items-center bg-indigo-50">
-                    <h3 className="text-xl font-bold text-gray-800">Select New Class</h3>
-                    <button onClick={onClose} className="p-2 hover:bg-white/50 rounded-full transition-colors">
-                        <XIcon className="w-6 h-6 text-gray-500" />
-                    </button>
-                </div>
-                <div className="p-4 max-h-[60vh] overflow-y-auto space-y-2">
-                    {loading ? (
-                        <div className="flex justify-center py-10">
-                            <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
-                        </div>
-                    ) : (
-                        classes.map((cls) => (
-                            <button
-                                key={cls.id}
-                                onClick={() => onSelect(cls.id)}
-                                className="w-full text-left p-4 rounded-2xl hover:bg-indigo-50 border border-gray-100 transition-all flex justify-between items-center group"
-                            >
-                                <div>
-                                    <p className="font-bold text-gray-800 group-hover:text-indigo-700">{cls.name}</p>
-                                    <p className="text-xs text-gray-500">{cls.level || 'General'}</p>
-                                </div>
-                                <PlusIcon className="w-5 h-5 text-gray-300 group-hover:text-indigo-500" />
-                            </button>
-                        ))
-                    )}
-                </div>
-                <div className="p-6 bg-gray-50 border-t mt-auto">
-                    <button
-                        onClick={onClose}
-                        className="w-full py-3 px-4 bg-white border border-gray-200 text-gray-600 font-bold rounded-2xl hover:bg-gray-100 transition-all"
-                    >
-                        Cancel
-                    </button>
-                </div>
-            </div>
-        </div>
+        <AnimatePresence>
+        {isOpen && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} transition={{ type: 'spring', stiffness: 400, damping: 32 }} className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
+                    <div className="p-6 border-b flex justify-between items-center bg-indigo-50">
+                        <h3 className="text-xl font-bold text-gray-800">Select New Class</h3>
+                        <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={onClose} className="p-2 hover:bg-white/50 rounded-full transition-colors">
+                            <XIcon className="w-6 h-6 text-gray-500" />
+                        </motion.button>
+                    </div>
+                    <div className="p-4 max-h-[60vh] overflow-y-auto space-y-2">
+                        {loading ? (
+                            <CenteredLoader className="py-10" />
+                        ) : (
+                            classes.map((cls, ci) => (
+                                <motion.button
+                                    key={cls.id}
+                                    initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.15, delay: Math.min(ci, 15) * 0.02 }}
+                                    onClick={() => onSelect(cls.id)}
+                                    className="w-full text-left p-4 rounded-2xl hover:bg-indigo-50 border border-gray-100 transition-all flex justify-between items-center group"
+                                >
+                                    <div>
+                                        <p className="font-bold text-gray-800 group-hover:text-indigo-700">{cls.name}</p>
+                                        <p className="text-xs text-gray-500">{cls.level || 'General'}</p>
+                                    </div>
+                                    <PlusIcon className="w-5 h-5 text-gray-300 group-hover:text-indigo-500" />
+                                </motion.button>
+                            ))
+                        )}
+                    </div>
+                    <div className="p-6 bg-gray-50 border-t mt-auto">
+                        <motion.button
+                            whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                            onClick={onClose}
+                            className="w-full py-3 px-4 bg-white border border-gray-200 text-gray-600 font-bold rounded-2xl hover:bg-gray-100 transition-all"
+                        >
+                            Cancel
+                        </motion.button>
+                    </div>
+                </motion.div>
+            </motion.div>
+        )}
+        </AnimatePresence>
     );
 };
 
@@ -229,7 +233,7 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
         setIsGeneratingSummary(true);
         setSummary(''); // Clear previous summary
         try {
-            const ai = getAIClient(import.meta.env.VITE_GEMINI_API_KEY || '');
+            const ai = getAIClient();
             const academicSummary = student.academicPerformance?.map(p => `${p.subject}: ${p.score}% `).join(', ') || 'N/A';
             const behaviorSummary = student.behaviorNotes?.map(n => `${n.type} - ${n.title}: ${n.note} `).join('; ') || 'No notes';
 
@@ -255,7 +259,7 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
             <main className="flex-grow p-4 overflow-y-auto pb-32">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                     {/* Student Header */}
-                    <div className="lg:col-span-3 bg-white p-4 sm:p-6 rounded-3xl shadow-sm flex flex-col sm:flex-row items-center sm:justify-between gap-4">
+                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="lg:col-span-3 bg-white p-4 sm:p-6 rounded-3xl shadow-sm flex flex-col sm:flex-row items-center sm:justify-between gap-4">
                         <div className="flex flex-col sm:flex-row items-center space-y-3 sm:space-y-0 sm:space-x-6 text-center sm:text-left">
                             <img src={student.avatarUrl} alt={student.name} className="w-24 h-24 sm:w-28 sm:h-28 rounded-full object-cover border-8 border-indigo-50 shadow-inner" />
                             <div>
@@ -286,17 +290,18 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
                             </div>
                         </div>
                         <div className="flex sm:flex-col gap-2 w-full sm:w-auto">
-                            <button
+                            <motion.button
+                                whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                                 onClick={() => navigateTo('addStudent', `Edit ${student.name}`, { studentToEdit: student })}
                                 className="flex-grow sm:w-full px-6 py-2.5 bg-gray-100 text-gray-700 font-bold rounded-2xl hover:bg-gray-200 transition-all text-sm"
                             >
                                 Edit Profile
-                            </button>
+                            </motion.button>
                         </div>
-                    </div>
+                    </motion.div>
 
                     {/* Academic Performance */}
-                    <div className="lg:col-span-2 bg-white p-6 rounded-3xl shadow-sm">
+                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.05 }} className="lg:col-span-2 bg-white p-6 rounded-3xl shadow-sm">
                         <div className="flex items-center justify-between mb-6">
                             <div className="flex items-center space-x-3">
                                 <div className="p-2 bg-indigo-50 rounded-xl">
@@ -310,12 +315,12 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
                             </div>
                         </div>
                         <SimpleBarChart data={academicPerformance} />
-                    </div>
+                    </motion.div>
 
                     {/* Sidebar */}
                     <div className="lg:col-span-1 space-y-4">
                         {/* AI Summary */}
-                        <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 p-6 rounded-3xl shadow-lg relative overflow-hidden group">
+                        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.1 }} className="bg-gradient-to-br from-indigo-600 to-indigo-800 p-6 rounded-3xl shadow-lg relative overflow-hidden group">
                             <SparklesIcon className="absolute -right-4 -bottom-4 h-32 w-32 text-white/10 group-hover:scale-110 transition-transform duration-500" />
                             <div className="relative z-10">
                                 <div className="flex items-center space-x-2 mb-4 text-white">
@@ -327,7 +332,8 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
                                         <ReactMarkdown>{summary}</ReactMarkdown>
                                     </div>
                                 ) : (
-                                    <button
+                                    <motion.button
+                                        whileHover={!isGeneratingSummary ? { scale: 1.02 } : {}} whileTap={!isGeneratingSummary ? { scale: 0.98 } : {}}
                                         onClick={generateSummary}
                                         disabled={isGeneratingSummary}
                                         className="w-full flex items-center justify-center space-x-2 py-4 bg-white text-indigo-700 font-bold rounded-2xl shadow-xl hover:bg-gray-50 transition-all disabled:opacity-70 group"
@@ -343,21 +349,19 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
                                                 <span>Generate Admin Summary</span>
                                             </>
                                         )}
-                                    </button>
+                                    </motion.button>
                                 )}
                             </div>
-                        </div>
+                        </motion.div>
 
                         {/* Attendance Summary */}
-                        <div className="bg-white p-6 rounded-3xl shadow-sm">
+                        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.15 }} className="bg-white p-6 rounded-3xl shadow-sm">
                             <div className="flex items-center justify-between mb-6">
                                 <h4 className="font-bold text-gray-800">Attendance Status</h4>
                                 <CheckCircleIcon className="h-5 w-5 text-green-500" />
                             </div>
                             {loading ? (
-                                <div className="flex justify-center py-6">
-                                    <div className="w-8 h-8 border-4 border-gray-100 border-t-green-500 rounded-full animate-spin"></div>
-                                </div>
+                                <CenteredLoader className="py-6" />
                             ) : (
                                 <div className="flex flex-col items-center">
                                     <div className="relative mb-6">
@@ -387,10 +391,10 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
                                     </div>
                                 </div>
                             )}
-                        </div>
+                        </motion.div>
 
                         {/* Discipline & Records */}
-                        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-2">
+                        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.2 }} className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-2">
                             <h4 className="font-bold text-gray-800 mb-2">Discipline & Records</h4>
                             {activeSuspension && (
                                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-2">
@@ -420,7 +424,8 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
                                     </button>
                                 </div>
                             )}
-                            <button
+                            <motion.button
+                                whileHover={{ x: 2 }}
                                 onClick={() => navigateTo('awardPoints', `Award Points to ${student.name}`, { students: [student] })}
                                 className="w-full flex items-center space-x-3 p-3 text-left hover:bg-indigo-50 rounded-xl transition-colors"
                             >
@@ -428,8 +433,9 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
                                     <AwardIcon className="h-4 w-4 text-indigo-600" />
                                 </div>
                                 <span className="font-semibold text-gray-700 text-sm">Award Points</span>
-                            </button>
-                            <button
+                            </motion.button>
+                            <motion.button
+                                whileHover={{ x: 2 }}
                                 onClick={() => navigateTo('suspendStudent', `Suspend ${student.name}`, { student })}
                                 className="w-full flex items-center space-x-3 p-3 text-left hover:bg-amber-50 rounded-xl transition-colors"
                             >
@@ -437,8 +443,9 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
                                     <ClipboardListIcon className="h-4 w-4 text-amber-600" />
                                 </div>
                                 <span className="font-semibold text-gray-700 text-sm">Suspend Student</span>
-                            </button>
-                            <button
+                            </motion.button>
+                            <motion.button
+                                whileHover={{ x: 2 }}
                                 onClick={() => navigateTo('markStudentExit', `Mark ${student.name} as Left`, { student })}
                                 className="w-full flex items-center space-x-3 p-3 text-left hover:bg-red-50 rounded-xl transition-colors"
                             >
@@ -446,11 +453,11 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
                                     <DocumentTextIcon className="h-4 w-4 text-red-600" />
                                 </div>
                                 <span className="font-semibold text-gray-700 text-sm">Mark as Transferred / Withdrawn</span>
-                            </button>
-                        </div>
+                            </motion.button>
+                        </motion.div>
 
                         {/* Behavioral Notes */}
-                        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.25 }} className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
                             <div className="flex items-center justify-between mb-4">
                                 <h4 className="font-bold text-gray-800">Behavioral Insights</h4>
                                 <div className="p-1.5 bg-purple-50 rounded-lg">
@@ -468,46 +475,50 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
                                     </div>
                                 )) : <p className="text-sm text-gray-400 text-center py-6 font-medium italic">Perfect conduct record.</p>}
                             </div>
-                        </div>
+                        </motion.div>
 
                         {/* Timeline */}
-                        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.3 }} className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
                             <StudentTeacherTimeline subjectType="student" subjectId={student.id} canEdit />
-                        </div>
+                        </motion.div>
                     </div>
                 </div>
             </main>
 
             {/* Sticky Action Footer */}
             <div className="fixed bottom-0 left-0 right-0 p-4 sm:px-6 bg-white/80 backdrop-blur-lg border-t border-gray-100 grid grid-cols-2 sm:grid-cols-4 gap-3 z-40 lg:relative lg:bg-transparent lg:border-none lg:p-4 lg:grid-cols-4">
-                <button
+                <motion.button
+                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.96 }}
                     onClick={() => setShowClassModal(true)}
-                    className="flex flex-col items-center justify-center space-y-1 py-3 bg-indigo-50 text-indigo-700 font-bold rounded-2xl hover:bg-indigo-100 transition-all border border-indigo-100 active:scale-95 shadow-sm"
+                    className="flex flex-col items-center justify-center space-y-1 py-3 bg-indigo-50 text-indigo-700 font-bold rounded-2xl hover:bg-indigo-100 transition-all border border-indigo-100 shadow-sm"
                 >
                     <UserGroupIcon className="w-5 h-5" />
                     <span className="text-xs uppercase">Assign Class</span>
-                </button>
-                <button
+                </motion.button>
+                <motion.button
+                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.96 }}
                     onClick={() => navigateTo('adminSelectTermForReport', `Select Term for ${student.name}`, { student })}
-                    className="flex flex-col items-center justify-center space-y-1 py-3 bg-white text-gray-600 font-bold rounded-2xl hover:bg-gray-50 transition-all border border-gray-100 active:scale-95 shadow-sm"
+                    className="flex flex-col items-center justify-center space-y-1 py-3 bg-white text-gray-600 font-bold rounded-2xl hover:bg-gray-50 transition-all border border-gray-100 shadow-sm"
                 >
                     <DocumentTextIcon className="w-5 h-5" />
                     <span className="text-xs uppercase">Reports</span>
-                </button>
-                <button
+                </motion.button>
+                <motion.button
+                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.96 }}
                     onClick={() => navigateTo('idCardManagement', 'Student ID Cards', { student })}
-                    className="flex flex-col items-center justify-center space-y-1 py-3 bg-white text-gray-600 font-bold rounded-2xl hover:bg-gray-50 transition-all border border-gray-100 active:scale-95 shadow-sm"
+                    className="flex flex-col items-center justify-center space-y-1 py-3 bg-white text-gray-600 font-bold rounded-2xl hover:bg-gray-50 transition-all border border-gray-100 shadow-sm"
                 >
                     <CheckCircleIcon className="w-5 h-5" />
                     <span className="text-xs uppercase">ID Card</span>
-                </button>
-                <button
+                </motion.button>
+                <motion.button
+                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.96 }}
                     onClick={() => setShowDeleteModal(true)}
-                    className="flex flex-col items-center justify-center space-y-1 py-3 bg-red-50 text-red-600 font-bold rounded-2xl hover:bg-red-100 transition-all border border-red-100 active:scale-95 shadow-sm"
+                    className="flex flex-col items-center justify-center space-y-1 py-3 bg-red-50 text-red-600 font-bold rounded-2xl hover:bg-red-100 transition-all border border-red-100 shadow-sm"
                 >
                     <TrashIcon className="w-5 h-5" />
                     <span className="text-xs uppercase text-red-500">Delete</span>
-                </button>
+                </motion.button>
             </div>
 
             <ClassSelectionModal

@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { ChevronRightIcon } from '../../constants';
 
 interface AnalyticsAdminToolsProps {
@@ -14,10 +15,10 @@ const toolsCategories = [
 const AnalyticsAdminTools: React.FC<AnalyticsAdminToolsProps> = ({ navigateTo, schoolId, currentBranchId }) => {
     return (
         <div className="p-4 space-y-3 bg-gray-50">
-            <div className="bg-gradient-to-r from-teal-600 to-cyan-600 rounded-xl p-6 text-white mb-4">
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="bg-gradient-to-r from-teal-600 to-cyan-600 rounded-xl p-6 text-white mb-4">
                 <h2 className="text-2xl font-bold mb-2">📊 Analytics & Admin Tools</h2>
                 <p className="text-teal-100">Advanced analytics, budgeting, and system integrations</p>
-            </div>
+            </motion.div>
 
             {[
                 {
@@ -104,9 +105,14 @@ const AnalyticsAdminTools: React.FC<AnalyticsAdminToolsProps> = ({ navigateTo, s
                     icon: '🔧',
                     color: 'text-rose-600 bg-rose-100'
                 },
-            ].map(tool => (
-                <button
+            ].map((tool, ti) => (
+                <motion.button
                     key={tool.view}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.2, delay: Math.min(ti, 15) * 0.03 }}
+                    whileHover={{ x: 2 }}
+                    whileTap={{ scale: 0.99 }}
                     onClick={() => navigateTo(tool.view, tool.title, { schoolId, currentBranchId })}
                     className="w-full bg-white rounded-xl shadow-sm p-4 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
                 >
@@ -120,7 +126,7 @@ const AnalyticsAdminTools: React.FC<AnalyticsAdminToolsProps> = ({ navigateTo, s
                         </div>
                     </div>
                     <ChevronRightIcon className="text-gray-400" />
-                </button>
+                </motion.button>
             ))}
         </div>
     );

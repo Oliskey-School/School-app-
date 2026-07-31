@@ -152,7 +152,7 @@ const TeacherReportCardPreviewScreen: React.FC<TeacherReportCardPreviewScreenPro
                         </table>
                     </div>
 
-                    {(isClassTeacher || loadingPermissions === false) && (
+                    {isClassTeacher && (
                         <>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
                                 <div><SectionHeader title="Skills & Behaviour" /><table className="w-full text-sm"><tbody>{SKILL_BEHAVIOUR_DOMAINS.map(skill => (<tr key={skill}><td className="py-1 text-gray-800">{skill}</td><td className="w-20 text-center font-bold">{report.skills?.[skill] || '-'}</td></tr>))}</tbody></table></div>

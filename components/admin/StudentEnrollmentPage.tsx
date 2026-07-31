@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { toast } from 'react-hot-toast';
 import { UserIcon, BookOpenIcon, CheckCircleIcon, UploadIcon, IdentificationIcon, AcademicCapIcon, HomeIcon, PhoneIcon, MailIcon } from '../../constants';
@@ -120,7 +121,8 @@ const StudentEnrollmentPage: React.FC<EnrollmentPageProps> = ({ onComplete, hand
     };
 
     const SelectCard = ({ value, title, desc, icon: Icon }: any) => (
-        <div
+        <motion.div
+            whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
             onClick={() => handleChange('curriculum', value)}
             className={`cursor-pointer p-4 rounded-xl border-2 transition-all relative overflow-hidden group ${formData.curriculum === value ? 'border-indigo-600 bg-indigo-50/50 shadow-md ring-1 ring-indigo-500' : 'border-gray-100 hover:border-indigo-200 hover:bg-gray-50'}`}
         >
@@ -129,7 +131,7 @@ const StudentEnrollmentPage: React.FC<EnrollmentPageProps> = ({ onComplete, hand
             </div>
             <h4 className={`font-bold text-lg mb-1 ${formData.curriculum === value ? 'text-indigo-900' : 'text-gray-700'}`}>{title}</h4>
             <p className="text-sm text-gray-500 leading-relaxed pr-6">{desc}</p>
-        </div>
+        </motion.div>
     );
 
     return (
@@ -346,20 +348,22 @@ const StudentEnrollmentPage: React.FC<EnrollmentPageProps> = ({ onComplete, hand
             </div>
 
             <div className="px-4 sm:px-8 py-4 sm:py-5 bg-white border-t border-gray-100 z-20 flex flex-col sm:flex-row justify-end gap-3 sm:gap-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-                <button
+                <motion.button
+                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                     onClick={handleBack}
                     className="order-2 sm:order-1 px-6 py-3 rounded-xl font-bold text-gray-600 hover:bg-gray-100 transition-colors text-sm sm:text-base"
                 >
                     Cancel
-                </button>
-                <button
+                </motion.button>
+                <motion.button
+                    whileHover={!loading ? { scale: 1.02 } : {}} whileTap={!loading ? { scale: 0.98 } : {}}
                     onClick={handleSubmit}
                     disabled={loading}
-                    className="order-1 sm:order-2 px-8 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 hover:shadow-xl transition-all transform active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
+                    className="order-1 sm:order-2 px-8 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 hover:shadow-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
                 >
                     {loading ? 'Registering...' : 'Complete Enrollment'}
                     {!loading && <CheckCircleIcon className="w-5 h-5" />}
-                </button>
+                </motion.button>
             </div>
         </div>
     );

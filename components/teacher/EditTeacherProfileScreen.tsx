@@ -5,15 +5,16 @@ import { useAuth } from '../../context/AuthContext';
 import { useProfile } from '../../context/ProfileContext';
 
 import { toast } from 'react-hot-toast';
-import { LockIcon, EyeIcon, EyeOffIcon } from 'lucide-react';
+import { LockIcon } from 'lucide-react';
 
 interface EditTeacherProfileScreenProps {
     onProfileUpdate?: (data?: { name: string; avatarUrl: string }) => void;
     teacherId?: string | null;
     currentUser?: any;
+    navigateTo?: (view: string, title: string, props?: any) => void;
 }
 
-const EditTeacherProfileScreen: React.FC<EditTeacherProfileScreenProps> = ({ onProfileUpdate }) => {
+const EditTeacherProfileScreen: React.FC<EditTeacherProfileScreenProps> = ({ onProfileUpdate, navigateTo }) => {
     // 1. Use centralized Profile Context
     const { profile, updateProfile } = useProfile();
     const { user: authUser } = useAuth();
@@ -30,12 +31,7 @@ const EditTeacherProfileScreen: React.FC<EditTeacherProfileScreenProps> = ({ onP
 
     // Account Security State
     const [username, setUsername] = useState(authUser?.user_metadata?.username || '');
-    const [currentPassword, setCurrentPassword] = useState('');
-    const [newPassword, setNewPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
-    const [showPassword, setShowPassword] = useState(false);
     const [updatingUsername, setUpdatingUsername] = useState(false);
-    const [updatingPassword, setUpdatingPassword] = useState(false);
 
     // Fetch Teacher specific data (subjects)
     useEffect(() => {
@@ -159,34 +155,6 @@ const EditTeacherProfileScreen: React.FC<EditTeacherProfileScreenProps> = ({ onP
         }
     };
 
-    const handleUpdatePassword = async () => {
-        if (!newPassword) return;
-        if (newPassword !== confirmPassword) {
-            toast.error('Passwords do not match');
-            return;
-        }
-        if (newPassword.length < 6) {
-            toast.error('Password must be at least 6 characters');
-            return;
-        }
-
-        setUpdatingPassword(true);
-        try {
-            await api.patch('/auth/update-password', { 
-                currentPassword, 
-                newPassword 
-            });
-            toast.success('Password updated successfully!');
-            setCurrentPassword('');
-            setNewPassword('');
-            setConfirmPassword('');
-        } catch (err: any) {
-            toast.error(err.message || 'Error updating password');
-        } finally {
-            setUpdatingPassword(false);
-        }
-    };
-
     if (!profile) return <div className="p-8 text-center text-gray-500">Profile not found.</div>;
 
     return (
@@ -280,56 +248,17 @@ const EditTeacherProfileScreen: React.FC<EditTeacherProfileScreenProps> = ({ onP
                                         </div>
                                     </div>
 
-                                    <div className="space-y-3 p-4 bg-purple-50/50 rounded-xl border border-purple-100">
-                                        <div className="flex items-center space-x-2 mb-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => navigateTo?.('teacherChangePassword', 'Change Password')}
+                                        className="w-full flex items-center justify-between p-4 bg-purple-50/50 rounded-xl border border-purple-100 hover:bg-purple-100/50 transition-colors"
+                                    >
+                                        <span className="flex items-center space-x-2">
                                             <LockIcon className="w-4 h-4 text-purple-600" />
-                                            <span className="text-xs font-bold text-purple-700 uppercase">Change Password</span>
-                                        </div>
-
-                                        <div className="relative">
-                                            <input
-                                                type={showPassword ? "text" : "password"}
-                                                value={currentPassword}
-                                                onChange={e => setCurrentPassword(e.target.value)}
-                                                className="w-full bg-white border border-purple-200 text-gray-800 text-sm rounded-lg focus:ring-purple-500 focus:border-purple-500 block p-3 transition-all"
-                                                placeholder="Current Password"
-                                            />
-                                        </div>
-
-                                        <div className="relative">
-                                            <input
-                                                type={showPassword ? "text" : "password"}
-                                                value={newPassword}
-                                                onChange={e => setNewPassword(e.target.value)}
-                                                className="w-full bg-white border border-purple-200 text-gray-800 text-sm rounded-lg focus:ring-purple-500 focus:border-purple-500 block p-3 transition-all"
-                                                placeholder="New Password"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowPassword(!showPassword)}
-                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                                            >
-                                                {showPassword ? <EyeOffIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
-                                            </button>
-                                        </div>
-
-                                        <input
-                                            type={showPassword ? "text" : "password"}
-                                            value={confirmPassword}
-                                            onChange={e => setConfirmPassword(e.target.value)}
-                                            className="w-full bg-white border border-purple-200 text-gray-800 text-sm rounded-lg focus:ring-purple-500 focus:border-purple-500 block p-3 transition-all"
-                                            placeholder="Confirm New Password"
-                                        />
-
-                                        <button
-                                            type="button"
-                                            onClick={handleUpdatePassword}
-                                            disabled={updatingPassword || !newPassword}
-                                            className="w-full py-3 bg-purple-600 text-white text-sm font-bold rounded-lg hover:bg-purple-700 shadow-md shadow-purple-500/20 disabled:opacity-50 transition-all"
-                                        >
-                                            {updatingPassword ? 'Updating...' : 'Change Password'}
-                                        </button>
-                                    </div>
+                                            <span className="text-sm font-bold text-purple-700">Change Password</span>
+                                        </span>
+                                        <span className="text-purple-400">&rsaquo;</span>
+                                    </button>
                                 </div>
                             </div>
                         )}

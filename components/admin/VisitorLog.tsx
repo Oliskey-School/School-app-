@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { UserIcon, CheckCircleIcon, ClockIcon, CameraIcon } from '../../constants';
 import { useAuth } from '../../context/AuthContext';
 import { useAutoSync } from '../../hooks/useAutoSync';
+import CenteredLoader from '../ui/CenteredLoader';
 
 interface Visitor {
     id: string; // Changed to string (UUID)
@@ -120,28 +122,30 @@ const VisitorLog: React.FC = () => {
                     <h2 className="text-2xl font-bold text-gray-900">Visitor Log</h2>
                     <p className="text-sm text-gray-600 mt-1">Track and manage school visitors</p>
                 </div>
-                <button
+                <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={() => setShowCheckIn(true)}
                     className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
                 >
                     Check In Visitor
-                </button>
+                </motion.button>
             </div>
 
             {/* Stats */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="bg-blue-50 rounded-lg p-4 border border-blue-200">
                     <p className="text-sm text-blue-700">On Premises</p>
                     <p className="text-2xl font-bold text-blue-800">{activeVisitors.length}</p>
-                </div>
-                <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                </motion.div>
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.05 }} className="bg-green-50 rounded-lg p-4 border border-green-200">
                     <p className="text-sm text-green-700">Today's Visitors</p>
                     <p className="text-2xl font-bold text-green-800">{todayVisitors.length}</p>
-                </div>
-                <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                </motion.div>
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.1 }} className="bg-purple-50 rounded-lg p-4 border border-purple-200">
                     <p className="text-sm text-purple-700">Total Records</p>
                     <p className="text-2xl font-bold text-purple-800">{visitors.length}</p>
-                </div>
+                </motion.div>
             </div>
 
             {/* Visitor List */}
@@ -151,17 +155,15 @@ const VisitorLog: React.FC = () => {
                 </div>
                 <div className="divide-y divide-gray-200">
                     {loading ? (
-                        <div className="p-12 text-center">
-                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-                        </div>
+                        <CenteredLoader className="p-12" />
                     ) : visitors.length === 0 ? (
                         <div className="p-12 text-center text-gray-500">
                             <UserIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                             <p>No visitors logged</p>
                         </div>
                     ) : (
-                        visitors.map((visitor) => (
-                            <div key={visitor.id} className="p-6 hover:bg-gray-50">
+                        visitors.map((visitor, vi) => (
+                            <motion.div key={visitor.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(vi, 15) * 0.02 }} className="p-6 hover:bg-gray-50">
                                 <div className="flex items-start justify-between">
                                     <div className="flex-1">
                                         <div className="flex items-center space-x-2 mb-2">
@@ -195,24 +197,27 @@ const VisitorLog: React.FC = () => {
                                         </div>
                                     </div>
                                     {!visitor.check_out && (
-                                        <button
+                                        <motion.button
+                                            whileHover={{ scale: 1.03 }}
+                                            whileTap={{ scale: 0.96 }}
                                             onClick={() => handleCheckOut(visitor.id)}
                                             className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
                                         >
                                             Check Out
-                                        </button>
+                                        </motion.button>
                                     )}
                                 </div>
-                            </div>
+                            </motion.div>
                         ))
                     )}
                 </div>
             </div>
 
             {/* Check In Modal */}
+            <AnimatePresence>
             {showCheckIn && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} transition={{ type: 'spring', stiffness: 400, damping: 32 }} className="bg-white rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                         <h3 className="text-xl font-bold text-gray-900 mb-4">Visitor Check-In</h3>
                         <form onSubmit={handleCheckIn} className="space-y-4">
                             <div className="grid grid-cols-2 gap-4">
@@ -324,24 +329,29 @@ const VisitorLog: React.FC = () => {
                             </div>
 
                             <div className="flex space-x-3 pt-4">
-                                <button
+                                <motion.button
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
                                     type="button"
                                     onClick={() => setShowCheckIn(false)}
                                     className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
                                 >
                                     Cancel
-                                </button>
-                                <button
+                                </motion.button>
+                                <motion.button
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
                                     type="submit"
                                     className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
                                 >
                                     Check In
-                                </button>
+                                </motion.button>
                             </div>
                         </form>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
         </div>
     );
 };

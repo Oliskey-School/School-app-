@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { MapPin, Phone, Mail, Globe, Clock, Heart, Utensils, Briefcase, Scale, Users as UsersIcon, Brain, Home, HelpCircle } from 'lucide-react';
@@ -33,14 +34,14 @@ const CommunityResourceDirectory: React.FC = () => {
     const [loading, setLoading] = useState(true);
 
     const categories = [
-        { name: 'All', icon: HelpCircle, color: 'bg-gray-500' },
-        { name: 'Health', icon: Heart, color: 'bg-red-500' },
-        { name: 'Food Support', icon: Utensils, color: 'bg-orange-500' },
-        { name: 'Vocational Training', icon: Briefcase, color: 'bg-blue-500' },
-        { name: 'Legal Aid', icon: Scale, color: 'bg-purple-500' },
-        { name: 'Youth Programs', icon: UsersIcon, color: 'bg-green-500' },
-        { name: 'Mental Health', icon: Brain, color: 'bg-pink-500' },
-        { name: 'Emergency Shelter', icon: Home, color: 'bg-indigo-500' }
+        { name: 'All', icon: HelpCircle, color: 'bg-gray-500', textColor: 'text-gray-500' },
+        { name: 'Health', icon: Heart, color: 'bg-red-500', textColor: 'text-red-500' },
+        { name: 'Food Support', icon: Utensils, color: 'bg-orange-500', textColor: 'text-orange-500' },
+        { name: 'Vocational Training', icon: Briefcase, color: 'bg-blue-500', textColor: 'text-blue-500' },
+        { name: 'Legal Aid', icon: Scale, color: 'bg-purple-500', textColor: 'text-purple-500' },
+        { name: 'Youth Programs', icon: UsersIcon, color: 'bg-green-500', textColor: 'text-green-500' },
+        { name: 'Mental Health', icon: Brain, color: 'bg-pink-500', textColor: 'text-pink-500' },
+        { name: 'Emergency Shelter', icon: Home, color: 'bg-indigo-500', textColor: 'text-indigo-500' }
     ];
 
     useEffect(() => {
@@ -98,6 +99,11 @@ const CommunityResourceDirectory: React.FC = () => {
         return cat ? cat.color : 'bg-gray-500';
     };
 
+    const getCategoryTextColor = (category: string) => {
+        const cat = categories.find(c => c.name === category);
+        return cat ? cat.textColor : 'text-gray-500';
+    };
+
     if (loading) {
         return <div className="flex justify-center items-center h-64"><div className="w-8 h-8 border-4 border-teal-600 border-t-transparent rounded-full animate-spin"></div></div>;
     }
@@ -128,17 +134,18 @@ const CommunityResourceDirectory: React.FC = () => {
                     {categories.map(category => {
                         const Icon = category.icon;
                         return (
-                            <button
+                            <motion.button
                                 key={category.name}
+                                whileTap={{ scale: 0.95 }}
                                 onClick={() => setSelectedCategory(category.name)}
-                                className={`p-4 rounded-xl transition-all ${selectedCategory === category.name
+                                className={`p-4 rounded-xl transition-colors ${selectedCategory === category.name
                                     ? `${category.color} text-white shadow-lg scale-105`
                                     : 'bg-white text-gray-700 hover:bg-gray-100 shadow-sm'
                                     }`}
                             >
                                 <Icon className="h-6 w-6 mx-auto mb-2" />
                                 <p className="text-xs font-semibold text-center">{category.name}</p>
-                            </button>
+                            </motion.button>
                         );
                     })}
                 </div>
@@ -161,11 +168,15 @@ const CommunityResourceDirectory: React.FC = () => {
                         <p className="text-sm">Try a different search or category</p>
                     </div>
                 ) : (
-                    filteredResources.map(resource => {
+                    filteredResources.map((resource, i) => {
                         const Icon = getCategoryIcon(resource.resource_category);
                         return (
-                            <div
+                            <motion.div
                                 key={resource.id}
+                                initial={{ opacity: 0, y: 12 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.25, delay: Math.min(i, 10) * 0.05 }}
+                                whileHover={{ y: -2 }}
                                 className="bg-white rounded-xl shadow-sm hover:shadow-lg transition-shadow overflow-hidden cursor-pointer"
                                 onClick={() => setSelectedResource(resource)}
                             >
@@ -174,7 +185,7 @@ const CommunityResourceDirectory: React.FC = () => {
                                     <div className="flex items-start justify-between mb-3">
                                         <h3 className="text-lg font-bold text-gray-900 flex-1">{resource.resource_name}</h3>
                                         <div className={`p-2 rounded-lg ${getCategoryColor(resource.resource_category)} bg-opacity-10`}>
-                                            <Icon className={`h-5 w-5 ${getCategoryColor(resource.resource_category).replace('bg-', 'text-')}`} />
+                                            <Icon className={`h-5 w-5 ${getCategoryTextColor(resource.resource_category)}`} />
                                         </div>
                                     </div>
 
@@ -206,20 +217,33 @@ const CommunityResourceDirectory: React.FC = () => {
                                         )}
                                     </div>
 
-                                    <button className="w-full px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-semibold text-sm transition-colors">
+                                    <motion.button whileTap={{ scale: 0.97 }} className="w-full px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-semibold text-sm transition-colors">
                                         View Details
-                                    </button>
+                                    </motion.button>
                                 </div>
-                            </div>
+                            </motion.div>
                         );
                     })
                 )}
             </div>
 
             {/* Resource Detail Modal */}
+            <AnimatePresence>
             {selectedResource && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-                    <div className="bg-white rounded-xl max-w-2xl w-full my-8">
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto"
+                >
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                        className="bg-white rounded-xl max-w-2xl w-full my-8"
+                    >
                         <div className={`h-2 ${getCategoryColor(selectedResource.resource_category)}`}></div>
                         <div className="p-6">
                             <div className="flex items-start justify-between mb-4">
@@ -227,14 +251,16 @@ const CommunityResourceDirectory: React.FC = () => {
                                     <h2 className="text-2xl font-bold text-gray-900 mb-1">{selectedResource.resource_name}</h2>
                                     <p className="text-sm text-gray-600">{selectedResource.resource_category}</p>
                                 </div>
-                                <button
+                                <motion.button
+                                    whileHover={{ scale: 1.1 }}
+                                    whileTap={{ scale: 0.9 }}
                                     onClick={() => setSelectedResource(null)}
                                     className="text-gray-400 hover:text-gray-600"
                                 >
                                     <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                     </svg>
-                                </button>
+                                </motion.button>
                             </div>
 
                             <p className="text-gray-600 mb-6">{selectedResource.description}</p>
@@ -331,13 +357,16 @@ const CommunityResourceDirectory: React.FC = () => {
                             </div>
 
                             <div className="flex space-x-3">
-                                <button
+                                <motion.button
+                                    whileTap={{ scale: 0.96 }}
                                     onClick={() => setSelectedResource(null)}
                                     className="flex-1 px-4 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-semibold"
                                 >
                                     Close
-                                </button>
-                                <a
+                                </motion.button>
+                                <motion.a
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.96 }}
                                     href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedResource.resource_name + ' ' + selectedResource.address)}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
@@ -345,12 +374,13 @@ const CommunityResourceDirectory: React.FC = () => {
                                 >
                                     <MapPin className="h-5 w-5 inline mr-2" />
                                     Get Directions
-                                </a>
+                                </motion.a>
                             </div>
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
         </div>
     );
 };

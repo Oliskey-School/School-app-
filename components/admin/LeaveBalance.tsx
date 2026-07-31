@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import {
@@ -7,6 +8,7 @@ import {
     EditIcon,
 } from '../../constants';
 import { useAuth } from '../../context/AuthContext';
+import CenteredLoader from '../ui/CenteredLoader';
 
 // NOTE: The backend does not yet expose a dedicated leave-balances endpoint.
 // FLAG: api.getLeaveBalances() and api.updateLeaveBalance() need to be added to
@@ -101,11 +103,7 @@ const LeaveBalance: React.FC<LeaveBalanceProps> = () => {
     const groupedBalances = groupByTeacher();
 
     if (loading) {
-        return (
-            <div className="flex items-center justify-center h-full">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-            </div>
-        );
+        return <CenteredLoader className="h-full" />;
     }
 
     return (
@@ -136,8 +134,8 @@ const LeaveBalance: React.FC<LeaveBalanceProps> = () => {
 
             {/* Balances by Teacher */}
             <div className="space-y-4">
-                {Object.entries(groupedBalances).map(([teacherId, teacherBalances]) => (
-                    <div key={teacherId} className="bg-white rounded-xl shadow-sm border border-gray-100">
+                {Object.entries(groupedBalances).map(([teacherId, teacherBalances], ti) => (
+                    <motion.div key={teacherId} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(ti, 15) * 0.03 }} className="bg-white rounded-xl shadow-sm border border-gray-100">
                         <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
                             <div className="flex items-center space-x-2">
                                 <UserGroupIcon className="w-5 h-5 text-gray-600" />
@@ -172,10 +170,12 @@ const LeaveBalance: React.FC<LeaveBalanceProps> = () => {
                                         {/* Progress Bar */}
                                         <div className="space-y-1">
                                             <div className="w-full bg-gray-200 rounded-full h-2">
-                                                <div
-                                                    className="bg-indigo-600 h-2 rounded-full transition-all"
-                                                    style={{ width: `${Math.min(100, Math.max(0, (balance.remaining_days / balance.total_days) * 100))}%` }}
-                                                ></div>
+                                                <motion.div
+                                                    initial={{ width: 0 }}
+                                                    animate={{ width: `${Math.min(100, Math.max(0, (balance.remaining_days / balance.total_days) * 100))}%` }}
+                                                    transition={{ duration: 0.6, ease: 'easeOut' }}
+                                                    className="bg-indigo-600 h-2 rounded-full"
+                                                />
                                             </div>
                                             <div className="flex justify-between text-xs text-gray-600">
                                                 <span>Used: {balance.used_days}</span>
@@ -186,7 +186,7 @@ const LeaveBalance: React.FC<LeaveBalanceProps> = () => {
                                 ))}
                             </div>
                         </div>
-                    </div>
+                    </motion.div>
                 ))}
 
                 {Object.keys(groupedBalances).length === 0 && (
@@ -201,9 +201,10 @@ const LeaveBalance: React.FC<LeaveBalanceProps> = () => {
             </div>
 
             {/* Edit Modal */}
+            <AnimatePresence>
             {editingBalance && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} transition={{ type: 'spring', stiffness: 400, damping: 32 }} className="bg-white rounded-xl shadow-xl max-w-md w-full">
                         <div className="p-6">
                             <h3 className="text-xl font-bold text-gray-900 mb-4">Update Leave Balance</h3>
 
@@ -247,13 +248,15 @@ const LeaveBalance: React.FC<LeaveBalanceProps> = () => {
                             </div>
 
                             <div className="flex space-x-3 mt-6">
-                                <button
+                                <motion.button
+                                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                                     onClick={handleUpdateBalance}
                                     className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
                                 >
                                     Update Balance
-                                </button>
-                                <button
+                                </motion.button>
+                                <motion.button
+                                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                                     onClick={() => {
                                         setEditingBalance(null);
                                         setNewTotal(0);
@@ -261,12 +264,13 @@ const LeaveBalance: React.FC<LeaveBalanceProps> = () => {
                                     className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
                                 >
                                     Cancel
-                                </button>
+                                </motion.button>
                             </div>
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
         </div>
     );
 };

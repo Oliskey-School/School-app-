@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { motion } from 'framer-motion';
 import { StudentsIcon, StaffIcon, UsersIcon, ChevronRightIcon } from '../../constants';
 
 interface SelectUserTypeToAddScreenProps {
@@ -16,21 +17,26 @@ const SelectUserTypeToAddScreen: React.FC<SelectUserTypeToAddScreenProps> = ({ n
 
   return (
     <div className="p-4 space-y-4 bg-gray-50 h-full">
-      <div className="bg-white p-4 rounded-xl text-center shadow-sm">
+      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="bg-white p-4 rounded-xl text-center shadow-sm">
         <h3 className="font-bold text-lg text-gray-800">What type of user do you want to add?</h3>
-      </div>
-      {userTypes.map(userType => (
-        <button
+      </motion.div>
+      {userTypes.map((userType, i) => (
+        <motion.button
           key={userType.type}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2, delay: i * 0.06 }}
+          whileHover={{ y: -2 }}
+          whileTap={{ scale: 0.98 }}
           onClick={userType.action}
-          className="w-full bg-white rounded-xl shadow-sm p-4 flex items-center justify-between text-left hover:bg-gray-50 hover:ring-2 hover:ring-indigo-200 transition-all"
+          className="w-full bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow p-4 flex items-center justify-between text-left hover:ring-2 hover:ring-indigo-200"
         >
           <div className="flex items-center space-x-4">
             <div className="p-3 bg-gray-100 rounded-lg">{userType.icon}</div>
             <p className="font-bold text-lg text-gray-800">{`Add New ${userType.type}`}</p>
           </div>
           <ChevronRightIcon className="text-gray-400" />
-        </button>
+        </motion.button>
       ))}
     </div>
   );

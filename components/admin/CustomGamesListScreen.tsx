@@ -1,18 +1,20 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { motion } from 'framer-motion';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { GameControllerIcon, CheckCircleIcon } from '../../constants';
 import { AIGame } from '../../types';
+import CenteredLoader from '../ui/CenteredLoader';
 
 interface CustomGamesListScreenProps {}
 
-const GameRow: React.FC<{ game: AIGame; creatorName: string }> = ({ game, creatorName }) => {
+const GameRow: React.FC<{ game: AIGame; creatorName: string; index: number }> = ({ game, creatorName, index }) => {
     const statusStyle = game.status === 'Published'
         ? 'bg-green-100 text-green-800'
         : 'bg-gray-100 text-gray-800';
 
     return (
-        <div className="bg-white rounded-xl shadow-sm p-4">
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(index, 15) * 0.03 }} className="bg-white rounded-xl shadow-sm p-4">
             <div className="flex justify-between items-start">
                 <div>
                     <h4 className="font-bold text-gray-800">{game.gameName}</h4>
@@ -27,7 +29,7 @@ const GameRow: React.FC<{ game: AIGame; creatorName: string }> = ({ game, creato
                 <p><strong>Creator:</strong> {creatorName}</p>
                 <p><strong>Questions:</strong> {game.questions?.length ?? 0}</p>
             </div>
-        </div>
+        </motion.div>
     );
 };
 
@@ -96,18 +98,17 @@ const CustomGamesListScreen: React.FC<CustomGamesListScreenProps> = () => {
             </div>
             <div className="space-y-3">
                 {loading ? (
-                    <div className="text-center py-10 bg-white rounded-lg shadow-sm">
-                        <p className="text-gray-500">Loading custom games...</p>
-                    </div>
+                    <CenteredLoader message="Loading custom games..." className="py-10 bg-white rounded-lg shadow-sm" />
                 ) : error ? (
                     <div className="text-center py-10 bg-white rounded-lg shadow-sm">
                         <p className="text-red-500">{error}</p>
                     </div>
                 ) : sortedGames.length > 0 ? (
-                    sortedGames.map(game => (
+                    sortedGames.map((game, gi) => (
                         <GameRow
                             key={game.id}
                             game={game}
+                            index={gi}
                             creatorName={creatorMap[String(game.creatorId)] || 'Unknown'}
                         />
                     ))

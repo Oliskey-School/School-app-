@@ -1,5 +1,6 @@
 
 import React, { useState, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { AdventureDifficulty } from '../../../types';
 import { SparklesIcon, PaperclipIcon } from '../../../constants';
 
@@ -44,20 +45,35 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onStartAdventure, error }) => {
                 <p className="text-gray-600 mt-1">Turn any lesson into a fun quest.</p>
             </div>
 
-            {error && (
-                <div className="mt-4 p-3 bg-red-100 border border-red-200 text-red-800 rounded-lg text-sm text-center">
-                    {error}
-                </div>
-            )}
+            <AnimatePresence>
+                {error && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -8, height: 0 }}
+                        animate={{ opacity: 1, y: 0, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="mt-4 p-3 bg-red-100 border border-red-200 text-red-800 rounded-lg text-sm text-center overflow-hidden"
+                    >
+                        {error}
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             <div className="mt-6 space-y-5 flex-grow">
                 {/* Content Input */}
                 <div className="bg-white p-4 rounded-xl shadow-sm">
-                    <div className="flex bg-gray-100 p-1 rounded-lg">
-                        <button onClick={() => setInputType('file')} className={`w-1/2 py-2 text-sm font-semibold rounded-md transition-colors ${inputType === 'file' ? 'bg-white shadow' : 'text-gray-600'}`}>
+                    <div className="relative flex bg-gray-100 p-1 rounded-lg">
+                        <motion.div
+                            className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-white rounded-md shadow"
+                            initial={false}
+                            animate={{ x: inputType === 'file' ? 0 : '100%' }}
+                            transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                            style={{ left: 4 }}
+                        />
+                        <button onClick={() => setInputType('file')} className={`relative z-10 w-1/2 py-2 text-sm font-semibold rounded-md transition-colors ${inputType === 'file' ? 'text-gray-900' : 'text-gray-600'}`}>
                             Upload File
                         </button>
-                        <button onClick={() => setInputType('url')} className={`w-1/2 py-2 text-sm font-semibold rounded-md transition-colors ${inputType === 'url' ? 'bg-white shadow' : 'text-gray-600'}`}>
+                        <button onClick={() => setInputType('url')} className={`relative z-10 w-1/2 py-2 text-sm font-semibold rounded-md transition-colors ${inputType === 'url' ? 'text-gray-900' : 'text-gray-600'}`}>
                             Paste Link
                         </button>
                     </div>
@@ -102,26 +118,30 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onStartAdventure, error }) => {
                     <h3 className="font-bold text-gray-700 mb-3 text-center">Challenge Level</h3>
                     <div className="space-y-2">
                         {difficulties.map(d => (
-                            <button
+                            <motion.button
                                 key={d}
+                                whileHover={{ x: 2 }}
+                                whileTap={{ scale: 0.98 }}
                                 onClick={() => setDifficulty(d)}
-                                className={`w-full p-3 text-left font-semibold rounded-lg border-2 transition-all ${difficulty === d ? 'bg-orange-100 border-orange-400 text-orange-800' : 'bg-gray-50 border-transparent hover:border-gray-300 text-gray-700'}`}
+                                className={`w-full p-3 text-left font-semibold rounded-lg border-2 transition-colors ${difficulty === d ? 'bg-orange-100 border-orange-400 text-orange-800' : 'bg-gray-50 border-transparent hover:border-gray-300 text-gray-700'}`}
                             >
                                 {d}
-                            </button>
+                            </motion.button>
                         ))}
                     </div>
                 </div>
             </div>
 
             <div className="mt-auto pt-4">
-                <button
+                <motion.button
+                    whileHover={{ scale: isReady ? 1.01 : 1 }}
+                    whileTap={{ scale: isReady ? 0.98 : 1 }}
                     onClick={handleStart}
                     disabled={!isReady}
                     className="w-full py-4 text-lg font-bold text-white bg-orange-500 rounded-xl shadow-lg hover:bg-orange-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
                 >
                     Start Adventure!
-                </button>
+                </motion.button>
             </div>
         </div>
     );

@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { Plus, Trash2, Save, ArrowLeft, GraduationCap } from 'lucide-react';
 import { api } from '../../lib/api';
 import { useIsMainAdmin } from '../../hooks/useIsMainAdmin';
+import CenteredLoader from '../ui/CenteredLoader';
 
 interface Term { name: string; order: number; }
 interface Band { min: number; max: number; grade: string; remark: string; }
@@ -60,14 +62,14 @@ const BranchAcademicsScreen: React.FC<any> = ({ handleBack, navigateTo }) => {
 
     const goBack = () => handleBack ? handleBack() : navigateTo?.('overview', 'Admin Dashboard');
 
-    if (loading) return <div className="flex items-center justify-center min-h-[50vh] text-slate-500">Loading academic settings…</div>;
+    if (loading) return <CenteredLoader message="Loading academic settings…" className="min-h-[50vh]" />;
 
     return (
         <div className="w-full p-4 sm:p-6 max-w-4xl mx-auto">
             <div className="flex items-center gap-3 mb-5">
-                <button onClick={goBack} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:border-indigo-300">
+                <motion.button whileTap={{ scale: 0.95 }} onClick={goBack} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:border-indigo-300">
                     <ArrowLeft className="h-4 w-4" /> Back
-                </button>
+                </motion.button>
                 <div className="flex items-center gap-2">
                     <div className="h-10 w-10 rounded-xl bg-indigo-100 flex items-center justify-center"><GraduationCap className="h-5 w-5 text-indigo-600" /></div>
                     <div>
@@ -88,11 +90,13 @@ const BranchAcademicsScreen: React.FC<any> = ({ handleBack, navigateTo }) => {
                     ))}
                 </div>
             )}
+            <AnimatePresence>
             {scope === 'branch' && source !== 'branch' && (
-                <p className="mb-4 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                <motion.p initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mb-4 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 overflow-hidden">
                     This branch currently inherits the {source === 'school' ? 'school default' : 'standard'} settings. Saving here creates a branch-specific override.
-                </p>
+                </motion.p>
             )}
+            </AnimatePresence>
 
             {/* Terms */}
             <div className="rounded-2xl border border-slate-200 bg-white p-4 mb-5">
@@ -149,10 +153,10 @@ const BranchAcademicsScreen: React.FC<any> = ({ handleBack, navigateTo }) => {
                 </button>
             </div>
 
-            <button onClick={save} disabled={saving}
+            <motion.button whileHover={!saving ? { scale: 1.02 } : {}} whileTap={!saving ? { scale: 0.98 } : {}} onClick={save} disabled={saving}
                 className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:bg-slate-300">
                 <Save className="h-4 w-4" /> {saving ? 'Saving…' : 'Save'}
-            </button>
+            </motion.button>
         </div>
     );
 };

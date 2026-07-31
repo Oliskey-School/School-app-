@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { BusVehicleIcon, PlusIcon, TrashIcon, EditIcon } from '../../constants';
+import CenteredLoader from '../ui/CenteredLoader';
 import { Bus } from '../../types';
 import { api } from '../../lib/api';
 
@@ -206,12 +208,7 @@ const BusDutyRosterScreen: React.FC<BusDutyRosterProps> = ({ schoolId: propSchoo
     };
 
     if (loading) {
-        return (
-            <div className="flex items-center justify-center p-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-                <div className="ml-3 text-lg text-gray-600">Loading buses...</div>
-            </div>
-        );
+        return <CenteredLoader message="Loading buses..." className="p-8" />;
     }
 
     if (!schoolId) {
@@ -224,12 +221,13 @@ const BusDutyRosterScreen: React.FC<BusDutyRosterProps> = ({ schoolId: propSchoo
                 <p className="text-slate-600 mb-6 text-center max-w-xs text-sm">
                     We're having trouble identifying which school these buses belong to.
                 </p>
-                <button
+                <motion.button
+                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                     onClick={() => refreshProfile()}
-                    className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95"
+                    className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all"
                 >
                     Sync School Profile
-                </button>
+                </motion.button>
             </div>
         );
     }
@@ -250,18 +248,20 @@ const BusDutyRosterScreen: React.FC<BusDutyRosterProps> = ({ schoolId: propSchoo
 
             {/* Add Bus Button */}
             {!isAddingBus && !editingBusId && (
-                <button
+                <motion.button
+                    whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
                     onClick={() => setIsAddingBus(true)}
                     className="w-full py-3 px-4 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition-colors flex items-center justify-center space-x-2 shadow-sm"
                 >
                     <PlusIcon className="h-5 w-5" />
                     <span>Add New Bus</span>
-                </button>
+                </motion.button>
             )}
 
             {/* Bus Form (Add/Edit) */}
+            <AnimatePresence>
             {(isAddingBus || editingBusId) && (
-                <div className="bg-white p-4 rounded-xl shadow-md border-2 border-indigo-200">
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="bg-white p-4 rounded-xl shadow-md border-2 border-indigo-200 overflow-hidden">
                     <h4 className="font-bold text-lg text-gray-800 mb-3">
                         {editingBusId ? 'Edit Bus' : 'Add New Bus'}
                     </h4>
@@ -351,26 +351,29 @@ const BusDutyRosterScreen: React.FC<BusDutyRosterProps> = ({ schoolId: propSchoo
                         </div>
 
                         <div className="flex space-x-3 pt-2">
-                            <button
+                            <motion.button
+                                whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                                 onClick={editingBusId ? handleUpdateBus : handleAddBus}
                                 className="flex-1 py-2.5 px-4 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors"
                             >
                                 {editingBusId ? 'Update Bus' : 'Add Bus'}
-                            </button>
-                            <button
+                            </motion.button>
+                            <motion.button
+                                whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                                 onClick={resetForm}
                                 className="flex-1 py-2.5 px-4 bg-gray-200 text-gray-700 font-semibold rounded-lg hover:bg-gray-300 transition-colors"
                             >
                                 Cancel
-                            </button>
+                            </motion.button>
                         </div>
                     </div>
-                </div>
+                </motion.div>
             )}
+            </AnimatePresence>
 
             {/* Bus List */}
             {loading ? (
-                <div className="py-10 text-center text-gray-500">Loading buses...</div>
+                <CenteredLoader message="Loading buses..." className="py-10" />
             ) : (
                 <>
                     {buses.length === 0 && !isAddingBus && (
@@ -384,8 +387,8 @@ const BusDutyRosterScreen: React.FC<BusDutyRosterProps> = ({ schoolId: propSchoo
                     )}
 
                     <div className="space-y-3">
-                        {buses.map((bus) => (
-                            <div key={bus.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+                        {buses.map((bus, bi) => (
+                            <motion.div key={bus.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(bi, 15) * 0.03 }} className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
                                 <div className="flex items-start justify-between">
                                     <div className="flex-grow">
                                         <div className="flex items-center space-x-2 mb-2">
@@ -414,23 +417,25 @@ const BusDutyRosterScreen: React.FC<BusDutyRosterProps> = ({ schoolId: propSchoo
                                     </div>
 
                                     <div className="flex space-x-2">
-                                        <button
+                                        <motion.button
+                                            whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
                                             onClick={() => handleEditBus(bus)}
                                             className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
                                             title="Edit Bus"
                                         >
                                             <EditIcon className="h-5 w-5" />
-                                        </button>
-                                        <button
+                                        </motion.button>
+                                        <motion.button
+                                            whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
                                             onClick={() => handleDeleteBus(bus.id)}
                                             className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
                                             title="Delete Bus"
                                         >
                                             <TrashIcon className="h-5 w-5" />
-                                        </button>
+                                        </motion.button>
                                     </div>
                                 </div>
-                            </div>
+                            </motion.div>
                         ))}
                     </div>
                 </>

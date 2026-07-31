@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useBranch } from '../../context/BranchContext';
@@ -113,10 +114,13 @@ const PastStudentsScreen: React.FC<PastStudentsScreenProps> = ({ navigateTo }) =
                                 </tr>
                             </thead>
                             <tbody>
-                                {students.map(s => (
-                                    <tr key={s.id}
+                                {students.map((s, i) => (
+                                    <motion.tr key={s.id}
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        transition={{ duration: 0.2, delay: Math.min(i, 15) * 0.02 }}
                                         onClick={() => navigateTo('alumniHistory', `${s.full_name}'s Record`, { studentId: s.id })}
-                                        className="border-b border-gray-50 hover:bg-gray-50/50 cursor-pointer">
+                                        className="border-b border-gray-50 hover:bg-gray-50/50 cursor-pointer transition-colors">
                                         <td className="px-5 py-3">
                                             <div className="flex items-center gap-3">
                                                 {s.avatar_url
@@ -136,7 +140,7 @@ const PastStudentsScreen: React.FC<PastStudentsScreenProps> = ({ navigateTo }) =
                                                 {s.status}
                                             </span>
                                         </td>
-                                    </tr>
+                                    </motion.tr>
                                 ))}
                             </tbody>
                         </table>

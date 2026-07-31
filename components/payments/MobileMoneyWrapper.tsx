@@ -138,16 +138,8 @@ export const MobileMoneyWrapper: React.FC<MobileMoneyWrapperProps> = ({
 
                     // Send payment confirmation
                     try {
-                        const { data: transaction } = await api
-                            .from('transactions')
-                            .select('id')
-                            .eq('reference', reference)
-                            .single();
-
-                        if (transaction?.id) {
-                            const { sendPaymentConfirmation } = await import('../../lib/payment-notifications');
-                            await sendPaymentConfirmation({ transactionId: transaction.id });
-                        }
+                        const { sendPaymentConfirmation } = await import('../../lib/payment-notifications');
+                        await sendPaymentConfirmation({ reference });
                     } catch (notifError) {
                         console.error('Error sending payment notification:', notifError);
                     }

@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { api } from '../../lib/api';
 import { Users, UserCheck, UserX, Bus, Wrench, Receipt, HeartPulse, Contact, Gauge, ShieldAlert, RefreshCcw } from 'lucide-react';
+import CenteredLoader from '../ui/CenteredLoader';
 
 interface Snapshot {
     students_present: number;
@@ -60,27 +62,27 @@ const DigitalTwinScreen = () => {
                     <h1 className="text-2xl font-bold text-gray-900 font-outfit flex items-center gap-2">🏫 School Status</h1>
                     <p className="text-gray-500">A live snapshot of everything happening right now.</p>
                 </div>
-                <button onClick={fetchSnapshot} className="flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700">
+                <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={fetchSnapshot} className="flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700">
                     <RefreshCcw className="w-4 h-4" /> Refresh
-                </button>
+                </motion.button>
             </div>
 
             {loading || !snapshot ? (
-                <div className="text-center py-12 text-gray-500">Loading...</div>
+                <CenteredLoader className="py-12" />
             ) : (
                 <>
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-                        {CARDS.map(c => {
+                        {CARDS.map((c, ci) => {
                             const Icon = c.icon;
                             const isEstimate = snapshot.estimates?.includes(c.key);
                             return (
-                                <div key={c.key} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+                                <motion.div key={c.key} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(ci, 15) * 0.03 }} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
                                     <div className={`w-9 h-9 rounded-xl flex items-center justify-center mb-2 ${c.color}`}>
                                         <Icon className="w-4.5 h-4.5" />
                                     </div>
                                     <p className="text-2xl font-bold text-gray-900">{snapshot[c.key]}{c.suffix || ''}</p>
                                     <p className="text-xs text-gray-500">{c.label}{isEstimate ? ' (est.)' : ''}</p>
-                                </div>
+                                </motion.div>
                             );
                         })}
                     </div>

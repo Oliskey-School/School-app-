@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { api } from '../../lib/api';
 import { ReceiptIcon } from '../../constants';
@@ -48,40 +49,57 @@ const StudentFinanceScreen: React.FC<StudentFinanceScreenProps> = ({ studentId }
         <div className="flex flex-col h-full bg-gray-50">
             <main className="flex-grow p-4 space-y-4 overflow-y-auto">
                 {/* Summary Card */}
-                <div className="bg-gradient-to-r from-orange-400 to-amber-500 text-white p-5 rounded-2xl shadow-lg">
+                <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="bg-gradient-to-r from-orange-400 to-amber-500 text-white p-5 rounded-2xl shadow-lg"
+                >
                     <p className="text-sm opacity-80">Outstanding Balance</p>
                     <p className="text-4xl font-bold mt-1">{formatter.format(balance)}</p>
                     <p className="text-xs opacity-80 mt-2">Total Fees: {formatter.format(totalDue)}</p>
-                </div>
+                </motion.div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Fee Component Breakdown (Unpaid) */}
-                    <div className="bg-white p-4 rounded-xl shadow-sm">
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: 0.05 }} className="bg-white p-4 rounded-xl shadow-sm">
                         <h3 className="font-bold text-gray-800 mb-3">Due Payments</h3>
                         {unpaidFees.length > 0 ? (
                             <ul className="space-y-2">
-                                {unpaidFees.map(fee => (
-                                    <li key={fee.id} className="flex justify-between items-center text-sm p-2 hover:bg-gray-50 rounded-lg">
+                                {unpaidFees.map((fee, i) => (
+                                    <motion.li
+                                        key={fee.id}
+                                        initial={{ opacity: 0, x: -8 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ duration: 0.2, delay: Math.min(i, 10) * 0.03 }}
+                                        className="flex justify-between items-center text-sm p-2 hover:bg-gray-50 rounded-lg transition-colors"
+                                    >
                                         <div>
                                             <span className="text-gray-700 font-medium block">{fee.title}</span>
                                             <span className="text-xs text-red-500">{fee.status}</span>
                                         </div>
                                         <span className="font-bold text-gray-800">{formatter.format(fee.amount)}</span>
-                                    </li>
+                                    </motion.li>
                                 ))}
                             </ul>
                         ) : (
                             <p className="text-sm text-gray-500">No pending payments.</p>
                         )}
-                    </div>
+                    </motion.div>
 
                     {/* Check Payment History (Paid Items) */}
-                    <div className="bg-white p-4 rounded-xl shadow-sm">
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: 0.1 }} className="bg-white p-4 rounded-xl shadow-sm">
                         <h3 className="font-bold text-gray-800 mb-3">Payment History</h3>
                         {paidFees.length > 0 ? (
                             <ul className="space-y-3">
-                                {paidFees.map(p => (
-                                    <li key={p.id} className="flex items-center">
+                                {paidFees.map((p, i) => (
+                                    <motion.li
+                                        key={p.id}
+                                        initial={{ opacity: 0, x: -8 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ duration: 0.2, delay: Math.min(i, 10) * 0.03 }}
+                                        className="flex items-center"
+                                    >
                                         <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center mr-3">
                                             <ReceiptIcon className="w-5 h-5 text-green-600" />
                                         </div>
@@ -90,13 +108,13 @@ const StudentFinanceScreen: React.FC<StudentFinanceScreenProps> = ({ studentId }
                                             <p className="text-xs text-gray-500">{new Date(p.created_at || new Date()).toLocaleDateString()}</p>
                                         </div>
                                         <p className="font-bold text-green-600">{formatter.format(p.amount)}</p>
-                                    </li>
+                                    </motion.li>
                                 ))}
                             </ul>
                         ) : (
                             <p className="text-sm text-gray-500 text-center py-4">No completed payments.</p>
                         )}
-                    </div>
+                    </motion.div>
                 </div>
             </main>
 

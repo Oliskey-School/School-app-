@@ -1,5 +1,5 @@
 import prisma from '../config/database';
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcrypt';
 import { IdGeneratorService } from './idGenerator.service';
 import { BranchIdentityService } from './branchIdentity.service';
 import { PrismaClient, Role } from '../../generated/prisma-client';

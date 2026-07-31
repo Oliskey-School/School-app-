@@ -1,7 +1,9 @@
 import { toast } from 'react-hot-toast';
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../../lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
+import CenteredLoader from '../../ui/CenteredLoader';
 import {
     Users,
     Shield,
@@ -159,7 +161,7 @@ export const RoleManagementScreen: React.FC<RoleManagementScreenProps> = ({ navi
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Card>
                     <CardContent className="p-4">
                         <div className="flex items-center justify-between">
@@ -203,20 +205,25 @@ export const RoleManagementScreen: React.FC<RoleManagementScreenProps> = ({ navi
                         </div>
                     </CardContent>
                 </Card>
-            </div>
+            </motion.div>
 
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 {/* Role Selector */}
-                <div className="lg:col-span-1">
+                <div className="lg:col-span-1 lg:sticky lg:top-6 lg:self-start">
                     <Card>
                         <CardHeader>
                             <CardTitle>Select Role</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-2">
-                                {DEFAULT_ROLES.map(role => (
-                                    <button
+                                {DEFAULT_ROLES.map((role, index) => (
+                                    <motion.button
                                         key={role}
+                                        initial={{ opacity: 0, y: 6 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ duration: 0.15, delay: Math.min(index, 10) * 0.02 }}
+                                        whileHover={{ scale: 1.01 }}
+                                        whileTap={{ scale: 0.99 }}
                                         onClick={() => setSelectedRole(role)}
                                         className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${selectedRole === role
                                                 ? 'bg-indigo-600 text-white'
@@ -229,7 +236,7 @@ export const RoleManagementScreen: React.FC<RoleManagementScreenProps> = ({ navi
                                                 {permissions.filter(p => p.role_name === role).length}
                                             </span>
                                         </div>
-                                    </button>
+                                    </motion.button>
                                 ))}
                             </div>
                         </CardContent>
@@ -242,7 +249,8 @@ export const RoleManagementScreen: React.FC<RoleManagementScreenProps> = ({ navi
                         <CardHeader>
                             <div className="flex items-center justify-between">
                                 <CardTitle>Permissions for {selectedRole}</CardTitle>
-                                <button
+                                <motion.button
+                                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                                     onClick={() => setEditMode(!editMode)}
                                     className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
                                 >
@@ -257,70 +265,83 @@ export const RoleManagementScreen: React.FC<RoleManagementScreenProps> = ({ navi
                                             Add Permission
                                         </>
                                     )}
-                                </button>
+                                </motion.button>
                             </div>
                         </CardHeader>
                         <CardContent>
                             {/* Add Permission Form */}
-                            {editMode && (
-                                <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-                                    <h3 className="font-semibold text-gray-900 mb-4">Add New Permission</h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                Resource
-                                            </label>
-                                            <select
-                                                value={newPermission.resource}
-                                                onChange={(e) => setNewPermission({ ...newPermission, resource: e.target.value })}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                                            >
-                                                <option value="">Select resource...</option>
-                                                {DEFAULT_RESOURCES.map(resource => (
-                                                    <option key={resource} value={resource}>{resource}</option>
-                                                ))}
-                                            </select>
+                            <AnimatePresence>
+                                {editMode && (
+                                    <motion.div
+                                        initial={{ opacity: 0, height: 0 }}
+                                        animate={{ opacity: 1, height: 'auto' }}
+                                        exit={{ opacity: 0, height: 0 }}
+                                        transition={{ duration: 0.2 }}
+                                        className="mb-6 p-4 bg-gray-50 rounded-lg overflow-hidden"
+                                    >
+                                        <h3 className="font-semibold text-gray-900 mb-4">Add New Permission</h3>
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Resource
+                                                </label>
+                                                <select
+                                                    value={newPermission.resource}
+                                                    onChange={(e) => setNewPermission({ ...newPermission, resource: e.target.value })}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                                >
+                                                    <option value="">Select resource...</option>
+                                                    {DEFAULT_RESOURCES.map(resource => (
+                                                        <option key={resource} value={resource}>{resource}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Action
+                                                </label>
+                                                <select
+                                                    value={newPermission.action}
+                                                    onChange={(e) => setNewPermission({ ...newPermission, action: e.target.value as any })}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                                >
+                                                    {DEFAULT_ACTIONS.map(action => (
+                                                        <option key={action} value={action}>{action}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div className="flex items-end">
+                                                <motion.button
+                                                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                                                    onClick={handleAddPermission}
+                                                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                                                >
+                                                    <Save className="w-4 h-4" />
+                                                    Add
+                                                </motion.button>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                Action
-                                            </label>
-                                            <select
-                                                value={newPermission.action}
-                                                onChange={(e) => setNewPermission({ ...newPermission, action: e.target.value as any })}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                                            >
-                                                {DEFAULT_ACTIONS.map(action => (
-                                                    <option key={action} value={action}>{action}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                        <div className="flex items-end">
-                                            <button
-                                                onClick={handleAddPermission}
-                                                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                                            >
-                                                <Save className="w-4 h-4" />
-                                                Add
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
 
                             {/* Permissions Table */}
                             {loading ? (
-                                <div className="flex justify-center items-center py-12">
-                                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-                                </div>
+                                <CenteredLoader className="py-12" />
                             ) : Object.keys(groupedPermissions).length === 0 ? (
                                 <div className="text-center py-12 text-gray-500">
                                     No permissions configured for this role
                                 </div>
                             ) : (
                                 <div className="space-y-4">
-                                    {Object.entries(groupedPermissions).map(([resource, perms]) => (
-                                        <div key={resource} className="border border-gray-200 rounded-lg p-4">
+                                    {Object.entries(groupedPermissions).map(([resource, perms], groupIndex) => (
+                                        <motion.div
+                                            key={resource}
+                                            initial={{ opacity: 0, y: 6 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            transition={{ duration: 0.15, delay: Math.min(groupIndex, 10) * 0.03 }}
+                                            className="border border-gray-200 rounded-lg p-4"
+                                        >
                                             <h3 className="font-semibold text-gray-900 mb-3 capitalize">{resource}</h3>
                                             <div className="space-y-2">
                                                 {perms.map(perm => (
@@ -341,16 +362,17 @@ export const RoleManagementScreen: React.FC<RoleManagementScreenProps> = ({ navi
                                                                 </span>
                                                             </label>
                                                         </div>
-                                                        <button
+                                                        <motion.button
+                                                            whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                                                             onClick={() => handleDeletePermission(perm.id)}
                                                             className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                                         >
                                                             <Trash2 className="w-4 h-4" />
-                                                        </button>
+                                                        </motion.button>
                                                     </div>
                                                 ))}
                                             </div>
-                                        </div>
+                                        </motion.div>
                                     ))}
                                 </div>
                             )}

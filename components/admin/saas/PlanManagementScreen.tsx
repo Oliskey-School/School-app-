@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useSaaS } from '../../../contexts/SaaSContext';
 import { Plan } from '../../../types';
 import api from '../../../lib/api';
@@ -76,13 +77,15 @@ const PlanManagementScreen: React.FC<PlanManagementScreenProps> = ({ navigateTo 
                     <p className="text-gray-600 mt-1">Manage tiers, pricing, and feature limits.</p>
                 </div>
                 <div className="flex gap-3">
-                    <button
+                    <motion.button
+                        whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                         onClick={() => setShowComparison(!showComparison)}
                         className="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
                     >
                         <Layout className="w-4 h-4" /> {showComparison ? 'Grid View' : 'Compare Plans'}
-                    </button>
-                    <button
+                    </motion.button>
+                    <motion.button
+                        whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                         onClick={() => {
                             setEditingPlan({
                                 name: '',
@@ -97,7 +100,7 @@ const PlanManagementScreen: React.FC<PlanManagementScreenProps> = ({ navigateTo 
                         className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition shadow-lg shadow-indigo-200"
                     >
                         <Plus className="w-5 h-5" /> Create Plan
-                    </button>
+                    </motion.button>
                 </div>
             </div>
 
@@ -156,8 +159,8 @@ const PlanManagementScreen: React.FC<PlanManagementScreenProps> = ({ navigateTo 
             ) : (
                 /* Plans Grid */
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {plans.map(plan => (
-                        <div key={plan.id} className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100 flex flex-col relative group hover:-translate-y-1 transition duration-300">
+                    {plans.map((plan, pi) => (
+                        <motion.div key={plan.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(pi, 10) * 0.03 }} whileHover={{ y: -4 }} className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100 flex flex-col relative group transition duration-300">
                             {plan.name.toLowerCase().includes('pro') && (
                                 <div className="absolute top-0 inset-x-0 h-2 bg-gradient-to-r from-indigo-500 to-purple-500" />
                             )}
@@ -198,7 +201,8 @@ const PlanManagementScreen: React.FC<PlanManagementScreenProps> = ({ navigateTo 
                                 </div>
                             </div>
                             <div className="p-4 bg-gray-50 border-t border-gray-100 flex gap-2">
-                                <button
+                                <motion.button
+                                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                                     onClick={() => {
                                         setEditingPlan(plan);
                                         setIsEditing(true);
@@ -206,28 +210,30 @@ const PlanManagementScreen: React.FC<PlanManagementScreenProps> = ({ navigateTo 
                                     className="flex-1 flex items-center justify-center gap-2 py-2 bg-white border border-gray-200 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-100 transition"
                                 >
                                     <Edit className="w-3.5 h-3.5" /> Edit
-                                </button>
-                                <button
+                                </motion.button>
+                                <motion.button
+                                    whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
                                     onClick={() => handleDelete(plan.id)}
                                     className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
                                 >
                                     <Trash className="w-4 h-4" />
-                                </button>
+                                </motion.button>
                             </div>
-                        </div>
+                        </motion.div>
                     ))}
                 </div>
             )}
 
             {/* Edit Modal */}
+            <AnimatePresence>
             {isEditing && editingPlan && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} transition={{ type: 'spring', stiffness: 400, damping: 32 }} className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
                         <div className="p-6 border-b border-gray-100 flex justify-between items-center sticky top-0 bg-white z-10">
                             <h2 className="text-xl font-bold text-gray-900">{editingPlan.id ? 'Edit Plan' : 'Create New Plan'}</h2>
-                            <button onClick={() => setIsEditing(false)} className="p-2 hover:bg-gray-100 rounded-lg transition">
+                            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => setIsEditing(false)} className="p-2 hover:bg-gray-100 rounded-lg transition">
                                 <X className="w-5 h-5 text-gray-500" />
-                            </button>
+                            </motion.button>
                         </div>
 
                         <div className="p-8 space-y-8">
@@ -325,22 +331,25 @@ const PlanManagementScreen: React.FC<PlanManagementScreenProps> = ({ navigateTo 
                         </div>
 
                         <div className="p-6 border-t border-gray-100 flex gap-3 sticky bottom-0 bg-white">
-                            <button
+                            <motion.button
+                                whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                                 onClick={() => setIsEditing(false)}
                                 className="flex-1 px-4 py-3 border border-gray-200 rounded-xl text-gray-700 font-bold hover:bg-gray-50 transition"
                             >
                                 Cancel
-                            </button>
-                            <button
+                            </motion.button>
+                            <motion.button
+                                whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                                 onClick={handleSave}
                                 className="flex-1 px-4 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition flex items-center justify-center gap-2"
                             >
                                 <Save className="w-5 h-5" /> Save Changes
-                            </button>
+                            </motion.button>
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
         </div>
     );
 };
