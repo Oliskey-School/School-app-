@@ -46,6 +46,11 @@ Living checklist built from real issues found during production-readiness audits
 
 - Any Context `Provider value={{...}}` object literal re-renders every consumer on every parent render, even if the values inside are unchanged. Wrap the value in `useMemo`, and make sure every function in that value object is itself `useCallback`-wrapped — a memoized object containing a freshly-recreated function still breaks the memoization.
 
+## Concurrency / ID generation
+
+- **`findMany` + compute-max-in-JS + insert is a TOCTOU race**, even when wrapped in a Prisma transaction at default (READ COMMITTED) isolation — two concurrent requests can both read the same max sequence before either commits. Check whether a DB-level `@unique` constraint backs the generated value before treating this as Critical: if it does, the failure mode downgrades from "silent duplicate IDs" to "one of the two concurrent requests fails with a unique-constraint error and needs a retry" — still worth fixing (wrap in a retry-on-P2002 loop, or use a DB sequence / advisory lock), but not a data-corruption emergency. Always verify the schema for the relevant `@@unique`/`@unique` before assigning severity.
+- Don't blind-patch ID-generation logic that a project's own governing doc calls out as a non-negotiable core invariant (e.g. a documented Global ID format). Document the race precisely (file, lines, exact failure mode) as a recommendation instead of rushing a fix without dedicated design/testing time.
+
 ## Verification / dead code
 
 - Before deleting a suspicious legacy auth path (e.g. a JWT carrying an embedded OTP `code` claim, checked against user input), verify whether anything in the frontend still calls it. A `jwt.verify`-gated endpoint that requires the server's own signing secret to produce a valid token is not exploitable by an external attacker even if the design looks odd — but if nothing issues that token type anymore, it's dead code that should be flagged for removal rather than "fixed" in place.
