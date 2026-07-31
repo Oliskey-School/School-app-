@@ -21,6 +21,24 @@ export const ROLE_CODES: Record<string, string> = {
 
 export class IdGeneratorService {
     /**
+     * Serializes concurrent ID generation for the same partition (school+branch+role,
+     * or school+year for admission numbers) using a Postgres transaction-scoped
+     * advisory lock. This closes the TOCTOU race in getNextSequence/generateAdmissionNumber
+     * (read max, compute in JS, insert later) where two concurrent requests could
+     * otherwise compute the same next number.
+     *
+     * IMPORTANT: the lock is released automatically when the transaction commits or
+     * rolls back. It is only effective when `tx` is a real `prisma.$transaction(...)`
+     * client AND the caller performs the ID-consuming insert/update inside that SAME
+     * transaction — acquiring the lock and then committing before the insert (e.g. in
+     * a separate, later query) does not protect anything.
+     */
+    private static async acquireIdLock(tx: any, lockKey: string): Promise<void> {
+        if (!tx) return; // No real transaction to hold the lock for — see doc above.
+        await tx.$queryRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1)::bigint)', lockKey);
+    }
+
+    /**
      * Generates the next school_generated_id for a user in a given school/branch/role.
      */
     static async generateSchoolId(
@@ -66,6 +84,8 @@ export class IdGeneratorService {
         const schoolCode = school.code.toUpperCase();
         const branchCode = (branch as any).code.substring(0, 10).toUpperCase();
 
+        await IdGeneratorService.acquireIdLock(tx, `school-id:${schoolId}:${effectiveBranchId}:${roleKey}`);
+
         const nextNumber = await IdGeneratorService.getNextSequence(
             schoolId,
             effectiveBranchId as string,
@@ -106,6 +126,8 @@ export class IdGeneratorService {
 
         // 3. Get current year
         const currentYear = new Date().getFullYear().toString();
+
+        await IdGeneratorService.acquireIdLock(tx, `admission-no:${schoolId}:${currentYear}`);
 
         // 4. Find students for this school in this year to get the next sequence
         const students = await db.student.findMany({

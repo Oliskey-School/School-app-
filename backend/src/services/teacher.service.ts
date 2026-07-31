@@ -24,21 +24,24 @@ export class TeacherService {
         const effectiveName = full_name || name;
         const effectiveSubjects = subject_specialty || subjects || [];
 
-        // 1. Generate standard school ID
-        let schoolGeneratedId: string | null = null;
-        if (schoolId && branchId) {
-            try {
-                schoolGeneratedId = await IdGeneratorService.generateSchoolId(schoolId, branchId, 'teacher');
-            } catch (idErr: any) {
-                console.warn('[TeacherService] Could not generate school ID:', idErr.message);
-            }
-        }
-
         // 2. Generate initial password
         const generatedPassword = 'teacher' + Math.floor(1000 + Math.random() * 9000);
         const hashedPassword = await bcrypt.hash(generatedPassword, 10);
 
         return await prisma.$transaction(async (tx) => {
+            // 1. Generate standard school ID. Must happen inside this transaction —
+            //    the advisory lock inside generateSchoolId is scoped to it (see
+            //    idGenerator.service.ts) and only protects the insert below if both
+            //    share the same transaction.
+            let schoolGeneratedId: string | null = null;
+            if (schoolId && branchId) {
+                try {
+                    schoolGeneratedId = await IdGeneratorService.generateSchoolId(schoolId, branchId, 'teacher', tx);
+                } catch (idErr: any) {
+                    console.warn('[TeacherService] Could not generate school ID:', idErr.message);
+                }
+            }
+
             // 3. Check if a user with this email already exists IN THIS SCHOOL + BRANCH
             //    (email is unique per school+branch, not globally).
             let user = await tx.user.findFirst({
@@ -775,36 +778,39 @@ export class TeacherService {
                 const effectiveBranchId = user.branch_id
                     || (config.demoSchoolId && effectiveSchoolId === config.demoSchoolId ? config.demoBranchId : undefined);
 
-                // Try to generate a standard school ID if missing
-                let schoolGeneratedId = user.school_generated_id;
-                if (!schoolGeneratedId && effectiveSchoolId && effectiveBranchId) {
-                    try {
-                        schoolGeneratedId = await IdGeneratorService.generateSchoolId(effectiveSchoolId, effectiveBranchId as string, 'teacher');
-                    } catch (idErr: any) {
-                        console.warn('[TeacherService] Could not generate school ID during self-healing:', idErr.message);
-                    }
-                }
-
-                teacher = await (prisma.teacher.create as any)({
-                    data: {
-                        user_id: userId,
-                        school_id: effectiveSchoolId,
-                        branch_id: effectiveBranchId,
-                        school_generated_id: schoolGeneratedId,
-                        full_name: user.full_name,
-                        email: user.email,
-                        status: 'Active',
-                        updated_at: new Date()
-                    },
-                    include: {
-                        user: true,
-                        classes: {
-                            include: {
-                                class: true,
-                                subject: true
-                            }
+                // Try to generate a standard school ID if missing. ID generation + the
+                // insert that consumes it must share one transaction — see idGenerator.service.ts.
+                teacher = await prisma.$transaction(async (tx) => {
+                    let schoolGeneratedId = user.school_generated_id;
+                    if (!schoolGeneratedId && effectiveSchoolId && effectiveBranchId) {
+                        try {
+                            schoolGeneratedId = await IdGeneratorService.generateSchoolId(effectiveSchoolId, effectiveBranchId as string, 'teacher', tx);
+                        } catch (idErr: any) {
+                            console.warn('[TeacherService] Could not generate school ID during self-healing:', idErr.message);
                         }
                     }
+
+                    return (tx.teacher.create as any)({
+                        data: {
+                            user_id: userId,
+                            school_id: effectiveSchoolId,
+                            branch_id: effectiveBranchId,
+                            school_generated_id: schoolGeneratedId,
+                            full_name: user.full_name,
+                            email: user.email,
+                            status: 'Active',
+                            updated_at: new Date()
+                        },
+                        include: {
+                            user: true,
+                            classes: {
+                                include: {
+                                    class: true,
+                                    subject: true
+                                }
+                            }
+                        }
+                    });
                 });
                 console.log(`✅ [TeacherService] Self-healing successful for ${userId}`);
             } else {

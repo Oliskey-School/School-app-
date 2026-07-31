@@ -167,7 +167,7 @@ export class AuthService {
             let schoolGeneratedId = null;
             if (data.school_id && data.branch_id) {
                 try {
-                    schoolGeneratedId = await IdGeneratorService.generateSchoolId(data.school_id, data.branch_id, role.toLowerCase());
+                    schoolGeneratedId = await IdGeneratorService.generateSchoolId(data.school_id, data.branch_id, role.toLowerCase(), tx);
                 } catch (err) {
                     console.warn('Could not generate school ID:', err);
                 }
@@ -598,7 +598,8 @@ export class AuthService {
                     schoolGeneratedId = await IdGeneratorService.generateSchoolId(
                         data.school_id,
                         data.branch_id,
-                        data.role
+                        data.role,
+                        tx
                     );
                     
                     await tx.user.update({

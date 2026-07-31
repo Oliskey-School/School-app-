@@ -248,7 +248,7 @@ export class ParentService {
                 let schoolGeneratedId: string | null = null;
                 if (schoolId && branchId) {
                     try {
-                        schoolGeneratedId = await IdGeneratorService.generateSchoolId(schoolId, branchId, 'parent');
+                        schoolGeneratedId = await IdGeneratorService.generateSchoolId(schoolId, branchId, 'parent', tx);
                         loginId = schoolGeneratedId;
                     } catch (err) {
                         console.warn('[ParentService] ID generation failed:', err);

@@ -65,20 +65,23 @@ router.post('/invite-user', authenticate, requireRole(['admin', 'proprietor']), 
             // Every user needs the platform's standard {SCHOOL}_{BRANCH}_{ROLE}_{NUM}
             // ID the moment they're created — this path was skipping it entirely,
             // leaving invited staff with a null school_generated_id.
-            const schoolGeneratedId = await IdGeneratorService.generateSchoolId(school_id, branch_id, role);
-
-            user = await prisma.user.create({
-                data: {
-                    email: email.toLowerCase(),
-                    full_name,
-                    password_hash: hashedPassword,
-                    role: roleEnum as any,
-                    school_id,
-                    branch_id: branch_id || null,
-                    email_verified: false,
-                    initial_password: tempPassword,
-                    school_generated_id: schoolGeneratedId
-                }
+            // ID generation + the insert that consumes it must share one transaction —
+            // the advisory lock inside generateSchoolId is scoped to it (see idGenerator.service.ts).
+            user = await prisma.$transaction(async (tx) => {
+                const schoolGeneratedId = await IdGeneratorService.generateSchoolId(school_id, branch_id, role, tx);
+                return tx.user.create({
+                    data: {
+                        email: email.toLowerCase(),
+                        full_name,
+                        password_hash: hashedPassword,
+                        role: roleEnum as any,
+                        school_id,
+                        branch_id: branch_id || null,
+                        email_verified: false,
+                        initial_password: tempPassword,
+                        school_generated_id: schoolGeneratedId
+                    }
+                });
             });
         }
 

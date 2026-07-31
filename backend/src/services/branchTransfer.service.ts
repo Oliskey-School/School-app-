@@ -110,24 +110,29 @@ export async function transferUser(actor: any, params: TransferParams) {
     const data: any = {};
     let newGeneratedId: string | undefined;
 
-    // Primary-branch transfer → regenerate the global ID for the new branch.
-    if (newBranchId && newBranchId !== target.branch_id) {
-        newGeneratedId = await IdGeneratorService.generateSchoolId(schoolId, newBranchId, target.role);
-        data.branch_id = newBranchId;
-        data.school_generated_id = newGeneratedId;
-    }
-
     // Multi-branch assignment → store ADDITIONAL branches only (exclude primary).
     if (Array.isArray(allowedBranchIds)) {
-        const primary = data.branch_id || target.branch_id;
+        const primary = newBranchId || target.branch_id;
         data.allowed_branch_ids = Array.from(new Set(allowedBranchIds.filter(b => b && b !== primary)));
     }
 
-    if (Object.keys(data).length === 0) {
-        throw Object.assign(new Error('Nothing to change (provide newBranchId and/or allowedBranchIds)'), { status: 400 });
+    if (!newBranchId || newBranchId === target.branch_id) {
+        if (Object.keys(data).length === 0) {
+            throw Object.assign(new Error('Nothing to change (provide newBranchId and/or allowedBranchIds)'), { status: 400 });
+        }
     }
 
-    const updated = await prisma.user.update({ where: { id: userId }, data });
+    // ID generation + the update that consumes it must share one transaction — the
+    // advisory lock inside generateSchoolId is scoped to it (see idGenerator.service.ts).
+    const updated = await prisma.$transaction(async (tx) => {
+        // Primary-branch transfer → regenerate the global ID for the new branch.
+        if (newBranchId && newBranchId !== target.branch_id) {
+            newGeneratedId = await IdGeneratorService.generateSchoolId(schoolId, newBranchId, target.role, tx);
+            data.branch_id = newBranchId;
+            data.school_generated_id = newGeneratedId;
+        }
+        return tx.user.update({ where: { id: userId }, data });
+    });
 
     // Mirror an ID/branch change to the role-specific profile table.
     if (newGeneratedId) {
