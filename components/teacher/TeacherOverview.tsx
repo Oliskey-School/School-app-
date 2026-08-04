@@ -18,6 +18,7 @@ import {
   ChartBarIcon,
   SUBJECT_COLORS,
   UserGroupIcon,
+  ElearningIcon,
   getFormattedClassName
 } from '../../constants';
 import { DashboardType } from '../../types';
@@ -256,12 +257,13 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
           action: () => navigateTo('myClassHub', 'My Class', { teacherId, schoolId, currentBranchId, classId: myRoles.class_teacher_of[0]?.id })
         }] : []),
         { label: "Attendance", icon: <TeacherAttendanceIcon className="h-7 w-7" />, action: () => navigateTo('selectClassForAttendance', 'Select Class', { teacherId, schoolId }) },
+        { label: "My Attendance", icon: <CheckCircleIcon className="h-7 w-7" />, action: () => navigateTo('teacherSelfAttendance', 'My Attendance', { teacherId }) },
         { label: "Gradebook", icon: <CalculatorIcon className="h-7 w-7" />, action: () => navigateTo('classGradebook', 'Class Gradebook', { teacherId }) },
         { label: "Exams", icon: <ClipboardListIcon className="h-7 w-7" />, action: () => navigateTo('examManagement', 'Manage Exams', { schoolId, teacherId, branchId: currentBranchId }) },
         { label: "Assessments", icon: <ClipboardListIcon className="h-7 w-7" />, action: () => navigateTo('assessmentsHub', 'Assessments & Quizzes', { teacherId, branchId: currentBranchId }) },
         { label: "AI Planner", icon: <SparklesIcon className="h-7 w-7" />, action: () => navigateTo('lessonPlanner', 'AI Lesson Planner', { teacherId }) },
         { label: "Lesson Notes", icon: <BookOpenIcon className="h-7 w-7" />, action: () => navigateTo('lessonNotesUpload', 'Upload Lesson Notes', { teacherId }) },
-        { label: "Reports", icon: <BookOpenIcon className="h-7 w-7" />, action: () => navigateTo('reports', 'Student Reports', { teacherId, schoolId }) },
+        // "Reports" removed: already a direct nav item on both desktop (sidebar) and mobile (bottom nav).
       ],
     },
     {
@@ -278,7 +280,8 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
       items: [
         { label: "Appointments", icon: <CalendarPlusIcon className="h-7 w-7" />, action: () => navigateTo('appointments', 'Appointments', { teacherId }) },
         { label: "Virtual Class", icon: <VideoIcon className="h-7 w-7" />, action: () => navigateTo('virtualClass', 'Virtual Classroom', { teacherId, schoolId }) },
-        { label: "Forum", icon: <UserGroupIcon className="h-7 w-7" />, action: () => navigateTo('collaborationForum', 'Teacher Forum', { schoolId }) },
+        // "Forum" removed: duplicates the Forum link already in both the
+        // sidebar and the mobile bottom nav.
       ],
     },
     {
@@ -287,7 +290,10 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
         { label: "My File", icon: <BriefcaseIcon className="h-7 w-7" />, action: () => navigateTo('myPersonnelFile', 'My Personnel File', { teacherId }) },
         { label: "Scan Classroom", icon: <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2M7 12h10" /></svg>, action: () => navigateTo('scanClassroom', 'Scan Classroom', { teacherId }) },
         { label: "Substitute Requests", icon: <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4M16 17H4m0 0l4 4m-4-4l4-4" /></svg>, action: () => navigateTo('substituteAssignments', 'Substitute Assignments') },
-        { label: "Resources", icon: <BriefcaseIcon className="h-7 w-7" />, action: () => navigateTo('resources', 'Resource Hub', { schoolId }) },
+        // "Resources" folded into Learning Hub below — AI Lesson Planner already
+        // has its own tile above; E-Learning Library and Educational Games are
+        // now quick-links inside the Learning Hub screen instead of a separate hub.
+        { label: "Learning Hub", icon: <ElearningIcon className="h-7 w-7" />, action: () => navigateTo('learningHub', 'Learning Hub', { teacherId, schoolId }) },
         { label: "Report Incident", icon: <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>, action: () => navigateTo('mySopCases', 'My Reported Cases') },
         { label: "Report an Issue", icon: <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" /></svg>, action: () => navigateTo('reportMaintenanceIssue', 'Report an Issue') },
       ],

@@ -70,6 +70,11 @@ export const config = {
     // spoofed by posting an arbitrary email/name directly to the login endpoint.
     googleClientId: process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID
         || '1036010453198-q6c7pjf53uqus1j3o85bfud2gebe4rcu.apps.googleusercontent.com',
+    // Daily.co API key for creating live-class video rooms. Daily's own docs are
+    // explicit that this key "is best kept server-side" — the browser never sees
+    // it; it calls our /api/video/room endpoint, which mints the room and returns
+    // only the join URL. Leave unset to keep using the Jitsi path instead.
+    dailyApiKey: process.env.DAILY_API_KEY || '',
 };
 
 // Backward-compat constants

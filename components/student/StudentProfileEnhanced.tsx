@@ -13,6 +13,7 @@ import {
 import { Button } from '../ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { api } from '../../lib/api';
+import { CANONICAL_TERMS } from '../../utils/annualReport';
 import {
     User, BookOpen, FileText, Calendar,
     Download, Eye, GraduationCap, CheckCircle,
@@ -331,19 +332,32 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
 
     // Performance Overview rows: one per admin-assigned subject. A subject only
     // shows a score once a result is PUBLISHED for it (from a published report
-    // card); until then it reads "No result yet".
+    // card); until then it reads "No result yet". Where a subject has been
+    // published across more than one term (First/Second/Third), the score
+    // shown is the average across those terms — the same combined annual
+    // result as the Academic Performance Dashboard's Third Term view —
+    // rather than whichever term happened to be processed last.
     const overviewRows = useMemo(() => {
-        const publishedScores = new Map<string, number>();
+        const scoresBySubject = new Map<string, number[]>();
         reportCards
-            .filter((rc: any) => rc?.is_published)
+            .filter((rc: any) => rc?.is_published && CANONICAL_TERMS.includes(rc?.term))
             .forEach((rc: any) => {
                 const records = Array.isArray(rc.academic_records) ? rc.academic_records : [];
                 records.forEach((r: any) => {
                     const name = (r?.subject || '').toString().trim().toLowerCase();
                     const score = Number(r?.total ?? r?.score);
-                    if (name && !Number.isNaN(score)) publishedScores.set(name, score);
+                    if (name && !Number.isNaN(score)) {
+                        if (!scoresBySubject.has(name)) scoresBySubject.set(name, []);
+                        scoresBySubject.get(name)!.push(score);
+                    }
                 });
             });
+
+        const publishedScores = new Map<string, number>();
+        scoresBySubject.forEach((scores, name) => {
+            const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+            publishedScores.set(name, Math.round(avg * 10) / 10);
+        });
 
         // Subjects to list: admin-assigned set first; fall back to any subjects
         // that already have published scores so nothing published is hidden.

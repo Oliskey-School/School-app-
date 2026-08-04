@@ -88,6 +88,14 @@ const SchoolUtilitiesScreen: React.FC<SchoolUtilitiesScreenProps> = ({ navigateT
             view: 'learningResources'
         },
         {
+            id: 'learningHub',
+            label: 'Learning Hub',
+            description: 'Track progress on free study resources',
+            icon: <ElearningIcon className="h-8 w-8 text-white" />,
+            color: 'bg-green-600',
+            view: 'learningHub'
+        },
+        {
             id: 'policies',
             label: 'School Policies',
             description: 'Rules, regulations, and guidelines',

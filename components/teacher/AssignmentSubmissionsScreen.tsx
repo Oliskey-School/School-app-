@@ -16,7 +16,7 @@ interface AssignmentSubmissionsScreenProps {
     schoolId: string;
 }
 
-const SubmissionCard: React.FC<{ student: Student; submission: Submission; onGrade: (submission: Submission) => void; index: number }> = ({ student, submission, onGrade, index }) => (
+const SubmissionCard: React.FC<{ student: Student; submission: Submission; movedTo?: string; onGrade: (submission: Submission) => void; index: number }> = ({ student, submission, movedTo, onGrade, index }) => (
     <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
@@ -39,6 +39,9 @@ const SubmissionCard: React.FC<{ student: Student; submission: Submission; onGra
                     {submission.isLate ? 'Late' : 'On Time'}
                 </span>
             </div>
+            {movedTo && (
+                <p className="text-xs text-amber-600 font-medium mt-1">Submitted before moving — now in {movedTo}</p>
+            )}
         </div>
         <div className="flex items-center space-x-3">
             <div className="flex flex-col items-center">
@@ -119,6 +122,19 @@ const AssignmentSubmissionsScreen: React.FC<AssignmentSubmissionsScreenProps> = 
                 console.warn('Assignment has no classId or className');
                 classStudents = [];
             }
+
+            // Restrict the roster to students actually taking this assignment's
+            // subject. assigned_subjects is the admin-picked, authoritative subject
+            // list for a student when set (see Student model); an empty list means
+            // "no override — inherit every subject offered to the class", so those
+            // students still show for any subject rather than being hidden.
+            if (assignment.subject) {
+                classStudents = classStudents.filter((s: any) => {
+                    const assigned: string[] = s.assigned_subjects || s.assignedSubjects || [];
+                    return assigned.length === 0 || assigned.includes(assignment.subject);
+                });
+            }
+
             setAllClassStudents(classStudents);
 
             // 2. Fetch Submissions using Hybrid API
@@ -134,10 +150,15 @@ const AssignmentSubmissionsScreen: React.FC<AssignmentSubmissionsScreenProps> = 
                     const resolvedName = rosterMatch?.name || joined.full_name || joined.name || 'Unknown Student';
                     const resolvedAvatar = rosterMatch?.avatarUrl || joined.avatar_url || joined.avatarUrl || '';
                     const resolvedUserId = rosterMatch?.user_id || joined.user_id || joined.userId;
+                    // Carried through so the UI can flag "submitted before they moved
+                    // classes" instead of silently mixing an old class's roster with
+                    // the student's real current one.
+                    const resolvedGrade = rosterMatch?.grade ?? joined.grade;
+                    const resolvedSection = rosterMatch?.section ?? joined.section;
                     return {
                         id: sub.id,
                         assignmentId: sub.assignment_id,
-                        student: { id: sub.student_id, name: resolvedName, avatarUrl: resolvedAvatar, user_id: resolvedUserId } as any,
+                        student: { id: sub.student_id, name: resolvedName, avatarUrl: resolvedAvatar, user_id: resolvedUserId, grade: resolvedGrade, section: resolvedSection } as any,
                         submittedAt: sub.submitted_at,
                         status: sub.status,
                         grade: sub.grade,
@@ -168,17 +189,36 @@ const AssignmentSubmissionsScreen: React.FC<AssignmentSubmissionsScreenProps> = 
     const { submittedStudents, notSubmittedStudents } = useMemo(() => {
         const submittedStudentIds = new Set(submissions.map(s => s.student.id));
 
-        const submitted = allClassStudents
-            .filter(s => submittedStudentIds.has(s.id))
-            .map(student => ({
-                student,
-                submission: submissions.find(s => s.student.id === student.id)!
-            }));
+        // The assignment's own class, parsed the same way the legacy className
+        // fallback above does — used only to detect a submitter who has since
+        // moved to a different class, so their history can be labeled instead
+        // of looking like the roster and the submission list disagree.
+        const gradeMatch = assignment.className?.match(/\d+/);
+        const sectionMatch = assignment.className?.match(/[A-Z]/);
+        const assignmentGrade = gradeMatch ? parseInt(gradeMatch[0]) : undefined;
+        const assignmentSection = sectionMatch ? sectionMatch[0] : undefined;
+
+        // Built from the submissions themselves, not from allClassStudents: a
+        // student who already submitted must stay visible for grading even if
+        // they've since left this class's current roster (promoted, transferred,
+        // or filtered out because their assigned subjects changed) — the roster
+        // is only used here to fill in richer profile info when it's still
+        // available, falling back to the submission's own joined student data.
+        const submitted = submissions.map(submission => {
+            const rosterMatch = allClassStudents.find(s => s.id === submission.student.id);
+            const student = (rosterMatch || submission.student) as Student;
+            const hasMoved = !rosterMatch
+                && assignmentGrade !== undefined
+                && (student as any).grade !== undefined
+                && ((student as any).grade !== assignmentGrade || (student as any).section !== assignmentSection);
+            const movedTo = hasMoved ? `Grade ${(student as any).grade}${(student as any).section || ''}` : undefined;
+            return { student, submission, movedTo };
+        });
 
         const notSubmitted = allClassStudents.filter(s => !submittedStudentIds.has(s.id));
 
         return { submittedStudents: submitted, notSubmittedStudents: notSubmitted };
-    }, [allClassStudents, submissions]);
+    }, [allClassStudents, submissions, assignment.className]);
 
     const gradedCount = submissions.filter(s => s.status === 'Graded').length;
     const ungradedCount = submissions.length - gradedCount;
@@ -318,7 +358,7 @@ const AssignmentSubmissionsScreen: React.FC<AssignmentSubmissionsScreenProps> = 
                             <h3 className="font-bold text-gray-700 mb-2 px-1">Submitted ({submittedStudents.length})</h3>
                             <div className="space-y-3">
                                 {submittedStudents.length > 0 ? submittedStudents.map((item, i) => (
-                                    <SubmissionCard key={item.student.id} student={item.student} submission={item.submission} onGrade={viewOrGrade} index={i} />
+                                    <SubmissionCard key={item.student.id} student={item.student} submission={item.submission} movedTo={item.movedTo} onGrade={viewOrGrade} index={i} />
                                 )) : <p className="text-sm text-gray-500 p-4 bg-white rounded-xl text-center">No submissions yet.</p>}
                             </div>
                         </div>

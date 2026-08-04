@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { VideoCameraIcon, CalendarIcon, ClockIcon } from '../../constants';
 import api from '../../lib/api';
 import LiveClassRoom, { buildJitsiUrl } from './LiveClassRoom';
+import { canEmbedVideo } from '../../lib/videoConfig';
 import { useAuth } from '../../context/AuthContext';
 
 interface VirtualClassroomProps {
@@ -78,12 +79,16 @@ const VirtualClassroom: React.FC<VirtualClassroomProps> = ({ userRole, userId, d
     }, [fetchClasses]);
 
     const joinClass = (session: any) => {
-        // Open Jitsi in a new tab before any async work — browser allows window.open
-        // only in direct response to a user gesture. Named window reuses the tab on re-join.
-        window.open(
-            buildJitsiUrl(session.id, displayName || 'Student'),
-            `jitsi_${session.id.replace(/-/g, '')}`
-        );
+        // Self-hosted Jitsi embeds directly in-app (see LiveClassRoom) — no tab
+        // needed. Only the free public server requires the popup workaround.
+        if (!canEmbedVideo()) {
+            // Open Jitsi in a new tab before any async work — browser allows window.open
+            // only in direct response to a user gesture. Named window reuses the tab on re-join.
+            window.open(
+                buildJitsiUrl(session.id, displayName || 'Student'),
+                `jitsi_${session.id.replace(/-/g, '')}`
+            );
+        }
 
         setSelectedClass(session);
         setClassEnded(false);

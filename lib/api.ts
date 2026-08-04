@@ -1092,6 +1092,10 @@ class ExpressApiClient {
         return this.get(`/teachers/${teacherId}/classes`);
     }
 
+    async getMyTeachingRoles(): Promise<{ roles: string[]; class_teacher_of: any[]; subject_assignments: any[] }> {
+        return this.get('/teacher-assignments/mine/roles');
+    }
+
     async getTeacherAttendance(schoolId: string, filters: { branchId?: string; date?: string; status?: string; teacher_id?: string; startDate?: string; endDate?: string } = {}): Promise<any[]> {
         const queryParams = new URLSearchParams({ schoolId });
         if (filters.branchId && filters.branchId !== 'all') queryParams.append('branchId', filters.branchId);
@@ -1957,6 +1961,69 @@ class ExpressApiClient {
             teacherId: q.teacher_id,
             createdAt: q.created_at,
         }));
+    }
+
+    // ============================================
+    // VIDEO CALLS (Daily.co — key stays server-side)
+    // ============================================
+    async getVideoStatus(): Promise<{ configured: boolean; provider: string }> {
+        return this.get('/video/status');
+    }
+
+    async createVideoRoom(sessionId: string): Promise<{ url: string; name: string }> {
+        return this.post('/video/room', { session_id: sessionId });
+    }
+
+    // ============================================
+    // LEARNING HUB
+    // ============================================
+    async getLearningHubResources(filters?: { grade_level?: string; subject?: string; resource_kind?: string; search?: string; branch_id?: string; subject_area?: string; grade_band?: string; inclusive_feature?: string }): Promise<any[]> {
+        const params = new URLSearchParams();
+        if (filters) {
+            Object.entries(filters).forEach(([k, v]) => { if (v) params.set(k, v); });
+        }
+        const query = params.toString();
+        return this.get(`/learning-hub/resources${query ? `?${query}` : ''}`);
+    }
+
+    async createLearningHubResource(data: any): Promise<any> {
+        return this.post('/learning-hub/resources', data);
+    }
+
+    async updateLearningHubResource(id: string, data: any): Promise<any> {
+        return this.put(`/learning-hub/resources/${id}`, data);
+    }
+
+    async deleteLearningHubResource(id: string): Promise<any> {
+        return this.delete(`/learning-hub/resources/${id}`);
+    }
+
+    async getMyLearningHubProgress(): Promise<any[]> {
+        return this.get('/learning-hub/progress/me');
+    }
+
+    async upsertMyLearningHubProgress(data: { resource_id: string; status?: string; score?: number; time_spent_seconds?: number }): Promise<any> {
+        return this.post('/learning-hub/progress/me', data);
+    }
+
+    async getMyLearningHubSummary(): Promise<any> {
+        return this.get('/learning-hub/progress/summary/me');
+    }
+
+    async getStudentLearningHubProgress(studentId: string): Promise<any[]> {
+        return this.get(`/learning-hub/progress/student/${studentId}`);
+    }
+
+    async getStudentLearningHubSummary(studentId: string): Promise<any> {
+        return this.get(`/learning-hub/progress/summary/${studentId}`);
+    }
+
+    async createLearningHubStudyPlan(data: any): Promise<any> {
+        return this.post('/learning-hub/study-plans', data);
+    }
+
+    async getLearningHubStudyPlans(studentId: string): Promise<any[]> {
+        return this.get(`/learning-hub/study-plans/${studentId}`);
     }
 
     async getBehaviorNotesByStudent(studentId: string): Promise<any[]> {

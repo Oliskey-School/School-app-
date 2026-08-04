@@ -4,6 +4,8 @@ import { ChevronRightIcon, LockIcon } from '../../constants';
 import { getFormattedClassName } from '../../constants';
 import { api } from '../../lib/api';
 import { useProfile } from '../../context/ProfileContext';
+import { useAuth } from '../../context/AuthContext';
+import { useBranch } from '../../context/BranchContext';
 import { useTeacherClasses } from '../../hooks/useTeacherClasses';
 import { ClassInfo as ClassData } from '../../types';
 
@@ -14,9 +16,23 @@ interface TeacherSelectClassForAttendanceProps {
 
 const TeacherSelectClassForAttendance: React.FC<TeacherSelectClassForAttendanceProps> = ({ navigateTo, teacherId }) => {
     const { profile } = useProfile();
+    const { currentBranchId } = useAuth();
+    const { branches } = useBranch();
 
-    // New Hook for classes
-    const { classes: allClasses, loading, error } = useTeacherClasses(teacherId);
+    // Scoped to the teacher's currently active branch — without this, a
+    // multi-branch teacher saw every branch's classes mixed together here,
+    // including similarly-named ones from a branch they aren't even viewing
+    // (e.g. "SSS 1 A" from another branch alongside this branch's own "SSS 1").
+    const { classes: allClasses, loading, error } = useTeacherClasses(teacherId, currentBranchId);
+
+    // The by-curriculum-track flow only makes sense for a branch actually running
+    // both Nigerian and British tracks side by side — showing it unconditionally
+    // on every class turned an already-simple "mark attendance" screen into a
+    // confusing one for the (much more common) single-curriculum branch.
+    const isDualCurriculumBranch = React.useMemo(
+        () => branches.find(b => b.id === currentBranchId)?.curriculum_type?.toLowerCase() === 'dual',
+        [branches, currentBranchId]
+    );
 
     const uniqueClasses = React.useMemo(() => {
         const seen = new Set();
@@ -77,13 +93,15 @@ const TeacherSelectClassForAttendance: React.FC<TeacherSelectClassForAttendanceP
                                 </div>
                                 <ChevronRightIcon className="text-gray-400" />
                             </motion.button>
-                            <motion.button
-                                whileTap={{ scale: 0.98 }}
-                                onClick={(e) => handleSelectByTrack(e, classInfo)}
-                                className="w-full px-4 py-2 text-xs font-bold text-purple-600 bg-purple-50 hover:bg-purple-100 border-t border-purple-100 transition-colors"
-                            >
-                                Mark by Curriculum Track (Nigerian/British)
-                            </motion.button>
+                            {isDualCurriculumBranch && (
+                                <motion.button
+                                    whileTap={{ scale: 0.98 }}
+                                    onClick={(e) => handleSelectByTrack(e, classInfo)}
+                                    className="w-full px-4 py-2 text-xs font-bold text-purple-600 bg-purple-50 hover:bg-purple-100 border-t border-purple-100 transition-colors"
+                                >
+                                    Mark by Curriculum Track (Nigerian/British)
+                                </motion.button>
+                            )}
                         </motion.div>
                     )
                 })}

@@ -2,7 +2,7 @@
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-    CircleCheck, BookOpen, Wallet, Bell, BarChart3, 
+    CircleCheck, BookOpen, Bell, BarChart3,
     ChevronRight, ChevronDown, CircleUser,
     Bus, Calendar, Megaphone, CalendarPlus
 } from 'lucide-react';
@@ -291,34 +291,9 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
                     <ChevronRight className="w-5 h-5 text-gray-300" />
                 </motion.div>
 
-                {/* Fees Card */}
-                <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.25, delay: 0.15 }}
-                    whileHover={{ y: -2 }}
-                    whileTap={{ scale: 0.98 }}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => navigateTo('feeStatus', 'Fee Status')}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigateTo('feeStatus', 'Fee Status'); } }}
-                    className="bg-white p-5 rounded-2xl shadow-sm hover:shadow-md transition-shadow border border-gray-100 flex items-center justify-between cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                >
-                    <div className="flex items-center gap-4">
-                        <div className="bg-amber-50 p-3 rounded-xl">
-                            <Wallet className="w-6 h-6 text-amber-600" />
-                        </div>
-                        <div>
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Finances</p>
-                            <p className="text-gray-900 font-bold">₦{child.fee_balance.toLocaleString()} outstanding</p>
-                            {child.fee_balance > 0 && <div className="mt-1 w-2 h-2 bg-red-500 rounded-full animate-pulse" />}
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-full">PAY NOW</span>
-                        <ChevronRight className="w-5 h-5 text-gray-300" />
-                    </div>
-                </motion.div>
+                {/* Fees Card removed: "Fee Status" is already a direct nav item on
+                    both desktop (sidebar) and mobile (bottom nav), so this repeated
+                    the same destination a second time on the same screen. */}
 
                 {/* Latest Result Card */}
                 {child.latest_result && (

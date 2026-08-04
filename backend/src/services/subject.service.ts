@@ -21,9 +21,14 @@ const STANDARD_SUBJECTS = [
 export class SubjectService {
     static async getSubjects(schoolId: string, branchId?: string) {
         const where: any = { school_id: schoolId };
-        // Branch isolation: only this branch's subjects.
+        // Branch isolation: this branch's own subjects, PLUS untagged ones
+        // (branch_id null) — those are shared/legacy rows a class in this
+        // branch can still be linked to (Class.subjects), so excluding them
+        // here silently dropped real subjects (e.g. CCA, PHE, French) from
+        // pickers like the student edit form while the class-subject picker,
+        // which doesn't filter by the subject's own branch_id, kept showing them.
         if (branchId && branchId !== 'all') {
-            where.branch_id = branchId;
+            where.OR = [{ branch_id: branchId }, { branch_id: null }];
         }
         const existing = await prisma.subject.findMany({
             where,

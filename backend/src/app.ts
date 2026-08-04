@@ -144,9 +144,19 @@ const baseCspDirectives: Record<string, any> = {
     styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
     fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
     imgSrc: ["'self'", "data:", "blob:", "https://api.dicebear.com", "https://cdn-icons-png.flaticon.com"],
-    connectSrc: ["'self'", "https://generativelanguage.googleapis.com", "https://api.paystack.co", "https://*.ingest.sentry.io"],
-    // Payment widgets render in iframes.
-    frameSrc: ["'self'", "https://js.paystack.co", "https://checkout.flutterwave.com"],
+    // *.daily.co (+ wss) powers the embedded live-class video call; Daily's
+    // media/signaling run over WebSocket, so both schemes must be allowed.
+    connectSrc: ["'self'", "https://generativelanguage.googleapis.com", "https://api.paystack.co", "https://*.ingest.sentry.io", "https://*.daily.co", "wss://*.daily.co"],
+    mediaSrc: ["'self'", "blob:", "https://*.daily.co"],
+    // Payment widgets + Learning Hub OER content render in iframes. The Learning
+    // Hub domains here MUST match deploy/nginx.conf's frame-src (that's what
+    // actually governs the live SPA shell) — kept in sync so a resource that
+    // passes LearningHubResourceViewer's embeddable check never gets silently
+    // blocked by our own CSP instead of genuinely trying to load.
+    // TODO if you self-host Jitsi (see deploy/jitsi/README.md): add your Jitsi
+    // domain here too (e.g. "https://meet.yourschooldomain.com") — the embedded
+    // video call is an iframe, same as the Learning Hub resources above.
+    frameSrc: ["'self'", "https://js.paystack.co", "https://checkout.flutterwave.com", "https://phet.colorado.edu", "https://www.adaptedmind.com", "https://scratch.mit.edu", "https://www.youtube.com", "https://www.geogebra.org", "https://www.desmos.com", "https://www.mathsisfun.com", "https://www.shodor.org", "https://blockly.games", "https://code.org", "https://kids.nationalgeographic.com", "https://www.commonlit.org", "https://www.gutenberg.org", "https://www.khanacademy.org", "https://openstax.org", "https://*.daily.co"],
     objectSrc: ["'none'"],
     frameAncestors: ["'none'"],
     baseUri: ["'self'"],

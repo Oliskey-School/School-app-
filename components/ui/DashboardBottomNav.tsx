@@ -7,6 +7,15 @@ import { useTranslation } from 'react-i18next';
 import { HomeIcon, BellIcon, UserIcon as ProfileIcon, DocumentTextIcon, PhoneIcon, PlayIcon, AnalyticsIcon, MegaphoneIcon, SettingsIcon, MessagesIcon, ElearningIcon, SparklesIcon, UserGroupIcon, GameControllerIcon, ChartBarIcon, ClockIcon } from '../../constants';
 import { LayoutDashboard, Wallet, ShieldCheck, BookOpen, Beaker, Users, Building2 } from 'lucide-react';
 
+// ⚠️ PERMANENT, OWNER-LOCKED NAV SETS ⚠️
+// The item list (count, labels, order) in EVERY *BottomNav component below —
+// Admin, Teacher, Parent, Student (and any other role added later) — is fixed
+// by explicit owner instruction. Do NOT add, remove, or reorder any item in
+// any of these navItems arrays for any reason (feature additions, dedup
+// passes, "helpful" shortcuts, etc.) without first stopping and getting
+// explicit confirmation from the owner. If a new feature needs a nav-level
+// entry point, add it to that role's Quick Actions/home-screen tiles instead
+// — never to this file.
 const NavItem: React.FC<{ icon: React.ReactElement<{ className?: string }>, label: string, navId?: string, isActive: boolean, onClick: () => void, activeColor: string }> = ({ icon, label, navId, isActive, onClick, activeColor }) => {
   const { t } = useTranslation();
   // Translate by the stable nav id (falls back to the English label for any id

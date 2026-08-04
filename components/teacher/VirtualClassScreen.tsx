@@ -15,6 +15,7 @@ import { useTeacherClasses } from '../../hooks/useTeacherClasses';
 import { getFormattedClassName } from '../../constants';
 import { parseClassName } from '../../utils/classUtils';
 import LiveClassRoom, { buildJitsiUrl } from '../video/LiveClassRoom';
+import { canEmbedVideo } from '../../lib/videoConfig';
 import ConfirmationModal from '../ui/ConfirmationModal';
 
 // --- Customized Icons for Premium Feel ---
@@ -116,6 +117,8 @@ const ChatBubble: React.FC<{ name: string, message: string, time: string, isYou?
 );
 
 interface ClassSession {
+    /** Composite React key — see the dedupe note in the formatter below. */
+    key?: string;
     id: string;
     grade: string;
     rawGrade: number;
@@ -144,6 +147,9 @@ const ClassSelectionScreen: React.FC<{
     const [pastSessions, setPastSessions] = useState<any[]>([]);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [sessionToDelete, setSessionToDelete] = useState<{ id: string; isLive: boolean } | null>(null);
+    // Self-hosted mode only: rejoining a still-live past session embeds it
+    // directly rather than reconstructing the full "just started" class state.
+    const [rejoiningSession, setRejoiningSession] = useState<{ id: string; subject?: string; topic?: string } | null>(null);
     const videoPreviewRef = useRef<HTMLVideoElement>(null);
 
     const { classes: rawClasses, loading: classesLoading } = useTeacherClasses();
@@ -155,7 +161,20 @@ const ClassSelectionScreen: React.FC<{
             return;
         }
 
-        const formattedClasses: ClassSession[] = rawClasses.map(c => ({
+        // useTeacherClasses returns one row per (class, subject) assignment, so a
+        // teacher who teaches two subjects to the same class gets the same class id
+        // twice. `id` must stay the real class id (it's sent to the API), so carry a
+        // separate composite `key` for React — using `id` alone collided and React
+        // warned it may duplicate/omit cards. Exact (class, subject) repeats are
+        // dropped; genuinely different subjects stay as their own cards.
+        const seen = new Set<string>();
+        const formattedClasses: ClassSession[] = rawClasses.filter(c => {
+            const composite = `${c.id}::${c.subject || 'General'}`;
+            if (seen.has(composite)) return false;
+            seen.add(composite);
+            return true;
+        }).map(c => ({
+            key: `${c.id}::${c.subject || 'General'}`,
             id: c.id,
             grade: `${getFormattedClassName(c.grade, c.section)}`,
             rawGrade: c.grade,
@@ -211,6 +230,19 @@ const ClassSelectionScreen: React.FC<{
         return () => { stream?.getTracks().forEach(t => t.stop()); };
     }, [lobbyCameraOff]);
 
+    if (rejoiningSession) {
+        return (
+            <LiveClassRoom
+                sessionId={rejoiningSession.id}
+                displayName={displayName || 'Teacher'}
+                subject={rejoiningSession.subject}
+                topic={rejoiningSession.topic}
+                actionLabel="Leave"
+                onExit={() => setRejoiningSession(null)}
+            />
+        );
+    }
+
     return (
         <>
         <div className="flex flex-col items-center justify-center min-h-[calc(100vh-64px)] bg-slate-50 p-4 md:p-8">
@@ -229,7 +261,7 @@ const ClassSelectionScreen: React.FC<{
                             {loading && <p className="text-center text-slate-400 py-4">Loading classes...</p>}
                             {!loading && classes.length === 0 && <p className="text-center text-slate-400 py-4">No classes found.</p>}
                             {classes.map((cls) => (
-                                <div key={cls.id}
+                                <div key={cls.key || cls.id}
                                     onClick={() => setSelectedClass(cls)}
                                     className={`p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md relative group ${selectedClass?.id === cls.id ? 'border-indigo-500 bg-indigo-50/50 ring-1 ring-indigo-500/20' : 'border-slate-200 bg-white hover:border-indigo-200'}`}
                                 >
@@ -270,10 +302,16 @@ const ClassSelectionScreen: React.FC<{
                                                 <div className="flex items-center gap-1 flex-shrink-0">
                                                     {isLive && (
                                                         <button
-                                                            onClick={() => window.open(
-                                                                buildJitsiUrl(s.id, displayName || 'Teacher'),
-                                                                `jitsi_${s.id.replace(/-/g, '')}`
-                                                            )}
+                                                            onClick={() => {
+                                                                if (canEmbedVideo()) {
+                                                                    setRejoiningSession({ id: s.id, subject: s.subject, topic: s.topic });
+                                                                } else {
+                                                                    window.open(
+                                                                        buildJitsiUrl(s.id, displayName || 'Teacher'),
+                                                                        `jitsi_${s.id.replace(/-/g, '')}`
+                                                                    );
+                                                                }
+                                                            }}
                                                             className="px-2 py-1 text-xs font-bold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all active:scale-95 whitespace-nowrap"
                                                         >
                                                             Rejoin
@@ -432,9 +470,11 @@ const VirtualClassScreen: React.FC = () => {
         setIsMuted(initialMuted);
         setIsCameraOff(initialCameraOff);
 
+        // Self-hosted Jitsi embeds directly in-app (see LiveClassRoom) — no tab
+        // needed. Only the free public server requires the popup-blocker workaround.
         // Pre-open a blank window synchronously inside the click-handler so the
         // browser's popup blocker allows it. We set the real URL after the API call.
-        const jitsiWin = window.open('about:blank', 'jitsi_teacher_class');
+        const jitsiWin = canEmbedVideo() ? null : window.open('about:blank', 'jitsi_teacher_class');
 
         try {
             const session = await api.createVirtualClassSession({

@@ -53,6 +53,7 @@ import FeedbackScreen from './FeedbackScreen';
 import ParentNotificationSettingsScreen from './ParentNotificationSettingsScreen';
 import ParentSecurityScreen from './ParentSecurityScreen';
 import LearningResourcesScreen from './LearningResourcesScreen';
+import LearningHubProgressScreen from './LearningHubProgressScreen';
 import SchoolPoliciesScreen from './SchoolPoliciesScreen';
 import PTAMeetingScreen from './PTAMeetingScreen';
 import ParentPhotoGalleryScreen from './ParentPhotoGalleryScreen';
@@ -702,6 +703,7 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
         securitySettings: ParentSecurityScreen,
         parentChangePassword: ParentChangePasswordScreen,
         learningResources: LearningResourcesScreen,
+        learningHub: (props: any) => <LearningHubProgressScreen {...props} students={students} />,
         schoolPolicies: SchoolPoliciesScreen,
         ptaMeetings: PTAMeetingScreen,
         photoGallery: ParentPhotoGalleryScreen,

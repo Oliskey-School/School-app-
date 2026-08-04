@@ -44,6 +44,28 @@ class SocketService {
                 }
             }));
             
+            // Class/subject ASSIGNMENT changes must also reach the screens that watch
+            // the assignment-specific tables. useTeacherClasses (which feeds every
+            // "Class & Subject" picker in the teacher dashboard — Create Assignment,
+            // Gradebook, Attendance, Virtual Class...) listens for these table names,
+            // not the generic 'teachers' one dispatched above. Without this bridge an
+            // admin adding or removing a Subject Teacher in the Teacher Assignments
+            // screen only showed up on the teacher's side after a manual page reload.
+            // These are the exact action strings emitted by
+            // backend/src/services/teacherAssignment.service.ts — verified, not guessed.
+            const ASSIGNMENT_ACTIONS = [
+                'class_teacher_assigned',
+                'subject_teacher_assigned',
+                'assignment_ended',
+            ];
+            if (ASSIGNMENT_ACTIONS.includes(data.action)) {
+                ['class_teachers', 'teacher_classes', 'teacher_subjects'].forEach(table => {
+                    window.dispatchEvent(new CustomEvent('realtime-update', {
+                        detail: { table, record: data, action: data.action }
+                    }));
+                });
+            }
+
             // Also dispatch for staff_attendance specifically if it's an attendance action
             if (data.action === 'attendance_submit') {
                 window.dispatchEvent(new CustomEvent('realtime-update', {

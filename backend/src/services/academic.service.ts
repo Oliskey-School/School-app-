@@ -129,10 +129,13 @@ export class AcademicService {
     }
 
     static async getSubjects(schoolId: string, branchId: string | undefined) {
+        // Include untagged (branch_id null) subjects alongside this branch's own —
+        // see subject.service.ts::getSubjects for why (shared/legacy rows a class
+        // in this branch can still be linked to).
         return await prisma.subject.findMany({
             where: {
                 school_id: schoolId,
-                ...(branchId && branchId !== 'all' ? { branch_id: branchId } : {})
+                ...(branchId && branchId !== 'all' ? { OR: [{ branch_id: branchId }, { branch_id: null }] } : {})
             },
             orderBy: { name: 'asc' }
         });
@@ -672,7 +675,11 @@ export class AcademicService {
                     }),
                     prisma.studentEnrollment.updateMany({
                         where: { student_id: s.id, status: 'Active' },
-                        data: { status: 'Completed' }
+                        // Clearing is_primary here (not just status) matters: other
+                        // lookups resolve a student's "current" class by is_primary
+                        // alone, regardless of status — leaving it set on a graduated
+                        // enrollment made that old class look current again.
+                        data: { status: 'Completed', is_primary: false }
                     }),
                 ]);
                 graduated++;
@@ -689,7 +696,10 @@ export class AcademicService {
                     prisma.student.update({ where: { id: s.id }, data: { grade: nextGrade, updated_by: actorId } }),
                     prisma.studentEnrollment.updateMany({
                         where: { student_id: s.id, status: 'Active' },
-                        data: { status: 'Completed' }
+                        // Same reasoning as the graduation branch above: clear
+                        // is_primary along with status, or the old class keeps
+                        // winning any lookup that only checks is_primary.
+                        data: { status: 'Completed', is_primary: false }
                     }),
                 ];
                 if (next) {

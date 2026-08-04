@@ -114,4 +114,39 @@ export class AttendanceService {
           }
         });
     }
+
+    static async getAttendanceByDateRange(schoolId: string, branchId: string | undefined, startDate: string, endDate: string, classId?: string) {
+        const where: any = {
+            school_id: schoolId,
+            date: {
+                gte: new Date(startDate),
+                lte: new Date(endDate)
+            }
+        };
+
+        if (branchId && branchId !== 'all') {
+            where.branch_id = branchId;
+        }
+
+        if (classId) {
+            where.class_id = classId;
+        }
+
+        return await prisma.attendance.findMany({
+            where,
+            select: {
+                student_id: true,
+                status: true,
+                date: true,
+                class_id: true,
+                student: {
+                    select: {
+                        id: true,
+                        full_name: true,
+                        avatar_url: true
+                    }
+                }
+            }
+        });
+    }
 }

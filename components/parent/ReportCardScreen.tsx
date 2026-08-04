@@ -6,6 +6,7 @@ import { Student, ReportCard, Rating } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
 import PremiumLoader from '../ui/PremiumLoader';
+import { CANONICAL_TERMS, buildAnnualReportCard } from '../../utils/annualReport';
 
 const SectionHeader: React.FC<{ title: string }> = ({ title }) => (
     <div className="bg-gray-100 p-2 rounded-md my-4">
@@ -203,48 +204,99 @@ const ReportCardScreen: React.FC<ReportCardScreenProps> = ({ student, term, sess
         [student]
     );
 
+    const mapRawReportCard = (details: any, term: string, session: string): ReportCard => ({
+        ...details,
+        term: details.term || term,
+        session: details.session || session,
+        academicRecords: details.academic_records || details.academicRecords || [],
+        skills: details.skills || {},
+        psychomotor: details.psychomotor || {},
+        attendance: details.attendance || { total: 0, present: 0, absent: 0, late: 0 },
+        teacherComment: details.teacher_comment || details.teacherComment || '',
+        principalComment: details.principal_comment || details.principalComment || '',
+        status: details.status || 'Published',
+        position: details.position,
+        totalStudents: details.total_students || details.totalStudents
+    });
+
+    // Every session that has at least one published report gets all three
+    // canonical term tabs, not just the ones already published — a term the
+    // school hasn't published yet still shows as a tab (with a "not
+    // published yet" message), and Third Term always shows a combined
+    // annual view built from whichever terms ARE published, rather than
+    // being missing entirely until someone separately publishes it.
+    const tabEntries = useMemo(() => {
+        const sessions = Array.from(new Set(publishedReportsSummary.map(r => r.session)));
+        const entries: { term: string; session: string; synthetic: boolean; published: boolean }[] = [];
+        sessions.forEach(sessionName => {
+            CANONICAL_TERMS.forEach(termName => {
+                const real = publishedReportsSummary.find(r => r.term === termName && r.session === sessionName);
+                if (real) {
+                    entries.push({ term: termName, session: sessionName, synthetic: false, published: true });
+                } else if (termName === 'Third Term') {
+                    entries.push({ term: termName, session: sessionName, synthetic: true, published: false });
+                } else {
+                    entries.push({ term: termName, session: sessionName, synthetic: false, published: false });
+                }
+            });
+        });
+        return entries;
+    }, [publishedReportsSummary]);
+
     const requestedKey = term && session ? `${term}|${session}` : null;
-    const requestedExists = requestedKey && publishedReportsSummary.some(r => `${r.term}|${r.session}` === requestedKey);
+    const requestedExists = requestedKey && tabEntries.some(r => `${r.term}|${r.session}` === requestedKey);
 
     const [activeReportKey, setActiveReportKey] = useState<string | null>(
-        requestedExists ? requestedKey : (publishedReportsSummary[0] ? `${publishedReportsSummary[0].term}|${publishedReportsSummary[0].session}` : null)
+        requestedExists ? requestedKey : (tabEntries[0] ? `${tabEntries[0].term}|${tabEntries[0].session}` : null)
     );
     const [activeReport, setActiveReport] = useState<ReportCard | null>(null);
     const [loading, setLoading] = useState(false);
+
+    const activeEntry = useMemo(() => {
+        if (!activeReportKey) return null;
+        const [t, s] = activeReportKey.split('|');
+        return tabEntries.find(r => r.term === t && r.session === s) || null;
+    }, [activeReportKey, tabEntries]);
 
     const fetchDetails = useCallback(async () => {
         if (!activeReportKey || !student.id) return;
 
         // Find session and term from key
         const [term, session] = activeReportKey.split('|');
-        const summary = publishedReportsSummary.find(r => r.term === term && r.session === session);
-        if (!summary) return;
+        const entry = tabEntries.find(r => r.term === term && r.session === session);
+        if (!entry) return;
+
+        // A genuinely unpublished term (not the computed Third Term annual)
+        // has nothing to fetch — show the "not published yet" state instead.
+        if (!entry.published && !entry.synthetic) {
+            setActiveReport(null);
+            return;
+        }
 
         setLoading(true);
         try {
-            const details = await api.getReportCardDetails(student.id, term, session);
-            if (details) {
-                // Map database fields to interface if necessary
-                const formattedReport: ReportCard = {
-                    ...details,
-                    academicRecords: details.academic_records || details.academicRecords || [],
-                    skills: details.skills || {},
-                    psychomotor: details.psychomotor || {},
-                    attendance: details.attendance || { total: 0, present: 0, absent: 0, late: 0 },
-                    teacherComment: details.teacher_comment || details.teacherComment || '',
-                    principalComment: details.principal_comment || details.principalComment || '',
-                    status: details.status,
-                    position: details.position,
-                    totalStudents: details.total_students || details.totalStudents
-                };
-                setActiveReport(formattedReport);
+            if (entry.synthetic) {
+                const sessionSummaries = publishedReportsSummary.filter(
+                    r => r.session === session && CANONICAL_TERMS.includes(r.term)
+                );
+                const details = await Promise.all(
+                    sessionSummaries.map(s => api.getReportCardDetails(student.id, s.term, s.session).catch(() => null))
+                );
+                const mapped = sessionSummaries
+                    .map((s, i) => ({ summary: s, raw: details[i] }))
+                    .filter(p => p.raw)
+                    .map(p => mapRawReportCard(p.raw, p.summary.term, p.summary.session));
+                setActiveReport(buildAnnualReportCard(mapped));
+            } else {
+                const details = await api.getReportCardDetails(student.id, term, session);
+                if (details) setActiveReport(mapRawReportCard(details, term, session));
             }
         } catch (err) {
             console.error("Error fetching report details:", err);
         } finally {
             setLoading(false);
         }
-    }, [activeReportKey, student.id, publishedReportsSummary]);
+    }, [activeReportKey, student.id, tabEntries, publishedReportsSummary]);
 
     // Real-time synchronization
     useAutoSync(['report_cards', 'academic_records'], fetchDetails);
@@ -291,9 +343,9 @@ const ReportCardScreen: React.FC<ReportCardScreenProps> = ({ student, term, sess
             <div className="max-w-4xl mx-auto">
                 <div className="mb-4 flex flex-wrap justify-between items-center gap-2 print:hidden">
                     <div className="flex space-x-1 bg-gray-200 p-1 rounded-lg overflow-x-auto scrollbar-hide">
-                        {publishedReportsSummary.map(report => {
-                            const reportKey = `${report.term}|${report.session}`;
-                            const isUniqueSession = publishedReportsSummary.filter(r => r.term === report.term).length > 1;
+                        {tabEntries.map(entry => {
+                            const reportKey = `${entry.term}|${entry.session}`;
+                            const isUniqueSession = tabEntries.filter(r => r.term === entry.term).length > 1;
 
                             return (
                                 <motion.button
@@ -306,7 +358,7 @@ const ReportCardScreen: React.FC<ReportCardScreenProps> = ({ student, term, sess
                                     {activeReportKey === reportKey && (
                                         <motion.div layoutId="reportTermTab" transition={{ type: 'spring', stiffness: 400, damping: 30 }} className="absolute inset-0 bg-white rounded-md shadow-sm" />
                                     )}
-                                    <span className="relative z-10">{report.term} {isUniqueSession ? `(${report.session})` : ''}</span>
+                                    <span className="relative z-10">{entry.term}{entry.synthetic ? ' (Annual)' : ''} {isUniqueSession ? `(${entry.session})` : ''}</span>
                                 </motion.button>
                             );
                         })}
@@ -351,6 +403,11 @@ const ReportCardScreen: React.FC<ReportCardScreenProps> = ({ student, term, sess
                             />
                         </motion.div>
                     </AnimatePresence>
+                ) : activeEntry && !activeEntry.published && !activeEntry.synthetic ? (
+                    <div className="p-12 text-center bg-white rounded-xl shadow-sm border border-gray-100">
+                        <h3 className="font-bold text-lg text-gray-800">Not Published Yet</h3>
+                        <p className="text-gray-500 mt-2">{activeEntry.term} results for {activeEntry.session} haven't been published by the school yet.</p>
+                    </div>
                 ) : (
                     <div className="p-12 text-center bg-white rounded-xl shadow-sm border border-gray-100">
                         <p className="text-gray-500 italic">Select a term to view the report.</p>

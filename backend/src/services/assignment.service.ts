@@ -2,7 +2,7 @@ import prisma from '../config/database';
 import { SocketService } from './socket.service';
 
 export class AssignmentService {
-    static async getAssignments(schoolId: string, branchId?: string, classId?: string, teacherId?: string, className?: string) {
+    static async getAssignments(schoolId: string, branchId?: string, classId?: string, teacherId?: string, className?: string, subjects?: string[]) {
         const where: any = {
             class: {
                 school_id: schoolId
@@ -15,6 +15,22 @@ export class AssignmentService {
 
         if (classId) where.class_id = classId;
         if (teacherId) where.teacher_id = teacherId;
+
+        // Filter by class NAME. This was previously accepted as a parameter and then
+        // silently ignored, so drilling into "SSS 2" returned every class's
+        // assignments (SSS 1's and SSS 3's included) with their submission counts.
+        // Matched case-insensitively because class names are free text ("SSS 2" vs
+        // "sss 2"), and the caller only ever has the display name to work with.
+        if (className) {
+            where.class.name = { equals: className, mode: 'insensitive' };
+        }
+
+        // Restrict to a specific set of subjects. Used for students, who should only
+        // see work for the subjects they actually take — a class's full assignment
+        // list can span subjects a given student isn't enrolled in.
+        if (subjects && subjects.length > 0) {
+            where.subject = { in: subjects };
+        }
 
         const assignments = await prisma.assignment.findMany({
             where,

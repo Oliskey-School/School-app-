@@ -666,6 +666,13 @@ export class TeacherService {
                             include: {
                                 _count: {
                                     select: { enrollments: true }
+                                },
+                                // Needed so a class-teacher (form teacher) row with no
+                                // specific subject attached can still resolve to the
+                                // class's own subject list on the frontend, instead of
+                                // vanishing from every subject-scoped picker.
+                                subjects: {
+                                    select: { id: true, name: true, code: true }
                                 }
                             }
                         },
@@ -695,6 +702,9 @@ export class TeacherService {
                                 include: {
                                     _count: {
                                         select: { enrollments: true }
+                                    },
+                                    subjects: {
+                                        select: { id: true, name: true, code: true }
                                     }
                                 }
                             },

@@ -556,10 +556,19 @@ export class StudentService {
                 where: { id: classId, school_id: schoolId },
                 select: { grade: true, section: true, branch_id: true }
             });
+            // Roster membership is decided by the ENROLLMENT's own status, always
+            // pinned to 'Active' here — independent of `queryStatus`, which governs
+            // the STUDENT account's status (Active/Inactive/Suspended), a different
+            // concept. Reusing one variable for both used to mean "status=all"
+            // (the default, since callers rarely pass a status) applied NO filter to
+            // the enrollment either, so a student's old Inactive/Completed/Withdrawn
+            // enrollment rows from classes they'd already left still counted as
+            // "in that class" — the same student showing up in every class they were
+            // ever enrolled in, all at once.
             const enrollmentCond: any = {
                 some: {
                     class_id: classId,
-                    ...(queryStatus ? { status: queryStatus } : {})
+                    status: 'Active',
                 }
             };
             // When the class HAS an enrollment register, the register IS the
@@ -1075,10 +1084,13 @@ export class StudentService {
 
             if (!classData) throw new Error('Class not found');
 
-            // Deactivate all currently-active enrollments before creating the new one
+            // Deactivate all currently-active enrollments before creating the new one.
+            // Clearing is_primary here too matters: other lookups resolve a student's
+            // "current" class by is_primary alone, regardless of status, so leaving it
+            // set on the old enrollment made that old class look current again.
             await tx.studentEnrollment.updateMany({
                 where: { student_id: studentId, school_id: schoolId, status: 'Active' },
-                data: { status: 'Inactive' }
+                data: { status: 'Inactive', is_primary: false }
             });
 
             await tx.studentEnrollment.upsert({
@@ -1621,7 +1633,7 @@ export class StudentService {
 
         await prisma.studentEnrollment.updateMany({
             where: { student_id: studentId, school_id: schoolId, status: 'Active' },
-            data: { status: 'Inactive' }
+            data: { status: 'Inactive', is_primary: false }
         });
 
         const updated = await prisma.student.update({
@@ -1653,9 +1665,12 @@ export class StudentService {
 
         const effectiveBranchId = branchId || student.branch_id || undefined;
 
+        // Clearing is_primary here too matters: other lookups resolve a student's
+        // "current" class by is_primary alone, regardless of status, so leaving it
+        // set on the old enrollment made that old class look current again.
         await prisma.studentEnrollment.updateMany({
             where: { student_id: studentId, school_id: schoolId, status: 'Active' },
-            data: { status: 'Inactive' }
+            data: { status: 'Inactive', is_primary: false }
         });
 
         let targetClass = await prisma.class.findFirst({
@@ -1681,15 +1696,31 @@ export class StudentService {
             });
         }
 
-        await (prisma.studentEnrollment.create as any)({
-            data: {
+        // Upsert, not create: the student may be moving BACK to a class they were
+        // already enrolled in before (unique on student_id+class_id) — create() would
+        // throw on that row instead of reactivating it.
+        await (prisma.studentEnrollment.upsert as any)({
+            where: {
+                student_id_class_id: {
+                    student_id: studentId,
+                    class_id: targetClass!.id
+                }
+            },
+            create: {
                 student_id: studentId,
                 class_id: targetClass!.id,
                 school_id: schoolId,
                 status: 'Active',
+                is_primary: true,
                 session: session || '',
                 term: term || '',
                 updated_at: new Date()
+            },
+            update: {
+                status: 'Active',
+                is_primary: true,
+                session: session || '',
+                term: term || '',
             }
         });
 

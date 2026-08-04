@@ -3,6 +3,15 @@ import { motion } from 'framer-motion';
 import { HomeIcon, BellIcon, UserIcon as ProfileIcon, DocumentTextIcon, PhoneIcon, PlayIcon, AnalyticsIcon, MegaphoneIcon, SettingsIcon, MessagesIcon, ElearningIcon, SparklesIcon, UserGroupIcon, GameControllerIcon, ChartBarIcon, ClockIcon, LogoutIcon, ReportIcon, CheckCircleIcon, BuildingLibraryIcon, SUBJECT_COLORS, getFormattedClassName } from '../../constants';
 import { useTeacherClasses } from '../../hooks/useTeacherClasses';
 
+// ⚠️ PERMANENT, OWNER-LOCKED NAV SETS ⚠️
+// The item list (count, labels, order) in EVERY *Sidebar component below —
+// Admin, Teacher, Parent, Student (and any other role added later) — is fixed
+// by explicit owner instruction, same as components/ui/DashboardBottomNav.tsx.
+// Do NOT add, remove, or reorder any item in any of these sidebars for any
+// reason without first stopping and getting explicit confirmation from the
+// owner. New feature entry points belong on that role's Quick Actions/
+// home-screen tiles instead — never here.
+
 interface SidebarItemProps {
     icon: React.ReactElement<{ className?: string }>;
     label: string;

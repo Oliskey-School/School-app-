@@ -1,9 +1,10 @@
 {
   "name": "school-app-oliskey",
-  "version": "0.6.6",
+  "version": "0.6.7",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:vps": "cross-env LOW_RESOURCE_BUILD=true NODE_OPTIONS=--max-old-space-size=1536 vite build",
     "postinstall": "npx prisma generate && npx prisma generate --schema=backend/prisma/schema.prisma && node scripts/patch-otplib.js",
     "preview": "vite preview",
     "test": "vitest",
@@ -43,6 +44,7 @@
     "@capacitor/ios": "8.1.0",
     "@capacitor/network": "8.0.0",
     "@capacitor/push-notifications": "8.0.0",
+    "@daily-co/daily-js": "^0.87.0",
     "@expo/metro-runtime": "6.1.2",
     "@google/genai": "latest",
     "@google/generative-ai": "^0.24.1",
@@ -148,6 +150,7 @@
     "@vitejs/plugin-react": "5.0.0",
     "autoprefixer": "10.4.22",
     "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
     "dotenv": "17.2.4",
     "happy-dom": "^20.10.1",
     "jsdom": "27.0.1",

@@ -13,6 +13,8 @@ export const getAssignments = async (req: AuthRequest, res: Response) => {
     try {
         let teacherId = undefined;
         let classId = req.query.classId as string || req.query.class_id as string;
+        // Students only ever see work for subjects they actually take (see below).
+        let subjects: string[] | undefined;
 
         // 1. Role-based filtering
         if (req.user.role === 'TEACHER') {
@@ -31,14 +33,23 @@ export const getAssignments = async (req: AuthRequest, res: Response) => {
             // Students MUST be filtered by their class
             const student = await prisma.student.findUnique({
                 where: { user_id: req.user.id },
-                select: { 
+                select: {
                     id: true,
+                    assigned_subjects: true,
                     enrollments: {
                         where: { is_primary: true },
                         select: { class_id: true }
                     }
                 }
             });
+
+            // Admin-picked per-student subject list. When set it's authoritative, so
+            // the student sees only their own subjects' work rather than everything
+            // set for the class. Left empty (the default), no subject filter is
+            // applied and they inherit the class's full list — matching how
+            // assigned_subjects is treated elsewhere in the app.
+            const assigned = (student?.assigned_subjects || []).filter(Boolean);
+            if (assigned.length > 0) subjects = assigned;
 
             if (student && student.enrollments.length > 0) {
                 classId = student.enrollments[0].class_id;
@@ -65,7 +76,8 @@ export const getAssignments = async (req: AuthRequest, res: Response) => {
             branchId,
             classId,
             teacherId,
-            className
+            className,
+            subjects
         );
         res.json(result);
     } catch (error: any) {

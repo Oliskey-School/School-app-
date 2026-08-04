@@ -118,6 +118,25 @@ export const useTeacherClasses = (teacherId?: string | null, branchId?: string |
                                         classId: c.id,
                                         subjectId: s.id
                                     });
+                                } else if (Array.isArray(c.subjects) && c.subjects.length > 0) {
+                                    // Class/form teacher row with no specific subject attached:
+                                    // they oversee the whole class, so give them every subject
+                                    // the class actually studies rather than dropping the class
+                                    // from every subject-scoped picker.
+                                    c.subjects.forEach((clsSub: any) => {
+                                        if (!addedSubjectIds.has(clsSub.id)) {
+                                            finalSubjects.push({
+                                                id: clsSub.id,
+                                                name: clsSub.name,
+                                                code: clsSub.code
+                                            } as Subject);
+                                            addedSubjectIds.add(clsSub.id);
+                                        }
+                                        finalAssignments.push({
+                                            classId: c.id,
+                                            subjectId: clsSub.id
+                                        });
+                                    });
                                 }
                             }
                         });

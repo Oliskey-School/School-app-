@@ -165,8 +165,13 @@ const AssignmentSubmissionScreen: React.FC<AssignmentSubmissionScreenProps> = ({
             </div>
             <div className="flex items-center text-sm text-gray-500">
               <ClockIcon className="w-4 h-4 mr-1.5" />
-              <span>Due: {new Date(assignment.dueDate).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>
+              <span>Due: {assignment.dueDate && !isNaN(new Date(assignment.dueDate).getTime())
+                ? new Date(assignment.dueDate).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
+                : 'No due date set'}</span>
             </div>
+            {assignment.description && (
+              <p className="text-sm text-gray-600 mt-3 whitespace-pre-wrap">{assignment.description}</p>
+            )}
           </motion.div>
 
           {/* Grade & Feedback Section */}

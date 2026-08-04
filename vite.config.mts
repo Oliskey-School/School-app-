@@ -12,6 +12,11 @@ const packageJson = JSON.parse(readFileSync(new URL('./package.json', import.met
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
+  // Set by `npm run build:vps` for low-RAM production hosts: skips the
+  // brotli/gzip compression passes (each re-reads and compresses every
+  // output chunk in memory) and caps Rollup's concurrent file writes, so
+  // the build finishes on boxes too small to run the full build pipeline.
+  const isLowResourceBuild = process.env.LOW_RESOURCE_BUILD === 'true';
   return {
     test: {
       globals: true,
@@ -81,16 +86,18 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       react(),
-      viteCompression({
-        algorithm: 'brotliCompress',
-        ext: '.br',
-        threshold: 1024,
-      }),
-      viteCompression({
-        algorithm: 'gzip',
-        ext: '.gz',
-        threshold: 1024,
-      }),
+      ...(isLowResourceBuild ? [] : [
+        viteCompression({
+          algorithm: 'brotliCompress',
+          ext: '.br',
+          threshold: 1024,
+        }),
+        viteCompression({
+          algorithm: 'gzip',
+          ext: '.gz',
+          threshold: 1024,
+        }),
+      ]),
       VitePWA({
         registerType: 'prompt',
         workbox: {
@@ -138,6 +145,10 @@ export default defineConfig(({ mode }) => {
       sourcemap: false,
       rollupOptions: {
         output: {
+          // Caps concurrent chunk writes so the build doesn't hold as many
+          // output buffers in memory at once — only meaningfully matters on
+          // a RAM-constrained host, so it's scoped to the low-resource build.
+          ...(isLowResourceBuild ? { maxParallelFileOps: 2 } : {}),
           manualChunks(id) {
             if (!id.includes('node_modules')) return;
             // --- Heavy PDF / canvas libs (lazy, report-card screens only) ---

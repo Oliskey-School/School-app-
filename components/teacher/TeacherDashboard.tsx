@@ -77,7 +77,8 @@ import AIGameCreatorScreen from './AIGameCreatorScreen';
 import GamePlayerScreen from '../shared/GamePlayerScreen';
 import TeacherAppointmentsScreen from './TeacherAppointmentsScreen';
 import VirtualClassScreen from './VirtualClassScreen';
-import TeacherResourcesScreen from './TeacherResourcesScreen';
+import TeacherLearningHubScreen from './LearningHubScreen';
+const LearningHubResourceViewer = lazyWithRetry(() => import('../shared/LearningHubResourceViewer'));
 import CBTManagementScreen from './CBTManagementScreen';
 import CBTScoresScreen from './CBTScoresScreen';
 import QuizBuilderScreen from './QuizBuilderScreen';
@@ -336,7 +337,8 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     gamePlayer: GamePlayerScreen,
     appointments: (props: any) => <TeacherAppointmentsScreen {...props} teacherId={teacherId || ''} />,
     virtualClass: VirtualClassScreen,
-    resources: TeacherResourcesScreen,
+    learningHub: (props: any) => <TeacherLearningHubScreen {...props} teacherId={teacherId || ''} />,
+    learningHubResource: LearningHubResourceViewer,
     cbtScores: CBTScoresScreen,
     cbtManagement: (props: any) => <CBTManagementScreen {...props} schoolId={effectiveSchoolId} />,
     addStudent: AddStudentScreen,
@@ -424,7 +426,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     );
   }
 
-  const isFullScreen = ['messages', 'newChat', 'chat'].includes(currentNavigation.view);
+  const isFullScreen = ['messages', 'newChat', 'chat', 'learningHubResource'].includes(currentNavigation.view);
   const hideBottomNav = currentNavigation.view === 'chat';
 
   return (

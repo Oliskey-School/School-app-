@@ -254,13 +254,13 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
                         <p className="font-bold text-lg text-gray-800">{formattedClassName} Attendance</p>
                         <p className="text-sm text-gray-500">Select a date to view or mark attendance.</p>
                     </div>
-                    <div>
+                    <div className="relative">
                         <input
                             type="date"
                             value={selectedDate}
                             max={todayStr}
                             onChange={handleDateChange}
-                            className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm rounded-md bg-gray-50 bg-white"
+                            className="block w-40 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm rounded-md bg-white"
                         />
                     </div>
                 </div>

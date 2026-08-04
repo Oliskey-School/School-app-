@@ -1,6 +1,4 @@
 import React from 'react';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { FileDown, Loader2 } from 'lucide-react';
 import { SchoolProfile, InspectionSchema } from '../../types/inspector';
 
@@ -29,6 +27,8 @@ export const PDFReportBuilder: React.FC<Props> = ({
 
   const generatePDF = async () => {
     setIsGenerating(true);
+    const { jsPDF } = await import('jspdf');
+    const { default: autoTable } = await import('jspdf-autotable');
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = 20;

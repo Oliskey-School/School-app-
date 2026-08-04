@@ -69,6 +69,8 @@ const AdminStudentListForReport = lazyWithRetry(() => import('./AdminStudentList
 const AdminStudentReportCardScreen = lazyWithRetry(() => import('./AdminStudentReportCardScreen'));
 const SystemSettingsScreen = lazyWithRetry(() => import('./SystemSettingsScreen'));
 const AcademicSettingsScreen = lazyWithRetry(() => import('./AcademicSettingsScreen'));
+const LearningHubManagementScreen = lazyWithRetry(() => import('./LearningHubManagementScreen'));
+const LearningHubResourceViewer = lazyWithRetry(() => import('../shared/LearningHubResourceViewer'));
 const BranchAcademicsScreen = lazyWithRetry(() => import('./BranchAcademicsScreen'));
 const FinancialSettingsScreen = lazyWithRetry(() => import('./FinancialSettingsScreen'));
 const CommunicationSettingsScreen = lazyWithRetry(() => import('./CommunicationSettingsScreen'));
@@ -381,6 +383,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         systemSettings: SystemSettingsScreen,
         appearanceSettings: AppearancePanel,
         academicSettings: AcademicSettingsScreen,
+        learningHubManagement: LearningHubManagementScreen,
+        learningHubResource: LearningHubResourceViewer,
         branchAcademics: BranchAcademicsScreen,
         termsAndGrading: BranchAcademicsScreen,
         financialSettings: FinancialSettingsScreen,
@@ -688,7 +692,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
     const hideLayoutNav = currentNavigation.view === 'upgrade' || currentNavigation.view === 'subscription';
     // The timetable grids want the full width (no side padding / max-width), but keep
     // the header + sidebar.
-    const fullWidthViews = ['timetableEditor', 'timetableBuilder', 'chat', 'adminNewChat', 'adminMessages'];
+    const fullWidthViews = ['timetableEditor', 'timetableBuilder', 'chat', 'adminNewChat', 'adminMessages', 'learningHubResource'];
     // upgrade/subscription have their own internal layout and need overflow-y-auto to scroll,
     // so they must NOT be included in hidePadding (which triggers overflow-hidden in DashboardLayout).
     const hidePadding = fullWidthViews.includes(currentNavigation.view);

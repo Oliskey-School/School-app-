@@ -1,5 +1,4 @@
 import React, { useRef } from 'react';
-import html2canvas from 'html2canvas';
 import { QRCodeCanvas } from 'qrcode.react';
 import { Student, Teacher } from '../../types';
 import { useAuth } from '../../context/AuthContext';
@@ -49,6 +48,7 @@ const IDCardGenerator: React.FC<IDCardGeneratorProps> = ({ user, userType }) => 
 
             let canvas: HTMLCanvasElement;
             try {
+                const { default: html2canvas } = await import('html2canvas');
                 canvas = await html2canvas(cardRef.current, {
                     scale: 3, // Higher scale for better print quality
                     backgroundColor: '#ffffff',

@@ -451,9 +451,9 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                                 <QuickActionCard index={0} label="Approvals" icon={<CheckCircleIcon />} onClick={() => navigateTo('studentApprovals', 'Student Approvals')} color="bg-indigo-600" />
                                 <QuickActionCard index={1} label="Attendance" icon={<ClockIcon />} onClick={() => navigateTo('teacherAttendance', 'Teacher Attendance')} color="bg-amber-500" />
                                 <QuickActionCard index={2} label="Announce" icon={<MegaphoneIcon />} onClick={() => navigateTo('communicationHub', 'Communication Hub')} color="bg-teal-500" />
-                                <QuickActionCard index={3} label="Fee Management" icon={<ReceiptIcon />} onClick={() => navigateTo('feeManagement', 'Fee Management')} color="bg-orange-500" />
-                                <QuickActionCard index={4} label="Timetable" icon={<ClipboardListIcon />} onClick={() => navigateTo('timetable', 'AI Timetable')} color="bg-indigo-500" />
-                                <QuickActionCard index={5} label="Emergency" icon={<AlertTriangle />} onClick={() => setIsBroadcastOpen(true)} color="bg-red-600 animate-pulse" />
+                                {/* "Fee Management" removed: already a direct nav item on both desktop (sidebar) and mobile (bottom nav). */}
+                                <QuickActionCard index={3} label="Timetable" icon={<ClipboardListIcon />} onClick={() => navigateTo('timetable', 'AI Timetable')} color="bg-indigo-500" />
+                                <QuickActionCard index={4} label="Emergency" icon={<AlertTriangle />} onClick={() => setIsBroadcastOpen(true)} color="bg-red-600 animate-pulse" />
                             </div>
                         </div>
 

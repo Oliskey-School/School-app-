@@ -6,7 +6,7 @@ import { lazyWithRetry } from '../../lib/lazyRetry';
 import { api } from '../../lib/api';
 import { DashboardType, Student, StudentAssignment } from '../../types';
 import { formatSchoolId } from '../../utils/idFormatter';
-import { THEME_CONFIG, ClockIcon, ClipboardListIcon, BellIcon, ChartBarIcon, ChevronRightIcon, SUBJECT_COLORS, BookOpenIcon, MegaphoneIcon, AttendanceSummaryIcon, CalendarIcon, ElearningIcon, StudyBuddyIcon, SparklesIcon, ReceiptIcon, AwardIcon, HelpIcon, GameControllerIcon, VideoIcon } from '../../constants';
+import { THEME_CONFIG, ClockIcon, ClipboardListIcon, BellIcon, ChartBarIcon, ChevronRightIcon, SUBJECT_COLORS, BookOpenIcon, MegaphoneIcon, AttendanceSummaryIcon, CalendarIcon, ElearningIcon, StudyBuddyIcon, SparklesIcon, ReceiptIcon, AwardIcon, HelpIcon, GameControllerIcon, VideoIcon, GlobeIcon } from '../../constants';
 import Header from '../ui/Header';
 import AIInsightsPanel from '../shared/AIInsightsPanel';
 import AskAIWidget from '../shared/AskAIWidget';
@@ -96,6 +96,9 @@ const WorksheetsEmbedScreen = lazyWithRetry(() => import('./WorksheetsEmbedScree
 const StudentCBTListScreen = lazyWithRetry(() => import('./cbt/StudentCBTListScreen'));
 const StudentCBTPlayerScreen = lazyWithRetry(() => import('./cbt/StudentCBTPlayerScreen'));
 const StudentChangePasswordScreen = lazyWithRetry(() => import('./StudentChangePasswordScreen'));
+const LearningHubScreen = lazyWithRetry(() => import('./LearningHubScreen'));
+const LearningHubResourceViewer = lazyWithRetry(() => import('../shared/LearningHubResourceViewer'));
+const FreeLearningResourcesScreen = lazyWithRetry(() => import('./FreeLearningResourcesScreen'));
 
 const DashboardSuspenseFallback = () => (
     <PremiumLoader message="Loading dashboard module..." />
@@ -316,7 +319,10 @@ const Overview: React.FC<{
         { label: 'Subjects', icon: <BookOpenIcon />, action: () => navigateTo('subjects', 'My Subjects') },
         { label: 'Timetable', icon: <CalendarIcon />, action: () => navigateTo('timetable', 'Timetable Dashboard') },
         { label: 'Results', icon: <ChartBarIcon />, action: () => navigateTo('results', 'Academic Performance', { studentId: student.id }) },
-        { label: 'Games', icon: <GameControllerIcon />, action: () => navigateTo('gamesHub', 'Games Hub') },
+        // "Games" removed: duplicates the Games tab already in both the
+        // sidebar and the mobile bottom nav.
+        { label: 'Learning Hub', icon: <ElearningIcon />, action: () => navigateTo('learningHub', 'Learning Hub') },
+        { label: 'Free Resources', icon: <GlobeIcon />, action: () => navigateTo('freeLearningResources', 'Free Learning Resources') },
     ];
 
     const aiTools = [
@@ -649,6 +655,8 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
             cbtList: 'quizzes',
             cbtPlayer: 'quizzes',
             gamesHub: 'games',
+            learningHub: 'home',
+            learningHubResource: 'home',
             mathSprintLobby: 'games',
             mathSprintGame: 'games',
             mathSprintResults: 'games',
@@ -780,6 +788,9 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
         quizzes: QuizzesScreen,
         quizPlayer: QuizPlayerScreen,
         gamesHub: GamesHubScreen,
+        learningHub: LearningHubScreen,
+        learningHubResource: LearningHubResourceViewer,
+        freeLearningResources: FreeLearningResourcesScreen,
         worksheets: WorksheetsEmbedScreen,
         classBattle: ClassBattleScreen,
         mathSprintLobby: MathSprintLobbyScreen,
@@ -866,7 +877,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
     const currentNavigation = viewStack[viewStack.length - 1] || { view: 'overview', title: 'Student Dashboard' };
     const ComponentToRender = viewComponents[currentNavigation.view as keyof typeof viewComponents];
 
-    const isFullScreen = ['messages', 'newChat', 'chat', 'classBattle', 'mathSprintGame', 'geoGuesserGame', 'codeChallengeGame', 'gamePlayer', 'peekabooLetters', 'mathBattleArena', 'cbtExamGame', 'cbtPlayer', 'countingShapesTap', 'simonSays', 'alphabetFishing', 'beanBagToss', 'redLightGreenLight', 'spellingSparkle', 'vocabularyAdventure', 'virtualScienceLab', 'debateDash', 'geometryJeopardy', 'sharkTank', 'physicsLab', 'stockMarket', 'cbtExamGame', 'vocabularyPictionary', 'simpleMachineHunt', 'historicalHotSeat', 'worksheets'].includes(currentNavigation.view);
+    const isFullScreen = ['messages', 'newChat', 'chat', 'classBattle', 'mathSprintGame', 'geoGuesserGame', 'codeChallengeGame', 'gamePlayer', 'peekabooLetters', 'mathBattleArena', 'cbtExamGame', 'cbtPlayer', 'countingShapesTap', 'simonSays', 'alphabetFishing', 'beanBagToss', 'redLightGreenLight', 'spellingSparkle', 'vocabularyAdventure', 'virtualScienceLab', 'debateDash', 'geometryJeopardy', 'sharkTank', 'physicsLab', 'stockMarket', 'cbtExamGame', 'vocabularyPictionary', 'simpleMachineHunt', 'historicalHotSeat', 'worksheets', 'learningHubResource'].includes(currentNavigation.view);
     // messages/newChat keep the nav so users can switch tabs; chat and games go fully immersive
     const hideBottomNav = isFullScreen && currentNavigation.view !== 'messages' && currentNavigation.view !== 'newChat';
 

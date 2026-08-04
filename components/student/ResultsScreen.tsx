@@ -4,6 +4,7 @@ import { useAutoSync } from '../../hooks/useAutoSync';
 import { api } from '../../lib/api';
 import { Student, ReportCard, Rating } from '../../types';
 import { BookOpenIcon, CheckCircleIcon, ClipboardListIcon, SchoolLogoIcon, SUBJECT_COLORS } from '../../constants';
+import { CANONICAL_TERMS, buildAnnualReportCard, gradeFromTotal } from '../../utils/annualReport';
 import DonutChart from '../ui/DonutChart';
 import { useAuth } from '../../context/AuthContext';
 import { Download, Printer } from 'lucide-react';
@@ -50,7 +51,7 @@ const RatingBadge: React.FC<{ rating: Rating }> = ({ rating }) => {
     return <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold ${colors[rating] || 'bg-gray-100 text-gray-600'}`}>{rating}</span>;
 };
 
-const ReportCardView: React.FC<{ report: ReportCard, student?: Student, schoolName?: string, logoUrl?: string, motto?: string, innerRef?: React.Ref<HTMLDivElement> }> = ({ report, student, schoolName, logoUrl, motto, innerRef }) => {
+const ReportCardView: React.FC<{ report: ReportCard, student?: Student, schoolName?: string, logoUrl?: string, motto?: string, innerRef?: React.Ref<HTMLDivElement>, isAnnualSummary?: boolean }> = ({ report, student, schoolName, logoUrl, motto, innerRef, isAnnualSummary }) => {
     const SKILL_BEHAVIOUR_DOMAINS = ['Neatness', 'Punctuality', 'Politeness', 'Respect for Others', 'Participation in Class', 'Homework Completion', 'Teamwork/Cooperation', 'Attentiveness', 'Creativity', 'Honesty/Integrity'];
     const PSYCHOMOTOR_SKILLS = ['Handwriting', 'Drawing/Art Skills', 'Craft Skills', 'Music & Dance', 'Sports Participation'];
     const hasSkills = report.skills && Object.keys(report.skills).length > 0;
@@ -69,7 +70,7 @@ const ReportCardView: React.FC<{ report: ReportCard, student?: Student, schoolNa
                     <h2 className="text-lg font-bold text-gray-800">{schoolName || 'School Academy'}</h2>
                 </div>
                 {motto && <p className="text-gray-400 italic text-xs">"{motto}"</p>}
-                <p className="text-orange-600 font-bold uppercase tracking-widest text-xs mt-1">Official Report Card — {report.term}</p>
+                <p className="text-orange-600 font-bold uppercase tracking-widest text-xs mt-1">{isAnnualSummary ? 'Combined Annual Result' : 'Official Report Card'} — {report.term}</p>
             </div>
 
             {/* Student Info Bar */}
@@ -267,48 +268,110 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
         fetchAttendanceStats();
     }, [fetchData, fetchQuizResults, fetchAttendanceStats]);
 
+    // Third Term is the cumulative/annual view of a standard report card: the
+    // average of whatever First/Second/Third Term scores exist per subject,
+    // not just that term's own raw scores. A subject missing one term's
+    // score is still averaged from the terms it has, rather than blocked.
     const termGrades = useMemo(() => {
+        if (activeTerm === 'Third Term') {
+            const bySubject = new Map<string, number[]>();
+            performanceData
+                .filter((d: any) => CANONICAL_TERMS.includes(d.term))
+                .forEach((d: any) => {
+                    if (!bySubject.has(d.subject)) bySubject.set(d.subject, []);
+                    bySubject.get(d.subject)!.push(Number(d.score) || 0);
+                });
+            return Array.from(bySubject.entries()).map(([subject, scores]) => ({
+                subject,
+                score: Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10,
+            }));
+        }
         return performanceData.filter(d => d.term === activeTerm);
     }, [performanceData, activeTerm]);
 
+    // Always offer all three terms, even before any Third Term data exists,
+    // so the annual/cumulative view is reachable as soon as at least one
+    // term has results — plus any non-standard term names already in the data.
     const availableTerms = useMemo(() => {
-        const terms = Array.from(new Set(performanceData.map((d: any) => d.term)));
-        return terms.length > 0 ? terms : ['First Term', 'Second Term'];
+        const dataTerms = Array.from(new Set(performanceData.map((d: any) => d.term))) as string[];
+        const extra = dataTerms.filter(t => !CANONICAL_TERMS.includes(t));
+        return [...CANONICAL_TERMS, ...extra];
     }, [performanceData]);
 
+    const publishedRawReports = useMemo(() => reportCards.filter((r: any) => r.is_published), [reportCards]);
+
+    const mapRawReportCard = (raw: any): ReportCard => ({
+        id: raw.id,
+        term: raw.term,
+        session: raw.session || '2023/2024',
+        status: 'Published',
+        academicRecords: (Array.isArray(raw.academic_records) ? raw.academic_records : []).map((r: any) => ({
+            subject: r.subject,
+            test1: r.test1 || 0,
+            test2: r.test2 || 0,
+            exam: r.exam || 0,
+            total: r.total || 0,
+            grade: r.grade,
+            remark: r.remark
+        })),
+        skills: raw.skills || {},
+        psychomotor: raw.psychomotor || {},
+        attendance: raw.attendance || { total: 0, present: 0, absent: 0, late: 0 },
+        teacherComment: raw.teacher_comment || '',
+        principalComment: raw.principal_comment || '',
+        position: raw.position,
+        totalStudents: raw.total_students,
+    });
+
     const activeReportCard = useMemo(() => {
-        return reportCards.find(r => r.term === activeTerm && (!activeSession || r.session === activeSession) && r.is_published);
-    }, [reportCards, activeTerm, activeSession]);
+        return publishedRawReports.find(r => r.term === activeTerm && (!activeSession || r.session === activeSession));
+    }, [publishedRawReports, activeTerm, activeSession]);
 
     const isAnyResultPublished = useMemo(() => {
-        return reportCards.some(r => r.is_published);
-    }, [reportCards]);
+        return publishedRawReports.length > 0;
+    }, [publishedRawReports]);
+
+    // If the school hasn't published an official Third Term report yet, the
+    // student still gets a combined annual view built from whichever
+    // First/Second/Third Term reports ARE published, so "Third Term" never
+    // shows nothing just because no one has separately published an annual
+    // document.
+    const isSyntheticSummary = activeTerm === 'Third Term' && !activeReportCard;
 
     const formattedReportCard = useMemo((): ReportCard | null => {
-        if (!activeReportCard) return null;
-        return {
-            id: activeReportCard.id,
-            term: activeReportCard.term,
-            session: activeReportCard.session || '2023/2024',
-            status: 'Published',
-            academicRecords: (Array.isArray(activeReportCard.academic_records) ? activeReportCard.academic_records : []).map((r: any) => ({
-                subject: r.subject,
-                test1: r.test1 || 0,
-                test2: r.test2 || 0,
-                exam: r.exam || 0,
-                total: r.total || 0,
-                grade: r.grade,
-                remark: r.remark
-            })),
-            skills: activeReportCard.skills || {},
-            psychomotor: activeReportCard.psychomotor || {},
-            attendance: activeReportCard.attendance || { total: 0, present: 0, absent: 0, late: 0 },
-            teacherComment: activeReportCard.teacher_comment || '',
-            principalComment: activeReportCard.principal_comment || '',
-            position: activeReportCard.position,
-            totalStudents: activeReportCard.total_students,
-        };
-    }, [activeReportCard]);
+        if (activeReportCard) return mapRawReportCard(activeReportCard);
+        if (activeTerm === 'Third Term') {
+            const sessionReports = publishedRawReports
+                .filter(r => !activeSession || r.session === activeSession)
+                .map(mapRawReportCard);
+            return buildAnnualReportCard(sessionReports);
+        }
+        return null;
+    }, [activeReportCard, publishedRawReports, activeTerm, activeSession]);
+
+    // Summary numbers for the panel: real published fields when an official
+    // report exists, otherwise computed from the combined annual records.
+    const summaryStats = useMemo(() => {
+        if (activeReportCard) {
+            return {
+                averageScore: activeReportCard.average_score ?? activeReportCard.grade_average,
+                overallGrade: activeReportCard.overall_grade,
+                teacherComment: activeReportCard.teacher_comment,
+                principalComment: activeReportCard.principal_comment,
+            };
+        }
+        if (formattedReportCard && formattedReportCard.academicRecords.length > 0) {
+            const totals = formattedReportCard.academicRecords.map(r => r.total).filter(n => !Number.isNaN(n));
+            const avg = totals.length ? Math.round((totals.reduce((a, b) => a + b, 0) / totals.length) * 10) / 10 : null;
+            return {
+                averageScore: avg,
+                overallGrade: avg != null ? gradeFromTotal(avg) : null,
+                teacherComment: '',
+                principalComment: '',
+            };
+        }
+        return null;
+    }, [activeReportCard, formattedReportCard]);
 
     const handleDownloadPDF = async () => {
         if (!reportRef.current) return;
@@ -421,6 +484,7 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
                             schoolName={currentSchool?.name}
                             logoUrl={currentSchool?.logoUrl}
                             motto={currentSchool?.motto}
+                            isAnnualSummary={isSyntheticSummary}
                         />
                     </motion.div>
                 )}
@@ -430,7 +494,7 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
                         <div className="lg:col-span-2 bg-white p-4 rounded-xl shadow-sm">
                             <div className="flex items-center space-x-2 mb-3">
                                 <BookOpenIcon className="h-5 w-5 text-orange-600" />
-                                <h4 className="font-bold text-gray-800">Grades ({activeTerm})</h4>
+                                <h4 className="font-bold text-gray-800">Grades ({activeTerm}{activeTerm === 'Third Term' ? ' — Annual Average' : ''})</h4>
                             </div>
                             <div className="space-y-2">
                                 {termGrades.length > 0 ? termGrades.map((record: any, i: number) => (
@@ -447,33 +511,33 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
                                 )) : <p className="text-gray-500 text-sm">No grades recorded for this term.</p>}
                             </div>
 
-                            {activeReportCard && (
+                            {summaryStats && (
                                 <div className="mt-6 p-4 bg-orange-50 border border-orange-100 rounded-xl">
                                     <h4 className="font-bold text-orange-800 mb-2 flex items-center gap-2">
                                         <ClipboardListIcon className="h-4 w-4" />
-                                        Official Term Summary
+                                        {isSyntheticSummary ? 'Combined Annual Result' : 'Official Term Summary'}
                                     </h4>
                                     <div className="grid grid-cols-2 gap-4 mb-4">
                                         <div className="bg-white p-3 rounded-lg shadow-sm">
                                             <p className="text-xs text-gray-500 font-medium uppercase">Average Score</p>
-                                            <p className="text-xl font-bold text-gray-800">{activeReportCard.average_score || activeReportCard.grade_average}%</p>
+                                            <p className="text-xl font-bold text-gray-800">{summaryStats.averageScore}%</p>
                                         </div>
                                         <div className="bg-white p-3 rounded-lg shadow-sm">
                                             <p className="text-xs text-gray-500 font-medium uppercase">Overall Grade</p>
-                                            <p className="text-xl font-bold text-gray-800">{activeReportCard.overall_grade || '—'}</p>
+                                            <p className="text-xl font-bold text-gray-800">{summaryStats.overallGrade || '—'}</p>
                                         </div>
                                     </div>
                                     <div className="space-y-3">
-                                        {activeReportCard.teacher_comment && (
+                                        {summaryStats.teacherComment && (
                                             <div>
                                                 <p className="text-xs font-bold text-orange-700 uppercase">Teacher's Remark</p>
-                                                <p className="text-sm text-gray-700 italic">"{activeReportCard.teacher_comment}"</p>
+                                                <p className="text-sm text-gray-700 italic">"{summaryStats.teacherComment}"</p>
                                             </div>
                                         )}
-                                        {activeReportCard.principal_comment && (
+                                        {summaryStats.principalComment && (
                                             <div className="pt-2 border-t border-orange-200">
                                                 <p className="text-xs font-bold text-orange-700 uppercase">Principal's Decision</p>
-                                                <p className="text-sm text-gray-700 italic">"{activeReportCard.principal_comment}"</p>
+                                                <p className="text-sm text-gray-700 italic">"{summaryStats.principalComment}"</p>
                                             </div>
                                         )}
                                     </div>

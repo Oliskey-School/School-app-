@@ -156,6 +156,8 @@ model School {
   student_suspensions        StudentSuspension[]
   sop_incident_types         SOPIncidentType[]
   sop_cases                  SOPCase[]
+  resource_progress          StudentResourceProgress[]
+  study_plans                StudyPlan[]
 }
 
 model Branch {
@@ -336,6 +338,8 @@ model Student {
   authorized_pickup_persons AuthorizedPickupPerson[]
   departures                StudentDeparture[]
   club_attendance           ClubAttendance[]
+  resource_progress         StudentResourceProgress[]
+  study_plans               StudyPlan[]
 
   @@unique([school_id, admission_number])
   @@unique([school_id, school_generated_id])
@@ -1483,28 +1487,108 @@ model VirtualClassAttendance {
 }
 
 model Resource {
-  id             String    @id @default(uuid())
-  school_id      String
-  branch_id      String?
-  teacher_id     String?
-  title          String
-  description    String?
-  thumbnail_url  String?
-  type           String
-  url            String?
-  file_type      String?
-  size           Int?
-  category       String?
-  subject        String?
-  class_id       String?
-  tags           String[]
-  download_count Int       @default(0)
-  created_at     DateTime  @default(now())
-  updated_at     DateTime  @updatedAt
-  teacher        Teacher?  @relation(fields: [teacher_id], references: [id])
-  created_by     String?
-  updated_by     String?
-  deleted_at     DateTime?
+  id                 String                    @id @default(uuid())
+  school_id          String
+  branch_id          String?
+  teacher_id         String?
+  title              String
+  description        String?
+  thumbnail_url      String?
+  type               String
+  url                String?
+  file_type          String?
+  size               Int?
+  category           String?
+  subject            String?
+  class_id           String?
+  tags               String[]
+  download_count     Int                       @default(0)
+  created_at         DateTime                  @default(now())
+  updated_at         DateTime                  @updatedAt
+  teacher            Teacher?                  @relation(fields: [teacher_id], references: [id])
+  created_by         String?
+  updated_by         String?
+  deleted_at         DateTime?
+  // Learning Hub fields — free-OER resources organized by academic level.
+  // grade_level mirrors Class.level_category's string convention ("Primary 4", "JSS 1", ...).
+  grade_level        String?
+  resource_kind      String? // lesson | worksheet | practice_question | quiz | flashcard | video | reading | past_question | simulation | game
+  curriculum_type    String?
+  source_name        String? // e.g. "Khan Academy", "CK-12" — credited when is_curated
+  is_curated         Boolean                   @default(false)
+  progress           StudentResourceProgress[]
+  study_plan_items   StudyPlanItem[]
+  // PhET-style "Customize" filter dimensions — kept separate from our own
+  // curriculum grade_level/subject fields since they use a different taxonomy
+  // (e.g. PhET's "Subject Area" is Physics/Chemistry/Math & Statistics/Earth &
+  // Space/Biology, not a specific school subject). Populated for PhET-sourced
+  // resources; left null for everything else.
+  subject_area       String?
+  grade_band         String? // Elementary School | Middle School | High School | University
+  inclusive_features String[]                  @default([]) // e.g. Sonification, Voicing, Interactive Description, Alternative Input, Pan and Zoom
+  // "Free Learning Resources" website catalog (resource_kind: 'website') — a
+  // whole external site rather than one lesson, so it's described with a
+  // human-readable age range instead of a single grade_level.
+  recommended_age    String? // e.g. "Creche - SSS3", "JSS 1 - SSS 3"
+
+  @@index([school_id, grade_level, subject])
+  @@index([school_id, is_curated])
+  @@index([school_id, subject_area])
+}
+
+// Per-student completion/score tracking for a Learning Hub resource.
+model StudentResourceProgress {
+  id                 String    @id @default(uuid())
+  school_id          String
+  branch_id          String?
+  student_id         String
+  resource_id        String
+  status             String    @default("not_started") // not_started | in_progress | completed
+  score              Int?
+  time_spent_seconds Int       @default(0)
+  started_at         DateTime?
+  completed_at       DateTime?
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @updatedAt
+  school             School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  student            Student   @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  resource           Resource  @relation(fields: [resource_id], references: [id], onDelete: Cascade)
+
+  @@unique([student_id, resource_id])
+  @@index([school_id, student_id])
+  @@index([school_id, resource_id])
+}
+
+// AI/teacher-generated personalized study plan for a student.
+model StudyPlan {
+  id           String          @id @default(uuid())
+  school_id    String
+  branch_id    String?
+  student_id   String
+  title        String
+  generated_by String          @default("ai") // ai | teacher
+  created_by   String?
+  created_at   DateTime        @default(now())
+  updated_at   DateTime        @updatedAt
+  school       School          @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  student      Student         @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  items        StudyPlanItem[]
+
+  @@index([school_id, student_id])
+}
+
+model StudyPlanItem {
+  id            String    @id @default(uuid())
+  study_plan_id String
+  resource_id   String
+  order         Int       @default(0)
+  due_date      DateTime?
+  status        String    @default("pending") // pending | completed
+  created_at    DateTime  @default(now())
+  study_plan    StudyPlan @relation(fields: [study_plan_id], references: [id], onDelete: Cascade)
+  resource      Resource  @relation(fields: [resource_id], references: [id], onDelete: Cascade)
+
+  @@index([study_plan_id])
 }
 
 model AnonymousReport {
