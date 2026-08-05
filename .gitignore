@@ -99,3 +99,7 @@ graphify-out/
 
 # Claude agent worktrees
 .claude/worktrees/
+
+# Expo/React Native web cache (regenerated automatically, never needs to be tracked)
+.expo/
+dev-dist/

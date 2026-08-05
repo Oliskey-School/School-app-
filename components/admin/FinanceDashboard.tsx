@@ -33,9 +33,13 @@ interface PaymentMethodBreakdown {
 }
 
 const FinanceDashboard: React.FC = () => {
-    const { currentSchool } = useAuth();
+    const { currentSchool, currentBranchId } = useAuth();
     const schoolId = currentSchool?.id;
-    const branchId = currentSchool?.branch_id;
+    // currentSchool (the School record) has no branch_id of its own — that
+    // field doesn't exist on it. The active branch lives on currentBranchId
+    // (from the header's branch switcher); reading it off currentSchool meant
+    // this screen never scoped to a branch and never reacted to switching one.
+    const branchId = currentBranchId;
 
     const [viewMode, setViewMode] = useState<'monthly' | 'quarterly' | 'annual'>('monthly');
     const [selectedPeriod, setSelectedPeriod] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
@@ -48,8 +52,7 @@ const FinanceDashboard: React.FC = () => {
 
     useEffect(() => {
         fetchAnalytics();
-        generateForecast();
-    }, [viewMode, selectedPeriod, refreshTrigger]);
+    }, [viewMode, selectedPeriod, refreshTrigger, branchId]);
 
     // Auto-sync
     useAutoSync(['payments', 'student_fees', 'donations', 'salary_payments'], () => {
@@ -68,6 +71,11 @@ const FinanceDashboard: React.FC = () => {
                 setFinancialData(data.summary);
                 setPaymentMethods(data.paymentMethods || []);
                 setFeeCollectionRate(data.feeCollection || { collected: 0, outstanding: 0, rate: 0 });
+                // Computed from the summary that was JUST fetched, not read back
+                // off state — calling this from a separate effect read the
+                // PREVIOUS financialData (state hadn't re-rendered yet), so the
+                // forecast was always one fetch behind the period/branch shown.
+                generateForecast(data.summary);
             }
         } catch (error: any) {
             console.error('Error fetching financial analytics:', error);
@@ -97,13 +105,13 @@ const FinanceDashboard: React.FC = () => {
         return { startDate, endDate };
     };
 
-    const generateForecast = () => {
+    const generateForecast = (summary: FinancialSummary) => {
         // Simple forecast based on historical average
-        if (!financialData) return;
+        if (!summary) return;
 
         const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         const currentMonth = new Date().getMonth();
-        const avgRevenue = financialData.total_revenue;
+        const avgRevenue = summary.total_revenue;
 
         const forecast = months.slice(currentMonth + 1, currentMonth + 4).map((month, index) => ({
             month,

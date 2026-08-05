@@ -50,7 +50,7 @@ const { mockClass, mockStudent } = vi.hoisted(() => ({
         branch_id: 'branch-1',
         // Admin previously customized this student's subjects — must survive reopening Edit.
         assigned_subjects: ['Physics', 'Chemistry'],
-        enrollments: [{ class_id: 'class-1' }],
+        enrollments: [{ class_id: 'class-1', status: 'Active' }],
         parents: [],
     },
 }));

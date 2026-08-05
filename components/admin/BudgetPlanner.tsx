@@ -19,9 +19,13 @@ interface BudgetEntry {
 }
 
 const BudgetPlanner: React.FC = () => {
-    const { currentSchool } = useAuth();
+    const { currentSchool, currentBranchId } = useAuth();
     const schoolId = currentSchool?.id;
-    const branchId = currentSchool?.branch_id;
+    // currentSchool (the School record) has no branch_id of its own — that
+    // field doesn't exist on it. The active branch lives on currentBranchId
+    // (from the header's branch switcher); reading it off currentSchool meant
+    // this screen never scoped to a branch and never reacted to switching one.
+    const branchId = currentBranchId;
     const [entries, setEntries] = useState<BudgetEntry[]>([]);
     const [selectedYear, setSelectedYear] = useState<string>('');
     const [availableYears, setAvailableYears] = useState<string[]>([]);
@@ -38,7 +42,7 @@ const BudgetPlanner: React.FC = () => {
         if (schoolId) {
             fetchBudgets();
         }
-    }, [schoolId]);
+    }, [schoolId, branchId]);
 
     useAutoSync(['budgets'], () => {
         console.log('🔄 [BudgetPlanner] Real-time auto-sync triggered');
@@ -163,13 +167,19 @@ const BudgetPlanner: React.FC = () => {
                 </div>
             </div>
 
+            <AnimatePresence mode="wait">
             {entries.length === 0 ? (
-                <div className="text-center py-20 bg-white rounded-xl shadow-sm border border-dashed border-gray-200">
+                <motion.div key="empty-all" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-center py-20 bg-white rounded-xl shadow-sm border border-dashed border-gray-200">
                     <DollarSign className="mx-auto h-12 w-12 text-gray-300 mb-4" />
                     <p className="text-gray-500 font-medium">No budget entries yet. Click "Add Entry" to get started.</p>
-                </div>
+                </motion.div>
+            ) : filteredEntries.length === 0 ? (
+                <motion.div key="empty-filtered" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-center py-20 bg-white rounded-xl shadow-sm border border-dashed border-gray-200">
+                    <DollarSign className="mx-auto h-12 w-12 text-gray-300 mb-4" />
+                    <p className="text-gray-500 font-medium">No budget entries for fiscal year {selectedYear}.</p>
+                </motion.div>
             ) : (
-                <>
+                <motion.div key={`entries-${selectedYear}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                     {/* Summary Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="bg-blue-50 rounded-xl shadow-sm p-6 border border-blue-100">
@@ -205,11 +215,19 @@ const BudgetPlanner: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-200">
-                                    {filteredEntries.map(entry => {
+                                    <AnimatePresence mode="popLayout">
+                                    {filteredEntries.map((entry, idx) => {
                                         const remaining = (entry.allocated_amount || 0) - (entry.spent_amount || 0);
                                         const utilization = getUtilization(entry.spent_amount, entry.allocated_amount);
                                         return (
-                                            <motion.tr key={entry.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15 }} className="hover:bg-gray-50">
+                                            <motion.tr
+                                                key={entry.id}
+                                                initial={{ opacity: 0, y: 6 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                exit={{ opacity: 0 }}
+                                                transition={{ duration: 0.2, delay: Math.min(idx * 0.03, 0.3) }}
+                                                className="hover:bg-gray-50"
+                                            >
                                                 <td className="px-4 py-3 text-sm text-gray-700 font-mono">{entry.fiscal_year}</td>
                                                 <td className="px-4 py-3 text-sm font-medium text-gray-900">{entry.category}</td>
                                                 <td className="px-4 py-3 text-sm text-right text-gray-900">₦{(entry.allocated_amount || 0).toLocaleString()}</td>
@@ -221,22 +239,26 @@ const BudgetPlanner: React.FC = () => {
                                                     <div className="flex flex-col items-center">
                                                         <span className="text-xs font-semibold mb-1">{utilization.toFixed(1)}%</span>
                                                         <div className="w-full bg-gray-200 rounded-full h-2">
-                                                            <div
+                                                            <motion.div
+                                                                initial={{ width: 0 }}
+                                                                animate={{ width: `${utilization}%` }}
+                                                                transition={{ duration: 0.6, delay: Math.min(idx * 0.03, 0.3), ease: 'easeOut' }}
                                                                 className={`h-2 rounded-full ${utilization > 90 ? 'bg-red-500' : utilization > 75 ? 'bg-yellow-500' : 'bg-green-500'}`}
-                                                                style={{ width: `${utilization}%` }}
-                                                            ></div>
+                                                            ></motion.div>
                                                         </div>
                                                     </div>
                                                 </td>
                                             </motion.tr>
                                         );
                                     })}
+                                    </AnimatePresence>
                                 </tbody>
                             </table>
                         </div>
                     </div>
-                </>
+                </motion.div>
             )}
+            </AnimatePresence>
 
             {/* Create Entry Modal */}
             <AnimatePresence>

@@ -9,12 +9,17 @@ interface UpdatePromptProps {
 }
 
 export default function UpdatePrompt({ forced = false, targetVersion }: UpdatePromptProps) {
+    // Holds the live ServiceWorkerRegistration so "Update Now" can force an
+    // immediate check for a new build instead of waiting for the hourly poll.
+    const registrationRef = React.useRef<ServiceWorkerRegistration | undefined>(undefined);
+    const [updating, setUpdating] = useState(false);
     const {
         needRefresh: [needRefresh, setNeedRefresh],
         updateServiceWorker,
     } = useRegisterSW({
         onRegistered(r) {
             console.log('✅ Service Worker registered for update checking:', r);
+            registrationRef.current = r;
             if (r) {
                 setInterval(() => {
                     r.update();
@@ -46,6 +51,36 @@ export default function UpdatePrompt({ forced = false, targetVersion }: UpdatePr
             .catch(() => { /* non-blocking — fall back to APP_VERSION */ });
         return () => { active = false; };
     }, [forced]);
+
+    // "needRefresh" only becomes true once the browser's own service-worker
+    // lifecycle has already noticed a new build sitting in "waiting" — but
+    // this banner (especially the forced/mandatory variant) can appear before
+    // that check has run. Clicking through to `updateServiceWorker(true)`
+    // straight away was frequently a no-op: nothing was waiting yet, so
+    // nothing got skip-activated, and the plain `window.location.reload()`
+    // fallback often just re-served the same old cached build. Forcing a
+    // fresh `registration.update()` first gives the browser a real chance to
+    // find and install the new worker before we try to activate it.
+    const handleUpdateNow = async () => {
+        setUpdating(true);
+        try {
+            if (registrationRef.current) {
+                await registrationRef.current.update();
+                // Give the install/"waiting" event a moment to land — it fires
+                // asynchronously after update() resolves.
+                await new Promise(resolve => setTimeout(resolve, 800));
+            }
+            await updateServiceWorker(true);
+        } catch (error) {
+            console.error('❌ Update check failed:', error);
+        } finally {
+            // Always reload: if a new worker WAS found, it's now controlling
+            // the page and this loads the new build. If there genuinely was
+            // nothing new, this is a harmless refresh — either way the user
+            // sees the button actually do something instead of sitting dead.
+            window.location.reload();
+        }
+    };
 
     const close = () => {
         setNeedRefresh(false);
@@ -170,13 +205,8 @@ export default function UpdatePrompt({ forced = false, targetVersion }: UpdatePr
                     {/* Action buttons */}
                     <div style={{ display: 'flex', gap: '10px', marginTop: '18px' }}>
                         <button
-                            onClick={() => {
-                                if (needRefresh) {
-                                    updateServiceWorker(true);
-                                } else {
-                                    window.location.reload();
-                                }
-                            }}
+                            onClick={handleUpdateNow}
+                            disabled={updating}
                             style={{
                                 flex: 1,
                                 background: forced ? '#ef4444' : '#111827',
@@ -186,11 +216,29 @@ export default function UpdatePrompt({ forced = false, targetVersion }: UpdatePr
                                 padding: '10px 16px',
                                 fontSize: '13px',
                                 fontWeight: 600,
-                                cursor: 'pointer',
+                                cursor: updating ? 'default' : 'pointer',
+                                opacity: updating ? 0.75 : 1,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '8px',
                             }}
                             className="hover:opacity-90 active:scale-[0.98] transition-all"
                         >
-                            Update Now
+                            {updating && (
+                                <span
+                                    className="animate-spin"
+                                    style={{
+                                        width: '13px',
+                                        height: '13px',
+                                        border: '2px solid rgba(255,255,255,0.4)',
+                                        borderTopColor: '#fff',
+                                        borderRadius: '50%',
+                                        display: 'inline-block',
+                                    }}
+                                />
+                            )}
+                            {updating ? 'Updating…' : 'Update Now'}
                         </button>
                         
                         <button

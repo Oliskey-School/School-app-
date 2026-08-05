@@ -141,7 +141,7 @@ export class AcademicService {
         });
     }
 
-    static async getAnalytics(schoolId: string, branchId: string | undefined, selectedTerm: string, selectedClass: number | null) {
+    static async getAnalytics(schoolId: string, branchId: string | undefined, selectedTerm: string, selectedClass: string | null) {
         const whereClause: any = {
             school_id: schoolId
         };
@@ -150,24 +150,21 @@ export class AcademicService {
             whereClause.branch_id = branchId;
         }
 
-        // Only include active students in analytics
-        whereClause.student = {
-            status: 'Active'
-        };
-
         if (selectedTerm && selectedTerm !== 'current' && selectedTerm !== 'all') {
             whereClause.term = selectedTerm;
         }
 
-        if (selectedClass) {
-            whereClause.student = {
-                enrollments: {
-                    some: {
-                        class_id: String(selectedClass)
-                    }
-                }
-            };
-        }
+        // Only include active students in analytics — merge with, don't replace,
+        // the class filter below (assigning a second time to whereClause.student
+        // was overwriting this and letting withdrawn/inactive students' scores
+        // back in whenever a class was selected). The enrollment match also
+        // needs status: 'Active' — without it, a student who used to be in the
+        // selected class (promoted/transferred since) still matched on their
+        // stale historical enrollment row.
+        whereClause.student = {
+            status: 'Active',
+            ...(selectedClass ? { enrollments: { some: { class_id: selectedClass, status: 'Active' } } } : {})
+        };
 
         const data = await prisma.academicPerformance.findMany({
             where: whereClause,
@@ -189,7 +186,7 @@ export class AcademicService {
                 gradeDistribution: [],
                 subjectPerformance: [],
                 classComparison: [],
-                metrics: { overallGPA: 0, passRate: 0, topPerformer: 'N/A', improvement: 0 }
+                metrics: { overallGPA: 0, passRate: 0, topPerformer: 'N/A', topPerformerGPA: 0, improvement: 0 }
             };
         }
         const totalStudents = data.length;
@@ -209,6 +206,9 @@ export class AcademicService {
 
         const subjectMap: Record<string, { total: number, scores: number[], passed: number }> = {};
         const classMap: Record<string, { total: number, scores: number[], passed: number }> = {};
+        // Per-student average, to find a REAL top performer instead of a
+        // hard-coded placeholder name.
+        const studentMap: Record<string, { name: string, scores: number[] }> = {};
         let totalScore = 0;
         let totalPassed = 0;
 
@@ -225,12 +225,55 @@ export class AcademicService {
             subjectMap[subject].scores.push(item.score || 0);
             if ((item.score || 0) >= 50) subjectMap[subject].passed++;
 
-            const className = (item as any).student?.enrollments?.[0]?.class?.name || 'Unknown';
+            // A student can carry old/inactive enrollment rows from classes
+            // they've since left (promotions, transfers) — enrollments[0] isn't
+            // reliably the current one, so pick the Active enrollment
+            // specifically instead of blindly trusting array order.
+            const enrollments = (item as any).student?.enrollments || [];
+            const activeEnrollment = enrollments.find((e: any) => e.status === 'Active') || enrollments[0];
+            const className = activeEnrollment?.class?.name || 'Unknown';
             if (!classMap[className]) classMap[className] = { total: 0, scores: [], passed: 0 };
             classMap[className].total++;
             classMap[className].scores.push(item.score || 0);
             if ((item.score || 0) >= 50) classMap[className].passed++;
+
+            const studentId = item.student_id;
+            const studentName = (item as any).student?.full_name || 'Unknown Student';
+            if (!studentMap[studentId]) studentMap[studentId] = { name: studentName, scores: [] };
+            studentMap[studentId].scores.push(item.score || 0);
         });
+
+        let topPerformer = 'N/A';
+        let topPerformerAvg = -1;
+        Object.values(studentMap).forEach(s => {
+            const avg = s.scores.reduce((a, b) => a + b, 0) / s.scores.length;
+            if (avg > topPerformerAvg) {
+                topPerformerAvg = avg;
+                topPerformer = s.name;
+            }
+        });
+
+        // Real term-over-term improvement — only computable when a specific
+        // canonical term is selected (need a distinct "previous term" to
+        // compare against); otherwise there's no honest baseline, so it's 0
+        // rather than a fabricated number.
+        let improvement = 0;
+        const CANONICAL_TERMS = ['First Term', 'Second Term', 'Third Term'];
+        const termIndex = CANONICAL_TERMS.indexOf(selectedTerm);
+        if (termIndex > 0) {
+            const previousTermWhere = { ...whereClause, term: CANONICAL_TERMS[termIndex - 1] };
+            const previousTermData = await prisma.academicPerformance.findMany({
+                where: previousTermWhere,
+                select: { score: true }
+            });
+            if (previousTermData.length > 0) {
+                const previousAvg = previousTermData.reduce((sum, d) => sum + (d.score || 0), 0) / previousTermData.length;
+                const currentAvg = totalScore / data.length;
+                if (previousAvg > 0) {
+                    improvement = Math.round(((currentAvg - previousAvg) / previousAvg) * 1000) / 10;
+                }
+            }
+        }
 
         const gradeDistribution = Object.entries(gradeMap).map(([grade, count]) => ({
             grade,
@@ -259,8 +302,9 @@ export class AcademicService {
             metrics: {
                 overallGPA: Math.round((totalScore / totalStudents / 100 * 4) * 100) / 100,
                 passRate: Math.round((totalPassed / totalStudents) * 1000) / 10,
-                topPerformer: 'Excellence Student',
-                improvement: 0
+                topPerformer,
+                topPerformerGPA: topPerformerAvg > 0 ? Math.round((topPerformerAvg / 100 * 4) * 10) / 10 : 0,
+                improvement
             }
         };
     }

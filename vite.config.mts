@@ -100,6 +100,16 @@ export default defineConfig(({ mode }) => {
       ]),
       VitePWA({
         registerType: 'prompt',
+        // Without this, vite-plugin-pwa only generates/registers a service worker
+        // in a production build — the dev server never meets Chrome's installability
+        // criteria, so the browser never fires beforeinstallprompt and the Install
+        // button silently falls back to manual "Add to Home Screen" steps even
+        // though the real one-tap install works fine once deployed. Enabling it
+        // here makes the dev preview behave the same as production.
+        devOptions: {
+          enabled: true,
+          type: 'module',
+        },
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,json}'],
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,

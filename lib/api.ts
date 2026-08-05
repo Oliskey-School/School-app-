@@ -2430,12 +2430,8 @@ class ExpressApiClient {
     }
     // Vendor Management â€” backed by the full CRUD /vendors route module.
     async getVendors(): Promise<any[]> {
-        try {
-            const result = await this.get<any>('/vendors');
-            return Array.isArray(result) ? result : (result?.data || []);
-        } catch (err) {
-            return [];
-        }
+        const result = await this.get<any>('/vendors');
+        return Array.isArray(result) ? result : (result?.data || []);
     }
 
     async createVendor(data: any): Promise<any> {
@@ -3780,8 +3776,11 @@ class ExpressApiClient {
     // ============================================
     // DATA PRIVACY (NDPR)
     // ============================================
-    async getDataRequests(schoolId?: string): Promise<any[]> {
-        const query = schoolId ? `?schoolId=${schoolId}` : '';
+    async getDataRequests(schoolId?: string, branchId?: string): Promise<any[]> {
+        const queryParams = new URLSearchParams();
+        if (schoolId) queryParams.append('schoolId', schoolId);
+        if (branchId) queryParams.append('branchId', branchId);
+        const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
         return this.get(`/admin-hub/data-requests${query}`);
     }
 
@@ -3932,13 +3931,19 @@ class ExpressApiClient {
         return this.post(`/admin-hub/safety/drills${query}`, data);
     }
 
-    async getSafeguardingPolicies(schoolId?: string): Promise<any[]> {
-        const query = schoolId ? `?schoolId=${schoolId}` : '';
+    async getSafeguardingPolicies(schoolId?: string, branchId?: string): Promise<any[]> {
+        const queryParams = new URLSearchParams();
+        if (schoolId) queryParams.append('schoolId', schoolId);
+        if (branchId) queryParams.append('branchId', branchId);
+        const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
         return this.get(`/admin-hub/safety/policies${query}`);
     }
 
-    async createSafeguardingPolicy(data: any, schoolId?: string): Promise<any> {
-        const query = schoolId ? `?schoolId=${schoolId}` : '';
+    async createSafeguardingPolicy(data: any, schoolId?: string, branchId?: string): Promise<any> {
+        const queryParams = new URLSearchParams();
+        if (schoolId) queryParams.append('schoolId', schoolId);
+        if (branchId) queryParams.append('branchId', branchId);
+        const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
         return this.post(`/admin-hub/safety/policies${query}`, data);
     }
 

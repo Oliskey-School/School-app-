@@ -46,7 +46,7 @@ export class AdminHubController {
     // Data Requests
     static async getDataRequests(req: Request, res: Response) {
         try {
-            const requests = await DataRequestService.getRequests((req as any).user.school_id);
+            const requests = await DataRequestService.getRequests((req as any).user.school_id, req.query.branchId as string);
             res.json(requests);
         } catch (error: any) {
             res.status(500).json({ error: error.message });
@@ -387,7 +387,7 @@ export class AdminHubController {
     // Safeguarding Policies
     static async getSafeguardingPolicies(req: Request, res: Response) {
         try {
-            const policies = await SafetyService.getSafeguardingPolicies((req as any).user.school_id);
+            const policies = await SafetyService.getSafeguardingPolicies((req as any).user.school_id, req.query.branchId as string);
             res.json(policies);
         } catch (error: any) {
             res.status(500).json({ error: error.message });
@@ -396,7 +396,7 @@ export class AdminHubController {
 
     static async createSafeguardingPolicy(req: Request, res: Response) {
         try {
-            const policy = await SafetyService.createSafeguardingPolicy((req as any).user.school_id, req.body);
+            const policy = await SafetyService.createSafeguardingPolicy((req as any).user.school_id, req.query.branchId as string, req.body);
             res.json(policy);
         } catch (error: any) {
             res.status(500).json({ error: error.message });

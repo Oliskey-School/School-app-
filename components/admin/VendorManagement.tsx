@@ -101,7 +101,12 @@ const VendorManagement = () => {
 
     return (
         <div className="space-y-6">
-            <div className="bg-white rounded-xl shadow-sm p-6">
+            <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="bg-white rounded-xl shadow-sm p-6"
+            >
                 <div className="flex justify-between items-center mb-6">
                     <div>
                         <h2 className="text-xl font-bold text-gray-800">Vendor Management</h2>
@@ -141,40 +146,50 @@ const VendorManagement = () => {
                                         </td>
                                     </tr>
                                 ) : (
-                                    vendors.map((vendor, vi) => (
-                                        <motion.tr key={vendor.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(vi, 15) * 0.02 }} className="hover:bg-gray-50">
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="font-medium text-gray-900">{vendor.vendor_name}</div>
-                                                <div className="text-xs text-gray-500">{vendor.vendor_code}</div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{vendor.vendor_type}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="text-sm text-gray-900">{vendor.contact_person}</div>
-                                                <div className="text-xs text-gray-500">{vendor.email}</div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="flex items-center text-sm text-yellow-500">
-                                                    <span className="font-bold mr-1">{vendor.rating}</span> ★
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${vendor.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                                                    }`}>
-                                                    {vendor.status}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                <button onClick={() => openEdit(vendor)} className="text-indigo-600 hover:text-indigo-900 mr-3"><EditIcon size={16} /></button>
-                                                <button onClick={() => handleDelete(vendor)} className="text-red-600 hover:text-red-900"><TrashIcon size={16} /></button>
-                                            </td>
-                                        </motion.tr>
-                                    ))
+                                    <AnimatePresence initial={false}>
+                                        {vendors.map((vendor, vi) => (
+                                            <motion.tr
+                                                key={vendor.id}
+                                                layout
+                                                initial={{ opacity: 0, y: -8 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                exit={{ opacity: 0, x: -24, transition: { duration: 0.18 } }}
+                                                transition={{ duration: 0.2, delay: Math.min(vi, 15) * 0.03 }}
+                                                whileHover={{ backgroundColor: 'rgba(249,250,251,1)' }}
+                                            >
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div className="font-medium text-gray-900">{vendor.vendor_name}</div>
+                                                    <div className="text-xs text-gray-500">{vendor.vendor_code}</div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{vendor.vendor_type}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div className="text-sm text-gray-900">{vendor.contact_person}</div>
+                                                    <div className="text-xs text-gray-500">{vendor.email}</div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div className="flex items-center text-sm text-yellow-500">
+                                                        <span className="font-bold mr-1">{vendor.rating}</span> ★
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${(vendor.status || '').toLowerCase() === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                                        }`}>
+                                                        {vendor.status}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                    <motion.button whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }} onClick={() => openEdit(vendor)} className="text-indigo-600 hover:text-indigo-900 mr-3 inline-block"><EditIcon size={16} /></motion.button>
+                                                    <motion.button whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }} onClick={() => handleDelete(vendor)} className="text-red-600 hover:text-red-900 inline-block"><TrashIcon size={16} /></motion.button>
+                                                </td>
+                                            </motion.tr>
+                                        ))}
+                                    </AnimatePresence>
                                 )}
                             </tbody>
                         </table>
                     </div>
                 )}
-            </div>
+            </motion.div>
 
             <AnimatePresence>
             {showModal && (

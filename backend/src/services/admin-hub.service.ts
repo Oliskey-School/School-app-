@@ -25,9 +25,13 @@ export class CustomReportService {
 }
 
 export class DataRequestService {
-    static async getRequests(schoolId: string) {
+    static async getRequests(schoolId: string, branchId?: string) {
         return prisma.dataRequest.findMany({
-            where: { school_id: schoolId },
+            where: {
+                school_id: schoolId,
+                deleted_at: null,
+                ...(branchId && branchId !== 'all' ? { branch_id: branchId } : {})
+            },
             orderBy: { requested_at: 'desc' }
         });
     }
@@ -459,20 +463,25 @@ export class SafetyService {
         return this.mapDrillToFrontend(drill);
     }
 
-    static async getSafeguardingPolicies(schoolId: string) {
+    static async getSafeguardingPolicies(schoolId: string, branchId?: string) {
         // @ts-ignore
         return prisma.safeguardingPolicy.findMany({
-            where: { school_id: schoolId },
+            where: {
+                school_id: schoolId,
+                deleted_at: null,
+                ...(branchId && branchId !== 'all' ? { branch_id: branchId } : {})
+            },
             orderBy: { effective_date: 'desc' }
         });
     }
 
-    static async createSafeguardingPolicy(schoolId: string, data: any) {
+    static async createSafeguardingPolicy(schoolId: string, branchId: string | undefined, data: any) {
         // @ts-ignore
         return prisma.safeguardingPolicy.create({
             data: {
                 ...data,
                 school_id: schoolId,
+                branch_id: branchId && branchId !== 'all' ? branchId : null,
                 effective_date: data.effective_date ? new Date(data.effective_date) : new Date(),
                 review_date: data.review_date ? new Date(data.review_date) : null
             }

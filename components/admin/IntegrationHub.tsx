@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { Plug, ToggleLeft, ToggleRight, RefreshCw, AlertCircle, CheckCircle, Plus } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import CenteredLoader from '../ui/CenteredLoader';
 
+// Prisma ids in this schema are all string UUIDs (see ExternalIntegration/ThirdPartyApp/AppInstallation
+// models in backend/prisma/schema.prisma) — never numbers.
 interface Integration {
-    id: number;
+    id: string;
     integration_name: string;
     integration_type: string;
     base_url: string;
@@ -19,7 +21,7 @@ interface Integration {
 }
 
 interface ThirdPartyApp {
-    id: number;
+    id: string;
     app_name: string;
     app_slug: string;
     developer_name: string;
@@ -34,9 +36,10 @@ const IntegrationHub: React.FC = () => {
     const { currentSchool } = useAuth();
     const [integrations, setIntegrations] = useState<Integration[]>([]);
     const [thirdPartyApps, setThirdPartyApps] = useState<ThirdPartyApp[]>([]);
-    const [installedApps, setInstalledApps] = useState<number[]>([]);
+    const [installedApps, setInstalledApps] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'government' | 'marketplace'>('government');
+    const [syncingId, setSyncingId] = useState<string | null>(null);
 
     useEffect(() => {
         if (!currentSchool) return;
@@ -47,8 +50,6 @@ const IntegrationHub: React.FC = () => {
         try {
             setLoading(true);
 
-            // FLAG: api.getIntegrations() and api.getThirdPartyApps() are not yet defined in lib/api.ts.
-            // Using api.get() directly for now. Add named methods when backend routes are confirmed.
             const [integrationsData, appsData, installationsData] = await Promise.allSettled([
                 api.get<any[]>(`/external-integrations?schoolId=${currentSchool!.id}`),
                 api.get<any[]>('/third-party-apps'),
@@ -68,7 +69,7 @@ const IntegrationHub: React.FC = () => {
         }
     };
 
-    const toggleIntegration = async (integrationId: number, currentStatus: boolean) => {
+    const toggleIntegration = async (integrationId: string, currentStatus: boolean) => {
         try {
             await api.toggleIntegration(integrationId, !currentStatus);
             toast.success(`Integration ${!currentStatus ? 'enabled' : 'disabled'}`);
@@ -79,21 +80,24 @@ const IntegrationHub: React.FC = () => {
         }
     };
 
-    const syncIntegration = async (integrationId: number, integrationName: string) => {
+    const syncIntegration = async (integrationId: string, integrationName: string) => {
         try {
+            setSyncingId(integrationId);
             toast.loading(`Syncing ${integrationName}...`);
             await api.syncIntegration(integrationId);
             toast.dismiss();
             toast.success('Sync completed successfully!');
-            fetchData();
+            await fetchData();
         } catch (error: any) {
             toast.dismiss();
             console.error('Error syncing:', error);
             toast.error('Sync failed');
+        } finally {
+            setSyncingId(null);
         }
     };
 
-    const installApp = async (appId: number, appName: string) => {
+    const installApp = async (appId: string, appName: string) => {
         try {
             await api.installApp(appId);
             toast.success(`${appName} installed successfully!`);
@@ -104,7 +108,7 @@ const IntegrationHub: React.FC = () => {
         }
     };
 
-    const uninstallApp = async (appId: number, appName: string) => {
+    const uninstallApp = async (appId: string, appName: string) => {
         try {
             await api.uninstallApp(appId);
             toast.success(`${appName} uninstalled`);
@@ -180,10 +184,16 @@ const IntegrationHub: React.FC = () => {
             {loading ? (
                 <CenteredLoader className="py-12" />
             ) : (
-                <>
+                <AnimatePresence mode="wait">
                     {/* Government Systems Tab */}
                     {activeTab === 'government' && (
-                        <div>
+                        <motion.div
+                            key="government"
+                            initial={{ opacity: 0, x: -8 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: 8 }}
+                            transition={{ duration: 0.2 }}
+                        >
                             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
                                 <p className="text-sm text-blue-900">
                                     <strong>Nigerian Education Integration:</strong> Connect with WAEC, NECO, JAMB, and other regulatory bodies for seamless data exchange and compliance reporting.
@@ -232,15 +242,20 @@ const IntegrationHub: React.FC = () => {
                                                 <motion.button
                                                     whileHover={integration.is_active ? { scale: 1.03 } : {}} whileTap={integration.is_active ? { scale: 0.97 } : {}}
                                                     onClick={() => syncIntegration(integration.id, integration.integration_name)}
-                                                    disabled={!integration.is_active}
+                                                    disabled={!integration.is_active || syncingId === integration.id}
                                                     className={`px-4 py-2 rounded-lg font-semibold flex items-center space-x-2 ${integration.is_active
                                                         ? 'bg-teal-600 text-white hover:bg-teal-700'
                                                         : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                                                         }`}
                                                     title="Sync Now"
                                                 >
-                                                    <RefreshCw className="h-4 w-4" />
-                                                    <span>Sync</span>
+                                                    <motion.span
+                                                        animate={syncingId === integration.id ? { rotate: 360 } : { rotate: 0 }}
+                                                        transition={syncingId === integration.id ? { repeat: Infinity, duration: 0.8, ease: 'linear' } : { duration: 0 }}
+                                                    >
+                                                        <RefreshCw className="h-4 w-4" />
+                                                    </motion.span>
+                                                    <span>{syncingId === integration.id ? 'Syncing...' : 'Sync'}</span>
                                                 </motion.button>
 
                                                 <motion.button
@@ -251,29 +266,51 @@ const IntegrationHub: React.FC = () => {
                                                         : 'bg-green-100 text-green-700 hover:bg-green-200'
                                                         }`}
                                                 >
-                                                    {integration.is_active ? (
-                                                        <>
-                                                            <ToggleRight className="h-5 w-5" />
-                                                            <span>Disable</span>
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <ToggleLeft className="h-5 w-5" />
-                                                            <span>Enable</span>
-                                                        </>
-                                                    )}
+                                                    <AnimatePresence mode="wait" initial={false}>
+                                                        {integration.is_active ? (
+                                                            <motion.span
+                                                                key="disable"
+                                                                initial={{ opacity: 0, scale: 0.8 }}
+                                                                animate={{ opacity: 1, scale: 1 }}
+                                                                exit={{ opacity: 0, scale: 0.8 }}
+                                                                transition={{ duration: 0.15 }}
+                                                                className="flex items-center space-x-2"
+                                                            >
+                                                                <ToggleRight className="h-5 w-5" />
+                                                                <span>Disable</span>
+                                                            </motion.span>
+                                                        ) : (
+                                                            <motion.span
+                                                                key="enable"
+                                                                initial={{ opacity: 0, scale: 0.8 }}
+                                                                animate={{ opacity: 1, scale: 1 }}
+                                                                exit={{ opacity: 0, scale: 0.8 }}
+                                                                transition={{ duration: 0.15 }}
+                                                                className="flex items-center space-x-2"
+                                                            >
+                                                                <ToggleLeft className="h-5 w-5" />
+                                                                <span>Enable</span>
+                                                            </motion.span>
+                                                        )}
+                                                    </AnimatePresence>
                                                 </motion.button>
                                             </div>
                                         </div>
                                     </motion.div>
                                 ))}
                             </div>
-                        </div>
+                        </motion.div>
                     )}
 
                     {/* Marketplace Tab */}
                     {activeTab === 'marketplace' && (
-                        <div>
+                        <motion.div
+                            key="marketplace"
+                            initial={{ opacity: 0, x: 8 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -8 }}
+                            transition={{ duration: 0.2 }}
+                        >
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 {thirdPartyApps.map((app, ai) => {
                                     const isInstalled = installedApps.includes(app.id);
@@ -325,9 +362,9 @@ const IntegrationHub: React.FC = () => {
                                     );
                                 })}
                             </div>
-                        </div>
+                        </motion.div>
                     )}
-                </>
+                </AnimatePresence>
             )}
         </div>
     );

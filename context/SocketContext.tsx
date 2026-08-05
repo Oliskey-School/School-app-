@@ -204,9 +204,16 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         dispatchLegacyUpdate('leave');
     });
 
-    socket.on('infrastructure:updated', () => {
+    socket.on('infrastructure:updated', (data: { action?: string }) => {
         queryClient.invalidateQueries({ queryKey: ['infrastructure'] });
         dispatchLegacyUpdate('infrastructure');
+        // Vendor CRUD rides on this same event (see backend/src/services/vendor.service.ts).
+        // Without this, VendorManagement's useAutoSync(['vendors']) never fires across
+        // tabs/roles because no event is ever dispatched with table: 'vendors'.
+        if (data?.action?.includes('vendor')) {
+            queryClient.invalidateQueries({ queryKey: ['vendors'] });
+            dispatchLegacyUpdate('vendors');
+        }
     });
 
     socket.on('visitor:updated', () => {

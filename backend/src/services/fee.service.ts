@@ -263,13 +263,21 @@ export class FeeService {
             }
         });
 
-        // 3. Fetch Budgets for other expenses
-        const budgets = await (prisma as any).budget.findMany({
+        // 3. Fetch Budgets for other expenses. Budget only tracks a running
+        // spent_amount for a whole fiscal_year (no month/day granularity), so
+        // an exact period match isn't possible — but filtering by the
+        // selected range's year(s) at least stops every fiscal year of
+        // spending ever recorded from being added to a single month's total.
+        const targetYears = new Set([start.getFullYear(), end.getFullYear()].map(String));
+        const allBudgets = await (prisma as any).budget.findMany({
             where: {
                 school_id: schoolId,
                 ...branchFilter
             }
         });
+        const budgets = allBudgets.filter((b: any) =>
+            Array.from(targetYears).some(year => String(b.fiscal_year || '').includes(year))
+        );
 
         const studentFees = await prisma.studentFee.findMany({
             where: {
@@ -278,7 +286,10 @@ export class FeeService {
             }
         });
 
-        const feeRevenue = payments.reduce((sum, p) => sum + p.amount, 0);
+        // feeRevenue must exclude donation-purpose payments — summing ALL
+        // payments here and then adding donationRevenue again below double
+        // counted every donation into total_revenue.
+        const feeRevenue = payments.filter(p => p.purpose !== 'donation').reduce((sum, p) => sum + p.amount, 0);
         const donationRevenue = payments.filter(p => p.purpose === 'donation').reduce((sum, p) => sum + p.amount, 0);
         
         const salaryExpenses = payslips.reduce((sum, p) => sum + p.net_salary, 0);

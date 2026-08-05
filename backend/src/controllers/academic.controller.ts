@@ -99,9 +99,12 @@ export const getAnalytics = async (req: AuthRequest, res: Response) => {
         const schoolId = req.user.school_id; // never trust a client-supplied query param over the token
         const branchId = getEffectiveBranchId(req.user, (req.query.branchId || req.query.branch_id) as string);
         const term = req.query.term as string;
+        // class_id is a UUID string, not numeric — parseInt() here always
+        // produced NaN (or a wrong truncated number for IDs that happen to
+        // start with digits), so the class filter never actually matched.
         const classId = req.query.classId ? req.query.classId as string : null;
-        
-        const result = await AcademicService.getAnalytics(schoolId, branchId, term, classId ? parseInt(classId) : null);
+
+        const result = await AcademicService.getAnalytics(schoolId, branchId, term, classId);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
