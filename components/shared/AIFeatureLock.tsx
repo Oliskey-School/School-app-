@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { Sparkles, Lock } from 'lucide-react';
 import { usePaystackPayment } from 'react-paystack';
 import { toast } from 'react-hot-toast';

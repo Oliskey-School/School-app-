@@ -112,7 +112,7 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
         if (!parentId) return;
         setLoadingAppointments(true);
         try {
-            const data = await api.getAppointments({ parent_id: parentId });
+            const data = await api.getMyParentAppointments();
             // Sort by date descending
             const sorted = (data || []).sort((a: any, b: any) => new Date(b.starts_at).getTime() - new Date(a.starts_at).getTime());
             setAppointments(sorted);

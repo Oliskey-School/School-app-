@@ -347,11 +347,17 @@ export class FeeService {
         };
     }
 
-    static async getTransactions(schoolId: string, feeId: string) {
+    static async getTransactions(schoolId: string, feeId: string, allowedStudentIds?: string[]) {
         const transactions = await prisma.payment.findMany({
             where: {
                 school_id: schoolId,
-                fee_id: feeId
+                fee_id: feeId,
+                // A Fee is a shared template (e.g. "Tuition Fee Q1") that many
+                // students can be assigned, so its transactions can span
+                // multiple families — a parent/student caller must only ever
+                // see the rows for THEIR OWN linked student(s), never the
+                // whole fee's payer list (amounts, references, payment method).
+                ...(allowedStudentIds ? { student_id: { in: allowedStudentIds } } : {})
             },
             orderBy: { created_at: 'desc' }
         });

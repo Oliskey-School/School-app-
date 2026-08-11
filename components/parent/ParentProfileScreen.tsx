@@ -44,6 +44,8 @@ interface ParentProfileScreenProps {
   navigateTo: (view: string, title: string, props?: any) => void;
   forceUpdate: () => void;
   parentId?: string;
+  schoolId?: string;
+  students?: any[];
 }
 
 type SettingView = 'linkChild' | 'editParentProfile' | 'learningResources' | 'schoolPolicies' | 'ptaMeetings' | 'photoGallery' | 'volunteering' | 'permissionSlips' | 'feedback' | 'notificationSettings' | 'securitySettings' | null;
@@ -58,7 +60,7 @@ const SettingsPlaceholder: React.FC = () => (
   </div>
 );
 
-const ParentProfileScreen: React.FC<ParentProfileScreenProps> = ({ onLogout, navigateTo, forceUpdate, parentId }) => {
+const ParentProfileScreen: React.FC<ParentProfileScreenProps> = ({ onLogout, navigateTo, forceUpdate, parentId, schoolId, students = [] }) => {
   const { profile } = useProfile();
   const { memberships, switchSchool, currentSchool } = useAuth();
   const { customId, formatId, copyToClipboard, copied } = useUserIdentity();
@@ -129,9 +131,9 @@ const ParentProfileScreen: React.FC<ParentProfileScreenProps> = ({ onLogout, nav
       case 'learningResources': return <LearningResourcesScreen />;
       case 'schoolPolicies': return <SchoolPoliciesScreen />;
       case 'ptaMeetings': return <PTAMeetingScreen />;
-      case 'photoGallery': return <ParentPhotoGalleryScreen />;
+      case 'photoGallery': return <ParentPhotoGalleryScreen schoolId={schoolId} />;
       case 'volunteering': return <VolunteeringScreen />;
-      case 'permissionSlips': return <PermissionSlipScreen />;
+      case 'permissionSlips': return <PermissionSlipScreen schoolId={schoolId} students={students} />;
       case 'feedback': return <FeedbackScreen forceUpdate={forceUpdate} />;
       case 'notificationSettings': return <ParentNotificationSettingsScreen />;
       case 'securitySettings': return <ParentSecurityScreen navigateTo={navigateTo} />;
@@ -183,7 +185,7 @@ const ParentProfileScreen: React.FC<ParentProfileScreenProps> = ({ onLogout, nav
               >
                 <div className="flex items-center space-x-4">
                   <div className={`p-2 rounded-lg ${theme.iconColors[index % theme.iconColors.length]}`}>
-                    {React.cloneElement(item.icon as React.ReactElement, { className: 'h-5 w-5' })}
+                    {React.cloneElement(item.icon as React.ReactElement<{ className?: string }>, { className: 'h-5 w-5' })}
                   </div>
                   <span className="font-semibold text-gray-700">{item.label}</span>
                 </div>

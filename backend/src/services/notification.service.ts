@@ -72,10 +72,12 @@ export class NotificationService {
     }
 
     static async markAsRead(schoolId: string, branchId: string | undefined, notificationId: string) {
-        const result = await prisma.notification.update({
-            where: { id: notificationId },
+        const updated = await prisma.notification.updateMany({
+            where: { id: notificationId, school_id: schoolId, ...(branchId && branchId !== 'all' ? { branch_id: branchId } : {}) },
             data: { is_read: true }
         });
+        if (updated.count === 0) throw new Error('Notification not found in your school/branch');
+        const result = await prisma.notification.findUniqueOrThrow({ where: { id: notificationId } });
 
         SocketService.emitToSchool(schoolId, 'notification:updated', { action: 'mark_read', notificationId });
         return result;

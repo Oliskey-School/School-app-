@@ -87,8 +87,15 @@ export const getUnreadCount = async (req: AuthRequest, res: Response) => {
 
 export const getChatContacts = async (req: AuthRequest, res: Response) => {
     try {
-        const schoolId = (req.query.schoolId as string) || resolveSchoolId(req);
-        const studentId = (req.query.studentId as string) || req.user?.id;
+        // schoolId must never come from the client — it's the authenticated
+        // user's own tenant, full stop. A query override here would let anyone
+        // pull another school's contact list just by changing the parameter.
+        const schoolId = resolveSchoolId(req);
+        // Only an admin may look up a DIFFERENT person's contacts (e.g. helping
+        // a student troubleshoot messaging); everyone else always gets their own.
+        const role = (req.user?.role || '').toLowerCase();
+        const isAdmin = ['admin', 'superadmin', 'proprietor'].includes(role);
+        const studentId = (isAdmin && req.query.studentId as string) || req.user?.id;
         const contacts = await chatService.getChatContacts(schoolId as string, studentId as string);
         res.json(contacts);
     } catch (error: any) {

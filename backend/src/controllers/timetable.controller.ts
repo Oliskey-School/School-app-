@@ -4,6 +4,11 @@ import { TimetableService } from '../services/timetable.service';
 import prisma from '../config/database';
 import { getEffectiveBranchId } from '../utils/branchScope';
 
+const ADMIN_ROLES = ['admin', 'proprietor', 'superadmin', 'super_admin'];
+function isAdmin(req: AuthRequest): boolean {
+    return ADMIN_ROLES.includes((req.user.role || '').toLowerCase());
+}
+
 export const getTimetable = async (req: AuthRequest, res: Response) => {
     try {
         const { className } = req.query;
@@ -47,6 +52,9 @@ export const getTimetable = async (req: AuthRequest, res: Response) => {
 
 export const createTimetable = async (req: AuthRequest, res: Response) => {
     try {
+        if (!isAdmin(req)) {
+            return res.status(403).json({ message: 'Only admins can create timetable entries' });
+        }
         const schoolId = req.user.school_id;
         const result = await TimetableService.createTimetable(schoolId, req.body);
         res.status(201).json(result);
@@ -57,6 +65,9 @@ export const createTimetable = async (req: AuthRequest, res: Response) => {
 
 export const updateTimetable = async (req: AuthRequest, res: Response) => {
     try {
+        if (!isAdmin(req)) {
+            return res.status(403).json({ message: 'Only admins can update timetable entries' });
+        }
         const schoolId = req.user.school_id;
         const { id } = req.params;
         const result = await TimetableService.updateTimetable(schoolId, id as string, req.body);
@@ -68,6 +79,9 @@ export const updateTimetable = async (req: AuthRequest, res: Response) => {
 
 export const deleteTimetable = async (req: AuthRequest, res: Response) => {
     try {
+        if (!isAdmin(req)) {
+            return res.status(403).json({ message: 'Only admins can delete timetable entries' });
+        }
         const schoolId = req.user.school_id;
         const { id } = req.params;
         await TimetableService.deleteTimetable(schoolId, id as string);
@@ -79,6 +93,9 @@ export const deleteTimetable = async (req: AuthRequest, res: Response) => {
 
 export const deleteTimetableByClass = async (req: AuthRequest, res: Response) => {
     try {
+        if (!isAdmin(req)) {
+            return res.status(403).json({ message: 'Only admins can delete timetable entries' });
+        }
         const schoolId = req.user.school_id;
         const { classId } = req.params;
         const branchId = getEffectiveBranchId(req.user, (req.query.branchId || req.query.branch_id) as string);

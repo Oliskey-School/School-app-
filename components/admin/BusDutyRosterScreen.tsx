@@ -57,7 +57,7 @@ const BusDutyRosterScreen: React.FC<BusDutyRosterProps> = ({ schoolId: propSchoo
     }, [schoolId]);
 
     useAutoSync(['buses'], () => {
-        console.log('ðŸ”„ [BusDutyRoster] Real-time auto-sync triggered');
+        console.log('🔄 [BusDutyRoster] Real-time auto-sync triggered');
         loadBuses();
     });
 

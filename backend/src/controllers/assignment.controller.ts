@@ -90,8 +90,10 @@ export const createAssignment = async (req: AuthRequest, res: Response) => {
     try {
         const branchId = getEffectiveBranchId(req.user, (req.body?.branch_id || req.query?.branchId));
         
-        // For teachers, automatically set the teacher_id
-        if (req.user.role === 'TEACHER' && !req.body.teacher_id) {
+        // Teachers may only ever create an assignment authored as themselves —
+        // a client-supplied teacher_id is ignored for the TEACHER role so one
+        // teacher can't attribute/spoof an assignment as another teacher.
+        if (req.user.role === 'TEACHER') {
             const teacher = await prisma.teacher.findUnique({
                 where: { user_id: req.user.id },
                 select: { id: true }
@@ -124,14 +126,28 @@ export const getSubmissions = async (req: AuthRequest, res: Response) => {
         // Listing every student's submissions for an assignment (names, files,
         // grades) is a teacher/admin grading view — never a student endpoint. A
         // student's own single submission goes through getAssignmentSubmission.
-        if (!isAdminRole(req) && req.user.role !== 'TEACHER') {
+        const isAdmin = isAdminRole(req);
+        if (!isAdmin && req.user.role !== 'TEACHER') {
             return res.status(403).json({ message: 'Only teachers or admins may view all submissions for an assignment' });
         }
         const branchId = getEffectiveBranchId(req.user, (req.body?.branch_id || req.query?.branchId));
+
+        // A teacher may only view submissions for an assignment they own —
+        // otherwise any teacher could read another teacher's students' files
+        // and grades by guessing/enumerating the assignment id.
+        if (!isAdmin) {
+            const teacher = await prisma.teacher.findUnique({ where: { user_id: req.user.id }, select: { id: true } });
+            const assignment = await AssignmentService.getAssignment(req.user.school_id, req.params.id as string, branchId);
+            if (!teacher || (assignment.teacher_id && assignment.teacher_id !== teacher.id)) {
+                return res.status(403).json({ message: 'You do not have access to view submissions for this assignment' });
+            }
+        }
+
         const result = await AssignmentService.getSubmissions(req.user.school_id, branchId, req.params.id as string);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        const status = error.message === 'Assignment not found' ? 404 : 500;
+        res.status(status).json({ message: error.message });
     }
 };
 
@@ -207,10 +223,30 @@ export const submitAssignment = async (req: AuthRequest, res: Response) => {
 
 export const deleteAssignment = async (req: AuthRequest, res: Response) => {
     try {
+        // Deleting an assignment is a teacher/admin action — never a student's.
+        // Previously this had no role check at all, so any authenticated
+        // student could delete any assignment in their school/branch by ID.
+        const isAdmin = isAdminRole(req);
+        if (!isAdmin && req.user.role !== 'TEACHER') {
+            return res.status(403).json({ message: 'Only teachers or admins may delete assignments' });
+        }
+
         const branchId = getEffectiveBranchId(req.user, (req.body?.branch_id || req.query?.branchId) as string);
+
+        if (!isAdmin) {
+            // A teacher may only delete their own assignment, matching the
+            // ownership rule already enforced for grading submissions.
+            const teacher = await prisma.teacher.findUnique({ where: { user_id: req.user.id }, select: { id: true } });
+            const assignment = await AssignmentService.getAssignment(req.user.school_id, req.params.id as string, branchId);
+            if (!teacher || (assignment.teacher_id && assignment.teacher_id !== teacher.id)) {
+                return res.status(403).json({ message: 'You do not have access to delete this assignment' });
+            }
+        }
+
         await AssignmentService.deleteAssignment(req.user.school_id, req.params.id as string, branchId);
         res.status(204).send();
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        const status = error.message === 'Assignment not found' ? 404 : 500;
+        res.status(status).json({ message: error.message });
     }
 };

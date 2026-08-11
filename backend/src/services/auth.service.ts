@@ -381,20 +381,29 @@ export class AuthService {
             payload.is_demo = true;
         }
 
-        // Lead DevSecOps: Use short-lived Access Tokens (15m) and strictly enforce HS256
-        const token = jwt.sign(payload, config.jwtSecret, { 
-            expiresIn: '15m',
-            algorithm: 'HS256'
-        });
-
         const refreshToken = jwt.sign(
-            { ...payload, type: 'refresh' }, 
-            config.refreshTokenSecret, 
-            { 
+            { ...payload, type: 'refresh' },
+            config.refreshTokenSecret,
+            {
                 expiresIn: '7d',
                 algorithm: 'HS256'
             }
         );
+
+        // The session record (below) is keyed by this id. We embed the SAME id into the
+        // access token as `sid` so the Session Management screen can tell "is this row
+        // MY currently-active session" apart from every other device/browser session —
+        // without this, is_current was never true (it compared the access token's raw
+        // string to a value derived from the refresh token) and the "Revoke" button was
+        // shown for the user's own live session too, letting a self-revoke silently log
+        // them out mid-use with no recovery.
+        const tokenId = refreshToken.split('.')[2];
+
+        // Lead DevSecOps: Use short-lived Access Tokens (15m) and strictly enforce HS256
+        const token = jwt.sign({ ...payload, sid: tokenId }, config.jwtSecret, {
+            expiresIn: '15m',
+            algorithm: 'HS256'
+        });
 
         // Log successful login/token generation
         if (user.school_id) {
@@ -407,7 +416,6 @@ export class AuthService {
 
             // Create persistent session
             try {
-                const tokenId = refreshToken.split('.')[2];
                 await (prisma as any).userSession.upsert({
                     where: { token_id: tokenId },
                     update: { last_active: new Date(), is_active: true },
@@ -1209,16 +1217,28 @@ export class AuthService {
         });
     }
 
-    static async revokeSession(userId: string, sessionId: string) {
+    static async revokeSession(userId: string, sessionId: string, currentSid?: string) {
+        const target = await (prisma as any).userSession.findFirst({ where: { id: sessionId, user_id: userId } });
+        if (!target) throw new Error('Session not found');
+        // Defense-in-depth: never let a self-revoke delete the session backing the
+        // caller's own live refresh token (see admin-hub SessionService#revokeSession
+        // for the same guard, added after this exact gap silently logged users out).
+        if (currentSid && target.token_id === currentSid) {
+            throw new Error('Cannot revoke your own active session');
+        }
         return (prisma as any).userSession.update({
             where: { id: sessionId, user_id: userId },
             data: { is_active: false }
         });
     }
 
-    static async revokeAllSessions(userId: string) {
+    static async revokeAllSessions(userId: string, currentSid?: string) {
         return (prisma as any).userSession.updateMany({
-            where: { user_id: userId, is_active: true },
+            where: {
+                user_id: userId,
+                is_active: true,
+                ...(currentSid ? { NOT: { token_id: currentSid } } : {})
+            },
             data: { is_active: false }
         });
     }

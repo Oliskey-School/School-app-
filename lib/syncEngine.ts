@@ -2,6 +2,7 @@ import { offlineDB, SyncAction } from './dexie-db';
 import { api } from './api';
 import { networkManager } from './networkManager';
 import { EventEmitter } from './EventEmitter';
+import { queryClient } from './react-query';
 
 class SyncEngine extends EventEmitter {
     private isSyncing = false;
@@ -11,6 +12,29 @@ class SyncEngine extends EventEmitter {
         // Periodically check for unsynced items
         if (typeof window !== 'undefined') {
             setInterval(() => this.processQueue(), 60000);
+            // On reconnect: push this device's queued offline changes, then refresh
+            // everything else so changes OTHER users made while this device was
+            // offline show up too (this device's cached reads are otherwise stale).
+            networkManager.on('online', async () => {
+                await this.processQueue();
+                await this.refreshAfterReconnect();
+            });
+        }
+    }
+
+    /**
+     * Discards locally-cached reads and asks any active React Query screens to
+     * refetch, so reconnecting converges this device to the latest server state
+     * instead of continuing to show whatever was cached while offline.
+     */
+    private async refreshAfterReconnect() {
+        try {
+            await offlineDB.roster_cache.clear();
+            api.invalidateCache();
+            await queryClient.invalidateQueries();
+            window.dispatchEvent(new CustomEvent('app-data-refresh'));
+        } catch (err) {
+            console.error('[SyncEngine] Failed to refresh after reconnect:', err);
         }
     }
 
@@ -159,6 +183,18 @@ class SyncEngine extends EventEmitter {
                         status: 'published' // Upgrade from 'draft_offline' on sync
                     });
                     return true;
+
+                case 'HTTP_OP': {
+                    // Generic replay path: every screen's writes get queued this way
+                    // by api.fetch() while offline, so this one case covers all of
+                    // them without a hand-written handler per screen/feature.
+                    if (!action.endpoint || !action.method) return false;
+                    await api.fetch(action.endpoint, {
+                        method: action.method,
+                        body: action.method === 'DELETE' ? undefined : JSON.stringify(payload),
+                    });
+                    return true;
+                }
 
                 default:
                     return false;

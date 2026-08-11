@@ -2,16 +2,16 @@ import prisma from '../config/database';
 import { SocketService } from './socket.service';
 
 export class ConferenceService {
-  async getConferences(school_id: string, filters: any = {}) {
+  async getConferences(school_id: string, branch_id: string | undefined, filters: any = {}) {
     const { is_available, date_gte, teacher_id, student_id, parent_id, status } = filters;
 
     // Build the query where object
-    const where: any = { school_id };
+    const where: any = { school_id, ...(branch_id ? { branch_id } : {}) };
     if (teacher_id) where.teacher_id = teacher_id;
     if (student_id) where.student_id = student_id;
     if (parent_id) where.parent_id = parent_id;
     if (status) where.status = status;
-    
+
     // For date filter
     if (date_gte) {
       where.scheduled_date = { gte: new Date(date_gte) };
@@ -22,6 +22,7 @@ export class ConferenceService {
       const availabilities = await prisma.teacherAvailability.findMany({
         where: {
           school_id,
+          ...(branch_id ? { branch_id } : {}),
           is_available: true,
           date: date_gte ? { gte: new Date(date_gte) } : undefined
         },
@@ -66,11 +67,12 @@ export class ConferenceService {
     }));
   }
 
-  async scheduleConference(school_id: string, data: any) {
+  async scheduleConference(school_id: string, branch_id: string | undefined, data: any) {
     const conference = await prisma.parentTeacherConference.create({
       data: {
-        school_id,
         ...data,
+        school_id,
+        branch_id: branch_id || data.branch_id || null,
       },
     });
 
@@ -78,23 +80,29 @@ export class ConferenceService {
     return conference;
   }
 
-  async updateConferenceStatus(id: string, status: string, notes?: string) {
-    const conference = await prisma.parentTeacherConference.update({
-      where: { id },
-      data: { 
+  async updateConferenceStatus(id: string, school_id: string, branch_id: string | undefined, status: string, notes?: string) {
+    const result = await prisma.parentTeacherConference.updateMany({
+      where: { id, school_id, ...(branch_id ? { branch_id } : {}) },
+      data: {
         status,
         ...(notes && { teacher_notes: notes }),
       },
     });
+    if (result.count === 0) {
+      throw new Error('Conference not found in your school/branch');
+    }
 
+    const conference = await prisma.parentTeacherConference.findUniqueOrThrow({ where: { id } });
     SocketService.emitToSchool(conference.school_id, 'conference:updated', { action: 'status_update', conferenceId: id });
     return conference;
   }
 
-  async getTeacherAvailability(teacher_id: string, date: Date) {
+  async getTeacherAvailability(teacher_id: string, school_id: string, branch_id: string | undefined, date: Date) {
     return await prisma.teacherAvailability.findMany({
       where: {
         teacher_id,
+        school_id,
+        ...(branch_id ? { branch_id } : {}),
         date: {
           gte: new Date(date.setHours(0, 0, 0, 0)),
           lte: new Date(date.setHours(23, 59, 59, 999)),
@@ -104,15 +112,27 @@ export class ConferenceService {
     });
   }
 
-  async setTeacherAvailability(teacher_id: string, school_id: string, slots: any[]) {
+  async setTeacherAvailability(teacher_id: string, school_id: string, branch_id: string | undefined, slots: any[]) {
+    // Confirm the teacher actually belongs to this admin's tenant before
+    // touching their availability — otherwise a branch admin could set (or
+    // wipe) another branch/school's teacher's slots by guessing their id.
+    const teacher = await prisma.teacher.findFirst({
+      where: { id: teacher_id, school_id, ...(branch_id ? { branch_id } : {}) },
+      select: { id: true },
+    });
+    if (!teacher) {
+      throw new Error('Teacher not found in your school/branch');
+    }
+
     // Transaction to clear old slots and add new ones for the given dates
     const dates = [...new Set(slots.map(s => new Date(s.date).toISOString().split('T')[0]))];
-    
+
     return await prisma.$transaction(async (tx) => {
       for (const d of dates) {
         await tx.teacherAvailability.deleteMany({
           where: {
             teacher_id,
+            school_id,
             date: {
               gte: new Date(d),
               lte: new Date(new Date(d).setHours(23, 59, 59, 999)),
@@ -125,6 +145,7 @@ export class ConferenceService {
         data: slots.map(s => ({
           teacher_id,
           school_id,
+          branch_id: branch_id || null,
           date: new Date(s.date),
           time_start: s.time_start,
           time_end: s.time_end,

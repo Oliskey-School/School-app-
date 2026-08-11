@@ -93,6 +93,10 @@ test_output_utf8.txt
 
 # Server-side translation cache (regenerated at runtime)
 backend/.cache/
+backend/backend/
+
+# Playwright e2e screenshot output (regenerated per run, not fixtures)
+tests/e2e/shots/
 
 # Graphify local knowledge graph (regenerate with: graphify update .)
 graphify-out/

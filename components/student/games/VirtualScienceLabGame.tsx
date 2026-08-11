@@ -89,6 +89,12 @@ const VirtualScienceLabGame: React.FC<VirtualScienceLabGameProps> = ({ onBack })
     const [reactionState, setReactionState] = useState<'stable' | 'bubbling' | 'smoke'>('stable');
     const [feedback, setFeedback] = useState("Select an experiment to begin.");
     const [score, setScore] = useState(0);
+    // Guards against re-awarding XP / re-submitting the score: checkExperimentCompletion
+    // runs on every addChemical() call, and the beaker isn't reset for 3s after a
+    // success (see the setTimeout below) — without this, clicking another chemical
+    // during that window while the success condition still holds (e.g. still
+    // 'bubbling') fired a fresh +100 XP and a new leaderboard row per click.
+    const awardedForExperimentRef = useRef(false);
 
     // Persistence
     useEffect(() => {
@@ -117,6 +123,7 @@ const VirtualScienceLabGame: React.FC<VirtualScienceLabGameProps> = ({ onBack })
         setBeakerColor('bg-transparent');
         setReactionState('stable');
         setFeedback("Beaker emptied.");
+        awardedForExperimentRef.current = false;
     };
 
     const addChemical = (chem: Chemical) => {
@@ -199,7 +206,10 @@ const VirtualScienceLabGame: React.FC<VirtualScienceLabGameProps> = ({ onBack })
             if (currentPh >= exp.targetResult.phRange[0] && currentPh <= exp.targetResult.phRange[1] && hasIndicator) success = true;
         }
 
+        if (success && awardedForExperimentRef.current) return; // Already awarded this attempt.
+
         if (success) {
+            awardedForExperimentRef.current = true;
             setFeedback("Experiment Complete! Great job!");
             speak("Experiment Success!");
             confetti();

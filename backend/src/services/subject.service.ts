@@ -95,7 +95,15 @@ export class SubjectService {
         return { success: true };
     }
 
-    static async getCurriculumTopics(subjectId: string, term?: string) {
+    static async getCurriculumTopics(schoolId: string, branchId: string | undefined, subjectId: string, term?: string) {
+        // Confirm the subject actually belongs to this caller's tenant before
+        // returning its curriculum topics.
+        const subject = await prisma.subject.findFirst({
+            where: { id: subjectId, school_id: schoolId, ...(branchId && branchId !== 'all' ? { branch_id: branchId } : {}) },
+            select: { id: true },
+        });
+        if (!subject) return [];
+
         return await prisma.curriculumTopic.findMany({
             where: {
                 subject_id: subjectId,

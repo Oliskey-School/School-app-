@@ -27,10 +27,35 @@ const WORDS = [
 const AI_NAMES = ["Alex", "Sam", "Jordan", "Taylor", "Riley", "Jamie"];
 const PLAYER_ID = 0;
 
+/** Fresh, age-appropriate spelling words via the AI question service — each
+ * generated "question" is really a short riddle/definition whose correct
+ * option IS the word to spell, so the same MCQ-shaped endpoint used by the
+ * other games works here too. Falls back to the static list on any failure. */
+async function loadWords(): Promise<string[]> {
+    try {
+        const { questions } = await api.getAIGameQuestions('spelling-sparkle', 'Spelling Words', 15);
+        const words = (questions || [])
+            .map((q: any) => String(q.options?.[q.answer] || '').toUpperCase().replace(/[^A-Z]/g, ''))
+            .filter((w: string) => w.length >= 3 && w.length <= 10);
+        if (words.length < 6) throw new Error('Not enough usable AI words returned');
+        return [...new Set(words)];
+    } catch (err) {
+        console.warn('[SpellingSparkle] Falling back to offline word list:', err);
+        return WORDS;
+    }
+}
+
 const SpellingSparkleGame: React.FC<SpellingSparkleGameProps> = ({ onBack }) => {
     const { addXP, unlockBadge } = useGamification();
     const [gameState, setGameState] = useState<'START' | 'PLAYING' | 'GAMEOVER' | 'VICTORY'>('START'); // Victory if player is last one standing? Or just survival? Let's do survival per round.
     const [players, setPlayers] = useState<Player[]>([]);
+    const [wordList, setWordList] = useState<string[]>(WORDS);
+
+    useEffect(() => {
+        let active = true;
+        loadWords().then(w => { if (active) setWordList(w); });
+        return () => { active = false; };
+    }, []);
     const [currentWord, setCurrentWord] = useState("");
     const [currentWordIndex, setCurrentWordIndex] = useState(0); // Which letter we are on
     const [turnIndex, setTurnIndex] = useState(0); // Index in active players array
@@ -82,7 +107,7 @@ const SpellingSparkleGame: React.FC<SpellingSparkleGameProps> = ({ onBack }) => 
         }
 
         // Pick word
-        const word = WORDS[Math.floor(Math.random() * WORDS.length)];
+        const word = wordList[Math.floor(Math.random() * wordList.length)];
         setCurrentWord(word);
         setCurrentWordIndex(0);
         setTurnIndex(0); // Start with first active player

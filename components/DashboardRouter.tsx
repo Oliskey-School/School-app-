@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { DashboardType } from '../types';
-import { useNavigate, useLocation, Routes, Route, Navigate } from 'react-router-dom';
+import { useNavigate, useLocation, Routes, Route, Navigate } from 'react-router';
 import VerifiedAdminRoute from './auth/VerifiedAdminRoute';
 
 import { lazyWithRetry } from '../lib/lazyRetry';

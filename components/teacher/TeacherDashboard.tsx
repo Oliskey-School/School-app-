@@ -360,7 +360,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     myPDCourses: MyPDCourses,
     pdCalendar: PDCalendar,
     recognitionPlatform: RecognitionPlatform,
-    resourceSharing: ResourceSharing,
+    resourceSharing: (props: any) => <ResourceSharing {...props} teacherId={teacherId || ''} />,
     studentCredentials: StudentCredentialsScreen,
     workloadCalculator: WorkloadCalculator,
   };

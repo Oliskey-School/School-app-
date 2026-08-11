@@ -76,6 +76,16 @@ export class DemoResetService {
                 // Finally delete classes, which will cascade to Attendance and Assignment
                 await tx.class.deleteMany({ where });
 
+                // Cleanup stale demo login sessions. The demo school is shared by every
+                // visitor, so its UserSession table grows unbounded (each "Try Demo"
+                // click creates a new row that nothing ever expired). Left unchecked this
+                // makes the Session Management screen list hundreds of rows, which is
+                // both unusable and was the trigger for a self-revoke logout bug there.
+                const staleSessionCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+                await (tx as any).userSession.deleteMany({
+                    where: { school_id: demoSchoolId, last_active: { lt: staleSessionCutoff } }
+                });
+
                 // Lead DevSecOps: Cleanup stale virtual branches (IP-based sessions)
                 const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
                 await tx.$executeRaw`

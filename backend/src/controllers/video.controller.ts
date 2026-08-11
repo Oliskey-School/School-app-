@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { VideoService } from '../services/video.service';
 import prisma from '../config/database';
+import { getEffectiveBranchId } from '../utils/branchScope';
 
 /**
  * Tells the frontend whether server-side video calling (Daily) is available,
@@ -27,8 +28,9 @@ export const createVideoRoom = async (req: AuthRequest, res: Response) => {
             return res.status(400).json({ message: 'session_id is required' });
         }
 
+        const branchId = getEffectiveBranchId(req.user);
         const session = await prisma.virtualClassSession.findFirst({
-            where: { id: sessionId, school_id: req.user.school_id, deleted_at: null },
+            where: { id: sessionId, school_id: req.user.school_id, ...(branchId ? { branch_id: branchId } : {}), deleted_at: null },
             select: { id: true, start_time: true, end_time: true },
         });
         if (!session) {

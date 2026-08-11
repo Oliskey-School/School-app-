@@ -30,13 +30,14 @@ interface UtilityItem {
 interface SchoolUtilitiesScreenProps {
     navigateTo: (view: string, title: string, props?: any) => void;
     role?: 'parent' | 'student';
+    students?: { id: string }[];
 }
 
 // Tiles that only make sense for a parent/guardian acting on a child's behalf —
 // hidden when this screen is reused for the student's own dashboard.
 const PARENT_ONLY_UTILITY_IDS = new Set(['appointments', 'pta', 'volunteering', 'permission', 'pickup']);
 
-const SchoolUtilitiesScreen: React.FC<SchoolUtilitiesScreenProps> = ({ navigateTo, role = 'parent' }) => {
+const SchoolUtilitiesScreen: React.FC<SchoolUtilitiesScreenProps> = ({ navigateTo, role = 'parent', students = [] }) => {
 
     const allUtilities: UtilityItem[] = [
         {
@@ -187,7 +188,7 @@ const SchoolUtilitiesScreen: React.FC<SchoolUtilitiesScreenProps> = ({ navigateT
                                 transition={{ duration: 0.25, delay: Math.min(i, 12) * 0.04 }}
                                 whileHover={{ y: -4 }}
                                 whileTap={{ scale: 0.98 }}
-                                onClick={() => navigateTo(item.view, item.label)}
+                                onClick={() => navigateTo(item.view, item.label, item.view === 'busRoute' ? { studentId: students[0]?.id } : {})}
                                 className="group flex flex-col items-start text-left bg-white rounded-2xl shadow-sm hover:shadow-xl transition-shadow duration-300 overflow-hidden border border-transparent hover:border-gray-100"
                             >
                                 <div className={`p-6 w-full h-32 flex items-center justify-center ${item.color} relative overflow-hidden`}>

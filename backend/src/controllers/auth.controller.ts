@@ -488,14 +488,21 @@ export const demoRoles = async (req: Request, res: Response) => {
 export const getSessions = async (req: Request, res: Response) => {
     try {
         const userId = (req as any).user.id;
-        const currentTokenId = (req.headers.authorization as string)?.split(' ')[1]?.split('.')[2];
+        // `sid` is the session id embedded in THIS request's access token payload
+        // by AuthService#generateTokens (see req.user.sid, set by auth.middleware
+        // from the verified JWT). Re-deriving it from the raw Authorization header
+        // (splitting on '.') grabbed the access token's own signature segment,
+        // which never matches the session row's token_id (that's the refresh
+        // token's signature) — is_current was effectively random/always-false, the
+        // same self-revocation hazard fixed for the admin-hub sessions screen.
+        const currentTokenId = (req as any).user?.sid;
         const sessions = await AuthService.getSessions(userId);
-        
+
         const sessionsWithCurrent = sessions.map((s: any) => ({
             ...s,
-            is_current: s.token_id === currentTokenId
+            is_current: !!currentTokenId && s.token_id === currentTokenId
         }));
-        
+
         res.json(sessionsWithCurrent);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -508,21 +515,23 @@ export const getSessions = async (req: Request, res: Response) => {
 export const revokeSession = async (req: Request, res: Response) => {
     try {
         const userId = (req as any).user.id;
+        const currentSid = (req as any).user?.sid;
         const sessionId = req.params.sessionId as string;
-        await AuthService.revokeSession(userId, sessionId);
+        await AuthService.revokeSession(userId, sessionId, currentSid);
         res.json({ success: true, message: 'Session revoked' });
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        res.status(/own active session/i.test(error.message) ? 400 : 500).json({ message: error.message });
     }
 };
 
 /**
- * Revoke all sessions for the current user
+ * Revoke all OTHER sessions for the current user (never the caller's own live session)
  */
 export const revokeAllSessions = async (req: Request, res: Response) => {
     try {
         const userId = (req as any).user.id;
-        await AuthService.revokeAllSessions(userId);
+        const currentSid = (req as any).user?.sid;
+        await AuthService.revokeAllSessions(userId, currentSid);
         res.json({ success: true, message: 'All sessions revoked' });
     } catch (error: any) {
         res.status(500).json({ message: error.message });

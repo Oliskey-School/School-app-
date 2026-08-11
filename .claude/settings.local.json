@@ -13,7 +13,12 @@
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\USER\\\\OneDrive\\\\Desktop\\\\Project\\\\school-app-\" -Directory)",
       "Bash(Select-Object Name)",
       "Bash(npx tsc *)",
-      "Bash(npx vitest *)"
+      "Bash(npx vitest *)",
+      "WebSearch",
+      "Bash(mkdir -p \"/c/Users/USER/AppData/Local/Temp/claude/c--dev-school-app-/85ca67e8-e14b-45c8-8055-c65d0ce0c1a4/scratchpad\")"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\USER\\AppData\\Local\\Temp\\claude\\c--dev-school-app-\\85ca67e8-e14b-45c8-8055-c65d0ce0c1a4\\scratchpad"
     ]
   },
   "enableAllProjectMcpServers": true,

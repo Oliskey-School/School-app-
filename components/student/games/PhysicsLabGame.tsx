@@ -63,7 +63,7 @@ const PhysicsLabGame: React.FC<PhysicsLabGameProps> = ({ onBack }) => {
     };
 
     // Refs for animation loop
-    const requestRef = useRef<number>();
+    const requestRef = useRef<number | undefined>(undefined);
     const canvasRef = useRef<HTMLDivElement>(null);
     const audioCtxRef = useRef<AudioContext | null>(null);
 

@@ -6,7 +6,10 @@ import { requireRole } from '../middleware/tenant.middleware';
 const router = Router();
 
 router.use(authenticate);
-router.use(requireRole(['SUPER_ADMIN', 'PROPRIETOR', 'ADMIN']));
+// Platform-wide business stats (every school's revenue, user counts, etc.) —
+// only the Oliskey platform owner may see this, never a single school's own
+// admin/proprietor, who would otherwise see every OTHER school's numbers too.
+router.use(requireRole(['SUPER_ADMIN']));
 
 router.get('/overview', SaaSAnalyticsController.getOverviewStats);
 router.get('/charts', SaaSAnalyticsController.getChartsData);

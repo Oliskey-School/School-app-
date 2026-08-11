@@ -5,6 +5,11 @@ import { getEffectiveBranchId } from '../utils/branchScope';
 
 const db = prisma as any;
 
+const ADMIN_ROLES = ['admin', 'proprietor', 'superadmin', 'super_admin'];
+function isAdmin(req: AuthRequest): boolean {
+    return ADMIN_ROLES.includes((req.user.role || '').toLowerCase());
+}
+
 // ── Sponsorship Requests ─────────────────────────────────────────────────────
 
 export const getSponsorshipRequests = async (req: AuthRequest, res: Response) => {
@@ -64,7 +69,12 @@ export const createSponsorshipRequest = async (req: AuthRequest, res: Response) 
 
 export const updateSponsorshipRequest = async (req: AuthRequest, res: Response) => {
     try {
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can update sponsorship requests' });
         const { id } = req.params;
+        // Verify the request belongs to the caller's own school before mutating —
+        // a plain update-by-id would let any admin cross-tenant edit another school's data.
+        const existing = await db.sponsorshipRequest.findFirst({ where: { id, school_id: req.user.school_id } });
+        if (!existing) return res.status(404).json({ message: 'Sponsorship request not found' });
         const updated = await db.sponsorshipRequest.update({
             where: { id },
             data: {
@@ -138,7 +148,12 @@ export const createSponsorship = async (req: AuthRequest, res: Response) => {
 
 export const updateSponsorship = async (req: AuthRequest, res: Response) => {
     try {
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can update sponsorships' });
         const { id } = req.params;
+        // Verify the sponsorship belongs to the caller's own school before mutating —
+        // a plain update-by-id would let any admin cross-tenant edit another school's data.
+        const existing = await db.sponsorship.findFirst({ where: { id, school_id: req.user.school_id } });
+        if (!existing) return res.status(404).json({ message: 'Sponsorship not found' });
         const updated = await db.sponsorship.update({
             where: { id },
             data: {

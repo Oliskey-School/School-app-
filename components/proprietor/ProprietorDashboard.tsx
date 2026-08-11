@@ -77,7 +77,7 @@ const ProprietorDashboard: React.FC<ProprietorDashboardProps> = ({ onLogout, set
     const StatCard: React.FC<{
         title: string;
         value: string | number;
-        icon: React.ReactElement;
+        icon: React.ReactElement<{ className?: string }>;
         color: string;
         trend?: string;
     }> = ({ title, value, icon, color, trend }) => (

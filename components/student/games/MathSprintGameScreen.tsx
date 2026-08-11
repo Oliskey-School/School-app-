@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Student } from '../../../types';
 import { PlayIcon, PauseIcon, Calculator, Timer, Trophy } from 'lucide-react';
 import { toast } from 'react-hot-toast';
@@ -85,7 +85,7 @@ const MathSprintGameScreen: React.FC<MathSprintGameScreenProps> = ({ navigateTo,
             num1 = Math.floor(Math.random() * 12) + 1;
             num2 = Math.floor(Math.random() * 12) + 1;
             answer = num1 * num2;
-            equation = `${num1} Ã— ${num2}`;
+            equation = `${num1} × ${num2}`;
         }
 
         // Generate Options
@@ -120,7 +120,7 @@ const MathSprintGameScreen: React.FC<MathSprintGameScreenProps> = ({ navigateTo,
             // Add time bonus for every 5 streak
             if (streak > 0 && streak % 5 === 0) {
                 setTimeLeft(t => t + 5);
-                toast.success('+5 Seconds!', { icon: 'â±ï¸' });
+                toast.success('+5 Seconds!', { icon: '⏱️' });
             }
         } else {
             // Wrong
@@ -268,7 +268,7 @@ const MathSprintGameScreen: React.FC<MathSprintGameScreenProps> = ({ navigateTo,
             </div>
 
             <div className="p-3 text-center text-slate-500 text-xs lg:text-sm shrink-0 bg-slate-900/50 backdrop-blur-sm border-t border-white/5">
-                Stats: {streak} Streak â€¢ Level {Math.min(Math.ceil((student?.grade || 5) / 3) + Math.floor(score / 500), 10)}
+                Stats: {streak} Streak • Level {Math.min(Math.ceil((student?.grade || 5) / 3) + Math.floor(score / 500), 10)}
             </div>
         </div>
     );

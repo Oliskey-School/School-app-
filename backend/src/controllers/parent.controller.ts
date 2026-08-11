@@ -191,7 +191,7 @@ export const unlinkChild = async (req: AuthRequest, res: Response) => {
     try {
         if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can unlink a child from a parent' });
         const { parentId, studentId } = req.body;
-        const branchId = req.user.branch_id || req.body?.branch_id;
+        const branchId = getEffectiveBranchId(req.user, req.body?.branch_id);
         await ParentService.unlinkChild(req.user.school_id, branchId, parentId, studentId);
         res.status(204).send();
     } catch (error: any) {
@@ -271,10 +271,53 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
     }
 };
 
+// The parent's own "History" tab must read from the SAME table createAppointment
+// writes to (prisma.appointment) — it was previously wired to the unrelated
+// counseling-appointment table/endpoint (GET /counseling), which has no parent_id
+// filter at all, so every parent-teacher appointment ever booked silently
+// vanished from the booking parent's own history view even though the teacher
+// could see and respond to it fine via /teachers/me/appointments.
+export const getMyAppointments = async (req: AuthRequest, res: Response) => {
+    try {
+        let ownParentId: string;
+        if (isAdmin(req) && req.query.parent_id) {
+            ownParentId = req.query.parent_id as string;
+        } else {
+            const ownParent = await prisma.parent.findUnique({ where: { user_id: req.user.id }, select: { id: true } });
+            if (!ownParent) return res.status(404).json({ message: 'Parent profile not found' });
+            ownParentId = ownParent.id;
+        }
+
+        const branchId = getEffectiveBranchId(req.user, req.query.branch_id as string);
+        const appointments = await (prisma as any).appointment.findMany({
+            where: {
+                school_id: req.user.school_id,
+                parent_id: ownParentId,
+                ...(branchId && branchId !== 'all' ? { branch_id: branchId } : {}),
+            },
+            orderBy: { date: 'desc' }
+        });
+        res.json(appointments);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 export const volunteerSignup = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = req.user.branch_id || req.body.branch_id;
-        const result = await ParentService.volunteerSignup(req.user.school_id, branchId, req.body);
+        const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
+
+        // parent_id must always be derived from the caller's own session —
+        // never trust a client-supplied value, otherwise a parent could sign
+        // up for a volunteer slot under another family's name.
+        let ownParentId: string | undefined = req.body.parent_id;
+        if (!isAdmin(req)) {
+            const ownParent = await prisma.parent.findUnique({ where: { user_id: req.user.id }, select: { id: true } });
+            if (!ownParent) return res.status(404).json({ message: 'Parent profile not found' });
+            ownParentId = ownParent.id;
+        }
+
+        const result = await ParentService.volunteerSignup(req.user.school_id, branchId, { ...req.body, parent_id: ownParentId });
         res.status(201).json(result);
     } catch (error: any) {
         if (error.message?.includes('23505')) {
@@ -287,18 +330,20 @@ export const volunteerSignup = async (req: AuthRequest, res: Response) => {
 
 export const markNotificationRead = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = req.user.branch_id || req.body.branch_id;
-        const result = await ParentService.markNotificationRead(req.user.school_id, branchId, req.params.id as string);
+        const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
+        // Ownership-checked in the service — a caller may only ever mark THEIR
+        // OWN notification read, never another user's by guessing its id.
+        const result = await ParentService.markNotificationRead(req.user.school_id, branchId, req.params.id as string, req.user.id);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        res.status(error.statusCode || 500).json({ message: error.message });
     }
 };
 
 export const getChildOverview = async (req: AuthRequest, res: Response) => {
     try {
         await assertParentOwnsStudent(req, req.params.studentId as string);
-        const branchId = req.user.branch_id || (req.query.branchId as string);
+        const branchId = getEffectiveBranchId(req.user, req.query.branchId as string);
         const result = await ParentService.getChildOverview(req.user.school_id, branchId, req.params.studentId as string);
         res.json(result);
     } catch (error: any) {
@@ -309,7 +354,7 @@ export const getChildOverview = async (req: AuthRequest, res: Response) => {
 export const getStudentFees = async (req: AuthRequest, res: Response) => {
     try {
         await assertParentOwnsStudent(req, req.params.studentId as string);
-        const branchId = req.user.branch_id || (req.query.branchId as string);
+        const branchId = getEffectiveBranchId(req.user, req.query.branchId as string);
         const result = await ParentService.getStudentFees(req.user.school_id, branchId, req.params.studentId as string);
         res.json(result);
     } catch (error: any) {
@@ -329,7 +374,7 @@ export const recordPayment = async (req: AuthRequest, res: Response) => {
         if (!reference || !gateway) {
             return res.status(400).json({ message: 'A verified gateway reference is required to record a payment' });
         }
-        const branchId = req.user.branch_id || req.body.branch_id;
+        const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
         const verified = await TransactionService.verifyPayment(req.user.school_id, branchId, reference, gateway);
         if (!verified || (verified as any).status !== 'success') {
             return res.status(402).json({ message: 'Payment could not be verified with the gateway' });
@@ -348,7 +393,7 @@ export const recordPayment = async (req: AuthRequest, res: Response) => {
 
 export const getPTAMeetings = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = req.user.branch_id || (req.query.branchId as string);
+        const branchId = getEffectiveBranchId(req.user, req.query.branchId as string);
         const result = await ParentService.getPTAMeetings(req.user.school_id, branchId, req.user.id);
         res.json(result);
     } catch (error: any) {
@@ -358,7 +403,7 @@ export const getPTAMeetings = async (req: AuthRequest, res: Response) => {
 
 export const getLearningResources = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = req.user.branch_id || (req.query.branchId as string);
+        const branchId = getEffectiveBranchId(req.user, req.query.branchId as string);
         const result = await ParentService.getLearningResources(req.user.school_id, branchId);
         res.json(result);
     } catch (error: any) {
@@ -378,7 +423,7 @@ export const getParentMessages = async (req: AuthRequest, res: Response) => {
 export const sendMessage = async (req: AuthRequest, res: Response) => {
     try {
         const { receiverId, content } = req.body;
-        const branchId = req.user.branch_id || req.body.branch_id;
+        const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
         const result = await ParentService.sendMessage(req.user.school_id, branchId, req.user.id, receiverId, content);
         res.status(201).json(result);
     } catch (error: any) {
@@ -388,7 +433,7 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
 
 export const getNotifications = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = req.user.branch_id || (req.query.branchId as string);
+        const branchId = getEffectiveBranchId(req.user, req.query.branchId as string);
         const result = await ParentService.getNotifications(req.user.school_id, branchId, req.user.id);
         res.json(result);
     } catch (error: any) {
@@ -398,7 +443,7 @@ export const getNotifications = async (req: AuthRequest, res: Response) => {
 
 export const getVolunteeringOpportunities = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = req.user.branch_id || (req.query.branchId as string);
+        const branchId = getEffectiveBranchId(req.user, req.query.branchId as string);
         const result = await ParentService.getVolunteeringOpportunities(req.user.school_id, branchId);
         res.json(result);
     } catch (error: any) {

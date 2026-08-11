@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import TeacherDashboard from '../TeacherDashboard';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 
 // Direct Hook Mocks
 vi.mock('../../../context/AuthContext', () => ({

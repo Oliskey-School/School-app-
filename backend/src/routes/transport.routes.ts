@@ -1,7 +1,13 @@
 import { Router } from 'express';
 import { TransportService } from '../services/transport.service';
 import { authenticate } from '../middleware/auth.middleware';
-import { requireTenant } from '../middleware/tenant.middleware';
+import { requireTenant, requireRole } from '../middleware/tenant.middleware';
+import { getEffectiveBranchId } from '../utils/branchScope';
+
+// Fleet management (creating/deleting routes, stops, and student assignments)
+// is an admin-only operation — without this, any authenticated parent/student
+// could delete the school's transport routes or reassign any student's bus.
+const ADMIN_ONLY = requireRole(['admin', 'proprietor', 'superadmin', 'super_admin']);
 
 const router = Router();
 
@@ -21,10 +27,11 @@ router.use(authenticate, requireTenant);
 // Root summary: returns all transport data in one response for overview screens
 router.get('/', async (req: any, res) => {
     try {
+        const branchId = getEffectiveBranchId(req.user, req.query.branchId as string);
         const [routes, stops, assignments] = await Promise.all([
-            TransportService.getRoutes(req.user.school_id, req.query.branchId),
-            TransportService.getStops(undefined),
-            TransportService.getAssignments(req.user.school_id),
+            TransportService.getRoutes(req.user.school_id, branchId),
+            TransportService.getStops(req.user.school_id, branchId),
+            TransportService.getAssignments(req.user.school_id, branchId),
         ]);
         res.json({ routes, stops, assignments });
     } catch (error: any) {
@@ -34,23 +41,25 @@ router.get('/', async (req: any, res) => {
 
 router.get('/routes', async (req: any, res) => {
     try {
-        const routes = await TransportService.getRoutes(req.user.school_id, req.query.branchId);
+        const branchId = getEffectiveBranchId(req.user, req.query.branchId as string);
+        const routes = await TransportService.getRoutes(req.user.school_id, branchId);
         res.json(routes);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
     }
 });
 
-router.post('/routes', async (req: any, res) => {
+router.post('/routes', ADMIN_ONLY, async (req: any, res) => {
     try {
-        const route = await TransportService.createRoute(req.user.school_id, req.body.branch_id, req.body);
+        const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
+        const route = await TransportService.createRoute(req.user.school_id, branchId, req.body);
         res.status(201).json(route);
     } catch (error: any) {
         sendWriteError(res, error, 'Failed to create route');
     }
 });
 
-router.delete('/routes/:id', async (req: any, res) => {
+router.delete('/routes/:id', ADMIN_ONLY, async (req: any, res) => {
     try {
         await TransportService.deleteRoute(req.user.school_id, req.params.id);
         res.json({ message: 'Route deleted successfully' });
@@ -61,55 +70,64 @@ router.delete('/routes/:id', async (req: any, res) => {
 
 router.get('/stops', async (req: any, res) => {
     try {
-        const stops = await TransportService.getStops(req.query.routeId as string);
+        const branchId = getEffectiveBranchId(req.user, req.query.branchId as string);
+        const stops = await TransportService.getStops(req.user.school_id, branchId, req.query.routeId as string);
         res.json(stops);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
     }
 });
 
-router.post('/stops', async (req: any, res) => {
+router.post('/stops', ADMIN_ONLY, async (req: any, res) => {
     try {
-        const stop = await TransportService.createStop(req.body);
+        const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
+        const stop = await TransportService.createStop(req.user.school_id, branchId, req.body);
         res.status(201).json(stop);
     } catch (error: any) {
         sendWriteError(res, error, 'Failed to create stop');
     }
 });
 
-router.delete('/stops/:id', async (req: any, res) => {
+router.delete('/stops/:id', ADMIN_ONLY, async (req: any, res) => {
     try {
-        await TransportService.deleteStop(req.params.id);
+        const branchId = getEffectiveBranchId(req.user);
+        await TransportService.deleteStop(req.user.school_id, branchId, req.params.id);
         res.json({ message: 'Stop deleted successfully' });
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        res.status(error.statusCode || 400).json({ message: error.message });
     }
 });
 
-router.get('/assignments', async (req: any, res) => {
+// Lists every student's bus assignment across the branch — admin/teacher only.
+// A parent must use GET /api/buses/student/:studentId (ownership-checked) for
+// their own child's route instead of this school-wide list.
+router.get('/assignments', requireRole(['admin', 'proprietor', 'superadmin', 'super_admin', 'teacher']), async (req: any, res) => {
     try {
-        const assignments = await TransportService.getAssignments(req.user.school_id);
+        const branchId = getEffectiveBranchId(req.user, req.query.branchId as string);
+        const assignments = await TransportService.getAssignments(req.user.school_id, branchId);
         res.json(assignments);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
     }
 });
 
-router.post('/assignments', async (req: any, res) => {
+router.post('/assignments', ADMIN_ONLY, async (req: any, res) => {
     try {
-        const assignment = await TransportService.createAssignment(req.body);
+        const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
+        const assignment = await TransportService.createAssignment(req.user.school_id, branchId, req.body);
         res.status(201).json(assignment);
     } catch (error: any) {
         sendWriteError(res, error, 'Failed to create assignment');
     }
 });
 
-router.delete('/assignments/:id', async (req: any, res) => {
+router.delete('/assignments/:id', ADMIN_ONLY, async (req: any, res) => {
     try {
-        await TransportService.deleteAssignment(req.params.id);
+        const branchId = getEffectiveBranchId(req.user);
+        await TransportService.deleteAssignment(req.user.school_id, branchId, req.params.id);
         res.json({ message: 'Assignment deleted successfully' });
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        res.status(error.statusCode || 400).json({ message: error.message });
     }
 });
 

@@ -563,7 +563,7 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
         // Start multiple parallel flows
         const flows = [];
 
-        // Flow A: Auth User Info (from AuthContext â€” no extra fetch needed)
+        // Flow A: Auth User Info (from AuthContext — no extra fetch needed)
         flows.push((async () => {
             if (user?.id) {
                 setCurrentUserId(user.id);
@@ -737,7 +737,7 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
 
     // Expose navigation for automated E2E audits. Clean up on unmount so the
     // global reference never goes stale (consistent with the teacher/student
-    // dashboards) â€” a full-screen child view that unmounts this dashboard then
+    // dashboards) — a full-screen child view that unmounts this dashboard then
     // correctly removes the hook instead of leaving a no-op behind.
     useEffect(() => {
         if (window.__AUDIT_MODE__ || localStorage.getItem('audit_mode') === 'true') {
@@ -750,7 +750,7 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
         };
     }, [navigateTo, viewComponents]);
 
-    // Always resolve to a valid view â€” never let an empty/corrupt stack crash the dashboard.
+    // Always resolve to a valid view — never let an empty/corrupt stack crash the dashboard.
     const currentNavigation = viewStack[viewStack.length - 1]
         || { view: 'dashboard', props: {}, title: 'Dashboard' };
 

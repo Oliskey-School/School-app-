@@ -2,7 +2,16 @@ import prisma from '../config/database';
 import { SocketService } from './socket.service';
 
 export class ReportCardService {
-    static async getReportCards(schoolId: string, branchId: string | undefined, teacherId?: string) {
+    static async getReportCards(
+        schoolId: string,
+        branchId: string | undefined,
+        teacherId?: string,
+        // A parent/student caller must only ever see report cards for their OWN
+        // linked children (or themselves) — without this, any authenticated
+        // parent or student got every report card in the school/branch,
+        // including full academic records of unrelated families' children.
+        options?: { studentIds?: string[]; publishedOnly?: boolean }
+    ) {
         const where: any = {
             school_id: schoolId
         };
@@ -23,6 +32,14 @@ export class ReportCardService {
                     }
                 }
             };
+        }
+
+        if (options?.studentIds) {
+            where.student_id = { in: options.studentIds };
+        }
+
+        if (options?.publishedOnly) {
+            where.is_published = true;
         }
 
         const reports = await prisma.reportCard.findMany({

@@ -123,8 +123,37 @@ const LEVELS: Level[] = [
     }
 ];
 
+/** Keep the map's fixed narrative (titles, descriptions, positions) but swap
+ * each level's 2 static puzzles for fresh AI-generated vocabulary questions,
+ * falling back to the built-in set if the AI call fails. */
+async function loadLevels(): Promise<Level[]> {
+    try {
+        const puzzlesPerLevel = LEVELS[0].puzzles.length;
+        const { questions } = await api.getAIGameQuestions('vocabulary-adventure', 'English Vocabulary', LEVELS.length * puzzlesPerLevel);
+        if (!questions || questions.length < LEVELS.length * puzzlesPerLevel) throw new Error('Not enough AI questions returned');
+        let i = 0;
+        return LEVELS.map(level => ({
+            ...level,
+            puzzles: level.puzzles.map(p => {
+                const q = questions[i++];
+                return {
+                    id: p.id,
+                    type: p.type,
+                    question: q.prompt,
+                    options: q.options,
+                    correctAnswer: q.options[q.answer],
+                };
+            }),
+        }));
+    } catch (err) {
+        console.warn('[VocabularyAdventure] Falling back to offline puzzles:', err);
+        return LEVELS;
+    }
+}
+
 const VocabularyAdventureGame: React.FC<VocabularyAdventureGameProps> = ({ onBack }) => {
     const { addXP, unlockBadge } = useGamification();
+    const [levels, setLevels] = useState<Level[]>(LEVELS);
     const [currentLevelId, setCurrentLevelId] = useState(1); // The level the player IS AT (unlocked)
     const [maxUnlockedLevel, setMaxUnlockedLevel] = useState(1);
     const [activePuzzle, setActivePuzzle] = useState<Puzzle | null>(null);
@@ -132,6 +161,12 @@ const VocabularyAdventureGame: React.FC<VocabularyAdventureGameProps> = ({ onBac
     const [score, setScore] = useState(0);
     const [showMap, setShowMap] = useState(true);
     const [levelComplete, setLevelComplete] = useState(false);
+
+    useEffect(() => {
+        let active = true;
+        loadLevels().then(l => { if (active) setLevels(l); });
+        return () => { active = false; };
+    }, []);
 
     // Audio
     const speak = (text: string) => {
@@ -180,8 +215,11 @@ const VocabularyAdventureGame: React.FC<VocabularyAdventureGameProps> = ({ onBac
 
     const handleCorrect = () => {
         speak("Correct!");
-        const currentLevel = LEVELS.find(l => l.id === currentLevelId);
+        const currentLevel = levels.find(l => l.id === currentLevelId);
         if (!currentLevel) return;
+
+        const newScore = score + 25;
+        setScore(newScore);
 
         if (puzzleIndex + 1 < currentLevel.puzzles.length) {
             // Next puzzle in level
@@ -189,7 +227,7 @@ const VocabularyAdventureGame: React.FC<VocabularyAdventureGameProps> = ({ onBac
             setActivePuzzle(currentLevel.puzzles[puzzleIndex + 1]);
         } else {
             // Level Complete
-            handleLevelComplete();
+            handleLevelComplete(newScore);
         }
     };
 
@@ -209,7 +247,9 @@ const VocabularyAdventureGame: React.FC<VocabularyAdventureGameProps> = ({ onBac
         }
     }, [maxUnlockedLevel]);
 
-    const handleLevelComplete = () => {
+    const handleLevelComplete = (finalScore: number) => {
+        const bonusScore = finalScore + 100;
+        setScore(bonusScore);
         setLevelComplete(true);
         addXP(50);
         confetti({ particleCount: 100, spread: 70 });
@@ -219,7 +259,7 @@ const VocabularyAdventureGame: React.FC<VocabularyAdventureGameProps> = ({ onBac
         api.submitGameScore({
             game_id: 'vocabulary-adventure',
             game_name: 'Vocabulary Adventure',
-            score: score + 100,
+            score: bonusScore,
             metadata: {
                 levelId: currentLevelId,
                 levelTitle: currentLevelData?.title,
@@ -231,7 +271,7 @@ const VocabularyAdventureGame: React.FC<VocabularyAdventureGameProps> = ({ onBac
             setShowMap(true); // Return to map
 
             // Unlock next level logic
-            if (currentLevelId < LEVELS.length) {
+            if (currentLevelId < levels.length) {
                 const nextLevel = currentLevelId + 1;
                 if (nextLevel > maxUnlockedLevel) {
                     setMaxUnlockedLevel(nextLevel);
@@ -244,7 +284,7 @@ const VocabularyAdventureGame: React.FC<VocabularyAdventureGameProps> = ({ onBac
         }, 2000);
     };
 
-    const currentLevelData = LEVELS.find(l => l.id === currentLevelId);
+    const currentLevelData = levels.find(l => l.id === currentLevelId);
 
     return (
         <GameShell
@@ -267,9 +307,9 @@ const VocabularyAdventureGame: React.FC<VocabularyAdventureGameProps> = ({ onBac
 
                     {/* Paths (SVG Lines) */}
                     <svg className="absolute inset-0 w-full h-full pointer-events-none">
-                        {LEVELS.map((level, i) => {
-                            if (i === LEVELS.length - 1) return null;
-                            const next = LEVELS[i + 1];
+                        {levels.map((level, i) => {
+                            if (i === levels.length - 1) return null;
+                            const next = levels[i + 1];
                             return (
                                 <line
                                     key={i}
@@ -285,7 +325,7 @@ const VocabularyAdventureGame: React.FC<VocabularyAdventureGameProps> = ({ onBac
                     </svg>
 
                     {/* Nodes */}
-                    {LEVELS.map((level) => {
+                    {levels.map((level) => {
                         const isUnlocked = level.id <= maxUnlockedLevel;
                         const isCurrent = level.id === currentLevelId;
                         const isCompleted = level.id < maxUnlockedLevel;
@@ -338,8 +378,8 @@ const VocabularyAdventureGame: React.FC<VocabularyAdventureGameProps> = ({ onBac
                     </div>
 
                     <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
-                        {maxUnlockedLevel <= LEVELS.length ? (
-                            <button onClick={() => startLevel(LEVELS.find(l => l.id === maxUnlockedLevel)!)} className="bg-amber-500 hover:bg-amber-400 text-black px-8 py-3 rounded-full font-bold shadow-lg animate-bounce">
+                        {maxUnlockedLevel <= levels.length ? (
+                            <button onClick={() => startLevel(levels.find(l => l.id === maxUnlockedLevel)!)} className="bg-amber-500 hover:bg-amber-400 text-black px-8 py-3 rounded-full font-bold shadow-lg animate-bounce">
                                 {maxUnlockedLevel === 1 ? 'Start Journey' : 'Continue Adventure'}
                             </button>
                         ) : (

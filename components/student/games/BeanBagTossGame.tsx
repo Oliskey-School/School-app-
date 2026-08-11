@@ -153,7 +153,8 @@ const BeanBagTossGame: React.FC<BeanBagTossGameProps> = ({ onBack }) => {
     };
 
     const handleSuccess = () => {
-        setScore(prev => prev + 10);
+        const newScore = score + 10;
+        setScore(newScore);
         speak("Score!");
         confetti({
             particleCount: 80,
@@ -162,7 +163,7 @@ const BeanBagTossGame: React.FC<BeanBagTossGameProps> = ({ onBack }) => {
         });
 
         beanBagControls.start({ opacity: 0 }).then(() => {
-            if (score > 40 && score % 50 === 0) {
+            if (newScore > 0 && newScore % 50 === 0) {
                 addXP(20);
                 unlockBadge('perfect-aim');
             }
@@ -173,7 +174,7 @@ const BeanBagTossGame: React.FC<BeanBagTossGameProps> = ({ onBack }) => {
         api.submitGameScore({
             game_id: 'bean-bag-toss',
             game_name: 'Number Bean Bag Toss',
-            score: score + 10,
+            score: newScore,
             metadata: {
                 target: targetNumber,
                 success: true

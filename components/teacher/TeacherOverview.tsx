@@ -436,7 +436,7 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
                       onClick={action.action}
                       className={`${theme.cardBg} p-2 sm:p-3 rounded-xl shadow-sm flex flex-col items-center justify-center space-y-1 sm:space-y-2 hover:bg-purple-200 transition-colors`}
                     >
-                      <div className={`${theme.iconColor} flex-shrink-0`}>{React.cloneElement(action.icon as React.ReactElement, { className: "h-6 w-6 sm:h-7 sm:w-7" })}</div>
+                      <div className={`${theme.iconColor} flex-shrink-0`}>{React.cloneElement(action.icon as React.ReactElement<{ className?: string }>, { className: "h-6 w-6 sm:h-7 sm:w-7" })}</div>
                       <span className={`font-semibold ${theme.textColor} text-center text-xs leading-tight`}>{action.label}</span>
                     </motion.button>
                   ))}

@@ -49,7 +49,7 @@ export default defineConfig(({ mode }) => {
     optimizeDeps: {
       include: [
         'react', 'react-dom', 'react-dom/client', 'react/jsx-runtime',
-        'react-router-dom',
+        'react-router',
         '@tanstack/react-query', '@tanstack/react-query-persist-client',
         'recharts',
         'framer-motion',
@@ -195,7 +195,6 @@ export default defineConfig(({ mode }) => {
       dedupe: ['react', 'react-dom'],
       alias: {
         '@': path.resolve(__dirname, '.'),
-        'react-native': 'react-native-web',
       }
     }
   };

@@ -64,13 +64,57 @@ const INITIAL_DATA: Category[] = [
     }
 ];
 
+const CATEGORY_META = [
+    { id: 'angles', title: 'Angles' },
+    { id: 'triangles', title: 'Triangles' },
+    { id: 'shapes', title: 'Polygons' },
+    { id: 'area', title: 'Area & Perimeter' },
+];
+const POINT_TIERS = [100, 200, 300];
+
+/** Fill the 4 fixed category headers with fresh AI-generated questions (one per
+ * point tier each), falling back to the built-in static board if the AI call
+ * fails for any reason — the board keeps its familiar shape either way. */
+async function loadBoard(): Promise<Category[]> {
+    try {
+        const { questions } = await api.getAIGameQuestions('geometry-jeopardy', 'Geometry', CATEGORY_META.length * POINT_TIERS.length);
+        if (!questions || questions.length < CATEGORY_META.length * POINT_TIERS.length) throw new Error('Not enough AI questions returned');
+        let i = 0;
+        return CATEGORY_META.map(cat => ({
+            id: cat.id,
+            title: cat.title,
+            questions: POINT_TIERS.map(points => {
+                const q = questions[i++];
+                return {
+                    id: `${cat.id}-${points}`,
+                    points,
+                    question: q.prompt,
+                    options: q.options,
+                    correctAnswer: q.options[q.answer],
+                    isAnswered: false,
+                };
+            }),
+        }));
+    } catch (err) {
+        console.warn('[GeometryJeopardy] Falling back to offline board:', err);
+        return INITIAL_DATA;
+    }
+}
+
 const GeometryJeopardyGame: React.FC<GeometryJeopardyGameProps> = ({ onBack }) => {
     const { addXP, unlockBadge } = useGamification();
     const [categories, setCategories] = useState<Category[]>(INITIAL_DATA);
+    const [boardLoading, setBoardLoading] = useState(true);
     const [score, setScore] = useState(0);
     const [activeQuestion, setActiveQuestion] = useState<{ q: Question; catId: string } | null>(null);
     const [feedback, setFeedback] = useState<{ type: 'correct' | 'wrong'; msg: string } | null>(null);
     const [gameWon, setGameWon] = useState(false);
+
+    useEffect(() => {
+        let active = true;
+        loadBoard().then(board => { if (active) { setCategories(board); setBoardLoading(false); } });
+        return () => { active = false; };
+    }, []);
 
     // Audio
     const speak = (text: string) => {
@@ -102,7 +146,9 @@ const GeometryJeopardyGame: React.FC<GeometryJeopardyGameProps> = ({ onBack }) =
                 origin: { y: 0.7 }
             });
         } else {
-            setScore(prev => Math.max(0, prev - activeQuestion.q.points)); // Deduct points?
+            // No penalty for a wrong answer — consistent with the other quiz-style
+            // games in the suite (VocabularyNinja, ClassBattle, MathBattleArena),
+            // which award 0 points on a miss instead of deducting score.
             setFeedback({ type: 'wrong', msg: `Wrong! Answer was ${activeQuestion.q.correctAnswer}` });
             speak(`Incorrect. The answer was ${activeQuestion.q.correctAnswer}`);
         }
@@ -166,12 +212,20 @@ const GeometryJeopardyGame: React.FC<GeometryJeopardyGameProps> = ({ onBack }) =
             score={score}
             isGameOver={gameWon}
             onRestart={() => {
-                setCategories(INITIAL_DATA.map(c => ({ ...c, questions: c.questions.map(q => ({ ...q, isAnswered: false })) })));
+                setBoardLoading(true);
                 setScore(0);
                 setGameWon(false);
+                loadBoard().then(board => { setCategories(board); setBoardLoading(false); });
             }}
         >
             <div className="h-full w-full bg-blue-900 overflow-hidden flex flex-col p-4 relative font-mono">
+
+                {boardLoading && (
+                    <div className="absolute inset-0 z-40 bg-blue-900/95 flex flex-col items-center justify-center gap-3 text-yellow-300">
+                        <div className="w-10 h-10 border-4 border-yellow-400/30 border-t-yellow-400 rounded-full animate-spin" />
+                        <span className="font-bold uppercase tracking-wider text-sm">Building your board…</span>
+                    </div>
+                )}
 
                 {/* Board - Responsive Grid */}
                 <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4 max-w-5xl mx-auto w-full content-center overflow-y-auto">
@@ -261,9 +315,10 @@ const GeometryJeopardyGame: React.FC<GeometryJeopardyGameProps> = ({ onBack }) =
                             <p className="text-xl text-gray-500 mb-8">You cleared the board with ${score}!</p>
                             <button
                                 onClick={() => {
-                                    setCategories(INITIAL_DATA.map(c => ({ ...c, questions: c.questions.map(q => ({ ...q, isAnswered: false })) })));
+                                    setBoardLoading(true);
                                     setScore(0);
                                     setGameWon(false);
+                                    loadBoard().then(board => { setCategories(board); setBoardLoading(false); });
                                 }}
                                 className="bg-blue-600 text-white px-8 py-3 rounded-full font-bold text-lg hover:bg-blue-500"
                             >

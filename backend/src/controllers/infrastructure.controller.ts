@@ -1,11 +1,13 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { InfrastructureService } from '../services/infrastructure.service';
+import { getEffectiveBranchId } from '../utils/branchScope';
 
 export const getFacilities = async (req: AuthRequest, res: Response) => {
     try {
         const schoolId = req.user.school_id;
-        const result = await InfrastructureService.getFacilities(schoolId);
+        const branchId = getEffectiveBranchId(req.user, req.query.branch_id as string);
+        const result = await InfrastructureService.getFacilities(schoolId, branchId);
         res.json({ data: result, error: null });
     } catch (error: any) {
         res.status(500).json({ data: null, error: error.message });
@@ -15,7 +17,8 @@ export const getFacilities = async (req: AuthRequest, res: Response) => {
 export const createFacility = async (req: AuthRequest, res: Response) => {
     try {
         const schoolId = req.user.school_id;
-        const result = await InfrastructureService.createFacility(schoolId, req.body);
+        const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
+        const result = await InfrastructureService.createFacility(schoolId, branchId, req.body);
         res.status(201).json({ data: result, error: null });
     } catch (error: any) {
         res.status(500).json({ data: null, error: error.message });
@@ -47,7 +50,8 @@ export const deleteFacility = async (req: AuthRequest, res: Response) => {
 export const getAssets = async (req: AuthRequest, res: Response) => {
     try {
         const schoolId = req.user.school_id;
-        const result = await InfrastructureService.getAssets(schoolId);
+        const branchId = getEffectiveBranchId(req.user, req.query.branch_id as string);
+        const result = await InfrastructureService.getAssets(schoolId, branchId);
         res.json({ data: result, error: null });
     } catch (error: any) {
         res.status(500).json({ data: null, error: error.message });
@@ -57,7 +61,8 @@ export const getAssets = async (req: AuthRequest, res: Response) => {
 export const createAsset = async (req: AuthRequest, res: Response) => {
     try {
         const schoolId = req.user.school_id;
-        const result = await InfrastructureService.createAsset(schoolId, req.body);
+        const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
+        const result = await InfrastructureService.createAsset(schoolId, branchId, req.body);
         res.status(201).json({ data: result, error: null });
     } catch (error: any) {
         res.status(500).json({ data: null, error: error.message });
@@ -109,7 +114,8 @@ export const deleteAsset = async (req: AuthRequest, res: Response) => {
 export const getVisitorLogs = async (req: AuthRequest, res: Response) => {
     try {
         const schoolId = req.user.school_id;
-        const result = await InfrastructureService.getVisitorLogs(schoolId);
+        const branchId = getEffectiveBranchId(req.user, req.query.branch_id as string);
+        const result = await InfrastructureService.getVisitorLogs(schoolId, branchId);
         res.json({ data: result, error: null });
     } catch (error: any) {
         res.status(500).json({ data: null, error: error.message });
@@ -119,7 +125,8 @@ export const getVisitorLogs = async (req: AuthRequest, res: Response) => {
 export const createVisitorLog = async (req: AuthRequest, res: Response) => {
     try {
         const schoolId = req.user.school_id;
-        const result = await InfrastructureService.createVisitorLog(schoolId, req.body);
+        const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
+        const result = await InfrastructureService.createVisitorLog(schoolId, { ...req.body, branch_id: branchId || null });
         res.status(201).json({ data: result, error: null });
     } catch (error: any) {
         res.status(500).json({ data: null, error: error.message });
@@ -224,7 +231,8 @@ export const restoreBackup = async (req: AuthRequest, res: Response) => {
 export const getSavedReports = async (req: AuthRequest, res: Response) => {
     try {
         const schoolId = req.user.school_id;
-        const result = await InfrastructureService.getSavedReports(schoolId);
+        const branchId = getEffectiveBranchId(req.user, req.query.branch_id as string);
+        const result = await InfrastructureService.getSavedReports(schoolId, branchId);
         res.json({ data: result, error: null });
     } catch (error: any) {
         res.status(500).json({ data: null, error: error.message });
@@ -234,7 +242,8 @@ export const getSavedReports = async (req: AuthRequest, res: Response) => {
 export const createSavedReport = async (req: AuthRequest, res: Response) => {
     try {
         const schoolId = req.user.school_id;
-        const result = await InfrastructureService.createSavedReport(schoolId, req.body);
+        const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
+        const result = await InfrastructureService.createSavedReport(schoolId, branchId, req.body);
         res.status(201).json({ data: result, error: null });
     } catch (error: any) {
         res.status(500).json({ data: null, error: error.message });

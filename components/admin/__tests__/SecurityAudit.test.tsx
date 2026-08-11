@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import UserRolesScreen from '../UserRolesScreen';
 import AddStudentScreen from '../AddStudentScreen';
-import { BrowserRouter } from 'react-router-dom';
+import { BrowserRouter } from 'react-router';
 import React from 'react';
 import { toast } from 'react-hot-toast';
 import { api } from '../../../lib/api';

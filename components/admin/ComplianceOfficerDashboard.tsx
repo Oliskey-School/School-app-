@@ -102,7 +102,7 @@ const ComplianceOfficerDashboard: React.FC<ComplianceOfficerDashboardProps> = ({
     const StatCard: React.FC<{
         title: string;
         value: string | number;
-        icon: React.ReactElement;
+        icon: React.ReactElement<{ className?: string }>;
         color: string;
         index?: number;
     }> = ({ title, value, icon, color, index = 0 }) => (

@@ -707,12 +707,24 @@ export class ParentService {
         });
     }
 
-    static async markNotificationRead(schoolId: string, branch_id: string | undefined, notificationId: string) {
-        // school_id in the where clause stops a cross-tenant write — without it,
-        // any authenticated user could mark any OTHER school's notification read
-        // just by knowing/guessing its id.
+    static async markNotificationRead(schoolId: string, branch_id: string | undefined, notificationId: string, userId: string) {
+        // school_id stops a cross-tenant write. For notifications individually
+        // addressed to a specific user (user_id set), only that user may mark
+        // it read — otherwise a parent could flip another parent's/teacher's
+        // notification to read just by guessing its id. Broadcast notices
+        // (user_id null, delivered via `audience`) have no per-recipient read
+        // state in this schema, so they remain markable by any recipient —
+        // same as before this fix, just no longer widened to non-broadcast rows.
+        const notification = await prisma.notification.findFirst({
+            where: { id: notificationId, school_id: schoolId, OR: [{ user_id: userId }, { user_id: null }] } as any,
+        });
+        if (!notification) {
+            const err: any = new Error('Notification not found');
+            err.statusCode = 404;
+            throw err;
+        }
         return await prisma.notification.update({
-            where: { id: notificationId, school_id: schoolId } as any,
+            where: { id: notificationId },
             data: { is_read: true }
         });
     }
@@ -911,6 +923,18 @@ export class ParentService {
     static async recordPayment(schoolId: string, branchId: string | undefined, paymentData: any) {
         const { fee_id, student_id, amount, reference, payment_method, purpose } = paymentData;
 
+        // Confirm the fee being paid actually belongs to the student the caller
+        // is paying for (and that student's own school) — otherwise a payment
+        // for one student could end up crediting a completely different
+        // student's (even a different school's) fee record.
+        if (fee_id) {
+            const feeOwned = await prisma.studentFee.findFirst({
+                where: { id: fee_id, student_id, school_id: schoolId },
+                select: { id: true },
+            });
+            if (!feeOwned) throw new Error('Fee not found for this student');
+        }
+
         return await prisma.$transaction(async (tx) => {
             // 1. Create Payment record
             const payment = await tx.payment.create({
@@ -1031,6 +1055,16 @@ export class ParentService {
 
 
     static async sendMessage(schoolId: string, branchId: string | undefined, senderId: string, receiverId: string, content: string) {
+        // Confirm the receiver actually belongs to this parent's school before
+        // creating the message — otherwise a message (and the conversation
+        // thread it starts) could be sent to a user in a completely different
+        // school just by knowing their user id.
+        const receiver = await prisma.user.findFirst({
+            where: { id: receiverId, school_id: schoolId },
+            select: { id: true },
+        });
+        if (!receiver) throw new Error('Recipient not found in your school');
+
         return await prisma.message.create({
             data: {
                 school_id: schoolId,

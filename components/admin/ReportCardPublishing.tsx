@@ -512,7 +512,7 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
                         {statusStyles[student.status] && (
                           <div className={`absolute -bottom-1 -right-1 w-5 h-5 md:w-6 md:h-6 rounded-lg border-2 border-white flex items-center justify-center shadow-md ${statusStyles[student.status].bg} ${statusStyles[student.status].border}`}>
                             <div className={statusStyles[student.status].text}>
-                              {React.cloneElement(statusStyles[student.status].icon as React.ReactElement, { className: 'w-2.5 h-2.5 md:w-3 md:h-3' })}
+                              {React.cloneElement(statusStyles[student.status].icon as React.ReactElement<{ className?: string }>, { className: 'w-2.5 h-2.5 md:w-3 md:h-3' })}
                             </div>
                           </div>
                         )}

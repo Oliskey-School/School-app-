@@ -23,11 +23,12 @@ export class PayrollService {
         });
     }
 
-    static async getPayslips(schoolId: string, teacherId: string) {
+    static async getPayslips(schoolId: string, teacherId: string, branchId?: string) {
         return await prisma.payslip.findMany({
             where: {
                 school_id: schoolId,
-                teacher_id: teacherId
+                teacher_id: teacherId,
+                ...(branchId ? { branch_id: branchId } : {})
             },
             include: { PayslipItem: true },
             orderBy: { period_start: 'desc' }
@@ -63,6 +64,8 @@ export class PayrollService {
                 await tx.payslipItem.createMany({
                     data: items.map((item: any) => ({
                         payslip_id: payslip.id,
+                        school_id: schoolId,
+                        branch_id: branchId || null,
                         item_type: item.item_type,
                         item_name: item.item_name,
                         amount: item.amount,
@@ -175,25 +178,27 @@ export class PayrollService {
         });
     }
 
-    static async getLeaveRequests(schoolId: string, teacherId?: string) {
+    static async getLeaveRequests(schoolId: string, teacherId?: string, branchId?: string) {
         return await prisma.leaveRequest.findMany({
-            where: { 
+            where: {
                 school_id: schoolId,
-                teacher_id: teacherId 
+                ...(teacherId ? { teacher_id: teacherId } : {}),
+                ...(branchId ? { branch_id: branchId } : {})
             },
-            include: { type: true },
+            include: { type: true, teacher: { select: { id: true, full_name: true } } },
             orderBy: { created_at: 'desc' }
         });
     }
 
     static async submitLeaveRequest(schoolId: string, branchId: string | undefined, teacherId: string, data: any) {
-        const { leave_type_id, start_date, end_date, days_requested, reason, notes } = data;
+        const { leave_type_id, leave_type, start_date, end_date, days_requested, reason, notes } = data;
         const result = await prisma.leaveRequest.create({
             data: {
                 school_id: schoolId,
                 branch_id: branchId || null,
                 teacher_id: teacherId,
                 leave_type_id: leave_type_id,
+                leave_type: leave_type || null,
                 start_date: new Date(start_date),
                 end_date: new Date(end_date),
                 days_requested: Number(days_requested),

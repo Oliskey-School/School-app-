@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { AlertTriangle } from 'lucide-react';
 import { useSubscriptionGate } from '../../hooks/useSubscriptionGate';
 

@@ -92,7 +92,7 @@ const IDCardGenerator: React.FC<IDCardGeneratorProps> = ({ user, userType }) => 
             });
 
             pdf.addImage(imgData, 'PNG', 0, 0, 85.6, 53.98);
-            pdf.save(`${user.name.replace(/\s+/g, '_')}_ID_Card.pdf`);
+            pdf.save(`${(user.name || (user as any).full_name || 'ID_Card').replace(/\s+/g, '_')}_ID_Card.pdf`);
             toast.success('ID Card generated and downloaded!');
         } catch (error) {
             console.error('Error generating PDF:', error);
@@ -131,7 +131,7 @@ const IDCardGenerator: React.FC<IDCardGeneratorProps> = ({ user, userType }) => 
         : `/verify/${cardNumber}`;
 
     const schoolLogo = (currentSchool as any)?.logoUrl || (currentSchool as any)?.logo_url || (currentSchool as any)?.logo;
-    const displayName = user.name;
+    const displayName = user.name || (user as any).full_name || 'Unnamed';
     const displayId = (user as any).school_generated_id || (user as any).schoolGeneratedId || 'Pending';
 
     return (
@@ -197,10 +197,10 @@ const IDCardGenerator: React.FC<IDCardGeneratorProps> = ({ user, userType }) => 
                                 <div className="relative">
                                     <div className="w-44 h-44 rounded-[32px] overflow-hidden bg-white shadow-2xl border-4 border-white">
                                         {user.avatarUrl ? (
-                                            <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" crossOrigin="anonymous" />
+                                            <img src={user.avatarUrl} alt={displayName} className="w-full h-full object-cover" crossOrigin="anonymous" />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-100 to-purple-100">
-                                                <span className="text-6xl font-bold text-indigo-700">{user.name.charAt(0)}</span>
+                                                <span className="text-6xl font-bold text-indigo-700">{displayName.charAt(0)}</span>
                                             </div>
                                         )}
                                     </div>

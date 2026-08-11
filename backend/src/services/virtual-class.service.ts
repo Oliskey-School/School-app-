@@ -63,7 +63,23 @@ export class VirtualClassService {
         });
     }
 
-    static async recordAttendance(sessionId: string, studentId: string) {
+    static async recordAttendance(schoolId: string, branchId: string | undefined, sessionId: string, studentId: string) {
+        // Confirm both the session and the student belong to this caller's
+        // tenant before recording attendance — otherwise attendance could be
+        // written against another school's session/student by guessing ids.
+        const [session, student] = await Promise.all([
+            prisma.virtualClassSession.findFirst({
+                where: { id: sessionId, school_id: schoolId, ...(branchId && branchId !== 'all' ? { branch_id: branchId } : {}) },
+                select: { id: true, branch_id: true },
+            }),
+            prisma.student.findFirst({
+                where: { id: studentId, school_id: schoolId, ...(branchId && branchId !== 'all' ? { branch_id: branchId } : {}) },
+                select: { id: true },
+            }),
+        ]);
+        if (!session) throw new Error('Class session not found in your school/branch');
+        if (!student) throw new Error('Student not found in your school/branch');
+
         return prisma.virtualClassAttendance.upsert({
             where: {
                 session_id_student_id: {
@@ -77,6 +93,8 @@ export class VirtualClassService {
             create: {
                 session_id: sessionId,
                 student_id: studentId,
+                school_id: schoolId,
+                branch_id: session.branch_id,
                 joined_at: new Date()
             }
         } as any);

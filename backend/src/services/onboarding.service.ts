@@ -48,6 +48,10 @@ export class OnboardingService {
 
         if (!schoolCode) throw new Error('School code is required and must contain letters or numbers.');
         if (!mainBranchCode) throw new Error('Branch code is required and must contain letters or numbers.');
+        if (!data.schoolName?.trim()) throw new Error('School name is required.');
+        if (!data.adminName?.trim()) throw new Error('Admin name is required.');
+        if (!data.adminEmail?.trim()) throw new Error('Admin email is required.');
+        if (!data.adminPassword || data.adminPassword.length < 8) throw new Error('Admin password is required and must be at least 8 characters.');
 
         // Check for existing school code
         const existingCode = await prisma.school.findUnique({
@@ -176,6 +180,19 @@ export class OnboardingService {
                     base_role: 'ADMIN',
                     is_active: true,
                 }
+            });
+
+            // Seed default leave types so the Leave Request feature isn't dead-on-arrival:
+            // with zero LeaveType rows, the "New Request" dropdown has no options and no
+            // teacher can ever submit a leave request. There is no admin UI or API to
+            // create leave types after the fact, so this is the only point they get set up.
+            await tx.leaveType.createMany({
+                data: [
+                    { school_id: schoolId, name: 'Annual Leave', days_allowed: 21 },
+                    { school_id: schoolId, name: 'Sick Leave', days_allowed: 10 },
+                    { school_id: schoolId, name: 'Casual Leave', days_allowed: 5 },
+                    { school_id: schoolId, name: 'Maternity/Paternity Leave', days_allowed: 90 },
+                ],
             });
 
             // Mark setup complete so a duplicate-code check doesn't treat this as partial

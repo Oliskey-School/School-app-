@@ -51,8 +51,8 @@ const LeaveApproval: React.FC<LeaveApprovalProps> = () => {
             const formatted: LeaveRequestData[] = (data || []).map((item: any) => ({
                 id: String(item.id),
                 teacher_id: item.teacher_id,
-                teacher_name: item.teachers?.full_name || item.teacher_name || 'Unknown Teacher',
-                leave_type: item.leave_types?.name || item.leave_type || 'Unknown Type',
+                teacher_name: item.teacher?.full_name || item.teacher_name || 'Unknown Teacher',
+                leave_type: item.type?.name || item.leave_type || 'Unknown Type',
                 start_date: item.start_date,
                 end_date: item.end_date,
                 days_requested: item.days_requested,

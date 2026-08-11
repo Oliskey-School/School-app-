@@ -23,7 +23,7 @@ export const createPlan = async (req: AuthRequest, res: Response) => {
 export const addFunds = async (req: AuthRequest, res: Response) => {
     try {
         const { planId, amount } = req.body;
-        const result = await SavingsService.addFunds(planId, amount);
+        const result = await SavingsService.addFunds(req.user.id, planId, amount);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });

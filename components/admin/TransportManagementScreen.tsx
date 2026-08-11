@@ -81,11 +81,22 @@ const TransportManagementScreen = () => {
     const [routes, setRoutes] = useState<TransportRoute[]>([]);
     const [stops, setStops] = useState<TransportStop[]>([]);
     const [assignments, setAssignments] = useState<TransportAssignment[]>([]);
+    const [students, setStudents] = useState<{ id: string; full_name: string; class?: string }[]>([]);
     const [isAdding, setIsAdding] = useState(false);
     const [formData, setFormData] = useState<any>({});
     const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => { fetchData(); }, [activeTab, currentSchool]);
+
+    // The assignment form needs a student picker and a route picker
+    // regardless of which tab is currently active (routes are otherwise
+    // only fetched when the Routes tab itself is active) — fetched once
+    // rather than re-fetched per tab switch.
+    useEffect(() => {
+        if (!currentSchool) return;
+        api.getStudents(currentSchool.id).then(setStudents).catch(() => setStudents([]));
+        api.getTransportRoutes(currentSchool.id).then(setRoutes).catch(() => {});
+    }, [currentSchool]);
 
     useAutoSync(['transport_routes', 'transport_stops', 'transport_assignments'], () => {
         console.log('🔄 [TransportManagement] Real-time auto-sync triggered');
@@ -411,6 +422,28 @@ const TransportManagementScreen = () => {
                                             <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Drop-off</label>
                                             <input type="time" className="w-full px-5 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold" value={formData.dropoff_time || ''} onChange={e => setFormData({ ...formData, dropoff_time: e.target.value })} />
                                         </div>
+                                    </div>
+                                </>
+                            )}
+                            {activeTab === 'assignments' && (
+                                <>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Student <span className="text-red-500">*</span></label>
+                                        <select className="w-full px-5 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold" value={formData.student_id || ''} onChange={e => setFormData({ ...formData, student_id: e.target.value })}>
+                                            <option value="">Select Student</option>
+                                            {students.map(s => <option key={s.id} value={s.id}>{s.full_name}{s.class ? ` — ${s.class}` : ''}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Route <span className="text-red-500">*</span></label>
+                                        <select className="w-full px-5 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold" value={formData.route_id || ''} onChange={e => setFormData({ ...formData, route_id: e.target.value })}>
+                                            <option value="">Select Route</option>
+                                            {routes.map(r => <option key={r.id} value={r.id}>{r.route_name} ({r.bus_number})</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Academic Year</label>
+                                        <input type="text" placeholder="e.g., 2025/2026" className="w-full px-5 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-semibold" value={formData.academic_year || ''} onChange={e => setFormData({ ...formData, academic_year: e.target.value })} />
                                     </div>
                                 </>
                             )}

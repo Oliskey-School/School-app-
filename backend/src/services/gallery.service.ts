@@ -2,9 +2,9 @@ import prisma from '../config/database';
 import { SocketService } from './socket.service';
 
 export class GalleryService {
-    static async getPhotos(schoolId: string) {
+    static async getPhotos(schoolId: string, branchId?: string) {
         return await prisma.schoolGallery.findMany({
-            where: { school_id: schoolId },
+            where: { school_id: schoolId, ...(branchId ? { branch_id: branchId } : {}) },
             orderBy: { created_at: 'desc' }
         });
     }

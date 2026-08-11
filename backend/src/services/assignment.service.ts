@@ -203,6 +203,17 @@ export class AssignmentService {
     }
 
     static async submitAssignment(schoolId: string, branchId: string | undefined, studentId: string, assignmentId: string, submissionData: any) {
+        // Confirm the assignment actually belongs to this student's school/branch
+        // before recording a submission against it.
+        const owned = await prisma.assignment.findFirst({
+            where: {
+                id: assignmentId,
+                class: { school_id: schoolId, ...(branchId && branchId !== 'all' ? { branch_id: branchId } : {}) },
+            },
+            select: { id: true },
+        });
+        if (!owned) throw new Error('Assignment not found in your school/branch');
+
         // Map frontend fields to Prisma fields if needed
         const insertData: any = {
             text_submission: submissionData.text_submission || submissionData.submission_text || submissionData.content,

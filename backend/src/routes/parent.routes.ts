@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getParents, createParent, getParentById, updateParent, deleteParent, getMyChildren, getChildrenForParent, createAppointment, volunteerSignup, markNotificationRead, getParentsByClassId, getMyProfile, getChildOverview, getStudentFees, recordPayment, getPTAMeetings, getLearningResources, getParentMessages, sendMessage, getNotifications, getVolunteeringOpportunities, linkChild, unlinkChild, getComplaints, createComplaint, getParentTodayUpdate, getTeacherAvailability } from '../controllers/parent.controller';
+import { getParents, createParent, getParentById, updateParent, deleteParent, getMyChildren, getChildrenForParent, createAppointment, getMyAppointments, volunteerSignup, markNotificationRead, getParentsByClassId, getMyProfile, getChildOverview, getStudentFees, recordPayment, getPTAMeetings, getLearningResources, getParentMessages, sendMessage, getNotifications, getVolunteeringOpportunities, linkChild, unlinkChild, getComplaints, createComplaint, getParentTodayUpdate, getTeacherAvailability } from '../controllers/parent.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { requireTenant } from '../middleware/tenant.middleware';
 
@@ -19,6 +19,7 @@ router.post('/link-child', linkChild);
 router.post('/link-child-unique', linkChild);
 router.post('/unlink-child', unlinkChild);
 router.post('/appointments', createAppointment);
+router.get('/me/appointments', getMyAppointments);
 router.post('/volunteer-signup', volunteerSignup);
 router.get('/me/children/:studentId/overview', getChildOverview);
 router.get('/me/children/:studentId/fees', getStudentFees);

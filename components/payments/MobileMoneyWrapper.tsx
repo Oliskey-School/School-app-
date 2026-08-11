@@ -6,8 +6,7 @@
 import React, { useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { Fee } from '../../types';
-import { initializeTransaction, verifyTransaction } from '../../lib/payments';
-import { api } from '../../lib/api';
+import { recordParentGatewayPayment } from '../../lib/payments';
 
 interface MobileMoneyWrapperProps {
     fee: Fee;
@@ -61,16 +60,11 @@ export const MobileMoneyWrapper: React.FC<MobileMoneyWrapperProps> = ({
         try {
             const reference = `MM-${Date.now()}-${fee.id}`;
 
-            // Create pending transaction
-            await initializeTransaction(
-                fee.id,
-                fee.studentId,
-                fee.amount,
-                reference,
-                schoolId || '',
-                branchId,
-                'Mobile Money'
-            );
+            // No pending transaction record is pre-created here — parents
+            // don't have permission to write fee/payment records directly.
+            // The payment is recorded only once Paystack confirms success (see
+            // pollPaymentStatus below), which independently re-verifies the
+            // charge server-side via recordParentGatewayPayment().
 
             // Initialize Paystack Mobile Money payment
             const response = await fetch('https://api.paystack.co/transaction/initialize', {
@@ -130,7 +124,11 @@ export const MobileMoneyWrapper: React.FC<MobileMoneyWrapperProps> = ({
             attempts++;
 
             try {
-                const result = await verifyTransaction(reference);
+                // Mobile money here is processed through Paystack's API, so it
+                // is verified as a 'paystack' gateway reference. This
+                // independently re-verifies against Paystack's own API
+                // server-side and only records the payment once confirmed.
+                const result = await recordParentGatewayPayment(fee.id, fee.studentId, reference, 'paystack', branchId);
 
                 if (result.success) {
                     clearInterval(interval);
@@ -144,6 +142,7 @@ export const MobileMoneyWrapper: React.FC<MobileMoneyWrapperProps> = ({
                         console.error('Error sending payment notification:', notifError);
                     }
 
+                    toast.success('Payment successful!');
                     if (onSuccess) onSuccess();
                 }
             } catch (error) {

@@ -30,6 +30,16 @@ export class SavingsService {
     static async createPlan(schoolId: string, parentId: string, data: any) {
         const resolvedParentId = await this.resolveParentId(parentId);
         if (!resolvedParentId) throw new Error('Parent not found');
+
+        // Confirm the student is actually this parent's own child before
+        // creating a savings plan for them — otherwise a plan could be created
+        // against an unrelated student (even in another school) by id.
+        const isOwnChild = await prisma.parentChild.findFirst({
+            where: { parent_id: resolvedParentId, student_id: data.student_id },
+            select: { id: true },
+        });
+        if (!isOwnChild) throw new Error('Student not found for this parent');
+
         const plan = await prisma.savingsPlan.create({
             data: {
                 school_id: schoolId,
@@ -47,7 +57,22 @@ export class SavingsService {
         return plan;
     }
 
-    static async addFunds(planId: string, amount: number) {
+    static async addFunds(requesterId: string, planId: string, amount: number) {
+        if (!(Number(amount) > 0)) throw new Error('Amount must be greater than zero');
+
+        const resolvedParentId = await this.resolveParentId(requesterId);
+        if (!resolvedParentId) throw new Error('Parent not found');
+
+        // Confirm the plan actually belongs to the requesting parent before
+        // mutating it — otherwise any authenticated parent could deposit into
+        // (and thus manipulate) another family's savings plan by guessing/
+        // observing a planId, including across schools.
+        const existing = await prisma.savingsPlan.findFirst({
+            where: { id: planId, parent_id: resolvedParentId, is_deleted: false },
+            select: { id: true },
+        });
+        if (!existing) throw new Error('Savings plan not found for this parent');
+
         const plan = await prisma.savingsPlan.update({
             where: { id: planId },
             data: {

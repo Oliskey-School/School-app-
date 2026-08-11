@@ -2,18 +2,19 @@ import prisma from '../config/database';
 import { SocketService } from './socket.service';
 
 export class PolicyService {
-    static async getPolicies(schoolId: string) {
+    static async getPolicies(schoolId: string, branchId?: string) {
         return prisma.schoolPolicy.findMany({
-            where: { school_id: schoolId },
+            where: { school_id: schoolId, ...(branchId ? { branch_id: branchId } : {}) },
             orderBy: { created_at: 'desc' }
         });
     }
 
-    static async createPolicy(schoolId: string, data: any) {
+    static async createPolicy(schoolId: string, branchId: string | undefined, data: any) {
         const policy = await prisma.schoolPolicy.create({
             data: {
                 ...data,
-                school_id: schoolId
+                school_id: schoolId,
+                branch_id: branchId || data.branch_id || null,
             }
         });
 
@@ -21,27 +22,28 @@ export class PolicyService {
         return policy;
     }
 
-    static async deletePolicy(schoolId: string, id: string) {
+    static async deletePolicy(schoolId: string, branchId: string | undefined, id: string) {
         const result = await prisma.schoolPolicy.deleteMany({
-            where: { id, school_id: schoolId }
+            where: { id, school_id: schoolId, ...(branchId ? { branch_id: branchId } : {}) }
         });
 
         SocketService.emitToSchool(schoolId, 'notice:updated', { action: 'delete_policy', policyId: id });
         return result;
     }
 
-    static async getPermissionSlips(schoolId: string) {
+    static async getPermissionSlips(schoolId: string, branchId?: string) {
         return prisma.permissionSlip.findMany({
-            where: { school_id: schoolId },
+            where: { school_id: schoolId, ...(branchId ? { branch_id: branchId } : {}) },
             orderBy: { created_at: 'desc' }
         });
     }
 
-    static async createPermissionSlip(schoolId: string, data: any) {
+    static async createPermissionSlip(schoolId: string, branchId: string | undefined, data: any) {
         const slip = await prisma.permissionSlip.create({
             data: {
                 ...data,
-                school_id: schoolId
+                school_id: schoolId,
+                branch_id: branchId || data.branch_id || null,
             }
         });
 
@@ -49,14 +51,14 @@ export class PolicyService {
         return slip;
     }
 
-    static async bulkCreatePermissionSlips(schoolId: string, slips: any[]) {
+    static async bulkCreatePermissionSlips(schoolId: string, branchId: string | undefined, slips: any[]) {
         const result = await prisma.permissionSlip.createMany({
             data: slips.map(s => ({
                 school_id: schoolId,
                 title: s.title,
                 description: s.description,
                 status: s.status || 'active',
-                ...(s.branch_id ? { branch_id: s.branch_id } : {}),
+                branch_id: branchId || s.branch_id || null,
             }))
         });
 
@@ -64,9 +66,9 @@ export class PolicyService {
         return result;
     }
 
-    static async updatePermissionSlip(schoolId: string, id: string, updates: any) {
+    static async updatePermissionSlip(schoolId: string, branchId: string | undefined, id: string, updates: any) {
         const result = await prisma.permissionSlip.updateMany({
-            where: { id, school_id: schoolId },
+            where: { id, school_id: schoolId, ...(branchId ? { branch_id: branchId } : {}) },
             data: updates
         });
 
@@ -74,9 +76,9 @@ export class PolicyService {
         return result;
     }
 
-    static async deletePermissionSlip(schoolId: string, id: string) {
+    static async deletePermissionSlip(schoolId: string, branchId: string | undefined, id: string) {
         const result = await prisma.permissionSlip.deleteMany({
-            where: { id, school_id: schoolId }
+            where: { id, school_id: schoolId, ...(branchId ? { branch_id: branchId } : {}) }
         });
 
         SocketService.emitToSchool(schoolId, 'notice:updated', { action: 'delete_slip', slipId: id });

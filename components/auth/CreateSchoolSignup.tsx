@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { SchoolLogoIcon, UserIcon, LockIcon, EyeIcon, EyeOffIcon, BuildingLibraryIcon, GlobeIcon, CheckCircleIcon, ArrowRightIcon, ChevronLeftIcon, PhoneIcon, MapPinIcon } from '../../constants';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2 } from 'lucide-react';

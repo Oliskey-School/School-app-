@@ -35,7 +35,11 @@ export class IdGeneratorService {
      */
     private static async acquireIdLock(tx: any, lockKey: string): Promise<void> {
         if (!tx) return; // No real transaction to hold the lock for — see doc above.
-        await tx.$queryRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1)::bigint)', lockKey);
+        // pg_advisory_xact_lock returns void — $queryRawUnsafe tries to deserialize
+        // the result set and fails on a void column ("Failed to deserialize column
+        // of type 'void'"). Only the locking side-effect matters here, so use
+        // $executeRawUnsafe, which doesn't attempt to parse a result set at all.
+        await tx.$executeRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1)::bigint)', lockKey);
     }
 
     /**

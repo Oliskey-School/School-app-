@@ -141,7 +141,7 @@ const ReportsScreen: React.FC<ReportsScreenProps> = ({ schoolId, currentBranchId
 
   // Unified Backend-driven Auto Sync
   useAutoSync(['academic_performance'], () => {
-    console.log('ðŸ”„ [ReportsScreen] Auto-sync triggered');
+    console.log('🔄 [ReportsScreen] Auto-sync triggered');
     fetchReportsData();
   });
 
@@ -150,7 +150,13 @@ const ReportsScreen: React.FC<ReportsScreenProps> = ({ schoolId, currentBranchId
     setError(null);
     try {
       // Fetch Performance Data via API instead of a direct DB client
-      const performanceData = await api.getSchoolPerformance(schoolId, currentBranchId || undefined);
+      // Note: getSchoolPerformance returns one entry per student, each carrying an
+      // `academicRecords` array of { subject, score, ... } rows for that student —
+      // it is not a flat array of subject/score records.
+      const performanceByStudent = await api.getSchoolPerformance(schoolId, currentBranchId || undefined);
+      const performanceData = (performanceByStudent || []).flatMap((p: any) =>
+        (p.academicRecords || []).map((r: any) => ({ ...r, student_id: p.student_id }))
+      );
 
       // Use api.getStudents which works in demo mode via backend
       const studentsData = await api.getStudents(schoolId, currentBranchId || undefined, { includeUntagged: true });
@@ -158,6 +164,7 @@ const ReportsScreen: React.FC<ReportsScreenProps> = ({ schoolId, currentBranchId
       // 1. Calculate Subject Averages
       const subjectMap: { [key: string]: { total: number, count: number } } = {};
       performanceData?.forEach(p => {
+        if (!p.subject) return;
         if (!subjectMap[p.subject]) subjectMap[p.subject] = { total: 0, count: 0 };
         subjectMap[p.subject].total += (p.score || 0);
         subjectMap[p.subject].count += 1;

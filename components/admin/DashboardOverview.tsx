@@ -46,7 +46,7 @@ import DonutChart from '../ui/DonutChart';
 import { EmergencyBroadcastModal } from './EmergencyBroadcastModal';
 import { AlertTriangle, Activity, Flame, ShieldCheck, Shield, FileText, Rocket, Beaker, Calendar, TrendingUp, Building2, Bus, BarChart3, Database, Monitor, Star, Receipt, Clock, FileCheck, Download, BellRing, LayoutGrid, GraduationCap, QrCode, ScanLine, Archive, UsersRound, ClipboardCheck, Repeat, ShieldAlert, ClipboardEdit, LogOut, DoorOpen, Gauge, School, Landmark, Settings } from 'lucide-react';
 import AIInsightsPanel from '../shared/AIInsightsPanel';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { useProfile } from '../../context/ProfileContext';
 import { useApi } from '../../lib/hooks/useApi';

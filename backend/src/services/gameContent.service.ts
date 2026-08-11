@@ -141,18 +141,30 @@ const BANK: Record<string, Partial<Record<Band, Curated[]>>> = {
         lower: [
             { prompt: 'Who leads a school?', correct: 'Head teacher', distractors: ['Doctor', 'Driver', 'Farmer'], explanation: 'A head teacher (principal) leads a school.' },
             { prompt: 'Which is a means of transport?', correct: 'Car', distractors: ['Chair', 'Plate', 'Pillow'], explanation: 'A car carries people from place to place.' },
+            { prompt: 'Which of these is a large body of salt water?', correct: 'Ocean', distractors: ['Puddle', 'River', 'Pond'], explanation: 'Oceans are the largest bodies of salt water on Earth.' },
+            { prompt: 'Where do you go to borrow books?', correct: 'Library', distractors: ['Market', 'Farm', 'Airport'], explanation: 'A library lends books to readers.' },
         ],
         mid: [
             { prompt: 'The capital city of Nigeria is:', correct: 'Abuja', distractors: ['Lagos', 'Kano', 'Ibadan'], explanation: 'Abuja became the capital in 1991.' },
             { prompt: 'A map shows direction using a:', correct: 'Compass', distractors: ['Ruler', 'Clock', 'Calendar'], explanation: 'A compass shows north, south, east and west.' },
+            { prompt: 'Which is the largest continent by land area?', correct: 'Asia', distractors: ['Africa', 'Europe', 'Australia'], explanation: 'Asia is the largest continent, covering about 30% of Earth\'s land.' },
+            { prompt: 'A large group of islands is called an:', correct: 'Archipelago', distractors: ['Isthmus', 'Peninsula', 'Plateau'], explanation: 'An archipelago is a chain or cluster of islands.' },
+            { prompt: 'Which line divides the Earth into Northern and Southern hemispheres?', correct: 'Equator', distractors: ['Prime Meridian', 'Tropic of Cancer', 'International Date Line'], explanation: 'The Equator is the imaginary line at 0° latitude.' },
         ],
         jss: [
             { prompt: 'The three arms of government are Executive, Legislature and:', correct: 'Judiciary', distractors: ['Military', 'Police', 'Civil Service'], explanation: 'The judiciary interprets the law.' },
             { prompt: 'Which continent is Nigeria in?', correct: 'Africa', distractors: ['Asia', 'Europe', 'South America'], explanation: 'Nigeria is in West Africa.' },
+            { prompt: 'The world\'s largest desert (by area) is the:', correct: 'Sahara', distractors: ['Gobi', 'Kalahari', 'Atacama'], explanation: 'The Sahara in North Africa is the largest hot desert on Earth.' },
+            { prompt: 'Mount Everest, the world\'s tallest mountain, is located in:', correct: 'Nepal', distractors: ['Kenya', 'Peru', 'Switzerland'], explanation: 'Mount Everest sits on the border of Nepal and Tibet (China).' },
+            { prompt: 'Which ocean is the largest on Earth?', correct: 'Pacific Ocean', distractors: ['Atlantic Ocean', 'Indian Ocean', 'Arctic Ocean'], explanation: 'The Pacific Ocean covers more area than any other ocean.' },
         ],
         sss: [
             { prompt: 'Democracy means government by the:', correct: 'People', distractors: ['Army', 'King alone', 'Few rich'], explanation: 'Democracy is rule by the people, often via elected representatives.' },
             { prompt: 'The longest river in Africa is the:', correct: 'Nile', distractors: ['Niger', 'Congo', 'Volta'], explanation: 'The Nile is the longest river in Africa.' },
+            { prompt: 'Which country has the largest population in the world?', correct: 'India', distractors: ['China', 'United States', 'Indonesia'], explanation: 'India overtook China as the most populous country in 2023.' },
+            { prompt: 'The Great Barrier Reef is located off the coast of:', correct: 'Australia', distractors: ['Brazil', 'Mexico', 'Thailand'], explanation: 'It lies in the Coral Sea off Queensland, Australia.' },
+            { prompt: 'Which mountain range separates Europe from Asia?', correct: 'Ural Mountains', distractors: ['Andes', 'Alps', 'Atlas Mountains'], explanation: 'The Ural Mountains form part of the conventional Europe-Asia boundary.' },
+            { prompt: 'The Amazon Rainforest is located primarily in:', correct: 'Brazil', distractors: ['Indonesia', 'Congo', 'Colombia'], explanation: 'Most of the Amazon Rainforest lies within Brazil.' },
         ],
     },
     ict: {

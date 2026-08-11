@@ -6,8 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { Fee } from '../../types';
-import { initializeTransaction, verifyTransaction } from '../../lib/payments';
-import { api } from '../../lib/api';
+import { recordParentGatewayPayment } from '../../lib/payments';
 
 interface FlutterwaveWrapperProps {
     fee: Fee;
@@ -84,16 +83,11 @@ export const FlutterwaveWrapper: React.FC<FlutterwaveWrapperProps> = ({
         const txRef = `FLW-${Date.now()}-${fee.id}`;
 
         try {
-            // Create pending transaction
-            await initializeTransaction(
-                fee.id,
-                fee.studentId,
-                fee.amount,
-                txRef,
-                schoolId || '',
-                branchId,
-                'Flutterwave'
-            );
+            // No pending transaction record is pre-created here — parents
+            // don't have permission to write fee/payment records directly.
+            // The payment is recorded only after Flutterwave confirms success,
+            // via recordParentGatewayPayment() in the callback below, which
+            // independently re-verifies the charge server-side.
 
             // Initialize Flutterwave payment with validated data
             window.FlutterwaveCheckout({
@@ -117,8 +111,15 @@ export const FlutterwaveWrapper: React.FC<FlutterwaveWrapperProps> = ({
 
                     if (response.status === 'successful' || response.status === 'completed') {
                         try {
-                            // Verify transaction
-                            await verifyTransaction(txRef);
+                            // Flutterwave reporting "successful" client-side is not proof of
+                            // payment — re-verify the reference against Flutterwave's own API
+                            // server-side and only then record the payment.
+                            const result = await recordParentGatewayPayment(fee.id, fee.studentId, txRef, 'flutterwave', branchId);
+                            if (!result.success) {
+                                toast.error(result.message || `Payment could not be verified. Please contact support with your reference: ${txRef}`);
+                                setLoading(false);
+                                return;
+                            }
 
                             // Send payment confirmation
                             const { sendPaymentConfirmation } = await import('../../lib/payment-notifications');

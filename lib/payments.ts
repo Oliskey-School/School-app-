@@ -116,6 +116,34 @@ export async function verifyTransaction(reference: string): Promise<{ success: b
 }
 
 /**
+ * Record a parent-initiated gateway payment (Paystack/Flutterwave/mobile-money-via-Paystack).
+ * Called after the payment gateway reports success. The backend independently
+ * re-verifies the reference against the gateway's own API before recording the
+ * payment, so a client-supplied "success" alone can never mark a fee as paid.
+ */
+export async function recordParentGatewayPayment(
+    feeId: string | number | undefined,
+    studentId: string | number,
+    reference: string,
+    gateway: 'paystack' | 'flutterwave',
+    branchId?: string | null
+): Promise<{ success: boolean; message?: string }> {
+    try {
+        await api.recordParentPayment({
+            fee_id: feeId,
+            student_id: studentId,
+            reference,
+            gateway,
+            branch_id: branchId,
+        });
+        return { success: true };
+    } catch (err: any) {
+        console.error('Parent payment recording error:', err);
+        return { success: false, message: err.message };
+    }
+}
+
+/**
  * Fetch Payment History
  */
 export async function fetchPaymentHistory(studentId?: string | number, schoolId?: string, branchId?: string): Promise<Transaction[]> {

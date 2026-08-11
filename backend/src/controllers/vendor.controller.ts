@@ -1,12 +1,13 @@
 import { Response } from 'express';
 import { VendorService } from '../services/vendor.service';
 import { AuthRequest } from '../middleware/auth.middleware';
+import { getEffectiveBranchId } from '../utils/branchScope';
 
 export const getVendors = async (req: AuthRequest, res: Response) => {
     try {
         const { school_id } = req.user;
-        const branchId = req.headers['x-branch-id'] as string;
-        
+        const branchId = getEffectiveBranchId(req.user, undefined, req.headers['x-branch-id'] as string);
+
         const vendors = await VendorService.getVendors(school_id, branchId);
         res.json(vendors);
     } catch (error: any) {
@@ -18,8 +19,8 @@ export const getVendors = async (req: AuthRequest, res: Response) => {
 export const createVendor = async (req: AuthRequest, res: Response) => {
     try {
         const { school_id } = req.user;
-        const branchId = req.headers['x-branch-id'] as string;
-        
+        const branchId = getEffectiveBranchId(req.user, undefined, req.headers['x-branch-id'] as string);
+
         const vendor = await VendorService.createVendor(school_id, branchId, req.body);
         res.status(201).json(vendor);
     } catch (error: any) {

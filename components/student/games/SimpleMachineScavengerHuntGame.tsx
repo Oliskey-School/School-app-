@@ -63,33 +63,35 @@ const SimpleMachineScavengerHuntGame: React.FC<SimpleMachineScavengerHuntGamePro
         setScanMessage(randomComment);
 
         setTimeout(() => {
-            setItems(prev => prev.map(item => {
-                if (item.id === id && !item.found) {
-                    confetti({
-                        particleCount: 100,
-                        spread: 70,
-                        origin: { y: 0.6 },
-                        colors: ['#FFD700', '#FFA500', '#00FF00']
-                    });
-                    setScore(s => s + 150);
-                    addXP(150);
+            // Look up current state before mutating so we only award XP / submit a
+            // score once per item, and don't do it from inside a setState updater
+            // (React StrictMode double-invokes updater functions in dev, which
+            // would double-award XP and write duplicate score rows).
+            const item = items.find(i => i.id === id);
+            if (item && !item.found) {
+                confetti({
+                    particleCount: 100,
+                    spread: 70,
+                    origin: { y: 0.6 },
+                    colors: ['#FFD700', '#FFA500', '#00FF00']
+                });
+                setScore(s => s + 150);
+                addXP(150);
 
-                    // PERSIST TO DATABASE
-                    api.submitGameScore({
-                        game_id: 'simple-machine-scavenger-hunt',
-                        game_name: "Dr. Gizmo's Gadget Hunt",
-                        score: score + 150,
-                        metadata: {
-                            itemId: id,
-                            itemName: item.name,
-                            totalFound: items.filter(i => i.found).length + 1
-                        }
-                    }).catch(err => console.error("Failed to save scavenger score:", err));
+                // PERSIST TO DATABASE
+                api.submitGameScore({
+                    game_id: 'simple-machine-scavenger-hunt',
+                    game_name: "Dr. Gizmo's Gadget Hunt",
+                    score: score + 150,
+                    metadata: {
+                        itemId: id,
+                        itemName: item.name,
+                        totalFound: items.filter(i => i.found).length + 1
+                    }
+                }).catch(err => console.error("Failed to save scavenger score:", err));
 
-                    return { ...item, found: true };
-                }
-                return item;
-            }));
+                setItems(prev => prev.map(i => i.id === id ? { ...i, found: true } : i));
+            }
             setScanningId(null);
         }, 1500);
     };

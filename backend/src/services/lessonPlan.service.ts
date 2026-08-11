@@ -35,7 +35,18 @@ export class LessonPlanService {
         // Map camelCase fields to snake_case for Prisma
         // Destructure ALL camelCase variants so they don't leak into the spread
         const { teacherId, classId, subjectId, fileUrl, schoolId: _s, branchId: _b, ...rest } = planData;
-        
+
+        // Confirm the class actually belongs to this teacher's school/branch
+        // before attaching a lesson plan to it — otherwise a plan could be
+        // created against another branch's class by id.
+        if (classId) {
+            const owned = await prisma.class.findFirst({
+                where: { id: classId, school_id: schoolId, ...(branchId && branchId !== 'all' ? { branch_id: branchId } : {}) },
+                select: { id: true },
+            });
+            if (!owned) throw new Error('Class not found in your school/branch');
+        }
+
         const plan = await prisma.lessonNote.create({
             data: {
                 ...rest,
@@ -52,7 +63,7 @@ export class LessonPlanService {
         return plan;
     }
 
-    static async updateLessonPlan(schoolId: string, branchId: string | undefined, id: string, updates: any) {
+    static async updateLessonPlan(schoolId: string, branchId: string | undefined, id: string, updates: any, ownTeacherId?: string | null) {
         const { teacherId, classId, subjectId, fileUrl, ...rest } = updates;
         const data: any = { ...rest };
         if (teacherId) data.teacher_id = teacherId;
@@ -69,16 +80,29 @@ export class LessonPlanService {
             where.branch_id = branchId;
         }
 
-        const plan = await prisma.lessonNote.update({
-            where,
-            data
-        });
+        // A TEACHER caller (ownTeacherId set) may only edit lesson plans they
+        // authored. Admin-tier callers pass ownTeacherId = null and are unrestricted.
+        if (ownTeacherId) {
+            where.teacher_id = ownTeacherId;
+        }
+
+        let plan;
+        try {
+            plan = await prisma.lessonNote.update({ where, data });
+        } catch (e: any) {
+            if (ownTeacherId && e?.code === 'P2025') {
+                const err: any = new Error('You do not have permission to edit this lesson plan');
+                err.status = 403;
+                throw err;
+            }
+            throw e;
+        }
 
         SocketService.emitToSchool(schoolId, 'academic:updated', { action: 'update_lesson_plan', planId: id });
         return plan;
     }
 
-    static async deleteLessonPlan(schoolId: string, branchId: string | undefined, id: string) {
+    static async deleteLessonPlan(schoolId: string, branchId: string | undefined, id: string, ownTeacherId?: string | null) {
         const where: any = {
             id,
             school_id: schoolId
@@ -88,7 +112,20 @@ export class LessonPlanService {
             where.branch_id = branchId;
         }
 
-        const result = await prisma.lessonNote.delete({ where });
+        if (ownTeacherId) {
+            where.teacher_id = ownTeacherId;
+        }
+
+        try {
+            await prisma.lessonNote.delete({ where });
+        } catch (e: any) {
+            if (ownTeacherId && e?.code === 'P2025') {
+                const err: any = new Error('You do not have permission to delete this lesson plan');
+                err.status = 403;
+                throw err;
+            }
+            throw e;
+        }
         SocketService.emitToSchool(schoolId, 'academic:updated', { action: 'delete_lesson_plan', planId: id });
         return true;
     }

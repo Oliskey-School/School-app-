@@ -42,6 +42,7 @@ const IDCardManagement: React.FC<IDCardManagementProps> = ({ initialUser, initia
             const data = await api.getStudents(currentSchool.id, currentBranchId || undefined, { includeUntagged: true });
             setStudents((data || []).map((s: any) => ({
                 ...s,
+                name: s.full_name || s.name,
                 avatarUrl: s.avatar_url || s.avatarUrl || 'https://i.pravatar.cc/150',
                 schoolGeneratedId: s.school_generated_id || s.schoolGeneratedId,
                 school_generated_id: s.school_generated_id
@@ -61,6 +62,7 @@ const IDCardManagement: React.FC<IDCardManagementProps> = ({ initialUser, initia
             const data = await api.getTeachers(currentSchool.id, currentBranchId || undefined);
             setTeachers((data || []).map((t: any) => ({
                 ...t,
+                name: t.full_name || t.name,
                 avatarUrl: t.avatar_url || t.avatarUrl || 'https://i.pravatar.cc/150',
                 schoolGeneratedId: t.school_generated_id || t.schoolGeneratedId,
                 school_generated_id: t.school_generated_id

@@ -34,7 +34,12 @@ export const getPayslips = async (req: AuthRequest, res: Response) => {
             return res.status(403).json({ message: 'You do not have access to this teacher\'s payslips' });
         }
 
-        const payslips = await PayrollService.getPayslips(req.user.school_id, teacherId);
+        // isAdmin() alone doesn't prove the caller may see THIS teacher — a
+        // branch-locked admin can pass any teacher_id and pass assertOwnsTeacherId
+        // above. Scoping the query itself to the admin's effective branch means a
+        // teacher outside that branch returns empty instead of leaking payslips.
+        const branchId = getEffectiveBranchId(req.user);
+        const payslips = await PayrollService.getPayslips(req.user.school_id, teacherId, branchId);
             
         res.json(payslips || []);
     } catch (error: any) {
@@ -45,7 +50,7 @@ export const getPayslips = async (req: AuthRequest, res: Response) => {
 export const getSalaryArrears = async (req: AuthRequest, res: Response) => {
     try {
         const schoolId = req.user.school_id;
-        const { branchId } = req.query;
+        const branchId = getEffectiveBranchId(req.user, req.query.branchId as string);
         const arrears = await PayrollService.getSalaryArrears(schoolId, branchId as string);
         res.json(arrears);
     } catch (error: any) {
@@ -158,7 +163,8 @@ export const getLeaveRequests = async (req: AuthRequest, res: Response) => {
             teacherId = ownId;
         }
         const schoolId = req.user.school_id;
-        const requests = await PayrollService.getLeaveRequests(schoolId, teacherId);
+        const branchId = getEffectiveBranchId(req.user);
+        const requests = await PayrollService.getLeaveRequests(schoolId, teacherId, branchId);
         res.json(requests || []);
     } catch (error: any) {
         res.status(500).json({ message: error.message });

@@ -45,6 +45,7 @@ const ClassBattleScreen: React.FC<ClassBattleScreenProps> = ({ student, studentI
     const [players, setPlayers] = useState<RosterPlayer[]>([]);
     const [classmates, setClassmates] = useState<any[]>([]);
     const [busy, setBusy] = useState(false);
+    const [starting, setStarting] = useState(false);
 
     // active question state
     const [q, setQ] = useState<any | null>(null);
@@ -121,10 +122,20 @@ const ClassBattleScreen: React.FC<ClassBattleScreenProps> = ({ student, studentI
 
     const createRoom = (autoStart = false) => {
         setBusy(true);
+        let done = false;
+        const timeout = setTimeout(() => {
+            if (done) return;
+            done = true;
+            setBusy(false);
+            toast.error("Couldn't reach the battle server — check your connection and try again.");
+        }, 10000);
         socketService.emit('cb:create', {
             gameId, schoolId: sId, subject, grade: setup?.grade ?? 5, questionCount: count,
             host: me,
         }, (res: any) => {
+            if (done) return;
+            done = true;
+            clearTimeout(timeout);
             setBusy(false);
             if (res?.error) return toast.error(res.error);
             setCode(res.code); setIsHost(true); setPlayers(res.roster?.players || []);
@@ -137,7 +148,17 @@ const ClassBattleScreen: React.FC<ClassBattleScreenProps> = ({ student, studentI
         const c = joinInput.trim().toUpperCase();
         if (c.length < 4) return toast.error('Enter the 5-letter battle code');
         setBusy(true);
+        let done = false;
+        const timeout = setTimeout(() => {
+            if (done) return;
+            done = true;
+            setBusy(false);
+            toast.error("Couldn't reach the battle server — check your connection and try again.");
+        }, 10000);
         socketService.emit('cb:join', { code: c, player: me }, (res: any) => {
+            if (done) return;
+            done = true;
+            clearTimeout(timeout);
             setBusy(false);
             if (res?.error) return toast.error(res.error);
             setCode(c); setIsHost(false); setPlayers(res.roster?.players || []); setPhase('lobby');
@@ -145,7 +166,19 @@ const ClassBattleScreen: React.FC<ClassBattleScreenProps> = ({ student, studentI
     };
 
     const startBattle = (c: string = code) => {
+        setStarting(true);
+        let done = false;
+        const timeout = setTimeout(() => {
+            if (done) return;
+            done = true;
+            setStarting(false);
+            toast.error("Couldn't start the battle — check your connection and try again.");
+        }, 15000);
         socketService.emit('cb:start', { code: c, playerId: me.id }, (res: any) => {
+            if (done) return;
+            done = true;
+            clearTimeout(timeout);
+            setStarting(false);
             if (res?.error) toast.error(res.error);
         });
     };
@@ -195,7 +228,7 @@ const ClassBattleScreen: React.FC<ClassBattleScreenProps> = ({ student, studentI
                 {/* MENU */}
                 {phase === 'menu' && (
                     <>
-                        <Header title="Class Battle" sub={setup?.className ? `${setup.className} â€¢ play solo or together` : 'Play solo or together'} />
+                        <Header title="Class Battle" sub={setup?.className ? `${setup.className} • play solo or together` : 'Play solo or together'} />
                         <button onClick={() => { setSolo(true); setPhase('create'); }} className="w-full bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-6 text-left text-white shadow-lg hover:opacity-95 transition flex items-center gap-4">
                             <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center"><Zap className="w-6 h-6" /></div>
                             <div>
@@ -305,8 +338,8 @@ const ClassBattleScreen: React.FC<ClassBattleScreenProps> = ({ student, studentI
                         )}
 
                         {isHost ? (
-                            <button onClick={() => startBattle()} className="w-full py-4 rounded-2xl bg-gradient-to-r from-orange-500 to-rose-600 text-white font-black text-lg shadow-lg hover:opacity-95 flex items-center justify-center gap-2">
-                                <Zap className="w-6 h-6" /> Start Battle
+                            <button onClick={() => startBattle()} disabled={starting} className="w-full py-4 rounded-2xl bg-gradient-to-r from-orange-500 to-rose-600 text-white font-black text-lg shadow-lg hover:opacity-95 disabled:opacity-70 flex items-center justify-center gap-2">
+                                {starting ? <Loader2 className="w-6 h-6 animate-spin" /> : <Zap className="w-6 h-6" />} {starting ? 'Starting…' : 'Start Battle'}
                             </button>
                         ) : (
                             <div className="text-center text-gray-500 font-bold py-3 flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Waiting for the host to start…</div>

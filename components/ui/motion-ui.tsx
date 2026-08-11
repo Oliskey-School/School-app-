@@ -703,7 +703,7 @@ export const MotionTooltip = ({
 
   return (
     <div className="relative inline-block" onMouseEnter={() => setIsVisible(true)} onMouseLeave={() => setIsVisible(false)}>
-      {React.cloneElement(children as React.ReactElement, {
+      {React.cloneElement(children as React.ReactElement<{ onMouseEnter?: () => void; onMouseLeave?: () => void }>, {
         onMouseEnter: () => setIsVisible(true),
         onMouseLeave: () => setIsVisible(false),
       })}

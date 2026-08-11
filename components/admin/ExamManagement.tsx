@@ -4,7 +4,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { PlusIcon, EditIcon, TrashIcon, PublishIcon, EXAM_TYPE_COLORS } from '../../constants';
 import CenteredLoader from '../ui/CenteredLoader';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { Exam, Teacher } from '../../types';
 import { api } from '../../lib/api';
 import { fetchExams } from '../../lib/database';

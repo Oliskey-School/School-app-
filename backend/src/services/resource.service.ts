@@ -55,9 +55,9 @@ export class ResourceService {
         });
     }
 
-    static async deleteResource(schoolId: string, id: string) {
-        // Tenant-scoped lookup prevents cross-school deletion via known resource id.
-        const resource = await prisma.resource.findFirst({ where: { id, school_id: schoolId } });
+    static async deleteResource(schoolId: string, branchId: string | undefined, id: string) {
+        // Tenant-scoped lookup prevents cross-school/cross-branch deletion via known resource id.
+        const resource = await prisma.resource.findFirst({ where: { id, school_id: schoolId, ...(branchId ? { branch_id: branchId } : {}) } });
         if (!resource) {
             const err: any = new Error('Resource not found');
             err.statusCode = 404;

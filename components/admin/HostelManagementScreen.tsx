@@ -200,6 +200,64 @@ const RoomTab = ({ rooms, onAdd, onDelete }: { rooms: HostelRoom[]; onAdd: () =>
     </div>
 );
 
+// ─── Allocations Tab ─────────────────────────────────────────────────────
+const AllocationTab = ({ allocations, onAdd, onCheckout }: { allocations: Allocation[]; onAdd: () => void; onCheckout: (id: string) => void }) => (
+    <div className="space-y-6">
+        <div className="flex justify-between items-center">
+            <h2 className="text-lg font-bold text-gray-700">Bed Allocations</h2>
+            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={onAdd} className="flex items-center space-x-2 bg-indigo-600 text-white px-5 py-2.5 rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 font-bold">
+                <PlusIcon className="w-5 h-5" />
+                <span>Allocate Bed</span>
+            </motion.button>
+        </div>
+        {allocations.length === 0 ? (
+            <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-gray-200">
+                <BedDouble className="w-12 h-12 text-gray-200 mx-auto mb-4" />
+                <p className="text-gray-400 font-medium">No bed allocations yet.</p>
+                <p className="text-gray-300 text-sm mt-1">Allocate a student to a room to get started.</p>
+            </div>
+        ) : (
+            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+                <table className="w-full text-left border-collapse">
+                    <thead>
+                        <tr className="bg-gray-50/50 border-b border-gray-100">
+                            <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Student</th>
+                            <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Room</th>
+                            <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Bed</th>
+                            <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Academic Year</th>
+                            <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Status</th>
+                            <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                        {allocations.map((a, ai) => (
+                            <motion.tr key={a.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(ai, 15) * 0.02 }} className="hover:bg-gray-50/30 transition-colors">
+                                <td className="px-6 py-5">
+                                    <div className="flex items-center space-x-3">
+                                        <div className="p-2 bg-gray-100 rounded-xl"><UserCheck className="w-4 h-4 text-gray-600" /></div>
+                                        <span className="font-bold text-gray-800">{a.student?.full_name || '—'}</span>
+                                    </div>
+                                </td>
+                                <td className="px-6 py-5 text-sm font-medium text-gray-600">{a.room?.hostel?.name ? `${a.room.hostel.name} · ` : ''}{a.room?.room_number || '—'}</td>
+                                <td className="px-6 py-5 text-sm font-bold text-gray-700">Bed {a.bed_number}</td>
+                                <td className="px-6 py-5 text-sm font-medium text-gray-600">{a.academic_year}</td>
+                                <td className="px-6 py-5">
+                                    <span className={`text-xs font-bold px-3 py-1 rounded-full ${a.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{a.status}</span>
+                                </td>
+                                <td className="px-6 py-5">
+                                    <button onClick={() => onCheckout(a.id)} className="p-2 hover:bg-red-50 rounded-xl text-gray-400 hover:text-red-500 transition-all">
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </td>
+                            </motion.tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        )}
+    </div>
+);
+
 // ─── Visitors Tab ────────────────────────────────────────────────────────
 const VisitorTab = ({ visitors, onAdd }: { visitors: VisitorLog[]; onAdd: () => void }) => (
     <div className="space-y-6">
@@ -258,12 +316,22 @@ const HostelManagementScreen = () => {
     const [rooms, setRooms] = useState<HostelRoom[]>([]);
     const [allocations, setAllocations] = useState<Allocation[]>([]);
     const [visitors, setVisitors] = useState<VisitorLog[]>([]);
+    const [students, setStudents] = useState<{ id: string; full_name: string; class?: string }[]>([]);
     const [isAdding, setIsAdding] = useState(false);
     const [formData, setFormData] = useState<any>({});
 
     useEffect(() => {
         fetchData();
     }, [activeTab, currentSchool]);
+
+    // The allocation and visitor forms both need a student picker, and the
+    // allocation form also needs a room picker regardless of which tab is
+    // currently active — fetched once rather than re-fetched per tab switch.
+    useEffect(() => {
+        if (!currentSchool) return;
+        api.getStudents(currentSchool.id).then(setStudents).catch(() => setStudents([]));
+        api.getHostelRooms().then(setRooms).catch(() => setRooms([]));
+    }, [currentSchool]);
 
     useAutoSync(['hostels', 'hostel_rooms', 'hostel_allocations', 'hostel_visitors'], () => {
         console.log('🔄 [HostelManagement] Real-time auto-sync triggered');
@@ -328,12 +396,13 @@ const HostelManagementScreen = () => {
     };
 
     const handleDelete = async (type: 'hostels' | 'rooms' | 'allocations', id: string) => {
-        if (!window.confirm('Are you sure you want to delete this record?')) return;
+        const confirmMsg = type === 'allocations' ? 'Check this student out of their bed?' : 'Are you sure you want to delete this record?';
+        if (!window.confirm(confirmMsg)) return;
         try {
             if (type === 'hostels') await api.deleteHostel(id);
             else if (type === 'rooms') await api.deleteHostelRoom(id);
-            // Add other delete methods if needed
-            toast.success('Deleted successfully');
+            else if (type === 'allocations') await api.deleteHostelAllocation(id);
+            toast.success(type === 'allocations' ? 'Student checked out' : 'Deleted successfully');
             fetchData();
         } catch (err: any) {
             toast.error(err.message || 'Failed to delete');
@@ -412,11 +481,53 @@ const HostelManagementScreen = () => {
                             </div>
                         </>
                     )}
+                    {activeTab === 'allocations' && (
+                        <>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Student <span className="text-red-500">*</span></label>
+                                <select className="w-full px-5 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold" value={formData.student_id || ''} onChange={e => setFormData({ ...formData, student_id: e.target.value })}>
+                                    <option value="">Select Student</option>
+                                    {students.map(s => <option key={s.id} value={s.id}>{s.full_name}{s.class ? ` — ${s.class}` : ''}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Room <span className="text-red-500">*</span></label>
+                                <select className="w-full px-5 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold" value={formData.room_id || ''} onChange={e => setFormData({ ...formData, room_id: e.target.value })}>
+                                    <option value="">Select Room</option>
+                                    {rooms.map(r => <option key={r.id} value={r.id}>{r.hostel?.name ? `${r.hostel.name} · ` : ''}{r.room_number} ({r.occupied_beds}/{r.bed_count} beds)</option>)}
+                                </select>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Bed Number</label>
+                                    <input type="number" min={1} className="w-full px-5 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold" value={formData.bed_number || 1} onChange={e => setFormData({ ...formData, bed_number: parseInt(e.target.value) || 1 })} />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Academic Year</label>
+                                    <input type="text" placeholder="e.g., 2025/2026" className="w-full px-5 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-semibold" value={formData.academic_year || ''} onChange={e => setFormData({ ...formData, academic_year: e.target.value })} />
+                                </div>
+                            </div>
+                        </>
+                    )}
                     {activeTab === 'visitors' && (
                         <>
                             <div>
                                 <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Visitor Name <span className="text-red-500">*</span></label>
                                 <input type="text" className="w-full px-5 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-semibold" value={formData.visitor_name || ''} onChange={e => setFormData({ ...formData, visitor_name: e.target.value })} />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Visiting Student <span className="text-red-500">*</span></label>
+                                <select className="w-full px-5 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold" value={formData.student_id || ''} onChange={e => setFormData({ ...formData, student_id: e.target.value })}>
+                                    <option value="">Select Student</option>
+                                    {students.map(s => <option key={s.id} value={s.id}>{s.full_name}{s.class ? ` — ${s.class}` : ''}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Hostel</label>
+                                <select className="w-full px-5 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold" value={formData.hostel_id || ''} onChange={e => setFormData({ ...formData, hostel_id: e.target.value })}>
+                                    <option value="">Select Hostel</option>
+                                    {hostels.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
+                                </select>
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Relationship</label>
@@ -501,13 +612,7 @@ const HostelManagementScreen = () => {
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                     {activeTab === 'hostels' && <HostelTab hostels={hostels} onAdd={() => setIsAdding(true)} onDelete={(id) => handleDelete('hostels', id)} />}
                     {activeTab === 'rooms' && <RoomTab rooms={rooms} onAdd={() => setIsAdding(true)} onDelete={(id) => handleDelete('rooms', id)} />}
-                    {activeTab === 'allocations' && (
-                        <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-gray-200">
-                            <BedDouble className="w-12 h-12 text-gray-200 mx-auto mb-4" />
-                            <p className="text-gray-400 font-medium">Bed allocations will show assigned students here.</p>
-                            <button onClick={() => { setActiveTab('rooms'); }} className="mt-4 text-indigo-600 font-bold text-sm hover:underline">Go to Rooms to allocate beds →</button>
-                        </div>
-                    )}
+                    {activeTab === 'allocations' && <AllocationTab allocations={allocations} onAdd={() => setIsAdding(true)} onCheckout={(id) => handleDelete('allocations', id)} />}
                     {activeTab === 'visitors' && <VisitorTab visitors={visitors} onAdd={() => setIsAdding(true)} />}
                     {activeTab === 'attendance' && (
                         <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-gray-200">

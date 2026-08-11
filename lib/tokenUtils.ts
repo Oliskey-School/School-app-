@@ -17,3 +17,19 @@ export const getJwtExpiryMs = (token: string | null): number | null => {
         return null;
     }
 };
+
+/**
+ * Stable per-user identifier from a JWT (survives token refresh, changes on
+ * login/logout as a different user). Used to namespace the offline data cache
+ * so a shared device never serves one user's cached data to another user who
+ * logs in afterward and goes offline before their own data has loaded.
+ */
+export const getJwtSubject = (token: string | null): string | null => {
+    if (!token || token.split('.').length !== 3) return null;
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+        return payload.sub || payload.user_id || payload.id || null;
+    } catch {
+        return null;
+    }
+};

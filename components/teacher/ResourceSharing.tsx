@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
-import { useProfile } from '../../context/ProfileContext';
 import { toast } from 'react-hot-toast';
 import { DocumentTextIcon, DownloadIcon, PlusIcon } from '../../constants';
 import ResourceUploadModal from '../admin/ResourceUploadModal';
@@ -18,8 +17,11 @@ interface Resource {
     created_at: string;
 }
 
-const ResourceSharing: React.FC = () => {
-    const { profile } = useProfile();
+interface ResourceSharingProps {
+    teacherId?: string;
+}
+
+const ResourceSharing: React.FC<ResourceSharingProps> = ({ teacherId }) => {
     const [resources, setResources] = useState<Resource[]>([]);
     const [filter, setFilter] = useState('all');
     const [loading, setLoading] = useState(true);
@@ -101,7 +103,7 @@ const ResourceSharing: React.FC = () => {
                 isOpen={isUploadOpen}
                 onClose={() => setIsUploadOpen(false)}
                 onUploadComplete={fetchResources}
-                teacherId={profile?.id || ''}
+                teacherId={teacherId || ''}
             />
 
             {/* Filters */}

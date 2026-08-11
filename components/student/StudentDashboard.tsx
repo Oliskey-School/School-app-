@@ -225,7 +225,7 @@ const TodayFocus: React.FC<{
                                 <div className="flex-1 overflow-hidden">
                                     <p className="text-sm font-bold text-gray-800 leading-none truncate">{entry.subject}</p>
                                     <p className="text-xs text-gray-400 mt-1 truncate">
-                                        {entry.class_name} â€¢ {entry.teacher_name || 'Assigned'}
+                                        {entry.class_name} • {entry.teacher_name || 'Assigned'}
                                     </p>
                                 </div>
                             </motion.div>
@@ -900,7 +900,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                                 <p className="font-bold text-gray-900 text-sm truncate">{reminderBanner.title}</p>
                                 <p className="text-gray-600 text-sm">{reminderBanner.message}</p>
                             </div>
-                            <button onClick={() => setReminderBanner(null)} className="flex-shrink-0 w-8 h-8 -mr-1 -mt-1 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors text-lg leading-none" aria-label="Dismiss">Ã—</button>
+                            <button onClick={() => setReminderBanner(null)} className="flex-shrink-0 w-8 h-8 -mr-1 -mt-1 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors text-lg leading-none" aria-label="Dismiss">×</button>
                         </div>
                     </motion.div>
                 )}
@@ -931,7 +931,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                             >
                                 View
                             </button>
-                            <button onClick={() => setUnreadMsgCount(0)} className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors text-lg leading-none" aria-label="Dismiss">Ã—</button>
+                            <button onClick={() => setUnreadMsgCount(0)} className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors text-lg leading-none" aria-label="Dismiss">×</button>
                         </div>
                     </motion.div>
                 )}

@@ -33,9 +33,31 @@ const WORD_CATEGORIES = [
     }
 ];
 
+/** Build a fresh word/distractor pool from AI-generated MCQ questions: the
+ * correct answer of each question becomes a "correct" word to slice, and its
+ * wrong options become distractors — reusing the same generic question shape
+ * every other game uses. Falls back to the static category on any failure. */
+async function loadCategory(): Promise<{ name: string; words: string[]; distractors: string[] }> {
+    const staticPick = WORD_CATEGORIES[Math.floor(Math.random() * WORD_CATEGORIES.length)];
+    try {
+        const { questions } = await api.getAIGameQuestions('vocabulary-ninja', 'Vocabulary Words', 10);
+        if (!questions || questions.length < 6) throw new Error('Not enough AI questions returned');
+        const words = [...new Set(questions.map((q: any) => String(q.options?.[q.answer] || '')).filter(Boolean))];
+        const distractors = [...new Set(
+            questions.flatMap((q: any) => (q.options || []).filter((_: string, i: number) => i !== q.answer))
+        )].filter(Boolean) as string[];
+        if (words.length < 4 || distractors.length < 4) throw new Error('Not enough usable words/distractors');
+        return { name: staticPick.name, words, distractors };
+    } catch (err) {
+        console.warn('[VocabularyNinja] Falling back to offline category:', err);
+        return staticPick;
+    }
+}
+
 const VocabularyNinjaGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const [gameState, setGameState] = useState<'intro' | 'playing' | 'gameOver'>('intro');
     const [category, setCategory] = useState(WORD_CATEGORIES[0]);
+    const [loadingCategory, setLoadingCategory] = useState(false);
     const [fallingWords, setFallingWords] = useState<WordItem[]>([]);
     const [score, setScore] = useState(0);
     const [lives, setLives] = useState(3);
@@ -60,12 +82,14 @@ const VocabularyNinjaGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         setFallingWords(prev => [...prev, newWord]);
     }, [category, score]);
 
-    const startGame = () => {
-        const randomCat = WORD_CATEGORIES[Math.floor(Math.random() * WORD_CATEGORIES.length)];
-        setCategory(randomCat);
+    const startGame = async () => {
+        setLoadingCategory(true);
+        const cat = await loadCategory();
+        setCategory(cat);
         setScore(0);
         setLives(3);
         setFallingWords([]);
+        setLoadingCategory(false);
         setGameState('playing');
     };
 
@@ -119,6 +143,13 @@ const VocabularyNinjaGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         return () => clearInterval(interval);
     }, [gameState, spawnWord, lives]);
 
+    // Runs exactly once per real transition into 'gameOver'. `score` and `addXP`
+    // are deliberately excluded from the deps: `addXP` is a new function
+    // identity every time the GamificationContext's xp state changes (it isn't
+    // memoized), so including it here re-fires this effect every time addXP()
+    // itself updates xp — an infinite loop that kept re-awarding XP and
+    // re-submitting the score to the backend on every render. Same root cause
+    // and same fix as Simon Says's leaderboard-spam bug (see SimonSaysGame.tsx).
     useEffect(() => {
         if (gameState === 'gameOver') {
             addXP(score);
@@ -130,7 +161,7 @@ const VocabularyNinjaGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 });
             }
 
-            // PERSIST TO DATABASE
+            // PERSIST TO DATABASE — submit once at game end.
             api.submitGameScore({
                 game_id: 'vocabulary-ninja',
                 game_name: 'Vocabulary Ninja',
@@ -141,7 +172,8 @@ const VocabularyNinjaGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 }
             }).catch(err => console.error("Failed to save ninja score:", err));
         }
-    }, [gameState, score, addXP]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [gameState]);
 
     return (
         <GameShell
@@ -186,9 +218,10 @@ const VocabularyNinjaGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                         </p>
                         <button
                             onClick={startGame}
-                            className="bg-pink-500 hover:bg-pink-600 text-white px-10 py-4 rounded-2xl font-black text-xl transition-all hover:scale-105 active:scale-95 shadow-xl shadow-pink-500/30"
+                            disabled={loadingCategory}
+                            className="bg-pink-500 hover:bg-pink-600 text-white px-10 py-4 rounded-2xl font-black text-xl transition-all hover:scale-105 active:scale-95 shadow-xl shadow-pink-500/30 disabled:opacity-60 disabled:hover:scale-100"
                         >
-                            BEGIN MISSION
+                            {loadingCategory ? 'PREPARING WORDS…' : 'BEGIN MISSION'}
                         </button>
                     </div>
                 )}

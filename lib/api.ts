@@ -1,7 +1,22 @@
 import { InspectionTemplate } from '../types/inspector';
 
 import { API_BASE_URL } from './config';
-import { getJwtExpiryMs } from './tokenUtils';
+import { getJwtExpiryMs, getJwtSubject } from './tokenUtils';
+import { networkManager } from './networkManager';
+import { offlineDB } from './dexie-db';
+
+// Real-money endpoints must never be silently queued offline — the user has
+// no way to know if a queued charge actually succeeded once replayed later,
+// which risks double-charges or payments that quietly never happen. These
+// are blocked while offline with a clear "reconnect to pay" error instead.
+const OFFLINE_BLOCKED_ENDPOINTS = [
+    '/fees/record-payment',
+    '/fees/notify-payment',
+    '/fees/payments/',
+];
+function isOfflineBlockedEndpoint(endpoint: string): boolean {
+    return OFFLINE_BLOCKED_ENDPOINTS.some((p) => endpoint.startsWith(p));
+}
 
 console.log(`ðŸ“¡ [API-TEST] Base URL: ${API_BASE_URL}`);
 
@@ -100,6 +115,10 @@ class ExpressApiClient {
         this.cache.clear();
         this.inFlightRequests.clear();
         this.clearCsrfToken();
+        // Defense in depth on top of the per-user cache key: a shared device
+        // shouldn't keep a logged-out user's cached data sitting in IndexedDB
+        // at all once they've signed out.
+        offlineDB.roster_cache.clear().catch((err) => console.warn('[API] Failed to clear offline cache on logout:', err));
     }
 
     /**
@@ -110,12 +129,63 @@ class ExpressApiClient {
         const method = options.method?.toUpperCase() || 'GET';
         const url = `${this.baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
+        // Namespace every cache/dedup key by WHO is asking, not just the URL. Two
+        // different users on the same device (a shared school computer, or a role
+        // switch in demo mode) must never have one user's offline-cached response
+        // served to the other — the key must not survive a login as someone else.
+        const userScope = getJwtSubject(await getAuthToken()) || 'anon';
+
         // Lead DevSecOps: Deduplicate concurrent identical GET requests
         const isGet = method === 'GET';
-        const requestKey = `${method}:${url}${options._retryWithoutBranch ? ':retry' : ''}`;
+        const requestKey = `${userScope}:${method}:${url}${options._retryWithoutBranch ? ':retry' : ''}`;
 
         if (isGet && this.inFlightRequests.has(requestKey)) {
             return this.inFlightRequests.get(requestKey) as Promise<T>;
+        }
+
+        // Offline handling. This is the single chokepoint nearly every screen's
+        // api.getX()/postX() calls funnel through, so making IT offline-aware
+        // gives every page offline reads + queued writes without touching each
+        // screen individually.
+        if (networkManager.isOffline() && !endpoint.includes('/auth/')) {
+            if (isGet) {
+                const cached = await offlineDB.roster_cache.get(requestKey);
+                if (cached) {
+                    console.log(`ðŸ“¦ [API-OFFLINE] Serving cached response for ${endpoint}`);
+                    return cached.data as T;
+                }
+                throw new Error("You're offline and this hasn't been loaded before.");
+            }
+
+            if (isOfflineBlockedEndpoint(endpoint)) {
+                throw new Error('Payments require an internet connection. Please reconnect and try again.');
+            }
+
+            let parsedBody: any = {};
+            if (typeof options.body === 'string') {
+                try { parsedBody = JSON.parse(options.body); } catch { parsedBody = {}; }
+            } else if (options.body && !(options.body instanceof FormData)) {
+                parsedBody = options.body;
+            }
+
+            await offlineDB.sync_queue.add({
+                action_type: 'HTTP_OP',
+                endpoint,
+                method,
+                payload: parsedBody,
+                created_at: new Date().toISOString(),
+                synced: 0,
+                retry_count: 0,
+            });
+            console.log(`ðŸ“¦ [API-OFFLINE] Queued ${method} ${endpoint} for sync`);
+
+            // Optimistic response so calling screens (which expect a resolved
+            // promise, not a special "queued" branch) keep working normally.
+            return {
+                ...parsedBody,
+                id: parsedBody.id || `offline-${crypto.randomUUID()}`,
+                _offlineQueued: true,
+            } as T;
         }
 
         const fetchPromise = (async () => {
@@ -220,6 +290,19 @@ class ExpressApiClient {
                     clearTimeout(timeoutId);
                 } catch (fetchErr: any) {
                     clearTimeout(timeoutId);
+
+                    // The connection can drop mid-request even when navigator.onLine
+                    // still said true (flaky wifi, captive portal, etc). Degrade the
+                    // same way a detected-offline GET does, rather than surfacing a
+                    // hard error for data the user has already seen before.
+                    if (isGet) {
+                        const cached = await offlineDB.roster_cache.get(requestKey);
+                        if (cached) {
+                            console.warn(`[API-OFFLINE] Network request failed, serving stale cache for ${endpoint}:`, fetchErr.message);
+                            return cached.data as T;
+                        }
+                    }
+
                     if (fetchErr.name === 'AbortError') {
                         console.error(`â±ï¸ [API-TIMEOUT] Request to ${url} timed out after 30s`);
                         throw new Error('Connection timed out. Please check your internet or try again.');
@@ -303,7 +386,20 @@ class ExpressApiClient {
                     return {} as T;
                 }
 
-                return await response.json();
+                const parsed = await response.json();
+
+                if (isGet) {
+                    // Best-effort persistent cache so this data stays visible offline
+                    // and other pages relying on the same endpoint benefit too. Never
+                    // let a caching failure break the actual request.
+                    offlineDB.roster_cache.put({
+                        key: requestKey,
+                        data: parsed,
+                        updated_at: new Date().toISOString(),
+                    }).catch((err) => console.warn('[API] Failed to cache response for offline use:', err));
+                }
+
+                return parsed;
             } finally {
                 if (isGet) this.inFlightRequests.delete(requestKey);
             }
@@ -423,6 +519,12 @@ class ExpressApiClient {
 
     async submitGameScore(data: any): Promise<any> {
         return this.post('/gamification/scores', data);
+    }
+
+    /** Fresh, class/subject/age-appropriate AI questions for a quiz-style game,
+     * never repeating a question this student has already been asked. */
+    async getAIGameQuestions(gameType: string, subject: string, count: number = 10): Promise<{ questions: any[]; source: 'ai' | 'offline' }> {
+        return this.get(`/games/ai-questions?gameType=${encodeURIComponent(gameType)}&subject=${encodeURIComponent(subject)}&count=${count}`);
     }
 
     async getCurrentUser(): Promise<any> {
@@ -1186,7 +1288,9 @@ class ExpressApiClient {
     }
 
     async requestMentor(teacherId: string | undefined, data: any): Promise<any> {
-        return this.post('/teachers/me/mentoring', data);
+        // The backend requires `mentor_id` in the body (TeacherService.createMentoringMatch
+        // reads data.mentor_id) — the selected teacherId must be forwarded, not dropped.
+        return this.post('/teachers/me/mentoring', { ...data, mentor_id: teacherId });
     }
 
     async getTeacherPerformance(schoolId: string, teacherId: string): Promise<any> {
@@ -1238,6 +1342,18 @@ class ExpressApiClient {
             return await this.get(`/counseling?${queryParams.toString()}`);
         } catch (err) {
             console.error('[API] getAppointments error:', err);
+            return [];
+        }
+    }
+
+    // Parent-teacher appointments booked via createAppointment() live in the
+    // Appointment table, not the counseling-appointment table getAppointments()
+    // reads from — use this for the parent's own booking history.
+    async getMyParentAppointments(): Promise<any[]> {
+        try {
+            return await this.get('/parents/me/appointments');
+        } catch (err) {
+            console.error('[API] getMyParentAppointments error:', err);
             return [];
         }
     }
@@ -1454,6 +1570,10 @@ class ExpressApiClient {
         return this.post('/parents/volunteer-signup', { opportunity_id: opportunityId, ...(data || {}) });
     }
 
+    async triggerPanicAlert(data: any): Promise<any> {
+        return this.post('/community/panic/activate', data);
+    }
+
     async getStudentAcademicRecords(studentId: string): Promise<any[]> {
         try {
             return await this.get(`/students/${studentId}/academic-records`);
@@ -1639,6 +1759,23 @@ class ExpressApiClient {
             body = schoolIdOrData;
         }
         return this.post('/fees/record-payment', body);
+    }
+
+    // Parent-initiated gateway payment recording. Unlike recordPayment() above
+    // (admin-only, trusts a client-supplied amount), this hits the parent-scoped
+    // endpoint which verifies the reference against the real payment gateway
+    // server-side before recording anything — required because parents are
+    // rejected (403) by the admin-only /fees/record-payment route.
+    async recordParentPayment(data: {
+        fee_id?: string | number;
+        student_id: string | number;
+        reference: string;
+        gateway: 'paystack' | 'flutterwave';
+        branch_id?: string | null;
+        payment_method?: string;
+        purpose?: string;
+    }): Promise<any> {
+        return this.post('/parents/me/payments', data);
     }
 
     // Server-side notification triggers — the backend looks up the fee/payment,
@@ -2163,10 +2300,11 @@ class ExpressApiClient {
         });
     }
 
-    async getExamResults(schoolId: string, branchId?: string): Promise<any[]> {
-        const queryParams = new URLSearchParams({ schoolId });
+    async getExamResults(examId: string, branchId?: string): Promise<any[]> {
+        const queryParams = new URLSearchParams();
         if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
-        return this.get(`/exams/results?${queryParams.toString()}`);
+        const qs = queryParams.toString();
+        return this.get(`/exams/${examId}/results${qs ? `?${qs}` : ''}`);
     }
 
     async getExam(id: string): Promise<any> {
@@ -2731,11 +2869,13 @@ class ExpressApiClient {
     }
 
     async createHostelVisitorLog(data: any): Promise<any> {
-        return this.post('/hostels/visitor-logs', data);
+        // Backend route is POST /hostels/visitors (see backend/src/routes/hostel.routes.ts) —
+        // this used to point at the nonexistent /hostels/visitor-logs and 404'd every time.
+        return this.post('/hostels/visitors', data);
     }
 
     async deleteHostelVisitorLog(id: string): Promise<any> {
-        return this.delete(`/hostels/visitor-logs/${id}`);
+        return this.delete(`/hostels/visitors/${id}`);
     }
 
     // Health logs moved to Health & Safety section below
@@ -3602,7 +3742,10 @@ class ExpressApiClient {
 
     async getPermissionSlips(schoolId?: string): Promise<any[]> {
         const result = await this.get<any>(`/academic-policies/permission-slips${schoolId ? `?schoolId=${schoolId}` : ''}`);
-        return result.data || [];
+        const slips = result.data || [];
+        // Backend model stores the date as `due_date`; normalize to `date` so the UI's
+        // `new Date(currentSlip.date)` doesn't render "Invalid Date".
+        return slips.map((s: any) => ({ ...s, date: s.date || s.due_date }));
     }
 
     async createPermissionSlip(data: any): Promise<any> {
@@ -3614,7 +3757,7 @@ class ExpressApiClient {
     }
 
     async updatePermissionSlipStatus(id: string, status: string): Promise<any> {
-        return this.patch(`/academic-policies/permission-slips/${id}/status`, { status });
+        return this.patch(`/academic-policies/permission-slips/${id}`, { status });
     }
 
 

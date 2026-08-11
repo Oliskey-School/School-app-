@@ -2,10 +2,35 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { NotificationService } from '../services/notification.service';
 import { getEffectiveBranchId } from '../utils/branchScope';
+import prisma from '../config/database';
 
 export const createNotification = async (req: AuthRequest, res: Response) => {
     try {
         const branchId = getEffectiveBranchId(req.user, req.body.branch_id || req.body.branchId);
+
+        // This endpoint is deliberately open to every authenticated role —
+        // parents/students/teachers all trigger contextual notifications
+        // from legitimate flows (appointment booking, assignment posted,
+        // etc.) — but the target user_id/recipient_id was never checked
+        // against the caller's own school. That let any authenticated user
+        // send an arbitrary title/message to ANY user_id in the database,
+        // including users belonging to a completely different school
+        // (verified live: a demo student successfully created a notification
+        // targeting the demo admin's user_id with no relationship at all).
+        // Multi-tenant isolation requires the target to be in the caller's
+        // own school; branch is left unchecked since main-branch admins and
+        // multi-branch teachers/parents legitimately message other branches.
+        const targetUserId = req.body.user_id || req.body.recipient_id;
+        if (targetUserId) {
+            const targetUser = await prisma.user.findFirst({
+                where: { id: targetUserId, school_id: req.user.school_id },
+                select: { id: true },
+            });
+            if (!targetUser) {
+                return res.status(403).json({ message: 'Recipient not found in your school' });
+            }
+        }
+
         const result = await NotificationService.createNotification(req.user.school_id, branchId, req.body);
         res.status(201).json(result);
     } catch (error: any) {

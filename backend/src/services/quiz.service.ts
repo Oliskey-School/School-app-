@@ -101,8 +101,28 @@ export class QuizService {
                 type: quizRest.type || 'QUIZ'
             };
 
+            // A quiz's class (when set) must belong to this caller's school/branch
+            // — otherwise a quiz could be attached to another branch's class.
+            if (prismaData.class_id) {
+                const ownedClass = await tx.class.findFirst({
+                    where: { id: prismaData.class_id, school_id: schoolId, ...(branchId && branchId !== 'all' ? { branch_id: branchId } : {}) },
+                    select: { id: true },
+                });
+                if (!ownedClass) throw new Error('Class not found in your school/branch');
+            }
+
             let quizData;
             if (quiz.id) {
+                // Confirm this quiz actually belongs to the caller's tenant before
+                // allowing an update — otherwise any quiz id, from any school,
+                // could be overwritten (and effectively hijacked into the
+                // caller's own school) just by knowing its id.
+                const ownedQuiz = await tx.quiz.findFirst({
+                    where: { id: quiz.id, school_id: schoolId, ...(branchId && branchId !== 'all' ? { branch_id: branchId } : {}) },
+                    select: { id: true },
+                });
+                if (!ownedQuiz) throw new Error('Quiz not found in your school/branch');
+
                 // UPDATE existing quiz
                 quizData = await tx.quiz.update({
                     where: { id: quiz.id },
@@ -163,7 +183,7 @@ export class QuizService {
     // the real answer key, so a student can't forge their own or a peer's grade.
     static async submitQuizResult(schoolId: string, branchId: string | undefined, studentId: string, payload: { quiz_id: string; answers: Record<string, string>; focus_violations?: number }) {
         const quiz = await prisma.quiz.findFirst({
-            where: { id: payload.quiz_id, school_id: schoolId },
+            where: { id: payload.quiz_id, school_id: schoolId, ...(branchId && branchId !== 'all' ? { branch_id: branchId } : {}) },
             select: {
                 questions: { select: { id: true, correct_answer: true, points: true } },
             },

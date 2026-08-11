@@ -54,6 +54,23 @@ export class SchoolService {
         return await prisma.school.findMany();
     }
 
+    // Used by the unauthenticated /public route — must NEVER include payment
+    // provider credentials, contact info, or billing data, since anyone on the
+    // internet can call this without logging in.
+    static async getPublicSchoolDirectory() {
+        return await prisma.school.findMany({
+            where: { is_active: true },
+            select: {
+                id: true,
+                name: true,
+                code: true,
+                slug: true,
+                logo_url: true,
+                curriculum_type: true,
+            },
+        });
+    }
+
     static async getSchoolById(schoolId: string, id: string) {
         // RELIABILITY: Support 'current' or empty ID to refer to the authenticated tenant.
         // If the ID passed is the school_generated_id of an admin (OLISKEY_MAIN_ADM_0001),
@@ -110,6 +127,23 @@ export class SchoolService {
     }
 
     static async updateSchool(schoolId: string, id: string, updates: any) {
+        // `settings` is a single JSON column shared by several independent screens
+        // (academic settings, security policy, branding, etc). A plain Prisma
+        // `update` with a partial `settings` object REPLACES the whole column,
+        // silently wiping every key the caller didn't send. Merge it server-side
+        // so any caller can safely send just the keys it owns.
+        if (updates && typeof updates.settings === 'object' && updates.settings !== null && !Array.isArray(updates.settings)) {
+            const existing = await prisma.school.findUnique({ where: { id }, select: { settings: true } });
+            const existingSettings = (existing?.settings && typeof existing.settings === 'object') ? existing.settings as any : {};
+            const merged: any = { ...existingSettings, ...updates.settings };
+            // Explicit `null` on a key is the caller's way to delete that key
+            // (a merge alone can only add/overwrite, never remove).
+            for (const [k, v] of Object.entries(updates.settings)) {
+                if (v === null) delete merged[k];
+            }
+            updates = { ...updates, settings: merged };
+        }
+
         const result = await prisma.school.update({
             where: { id: id },
             data: updates

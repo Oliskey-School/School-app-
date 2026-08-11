@@ -11,27 +11,39 @@
  * See scripts/setup-server.sh for the full server provisioning steps.
  */
 
+const fs = require('fs');
+const path = require('path');
+
+const DEPLOY_PATH = '/var/www/School-app';
+
+// Prefer the standard .env file; fall back to .env.production if that's
+// what's actually present on the server.
+const envFile = fs.existsSync(path.join(DEPLOY_PATH, '.env'))
+  ? '.env'
+  : '.env.production';
+
 module.exports = {
   apps: [
     {
       name: 'oliskey-api',
-      script: './backend/dist/server.js',
-      cwd: '/var/www/oliskey',          // change to your server deploy path
+      // Nested path: tsc mirrors the repo-root-relative path because
+      // backend/src/routes/student.routes.ts imports from ../../../shared/utils.
+      script: './backend/dist/backend/src/server.js',
+      cwd: DEPLOY_PATH,
       instances: 'max',                  // one worker per CPU core
       exec_mode: 'cluster',
       env_production: {
         NODE_ENV: 'production',
       },
-      // Load secrets from the gitignored .env.production file on the server.
       // PM2 merges these on top of env_production above.
-      env_file: '.env.production',
+      env_file: envFile,
       // Restart policy
       max_restarts: 10,
       min_uptime: '10s',
       restart_delay: 3000,
       // Logging
-      out_file: '/var/log/oliskey/api-out.log',
-      error_file: '/var/log/oliskey/api-err.log',
+      out_file: `${DEPLOY_PATH}/logs/api-out.log`,
+      error_file: `${DEPLOY_PATH}/logs/api-err.log`,
       merge_logs: true,
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
       // Memory guard: restart a worker that grows past 512 MB

@@ -26,7 +26,8 @@ export const submitScore = async (req: Request, res: Response) => {
 export const getLeaderboard = async (req: Request, res: Response) => {
     try {
         const gameId = String(req.params.gameId);
-        const schoolId: string | undefined = (req as any).user?.school_id || (req.query.schoolId as string | undefined);
+        // Never trust a client-supplied schoolId — always scope to the authenticated tenant.
+        const schoolId: string | undefined = (req as any).user?.school_id;
         const limit = parseInt(req.query.limit as string) || 20;
 
         const scores = await GameScoreService.getLeaderboard(gameId, schoolId, limit);
@@ -39,8 +40,11 @@ export const getLeaderboard = async (req: Request, res: Response) => {
 
 export const getMyScores = async (req: Request, res: Response) => {
     try {
-        const userId = (req as any).userId;
+        const userId = (req as any).userId || (req as any).user?.id;
         const gameId = req.query.gameId as string | undefined;
+        if (!userId) {
+            return res.status(401).json({ error: 'Authentication required' });
+        }
 
         const scores = await GameScoreService.getMyScores(userId, gameId);
         res.json(scores);

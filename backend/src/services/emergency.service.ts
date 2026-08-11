@@ -55,18 +55,28 @@ export class EmergencyService {
                     role: { in: rolesToNotify as any },
                     is_active: true,
                 },
-                select: { id: true }
+                select: { id: true, branch_id: true }
             });
 
-            // Bulk-create notifications
+            // Bulk-create notifications. Notification has no `type` column (it's
+            // `category`) and `audience` is a required String[] — both were missing
+            // here, so every createMany call threw and was swallowed by the catch
+            // below, meaning this fan-out silently never delivered anything.
+            // `branch_id` must match each recipient's own branch (the convention
+            // used everywhere else notifications are created, e.g.
+            // academic.service.ts promotion notices) because getNotificationsForUser
+            // filters by exact branch_id — a null branch_id is invisible to any
+            // user with an active branch selected.
             if (usersToNotify.length > 0) {
                 await prisma.notification.createMany({
                     data: usersToNotify.map(u => ({
                         user_id: u.id,
                         school_id: schoolId,
+                        branch_id: u.branch_id ?? null,
                         title: `🚨 ${title}`,
                         message,
-                        type: 'emergency',
+                        category: 'emergency',
+                        audience: rolesToNotify.map(r => r.toLowerCase()),
                         is_read: false,
                     })),
                     skipDuplicates: true,

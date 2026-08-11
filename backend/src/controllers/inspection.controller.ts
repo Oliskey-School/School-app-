@@ -101,11 +101,15 @@ export const submitInspection = async (req: AuthRequest, res: Response) => {
     }
 };
 
-export const getSchoolInspectionHistory = async (req: Request, res: Response) => {
+export const getSchoolInspectionHistory = async (req: AuthRequest, res: Response) => {
     try {
-        const { schoolId } = req.params;
+        // Always trust the verified token's school_id — never a client-supplied
+        // :schoolId route param, which would let any authenticated user read
+        // another school's inspection history/escalations.
+        const schoolId = req.user?.school_id;
+        if (!schoolId) return res.status(401).json({ message: 'Tenant context missing' });
         const history = await prisma.inspection.findMany({
-            where: { school_id: schoolId as string },
+            where: { school_id: schoolId },
             include: {
                 template: true,
                 escalations: true

@@ -66,9 +66,9 @@ const AutoInvoiceGenerator = () => {
             setInvoices(data.map((inv: any) => ({
                 id: inv.id,
                 invoice_number: inv.invoice_number,
-                student_name: inv.student?.first_name ? `${inv.student.first_name} ${inv.student.last_name}` : 'Unknown Student',
-                class_name: inv.student?.class?.name || 'No Class',
-                parent_name: inv.student?.parent?.full_name || 'No Parent',
+                student_name: inv.student?.full_name || 'Unknown Student',
+                class_name: inv.student?.grade ? `Grade ${inv.student.grade}${inv.student.section ? ` ${inv.student.section}` : ''}` : 'No Class',
+                parent_name: inv.student?.parents?.[0]?.parent?.full_name || 'No Parent',
                 fee_description: inv.description,
                 amount: inv.amount,
                 status: inv.status,

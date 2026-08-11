@@ -143,25 +143,20 @@ const SimonSaysGame: React.FC<SimonSaysGameProps> = ({ onBack }) => {
         }
 
         scheduleNextRound(1500);
-
-        // PERSIST TO DATABASE
-        api.submitGameScore({
-            game_id: 'simon-says',
-            game_name: 'Simon Says Body Parts',
-            score: score + 10,
-            metadata: {
-                passive,
-                command: currentCommand?.text,
-                part: currentCommand?.part
-            }
-        }).catch(err => console.error("Failed to save simon score:", err));
     };
 
     const handleMistake = (reason: string) => {
         setLives(prev => {
             const newLives = prev - 1;
             if (newLives <= 0) {
-                endGame();
+                // Only flip the state flag here — React 18 StrictMode calls
+                // updater functions like this one twice per dispatch, so any
+                // side effect (API calls, cleanup) placed directly inside it
+                // would run twice. The actual game-over side effects live in
+                // the useEffect below, which only fires once per real state
+                // transition.
+                setGameState('GAMEOVER');
+                return 0;
             }
             return newLives;
         });
@@ -171,11 +166,26 @@ const SimonSaysGame: React.FC<SimonSaysGameProps> = ({ onBack }) => {
         scheduleNextRound(2000);
     };
 
-    const endGame = () => {
-        setGameState('GAMEOVER');
+    // Runs exactly once when the game actually transitions to GAMEOVER —
+    // safe from the double-invoke behaviour described above.
+    useEffect(() => {
+        if (gameState !== 'GAMEOVER') return;
         cleanup();
         if (score >= 100) unlockBadge('simon-master');
-    };
+
+        // PERSIST TO DATABASE — submit once at game end (not per-round) so the
+        // leaderboard shows one final score per play instead of every
+        // intermediate snapshot crowding out other players' entries.
+        api.submitGameScore({
+            game_id: 'simon-says',
+            game_name: 'Simon Says Body Parts',
+            score,
+            metadata: {
+                lives
+            }
+        }).catch(err => console.error("Failed to save simon score:", err));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [gameState]);
 
     const speak = (text: string, onEnd?: () => void) => {
         window.speechSynthesis.cancel();

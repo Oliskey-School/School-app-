@@ -44,18 +44,19 @@ const runCommand = (
 };
 
 export class InfrastructureService {
-    static async getFacilities(schoolId: string) {
+    static async getFacilities(schoolId: string, branchId?: string) {
         return (prisma as any).facility.findMany({
-            where: { school_id: schoolId },
+            where: { school_id: schoolId, ...(branchId ? { branch_id: branchId } : {}) },
             orderBy: { created_at: 'desc' }
         });
     }
 
-    static async createFacility(schoolId: string, data: any) {
+    static async createFacility(schoolId: string, branchId: string | undefined, data: any) {
         const facility = await (prisma as any).facility.create({
             data: {
                 ...data,
-                school_id: schoolId
+                school_id: schoolId,
+                branch_id: branchId || data.branch_id || null
             }
         });
 
@@ -82,20 +83,21 @@ export class InfrastructureService {
         });
     }
 
-    static async getAssets(schoolId: string) {
+    static async getAssets(schoolId: string, branchId?: string) {
         return (prisma as any).asset.findMany({
-            where: { school_id: schoolId },
+            where: { school_id: schoolId, ...(branchId ? { branch_id: branchId } : {}) },
             include: { facility: true },
             orderBy: { created_at: 'desc' }
         });
     }
 
-    static async createAsset(schoolId: string, data: any) {
+    static async createAsset(schoolId: string, branchId: string | undefined, data: any) {
         const qrCode = data.qr_code || `AST-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         const asset = await (prisma as any).asset.create({
             data: {
                 ...coerceAssetDates(data),
                 school_id: schoolId,
+                branch_id: branchId || data.branch_id || null,
                 qr_code: qrCode,
             }
         });
@@ -145,9 +147,9 @@ export class InfrastructureService {
         return result;
     }
 
-    static async getVisitorLogs(schoolId: string) {
+    static async getVisitorLogs(schoolId: string, branchId?: string) {
         return (prisma as any).visitorLog.findMany({
-            where: { school_id: schoolId },
+            where: { school_id: schoolId, ...(branchId ? { branch_id: branchId } : {}) },
             orderBy: { check_in: 'desc' }
         });
     }
@@ -334,17 +336,18 @@ export class InfrastructureService {
     // ============================================
     // SAVED REPORTS
     // ============================================
-    static async getSavedReports(schoolId: string) {
+    static async getSavedReports(schoolId: string, branchId?: string) {
         return (prisma as any).savedReport.findMany({
-            where: { school_id: schoolId },
+            where: { school_id: schoolId, ...(branchId ? { branch_id: branchId } : {}) },
             orderBy: { created_at: 'desc' }
         });
     }
 
-    static async createSavedReport(schoolId: string, data: any) {
+    static async createSavedReport(schoolId: string, branchId: string | undefined, data: any) {
         return (prisma as any).savedReport.create({
             data: {
                 school_id: schoolId,
+                branch_id: branchId || data.branch_id || null,
                 name: data.name,
                 description: data.description,
                 data_source: data.data_source,

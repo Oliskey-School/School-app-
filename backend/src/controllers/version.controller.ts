@@ -12,13 +12,23 @@ export const getVersions = async (req: Request, res: Response) => {
 
 export const setSchoolVersion = async (req: Request, res: Response) => {
     try {
-        const schoolId = req.params.schoolId as string;
+        const requestedSchoolId = req.params.schoolId as string;
         const { version } = req.body;
 
         if (!version) {
             return res.status(400).json({ message: 'Version is required' });
         }
 
+        // Ownership check: only a SUPER_ADMIN may target another school's tenant.
+        // A school ADMIN/PROPRIETOR may only lock the version for their OWN school —
+        // otherwise any school admin could set another school's platform_version.
+        const authUser = (req as any).user;
+        const userRole = (authUser?.role || '').toString().toUpperCase();
+        if (userRole !== 'SUPER_ADMIN' && authUser?.school_id !== requestedSchoolId) {
+            return res.status(403).json({ message: 'SecurityException: You may only set the version for your own school.' });
+        }
+
+        const schoolId = requestedSchoolId;
         const school = await VersionService.setSchoolVersion(schoolId, version);
         res.json({ message: `School successfully locked to version ${version}`, school });
     } catch (error: any) {

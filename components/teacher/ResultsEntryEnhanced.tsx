@@ -88,7 +88,7 @@ const fetchExamDetails = useCallback(async () => {
             console.log(`Loaded ${studentsData?.length || 0} students for ${selectedCurriculum} curriculum`);
 
             // Fetch existing results
-            const existingResults = await api.getExamResults(examId, classId);
+            const existingResults = await api.getExamResults(examId, (currentBranchId && currentBranchId !== 'all') ? currentBranchId : undefined);
 
             const resultsMap: { [key: string]: any } = {};
             existingResults?.forEach((result: any) => {

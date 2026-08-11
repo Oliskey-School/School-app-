@@ -2,11 +2,12 @@ import prisma from '../config/database';
 import { SocketService } from './socket.service';
 
 export class BehaviorService {
-    static async getNotesBySchool(schoolId: string, branchId?: string) {
+    static async getNotesBySchool(schoolId: string, branchId?: string, allowedStudentIds?: string[]) {
         return prisma.behaviorNote.findMany({
             where: {
                 school_id: schoolId,
-                ...(branchId && branchId !== 'all' ? { branch_id: branchId } : {})
+                ...(branchId && branchId !== 'all' ? { branch_id: branchId } : {}),
+                ...(allowedStudentIds ? { student_id: { in: allowedStudentIds } } : {})
             },
             include: {
                 student: {
@@ -27,9 +28,24 @@ export class BehaviorService {
     }
 
     static async createNote(schoolId: string, branchId: string | undefined, teacherId: string, data: any) {
+        const studentId = data.student_id || data.studentId;
+
+        // Confirm the student actually belongs to this teacher's school/branch
+        // before attaching a behavior note to them — otherwise a teacher could
+        // record disciplinary notes against a student in another branch.
+        const student = await prisma.student.findFirst({
+            where: { id: studentId, school_id: schoolId, ...(branchId && branchId !== 'all' ? { branch_id: branchId } : {}) },
+            select: { id: true },
+        });
+        if (!student) {
+            const err: any = new Error('Student not found in your school/branch');
+            err.statusCode = 404;
+            throw err;
+        }
+
         const note = await prisma.behaviorNote.create({
             data: {
-                student_id: data.student_id || data.studentId,
+                student_id: studentId,
                 teacher_id: teacherId,
                 school_id: schoolId,
                 branch_id: branchId && branchId !== 'all' ? branchId : null,
@@ -45,9 +61,9 @@ export class BehaviorService {
         return note;
     }
 
-    static async deleteNote(schoolId: string, id: string) {
-        // Tenant-scoped lookup prevents cross-school deletion via known note id.
-        const note = await prisma.behaviorNote.findFirst({ where: { id, school_id: schoolId } });
+    static async deleteNote(schoolId: string, branchId: string | undefined, id: string) {
+        // Tenant-scoped lookup prevents cross-school/cross-branch deletion via known note id.
+        const note = await prisma.behaviorNote.findFirst({ where: { id, school_id: schoolId, ...(branchId && branchId !== 'all' ? { branch_id: branchId } : {}) } });
         if (!note) {
             const err: any = new Error('Behavior note not found');
             err.statusCode = 404;

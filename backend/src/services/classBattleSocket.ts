@@ -13,6 +13,36 @@
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import { buildRounds, BattleQuestion } from './gameContent.service';
 import { GameScoreService } from './gameScore.service';
+import { generateAIQuestions } from './gameQuestion.service';
+import prisma from '../config/database';
+
+/**
+ * AI-generated rounds when possible (fresh, never-repeating questions across
+ * a school), falling back to the offline procedural/curated bank on any
+ * failure (missing API key, quota, network) so a battle never fails to start.
+ */
+async function buildRoundsForRoom(room: Room): Promise<BattleQuestion[]> {
+    try {
+        const hostStudent = await prisma.student.findUnique({
+            where: { user_id: room.hostId },
+            select: { id: true, branch_id: true },
+        });
+        if (!hostStudent) throw new Error('Host has no student profile');
+        return await generateAIQuestions({
+            schoolId: room.schoolId,
+            branchId: hostStudent.branch_id,
+            studentId: hostStudent.id,
+            gameType: 'class-battle',
+            subject: room.subject,
+            grade: room.grade,
+            count: room.questionCount,
+            historyScope: 'school', // everyone in the room shares one question set
+        });
+    } catch (err: any) {
+        console.warn('[ClassBattle] AI question generation failed, using offline bank:', err?.message);
+        return buildRounds(room.subject, room.grade, room.questionCount);
+    }
+}
 
 interface Player {
     id: string;            // user id
@@ -38,6 +68,16 @@ interface Room {
     deadline: number;
     timer: NodeJS.Timeout | null;
     questionCount: number;
+    // Guards against revealRound() firing twice for the same question — it can be
+    // invoked from two independent triggers (the deadline timer, or a 'cb:answer'
+    // handler seeing everyone has answered) and only room.status was checked before,
+    // which stays 'playing' during a reveal too.
+    revealing: boolean;
+    // Kicked off the moment the room is created so the AI call runs in the
+    // background while players join the lobby — by the time the host taps
+    // "Start", the questions are usually already sitting in memory instead
+    // of making them wait for a live Gemini round trip.
+    roundsPromise?: Promise<BattleQuestion[]>;
 }
 
 const QUESTION_MS = 20_000;   // time to answer each question
@@ -87,6 +127,7 @@ function clearTimer(room: Room) {
 function sendQuestion(io: SocketIOServer, room: Room) {
     const q = room.rounds[room.current];
     for (const p of room.players.values()) { p.answeredThisRound = false; p.lastCorrect = false; }
+    room.revealing = false;
     room.deadline = Date.now() + QUESTION_MS;
     io.to(`cb:${room.code}`).emit('cb:question', {
         index: room.current,
@@ -102,8 +143,9 @@ function sendQuestion(io: SocketIOServer, room: Room) {
 }
 
 function revealRound(io: SocketIOServer, room: Room) {
+    if (room.status !== 'playing' || room.revealing) return;
+    room.revealing = true;
     clearTimer(room);
-    if (room.status !== 'playing') return;
     const q = room.rounds[room.current];
     io.to(`cb:${room.code}`).emit('cb:reveal', {
         index: room.current,
@@ -138,7 +180,7 @@ async function endGame(io: SocketIOServer, room: Room) {
                 school_id: room.schoolId,
                 metadata: { subject: room.subject, code: room.code, players: room.players.size },
             });
-        } catch { /* a non-existent user id shouldn't break the game */ }
+        } catch (err: any) { console.error('[ClassBattle] Failed to persist score for player', p.id, err?.message, err?.code); }
     }
 
     // Free the room shortly after so the code can be reused.
@@ -176,10 +218,11 @@ export function registerClassBattle(io: SocketIOServer, socket: Socket) {
                 code, gameId: gameId || 'class-battle', schoolId: schoolId || '',
                 subject: subject || 'General Knowledge', grade: Number(grade ?? 5),
                 hostId: host.id, status: 'lobby', players: new Map(),
-                rounds: [], current: 0, deadline: 0, timer: null,
+                rounds: [], current: 0, deadline: 0, timer: null, revealing: false,
                 questionCount: Math.min(Math.max(Number(questionCount) || 8, 3), 15),
             };
             room.players.set(host.id, { id: host.id, name: host.name || 'Host', avatar: host.avatar || null, socketId: socket.id, score: 0, answeredThisRound: false, lastCorrect: false });
+            room.roundsPromise = buildRoundsForRoom(room);
             rooms.set(code, room);
             socketIndex.set(socket.id, code);
             socket.join(`cb:${code}`);
@@ -203,13 +246,13 @@ export function registerClassBattle(io: SocketIOServer, socket: Socket) {
         emitRoster(io, room);
     });
 
-    socket.on('cb:start', (payload: any, cb?: (r: any) => void) => {
+    socket.on('cb:start', async (payload: any, cb?: (r: any) => void) => {
         const { code, playerId } = payload || {};
         const room = rooms.get((code || '').toUpperCase());
         if (!room) return cb?.({ error: 'Battle not found.' });
         if (room.hostId !== playerId) return cb?.({ error: 'Only the host can start.' });
         if (room.status !== 'lobby') return cb?.({ error: 'Already started.' });
-        room.rounds = buildRounds(room.subject, room.grade, room.questionCount);
+        room.rounds = await (room.roundsPromise || buildRoundsForRoom(room));
         room.current = 0;
         room.status = 'playing';
         cb?.({ ok: true });
@@ -220,6 +263,7 @@ export function registerClassBattle(io: SocketIOServer, socket: Socket) {
         const { code, playerId, optionIndex } = payload || {};
         const room = rooms.get((code || '').toUpperCase());
         if (!room || room.status !== 'playing') return;
+        if (Date.now() > room.deadline) return; // question window already closed server-side
         const p = room.players.get(playerId);
         if (!p || p.answeredThisRound) return;
         p.answeredThisRound = true;

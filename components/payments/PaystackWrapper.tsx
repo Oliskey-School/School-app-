@@ -2,8 +2,7 @@
 import React, { useState } from 'react';
 import { usePaystackPayment } from 'react-paystack';
 import { Fee } from '../../types';
-import { initializeTransaction, verifyTransaction } from '../../lib/payments';
-import { api } from '../../lib/api';
+import { recordParentGatewayPayment } from '../../lib/payments';
 
 interface PaystackButtonProps {
     fee: Fee;
@@ -42,9 +41,18 @@ export const PaystackButton: React.FC<PaystackButtonProps> = ({ fee, email, onSu
     };
 
     const handlePaystackSuccessAction = async (reference: any) => {
-        // Implementation for whatever you want to do with reference and after success call.
+        // The Paystack SDK reporting "success" only means the popup closed
+        // without error — it does not mean money changed hands. Re-verify the
+        // reference against Paystack's own API server-side and only then
+        // record the payment, so a fee can never be marked paid on a
+        // client-supplied claim alone.
         try {
-            await verifyTransaction(reference.reference);
+            const toast = (await import('react-hot-toast')).toast;
+            const result = await recordParentGatewayPayment(fee.id, fee.studentId, reference.reference, 'paystack', branchId);
+            if (!result.success) {
+                toast.error(result.message || 'Payment could not be verified. Please contact support with your reference: ' + reference.reference);
+                return;
+            }
 
             // Send payment confirmation notification
             try {
@@ -91,16 +99,11 @@ export const PaystackButton: React.FC<PaystackButtonProps> = ({ fee, email, onSu
         }
 
         setLoading(true);
-        // Create Pending Transaction in DB
-        await initializeTransaction(
-            fee.id,
-            fee.studentId,
-            fee.amount,
-            config.reference,
-            schoolId || '',
-            branchId,
-            'Paystack'
-        );
+        // Note: no pending transaction record is pre-created here — parents
+        // don't have permission to write fee/payment records directly (only
+        // admins do). The payment is recorded only after the gateway confirms
+        // success, via recordParentGatewayPayment() in handlePaystackSuccessAction,
+        // which independently re-verifies the charge server-side.
 
         // We can't actually trigger the Hook manually nicely here without using the hook at top level
         // So usually we just let the hook handle the click.

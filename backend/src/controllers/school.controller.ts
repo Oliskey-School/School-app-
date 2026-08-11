@@ -74,10 +74,24 @@ export const listSchools = async (req: Request, res: Response) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+// Unauthenticated — only ever returns the minimal public-directory fields.
+export const listPublicSchools = async (req: Request, res: Response) => {
+    try {
+        const schools = await SchoolService.getPublicSchoolDirectory();
+        res.json(schools);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
 export const updateSchool = async (req: AuthRequest, res: Response) => {
     try {
-        // School identity & branding is a school-wide setting — Main Admin only.
+        // School identity & branding is a school-wide setting — Main Admin only,
+        // and only for THEIR OWN school. The service does not itself verify
+        // ownership, so :id must be checked against the caller's verified
+        // tenant here — otherwise any main admin could edit another school.
         if (!isMainAdmin(req.user)) return res.status(403).json({ message: 'Only the main admin can change school settings.' });
+        if (req.user.school_id !== req.params.id) return res.status(403).json({ message: 'Unauthorized' });
         const result = await SchoolService.updateSchool(req.user.school_id, req.params.id as string, req.body);
         res.json(result);
     } catch (error: any) {
@@ -151,6 +165,13 @@ export const deleteSchoolsBulk = async (req: AuthRequest, res: Response) => {
 
 export const getSchoolPolicies = async (req: AuthRequest, res: Response) => {
     try {
+        // These are internal governance documents, not part of the public
+        // school directory — always scope to the caller's OWN verified
+        // tenant, never trust the :id route param (would otherwise let any
+        // authenticated user read another school's policies).
+        if (req.user.role !== 'SUPER_ADMIN' && req.user.school_id !== req.params.id) {
+            return res.status(403).json({ message: 'Unauthorized' });
+        }
         const id = req.params.id as string;
         const result = await SchoolService.getSchoolPolicies(id);
         res.json(result);
@@ -161,6 +182,9 @@ export const getSchoolPolicies = async (req: AuthRequest, res: Response) => {
 
 export const getSchoolPhotos = async (req: AuthRequest, res: Response) => {
     try {
+        if (req.user.role !== 'SUPER_ADMIN' && req.user.school_id !== req.params.id) {
+            return res.status(403).json({ message: 'Unauthorized' });
+        }
         const id = req.params.id as string;
         const result = await SchoolService.getSchoolPhotos(id);
         res.json(result);

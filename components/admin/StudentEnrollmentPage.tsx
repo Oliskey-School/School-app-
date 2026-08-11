@@ -88,6 +88,32 @@ const StudentEnrollmentPage: React.FC<EnrollmentPageProps> = ({ onComplete, hand
 
         setLoading(true);
         try {
+            // Upload any attached documents first, so the backend can persist real URLs
+            // instead of the previous hardcoded empty placeholder.
+            let documentUrls: Record<string, string> = {};
+            if (uploadedDocs.length > 0) {
+                try {
+                    const uploads = await Promise.all(
+                        uploadedDocs.map(async (file) => {
+                            const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+                            const result = await api.uploadFile(
+                                'student-documents',
+                                `enrollment-docs/${Date.now()}_${sanitizedName}`,
+                                file
+                            ) as any;
+                            return { name: file.name, url: result.publicUrl || result.url };
+                        })
+                    );
+                    documentUrls = uploads.reduce((acc, { name, url }) => {
+                        if (url) acc[name] = url;
+                        return acc;
+                    }, {} as Record<string, string>);
+                } catch (uploadErr: any) {
+                    console.error('Document upload error:', uploadErr);
+                    toast.error('Some documents failed to upload. Enrollment will continue without them.');
+                }
+            }
+
             // Map frontend fields to backend expected payload
             const payload = {
                 school_id: schoolId || profile.schoolId,
@@ -105,7 +131,7 @@ const StudentEnrollmentPage: React.FC<EnrollmentPageProps> = ({ onComplete, hand
                 section: selectedClass?.section || formData.section,
                 curriculumType: formData.curriculum === 'NIGERIAN' ? 'Nigerian' :
                     formData.curriculum === 'BRITISH' ? 'British' : 'Both',
-                documentUrls: {} // Placeholder for actual doc upload logic
+                documentUrls
             };
 
             await api.enrollStudent(payload);

@@ -82,6 +82,7 @@ model School {
   facilities                 Facility[]
   fees                       Fee[]
   game_scores                GameScore[]
+  game_question_history      GameQuestionHistory[]
   hostels                    Hostel[]
   inspections                Inspection[]
   invoices                   Invoice[]
@@ -285,6 +286,11 @@ model Student {
   status                    String                    @default("Active")
   attendance_status         String                    @default("Present")
   verification_status       String                    @default("pending")
+  // Educational-games gamification progress. Self-updatable by the student
+  // (see student.controller.ts SELF_UPDATABLE_STUDENT_FIELDS) — everything
+  // else on this model stays admin-only.
+  xp                        Int                       @default(0)
+  level                     Int                       @default(1)
   created_by                String?
   created_at                DateTime                  @default(now())
   updated_at                DateTime                  @updatedAt
@@ -296,6 +302,7 @@ model Student {
   behavior_notes            BehaviorNote[]
   counseling_appointments   CounselingAppointment[]
   exam_results              ExamResult[]
+  game_question_history     GameQuestionHistory[]
   health_logs               HealthLog[]
   hostel_allocations        HostelAllocation[]
   hostel_visitor_logs       HostelVisitorLog[]
@@ -2253,6 +2260,27 @@ model GameScore {
 
   @@index([game_id, score(sort: Desc)])
   @@index([school_id, game_id])
+}
+
+// Every AI-generated question a student has been shown, so future rounds can
+// ask Gemini to avoid repeating them — scoped per student + game + subject so
+// a student never sees the same question twice across any quiz-style game.
+model GameQuestionHistory {
+  id            String    @id @default(uuid())
+  student_id    String
+  game_type     String
+  subject       String
+  question_text String
+  school_id     String
+  branch_id     String?
+  created_at    DateTime  @default(now())
+  student       Student   @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  school        School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  created_by    String?
+  updated_by    String?
+  deleted_at    DateTime?
+
+  @@index([student_id, game_type, subject])
 }
 
 model EducationalGame {

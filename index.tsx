@@ -46,7 +46,7 @@ if (!rootElement) {
   throw new Error("Could not find root element to mount to");
 }
 
-import { BrowserRouter } from 'react-router-dom';
+import { BrowserRouter } from 'react-router';
 import { AuthProvider } from './context/AuthContext';
 import { ProfileProvider } from './context/ProfileContext';
 import { BranchProvider } from './context/BranchContext';

@@ -9,6 +9,24 @@ function isAdmin(req: AuthRequest): boolean {
     return ADMIN_ROLES.includes((req.user.role || '').toLowerCase());
 }
 
+// Returns null for admin/teacher (no restriction), or the caller's own
+// linked student ids for PARENT/STUDENT roles — used to stop a parent/student
+// from requesting another family's fee or payment data by passing an
+// arbitrary studentId.
+async function getAllowedStudentIds(req: AuthRequest): Promise<string[] | null> {
+    if (isAdmin(req) || req.user.role === 'TEACHER') return null;
+    if (req.user.role === 'STUDENT') {
+        const student = await prisma.student.findUnique({ where: { user_id: req.user.id }, select: { id: true } });
+        return student ? [student.id] : [];
+    }
+    if (req.user.role === 'PARENT') {
+        const parent = await prisma.parent.findUnique({ where: { user_id: req.user.id }, select: { id: true } });
+        const links = parent ? await prisma.parentChild.findMany({ where: { parent_id: parent.id }, select: { student_id: true } }) : [];
+        return links.map(l => l.student_id);
+    }
+    return [];
+}
+
 export const createFee = async (req: AuthRequest, res: Response) => {
     try {
         if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can create fees' });
@@ -180,6 +198,33 @@ export const getPaymentHistory = async (req: AuthRequest, res: Response) => {
     try {
         const branchId = getEffectiveBranchId(req.user, (req.query.branchId || req.query.branch_id) as string);
         const { studentId } = req.query;
+
+        // Without this check a parent/student could omit studentId (returning
+        // every family's payment history in the branch) or pass another
+        // family's studentId and see their fee amounts/references — the same
+        // class of cross-parent leak fixed for savings goals earlier.
+        const allowedStudentIds = await getAllowedStudentIds(req);
+        if (allowedStudentIds) {
+            if (studentId) {
+                if (!allowedStudentIds.includes(studentId as string)) {
+                    return res.json([]);
+                }
+            } else if (allowedStudentIds.length === 0) {
+                return res.json([]);
+            } else if (allowedStudentIds.length === 1) {
+                // Single-child parent / student: safe to default to their own record.
+                const result = await FeeService.getPaymentHistory(req.user.school_id, branchId, allowedStudentIds[0]);
+                return res.json(result);
+            } else {
+                // Multi-child parent with no studentId filter: aggregate across
+                // only their own linked children, never the whole branch.
+                const results = await Promise.all(
+                    allowedStudentIds.map(id => FeeService.getPaymentHistory(req.user.school_id, branchId, id))
+                );
+                return res.json(results.flat());
+            }
+        }
+
         const result = await FeeService.getPaymentHistory(req.user.school_id, branchId, studentId as string);
         res.json(result);
     } catch (error: any) {
@@ -239,8 +284,9 @@ export const updateArrear = async (req: AuthRequest, res: Response) => {
 };
 export const getTransactions = async (req: AuthRequest, res: Response) => {
     try {
-        const { id } = req.params;
-        const result = await FeeService.getTransactions(req.user.school_id, req.params.id as string);
+        const allowedStudentIds = await getAllowedStudentIds(req);
+        if (allowedStudentIds && allowedStudentIds.length === 0) return res.json([]);
+        const result = await FeeService.getTransactions(req.user.school_id, req.params.id as string, allowedStudentIds || undefined);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });

@@ -352,8 +352,12 @@ export class StudentService {
                                     school_id: schoolId,
                                     name: `${type.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()).trim()}`,
                                     url: String(url),
-                                    type: type,
-                                    updated_at: new Date()
+                                    type: type
+                                    // Note: StudentDocument has no `updated_at` field (only
+                                    // created_at/updated_by) — passing it made every create()
+                                    // throw, silently swallowed by the catch below, so every
+                                    // uploaded document was discarded even after a URL was
+                                    // supplied.
                                 }
                             });
                         } catch (docErr: any) {
@@ -687,7 +691,7 @@ export class StudentService {
             const allowedFields = [
                 'full_name', 'email', 'grade', 'section', 'department', 'gender',
                 'dob', 'address', 'admission_number', 'curriculum_type', 'avatar_url',
-                'status', 'attendance_status', 'school_bus_id'
+                'status', 'attendance_status', 'school_bus_id', 'xp', 'level'
             ];
 
             // Explicitly pick only valid fields to avoid Prisma errors
@@ -697,6 +701,11 @@ export class StudentService {
                         studentUpdates[field] = updates.dob ? new Date(updates.dob) : null;
                     } else if (field === 'grade') {
                         studentUpdates[field] = updates.grade !== null ? Number(updates.grade) : null;
+                    } else if (field === 'xp' || field === 'level') {
+                        // Gamification counters — always non-negative integers, never trust
+                        // the client's arithmetic blindly beyond that basic sanity check.
+                        const n = Number(updates[field]);
+                        if (Number.isFinite(n) && n >= 0) studentUpdates[field] = Math.floor(n);
                     } else {
                         studentUpdates[field] = updates[field];
                     }
@@ -934,9 +943,10 @@ export class StudentService {
 
     static async getPerformance(schoolId: string, branchId: string | undefined, studentId: string, subject?: string | string[]) {
         return await prisma.academicPerformance.findMany({
-            where: { 
-                student_id: studentId, 
+            where: {
+                student_id: studentId,
                 school_id: schoolId,
+                ...(branchId ? { branch_id: branchId } : {}),
                 ...(subject ? {
                     subject: typeof subject === 'string' ? subject : { in: subject }
                 } : {})
@@ -947,7 +957,7 @@ export class StudentService {
 
     static async getBehaviorNotes(schoolId: string, branchId: string | undefined, studentId: string) {
         return await prisma.behaviorNote.findMany({
-            where: { student_id: studentId, school_id: schoolId },
+            where: { student_id: studentId, school_id: schoolId, ...(branchId ? { branch_id: branchId } : {}) },
             orderBy: { created_at: 'desc' }
         });
     }
@@ -1179,7 +1189,15 @@ export class StudentService {
         ]);
 
         const totalDays = attendance.length;
-        const presentDays = attendance.filter(a => a.status === 'Present' || a.status === 'Late').length;
+        // Attendance status is a free-text String field (see schema.prisma) and is
+        // written lowercase ('present'/'absent'/'late') by the attendance-marking
+        // flow, even though the Prisma column default is capitalized ('Present').
+        // Comparing against the capitalized form only ever matched the unused
+        // default, so attendanceRate silently computed to 0 for every student.
+        const presentDays = attendance.filter(a => {
+            const status = (a.status || '').toLowerCase();
+            return status === 'present' || status === 'late';
+        }).length;
         const attendanceRate = totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : 0;
 
         const averageScore = latestReportCard?.average_score != null

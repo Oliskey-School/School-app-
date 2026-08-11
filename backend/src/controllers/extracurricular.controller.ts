@@ -2,11 +2,12 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { ExtracurricularService } from '../services/extracurricular.service';
 import { StudentService } from '../services/student.service';
+import { getEffectiveBranchId } from '../utils/branchScope';
 
 export const getAllActivities = async (req: AuthRequest, res: Response) => {
     try {
         const schoolId = req.user.school_id;
-        const branchId = req.query.branchId as string || req.query.branch_id as string;
+        const branchId = getEffectiveBranchId(req.user, (req.query.branchId || req.query.branch_id) as string);
         const result = await ExtracurricularService.getActivities(schoolId, branchId);
         res.json(result);
     } catch (error: any) {
@@ -25,7 +26,7 @@ function errStatus(message: string): number {
 export const createActivity = async (req: AuthRequest, res: Response) => {
     try {
         if (!ADMIN_ROLES.includes((req.user.role || '').toLowerCase())) return res.status(403).json({ message: 'Only admins can create a club' });
-        const branchId = req.body.branch_id;
+        const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
         const result = await ExtracurricularService.createActivity(req.user.school_id, branchId, req.body);
         res.status(201).json(result);
     } catch (error: any) { res.status(errStatus(error.message)).json({ message: error.message }); }
@@ -51,7 +52,7 @@ export const addClubAchievement = async (req: AuthRequest, res: Response) => {
     try {
         const role = (req.user.role || '').toLowerCase();
         if (!ADMIN_ROLES.includes(role) && role !== 'teacher') return res.status(403).json({ message: 'Only staff can log a club achievement' });
-        const branchId = req.body.branch_id;
+        const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
         const result = await ExtracurricularService.addAchievement(req.user.school_id, branchId, req.params.id as string, req.body);
         res.status(201).json(result);
     } catch (error: any) { res.status(errStatus(error.message)).json({ message: error.message }); }
@@ -117,7 +118,7 @@ export const leaveActivity = async (req: AuthRequest, res: Response) => {
 export const getEventsByDateRange = async (req: AuthRequest, res: Response) => {
     try {
         const schoolId = req.user.school_id;
-        const branchId = req.query.branchId as string || req.query.branch_id as string;
+        const branchId = getEffectiveBranchId(req.user, (req.query.branchId || req.query.branch_id) as string);
         const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
         const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
 

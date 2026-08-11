@@ -172,6 +172,15 @@ export class ClassService {
             data.subjects = { set: subjectIds.map(sid => ({ id: sid })) };
         }
 
+        // Confirm the class actually belongs to this admin's school/branch before
+        // touching it — `updates` alone carried no tenant check, so any class id
+        // could otherwise be edited regardless of which school/branch it's in.
+        const owned = await prisma.class.findFirst({
+            where: { id, school_id: schoolId, ...(branchId && branchId !== 'all' ? { branch_id: branchId } : {}) },
+            select: { id: true }
+        });
+        if (!owned) throw new Error('Class not found in your school/branch');
+
         const result = await prisma.class.update({
             where: { id: id },
             data,
@@ -193,9 +202,12 @@ export class ClassService {
     }
 
     static async deleteClass(schoolId: string, branchId: string | undefined, id: string) {
-        // Cascade: remove timetable entries for this class before deleting it
+        const result = await prisma.class.deleteMany({
+            where: { id, school_id: schoolId, ...(branchId && branchId !== 'all' ? { branch_id: branchId } : {}) }
+        });
+        if (result.count === 0) throw new Error('Class not found in your school/branch');
+        // Cascade: remove any timetable entries left pointing at the now-deleted class.
         await prisma.timetable.deleteMany({ where: { class_id: id, school_id: schoolId } });
-        await prisma.class.delete({ where: { id: id } });
 
         SocketService.emitToSchool(schoolId, 'class:updated', { action: 'delete', classId: id });
         SocketService.emitToSchool(schoolId, 'timetable:updated', { action: 'class_deleted', classId: id });

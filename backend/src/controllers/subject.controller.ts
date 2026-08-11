@@ -17,7 +17,8 @@ export const getCurriculumTopics = async (req: AuthRequest, res: Response) => {
     try {
         const subjectId = req.params.subjectId as string;
         const term = req.query.term as string | undefined;
-        const result = await SubjectService.getCurriculumTopics(subjectId, term);
+        const branchId = getEffectiveBranchId(req.user);
+        const result = await SubjectService.getCurriculumTopics(req.user.school_id, branchId, subjectId, term);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });

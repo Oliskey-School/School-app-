@@ -130,9 +130,27 @@ export const getStudentByStudentId = async (req: AuthRequest, res: Response) => 
     }
 };
 
+// Fields a student may update on their OWN record — gamification progress
+// only. Everything else (grades, attendance flags, class/branch assignment,
+// status, etc.) stays admin-only; a request containing any other key is
+// rejected outright, not silently filtered, so this can't be widened by
+// accident.
+const SELF_UPDATABLE_STUDENT_FIELDS = ['xp', 'level'];
+
 export const updateStudent = async (req: AuthRequest, res: Response) => {
     try {
-        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can update student records' });
+        if (!isAdmin(req)) {
+            const role = (req.user.role || '').toUpperCase();
+            const bodyKeys = Object.keys(req.body || {});
+            const isSelfGamificationUpdate =
+                role === 'STUDENT' &&
+                bodyKeys.length > 0 &&
+                bodyKeys.every(k => SELF_UPDATABLE_STUDENT_FIELDS.includes(k));
+
+            if (!isSelfGamificationUpdate || !(await assertCanViewStudent(req, req.params.id as string))) {
+                return res.status(403).json({ message: 'Only admins can update student records' });
+            }
+        }
         const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
         const result = await StudentService.updateStudent(req.user.school_id, branchId, req.params.id as string, req.body);
         res.json(result);
@@ -289,13 +307,30 @@ export const linkGuardian = async (req: AuthRequest, res: Response) => {
         const schoolId = req.user.school_id;
         const branchId = getEffectiveBranchId(req.user, req.body.branchId || req.body.branch_id);
         const { studentCode, parentId } = req.body;
-        
+        const admin = isAdmin(req);
+        const role = (req.user.role || '').toUpperCase();
+
+        // Only an admin may link an ARBITRARY parent to a student (parentId supplied
+        // in the body). Anyone else — including a student, who has no business
+        // calling this at all — must be a PARENT linking their OWN parent profile.
+        // Without this check any authenticated student could pass any parentId +
+        // any other student's code and grant that parent full read access to a
+        // child that isn't theirs.
+        if (!admin) {
+            if (role !== 'PARENT') {
+                return res.status(403).json({ message: 'Only admins or parents can link a guardian' });
+            }
+            if (parentId) {
+                return res.status(403).json({ message: 'Only admins can link an arbitrary parent' });
+            }
+        }
+
         // Find Student
         const student = await prisma.student.findFirst({ where: { school_generated_id: studentCode, school_id: schoolId } });
         if (!student) return res.status(404).json({ message: 'Student with provided code not found.' });
 
         // Resolve Parent ID: Use provided parentId (Admin case) or current user's parent profile (Parent case)
-        let resolvedParentId = parentId;
+        let resolvedParentId = admin ? parentId : undefined;
         if (!resolvedParentId) {
             const parent = await prisma.parent.findUnique({ where: { user_id: req.user.id } });
             if (!parent) return res.status(404).json({ message: 'Parent profile not found.' });
@@ -317,8 +352,23 @@ export const unlinkGuardian = async (req: AuthRequest, res: Response) => {
         const schoolId = req.user.school_id;
         const branchId = getEffectiveBranchId(req.user, req.body.branchId || req.body.branch_id);
         const { studentId, parentId } = req.body;
+        const admin = isAdmin(req);
+        const role = (req.user.role || '').toUpperCase();
 
-        let resolvedParentId = parentId;
+        // Same guard as linkGuardian: only an admin may unlink an ARBITRARY
+        // parent/student pair. Anyone else must be a PARENT unlinking their own
+        // profile — otherwise a student could sever another child's legitimate
+        // parent link by guessing/enumerating IDs.
+        if (!admin) {
+            if (role !== 'PARENT') {
+                return res.status(403).json({ message: 'Only admins or parents can unlink a guardian' });
+            }
+            if (parentId) {
+                return res.status(403).json({ message: 'Only admins can unlink an arbitrary parent' });
+            }
+        }
+
+        let resolvedParentId = admin ? parentId : undefined;
         if (!resolvedParentId) {
             const parent = await prisma.parent.findUnique({ where: { user_id: req.user.id } });
             if (parent) resolvedParentId = parent.id;
@@ -340,6 +390,10 @@ export const unlinkGuardian = async (req: AuthRequest, res: Response) => {
 
 export const assignStudentToClass = async (req: AuthRequest, res: Response) => {
     try {
+        // Admin-only: this reassigns ANY student (by path param id, no ownership
+        // check) to a class. Without this gate any authenticated student could
+        // move any other student between classes by ID.
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can assign students to a class' });
         const { classId, classIds } = req.body;
         const studentId = req.params.id as string;
         const schoolId = req.user.school_id;
@@ -365,6 +419,10 @@ export const assignStudentToClass = async (req: AuthRequest, res: Response) => {
 
 export const removeStudentFromClass = async (req: AuthRequest, res: Response) => {
     try {
+        // Same gate as assignStudentToClass — no ownership check exists on this
+        // endpoint otherwise, so any student could pull any other student out of
+        // their class by ID.
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can remove students from a class' });
         const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
         const classId = req.body.class_id || req.body.classId || undefined;
         const result = await StudentService.removeStudentFromClass(req.user.school_id, branchId, req.params.id as string, classId);
@@ -469,6 +527,26 @@ export const getStudentsByClass = async (req: AuthRequest, res: Response) => {
             return res.status(400).json({ message: 'Grade and section are required' });
         }
 
+        // A teacher may only pull the roster of a class they are actually
+        // assigned to — otherwise any teacher could enumerate grade/section
+        // and read another teacher's full class list.
+        if ((req.user.role || '').toUpperCase() === 'TEACHER') {
+            const teacher = await prisma.teacher.findUnique({ where: { user_id: req.user.id }, select: { id: true } });
+            if (!teacher) return res.json([]);
+            const classRecord = await prisma.class.findFirst({
+                where: {
+                    school_id: schoolId,
+                    ...(branchId && branchId !== 'all' ? { OR: [{ branch_id: branchId }, { branch_id: null }] } : {}),
+                    grade,
+                    section
+                },
+                select: { id: true }
+            });
+            if (!classRecord) return res.json([]);
+            const access = await prisma.classTeacher.findFirst({ where: { teacher_id: teacher.id, class_id: classRecord.id } });
+            if (!access) return res.status(403).json({ message: 'Unauthorized access to this class' });
+        }
+
         const students = await StudentService.getStudentsByClass(schoolId, branchId, grade, section, curriculumId);
         res.json(students);
     } catch (error: any) {
@@ -491,8 +569,18 @@ export const getStudentsByClassId = async (req: AuthRequest, res: Response) => {
     try {
         const schoolId = req.user.school_id;
         const branchId = getEffectiveBranchId(req.user, (req.query.branchId as any) || (req.query.branch_id as any));
-        const classId = req.params.classId;
+        const classId = req.params.classId as string;
         const status = (req.query.status as string) || 'all';
+
+        // A teacher may only pull the roster of a class they are actually
+        // assigned to — otherwise any teacher could pass any classId and read
+        // another teacher's full class list.
+        if ((req.user.role || '').toUpperCase() === 'TEACHER') {
+            const teacher = await prisma.teacher.findUnique({ where: { user_id: req.user.id }, select: { id: true } });
+            if (!teacher) return res.json([]);
+            const access = await prisma.classTeacher.findFirst({ where: { teacher_id: teacher.id, class_id: classId } });
+            if (!access) return res.status(403).json({ message: 'Unauthorized access to this class' });
+        }
 
         console.log(`[DEBUG] getStudentsByClassId: schoolId=${schoolId}, branchId=${branchId}, classId=${classId}`);
 
@@ -545,6 +633,20 @@ export const addMyDocument = async (req: AuthRequest, res: Response) => {
 export const getStudentsBySubject = async (req: AuthRequest, res: Response) => {
     try {
         const { subjectId } = req.params;
+
+        // A student may only pull the roster for a subject they are actually
+        // enrolled in — otherwise any student could enumerate subjectIds and read
+        // the classmate roster (names/avatars/IDs) of every class in the school,
+        // not just their own.
+        if ((req.user.role || '').toUpperCase() === 'STUDENT') {
+            const branchId = getEffectiveBranchId(req.user);
+            const student = await StudentService.getStudentProfileByUserId(req.user.school_id, branchId, req.user.id);
+            if (!student) return res.status(404).json({ message: 'Student not found' });
+            const mySubjects = await StudentService.getMySubjects(req.user.school_id, student.id);
+            const owns = (mySubjects || []).some((s: any) => s.id === subjectId);
+            if (!owns) return res.status(403).json({ message: 'Not enrolled in this subject' });
+        }
+
         const result = await StudentService.getStudentsBySubject(req.user.school_id, subjectId as string);
         res.json(result);
     } catch (error: any) {

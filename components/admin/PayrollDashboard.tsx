@@ -169,7 +169,7 @@ const PayrollDashboard: React.FC<PayrollDashboardProps> = ({ navigateTo }) => {
 
             const recent = recentData?.map((p: any) => ({
                 id: p.id,
-                teacher_name: p.teachers?.full_name || 'Unknown',
+                teacher_name: p.teacher?.full_name || 'Unknown',
                 period_start: p.period_start,
                 period_end: p.period_end,
                 net_salary: p.net_salary,
@@ -196,7 +196,7 @@ const PayrollDashboard: React.FC<PayrollDashboardProps> = ({ navigateTo }) => {
     const StatCard: React.FC<{
         title: string;
         value: string | number;
-        icon: React.ReactElement;
+        icon: React.ReactElement<{ className?: string }>;
         color: string;
         trend?: string;
         index?: number;

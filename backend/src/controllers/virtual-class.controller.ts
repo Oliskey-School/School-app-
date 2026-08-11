@@ -6,6 +6,38 @@ import { getEffectiveBranchId } from '../utils/branchScope';
 import { SocketService } from '../services/socket.service';
 import { NotificationService } from '../services/notification.service';
 
+// A student must only see live/scheduled sessions for a class they're actually
+// enrolled in (or school/branch-wide sessions with no class_id at all) — not
+// every session in their branch. Without this, getActiveVirtualClasses /
+// getVirtualClassSessions handed every student in a branch the meeting_url +
+// password for every OTHER class's live session too, letting a student join
+// a class meant for a different grade/section entirely. class_id isn't on the
+// generated Prisma client yet (see VirtualClassService.createSession), so it's
+// read back via raw SQL.
+async function filterSessionsForStudent(req: AuthRequest, sessions: any[]): Promise<any[]> {
+    if ((req.user.role || '').toUpperCase() !== 'STUDENT' || sessions.length === 0) return sessions;
+
+    const student = await prisma.student.findUnique({ where: { user_id: req.user.id }, select: { id: true } });
+    if (!student) return [];
+
+    const enrollments = await prisma.studentEnrollment.findMany({
+        where: { student_id: student.id, status: 'Active' },
+        select: { class_id: true },
+    });
+    const myClassIds = new Set(enrollments.map(e => e.class_id));
+
+    const ids = sessions.map(s => s.id);
+    const rows = await prisma.$queryRawUnsafe<{ id: string; class_id: string | null }[]>(
+        `SELECT id, class_id FROM "VirtualClassSession" WHERE id = ANY($1::text[])`, ids
+    );
+    const classIdById = new Map(rows.map(r => [r.id, r.class_id]));
+
+    return sessions.filter(s => {
+        const classId = classIdById.get(s.id);
+        return !classId || myClassIds.has(classId);
+    });
+}
+
 export const deleteVirtualClassSession = async (req: AuthRequest, res: Response) => {
     try {
         const id = req.params.id as string;
@@ -132,17 +164,22 @@ export const getVirtualClassSessions = async (req: AuthRequest, res: Response) =
         const branchId = getEffectiveBranchId(req.user, requestedBranch);
         let teacherId = (req.query.teacher_id as string) || (req.query.teacherId as string);
 
-        // Auto-scope to the logged-in teacher's own sessions when no explicit teacherId given
-        if (!teacherId && req.user.role === 'TEACHER') {
+        // Always scope a TEACHER caller to their own sessions — the query-string
+        // teacherId was previously trusted as-is, so any teacher could pass
+        // ?teacher_id=<another teacher's id> and read that teacher's full session
+        // list, including meeting_url, password, and recording_url. Verified live
+        // with two real teacher accounts (round 8 audit). Admins keep the ability
+        // to filter by any teacherId.
+        if (req.user.role === 'TEACHER') {
             const teacher = await prisma.teacher.findUnique({
                 where: { user_id: req.user.id },
                 select: { id: true },
             });
-            if (teacher) teacherId = teacher.id;
+            teacherId = teacher?.id;
         }
 
         const sessions = await VirtualClassService.getSessions(req.user.school_id, branchId, teacherId);
-        res.json(sessions);
+        res.json(await filterSessionsForStudent(req, sessions));
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
@@ -182,7 +219,7 @@ export const getActiveVirtualClasses = async (req: AuthRequest, res: Response) =
             include: { teacher: { select: { full_name: true, id: true } } },
             orderBy: { start_time: 'desc' },
         });
-        res.json(sessions);
+        res.json(await filterSessionsForStudent(req, sessions));
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
@@ -283,13 +320,28 @@ export const endVirtualClassSession = async (req: AuthRequest, res: Response) =>
 
 export const recordVirtualAttendance = async (req: AuthRequest, res: Response) => {
     try {
-        const { sessionId, studentId } = req.body;
-        
+        const { sessionId } = req.body;
+        let { studentId } = req.body;
+
+        // A student self-marking their own attendance on join
+        // (components/video/VirtualClassroom.tsx) must not be able to pass an
+        // arbitrary studentId and mark a classmate present/absent instead —
+        // resolve their own Student.id from the session and ignore whatever
+        // the client sent. Teachers/admins keep the ability to mark
+        // attendance on behalf of a student who couldn't join.
+        const role = (req.user.role || '').toLowerCase();
+        if (role === 'student') {
+            const student = await prisma.student.findUnique({ where: { user_id: req.user.id }, select: { id: true } });
+            if (!student) return res.status(403).json({ message: 'Student profile not found' });
+            studentId = student.id;
+        }
+
         if (!sessionId || !studentId) {
             return res.status(400).json({ message: 'Session ID and Student ID are required' });
         }
 
-        const attendance = await VirtualClassService.recordAttendance(sessionId, studentId);
+        const branchId = getEffectiveBranchId(req.user);
+        const attendance = await VirtualClassService.recordAttendance(req.user.school_id, branchId, sessionId, studentId);
         res.status(200).json(attendance);
     } catch (error: any) {
         res.status(500).json({ error: error.message });

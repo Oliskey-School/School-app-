@@ -96,7 +96,10 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
                 phone: demoDbUser?.phone ?? null,
                 is_demo: true,
                 is_main_admin: ['ADMIN', 'PROPRIETOR', 'SUPER_ADMIN'].includes(demoRoleUpper),
-                school: demoSchool
+                school: demoSchool,
+                // Session id embedded in the access token — lets Session Management tell
+                // "this row is my own live session" apart from other devices/sessions.
+                sid: decoded.sid
             };
 
             // Set Postgres context for RLS policies (demo mode)
@@ -214,7 +217,10 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
             school: user.school,
             branch: user.branch,
             teacher_profile: user.teacher_profile,
-            parent_profile: user.parent_profile
+            parent_profile: user.parent_profile,
+            // Session id embedded in the access token — lets Session Management tell
+            // "this row is my own live session" apart from other devices/sessions.
+            sid: decoded.sid
         };
 
         // Set Postgres context for RLS policies

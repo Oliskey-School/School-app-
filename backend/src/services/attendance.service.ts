@@ -33,6 +33,24 @@ export class AttendanceService {
     static async saveAttendance(schoolId: string, branchId: string | undefined, records: any[]) {
         // records: { student_id, class_id, date, status, notes }
         const scopedBranch = branchId && branchId !== 'all' ? branchId : null;
+
+        // The controller already confirms the caller owns each class_id, but
+        // never checks that student_id actually belongs to this school/branch
+        // — without this, attendance could be recorded against a student from
+        // a completely different branch just by passing their id.
+        const studentIds = [...new Set(records.map((r: any) => r.student_id).filter(Boolean))];
+        if (studentIds.length > 0) {
+            const owned = await prisma.student.findMany({
+                where: { id: { in: studentIds }, school_id: schoolId, ...(scopedBranch ? { branch_id: scopedBranch } : {}) },
+                select: { id: true },
+            });
+            const ownedSet = new Set(owned.map(s => s.id));
+            const unauthorized = studentIds.filter(id => !ownedSet.has(id));
+            if (unauthorized.length > 0) {
+                throw new Error('One or more students are not in your school/branch');
+            }
+        }
+
         return await prisma.$transaction(async (tx) => {
             const results = [];
             for (const record of records) {

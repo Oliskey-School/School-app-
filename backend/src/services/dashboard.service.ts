@@ -738,6 +738,7 @@ export class DashboardService {
             prisma.quiz.findMany({
                 where: {
                     school_id: schoolId,
+                    ...(effectiveBranchId ? { branch_id: effectiveBranchId } : {}),
                     title: { contains: term, mode: 'insensitive' }
                 },
                 take: 5

@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PlayIcon, Gamepad2 as GameControllerIcon, TrophyIcon, BriefcaseIcon, ChevronRightIcon, Search as SearchIcon, Sword, Mic2, Sparkles as SparklesIcon, FileText } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { EducationalGame } from '../../../data/gamesData';
+import { EducationalGame, educationalGamesData } from '../../../data/gamesData';
 import { Student, AIGame } from '../../../types';
 import { api } from '../../../lib/api';
 
@@ -243,12 +243,21 @@ const GamesHubScreen: React.FC<GamesHubScreenProps> = ({ navigateTo, student }) 
 
     const studentLevel = getStudentLevel(student?.grade || 1);
 
+    // The static catalog (data/gamesData.ts) is the source of truth for the
+    // built-in playable games (Vocabulary Pictionary, Debate Dash, Shark Tank,
+    // etc.) — their view routes in StudentDashboard's LevelAccordion onClick
+    // handler match these exact gameName strings. dbGames only ever contains
+    // per-branch "Class Battle" rows, so without merging the static catalog in,
+    // every other built game was unreachable from this screen. Combined here
+    // rather than fetched, since the static catalog has no DB-side equivalent.
+    const allGames = useMemo(() => [...educationalGamesData, ...dbGames], [dbGames]);
+
     const gamesByLevel = useMemo(() => {
-        return dbGames.reduce((acc, game) => {
+        return allGames.reduce((acc, game) => {
             (acc[game.level] = acc[game.level] || []).push(game);
             return acc;
         }, {} as Record<string, EducationalGame[]>);
-    }, [dbGames]);
+    }, [allGames]);
 
     const levels: EducationalGame['level'][] = [
         'Early Years (1-3 years)',
@@ -291,7 +300,7 @@ const GamesHubScreen: React.FC<GamesHubScreenProps> = ({ navigateTo, student }) 
         {
             title: 'Math Battle',
             description: 'PvP Arithmetic Duels.',
-            icon: <div className="text-2xl font-bold text-white">Ã·</div>,
+            icon: <div className="text-2xl font-bold text-white">÷</div>,
             bgColor: 'bg-pink-500 bg-gradient-to-br from-pink-500 to-rose-600',
             action: () => navigateTo('mathBattleArena', 'Math Battle Arena')
         },

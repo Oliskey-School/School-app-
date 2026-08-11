@@ -4,7 +4,7 @@ import { DashboardType } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { SchoolLogoIcon, THEME_CONFIG } from '../../constants';
 import { authenticateUser } from '../../lib/auth';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import SchoolSignup from './SchoolSignup';
 import EmailVerificationScreen from './EmailVerificationScreen';

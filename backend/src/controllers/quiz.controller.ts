@@ -174,6 +174,14 @@ export const deleteQuiz = async (req: AuthRequest, res: Response): Promise<void>
 
 export const getQuizSubmissions = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
+        // Listing every student's submissions (names, answers, scores) for a quiz
+        // is a teacher/admin grading view — never a student endpoint. This had no
+        // role check at all, so any authenticated student could read every other
+        // student's quiz answers and scores by quiz ID.
+        if (!(await assertOwnsQuiz(req, req.params.id as string))) {
+            res.status(403).json({ success: false, message: 'You do not have access to these submissions' });
+            return;
+        }
         const branchId = getEffectiveBranchId(req.user, (req.query.branchId || req.query.branch_id) as string);
         const result = await QuizService.getQuizSubmissions(req.user.school_id, branchId, req.params.id as string);
         res.status(200).json(result);

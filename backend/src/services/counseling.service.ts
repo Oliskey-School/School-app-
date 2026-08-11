@@ -2,12 +2,13 @@ import prisma from '../config/database';
 import { SocketService } from './socket.service';
 
 export class CounselingService {
-  async getAppointments(school_id: string, filters: any = {}) {
+  async getAppointments(school_id: string, branch_id: string | undefined, filters: any = {}) {
     const { student_id, counselor_id, status } = filters;
-    
+
     const appointments = await prisma.counselingAppointment.findMany({
       where: {
         school_id,
+        ...(branch_id ? { branch_id } : {}),
         ...(student_id && { student_id }),
         ...(counselor_id && { counselor_id }),
         ...(status && { status }),
@@ -29,11 +30,12 @@ export class CounselingService {
     }));
   }
 
-  async bookAppointment(school_id: string, data: any) {
+  async bookAppointment(school_id: string, branch_id: string | undefined, data: any) {
     const appointment = await prisma.counselingAppointment.create({
       data: {
-        school_id,
         ...data,
+        school_id,
+        branch_id: branch_id || data.branch_id || null,
       },
     });
 
@@ -41,10 +43,10 @@ export class CounselingService {
     return appointment;
   }
 
-  async updateAppointmentStatus(school_id: string, id: string, status: string, confirmed_date?: Date) {
+  async updateAppointmentStatus(school_id: string, branch_id: string | undefined, id: string, status: string, confirmed_date?: Date) {
     // Tenant-scoped lookup prevents cross-school mutation via known appointment id.
     const existing = await prisma.counselingAppointment.findFirst({
-      where: { id, school_id }
+      where: { id, school_id, ...(branch_id ? { branch_id } : {}) }
     });
     if (!existing) {
       const err: any = new Error('Appointment not found');

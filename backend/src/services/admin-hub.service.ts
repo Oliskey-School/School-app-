@@ -1,25 +1,26 @@
 import prisma from '../config/database';
 
 export class CustomReportService {
-    static async getSavedReports(schoolId: string) {
+    static async getSavedReports(schoolId: string, branchId?: string) {
         return prisma.savedReport.findMany({
-            where: { school_id: schoolId },
+            where: { school_id: schoolId, ...(branchId ? { branch_id: branchId } : {}) },
             orderBy: { created_at: 'desc' }
         });
     }
 
-    static async createSavedReport(schoolId: string, data: any) {
+    static async createSavedReport(schoolId: string, branchId: string | undefined, data: any) {
         return prisma.savedReport.create({
             data: {
                 ...data,
-                school_id: schoolId
+                school_id: schoolId,
+                branch_id: branchId || data.branch_id || null,
             }
         });
     }
 
-    static async deleteSavedReport(schoolId: string, id: string) {
+    static async deleteSavedReport(schoolId: string, branchId: string | undefined, id: string) {
         return prisma.savedReport.deleteMany({
-            where: { id, school_id: schoolId }
+            where: { id, school_id: schoolId, ...(branchId ? { branch_id: branchId } : {}) }
         });
     }
 }
@@ -47,14 +48,16 @@ export class DataRequestService {
         });
     }
 
-    static async updateRequestStatus(id: string, status: string) {
-        return prisma.dataRequest.update({
-            where: { id },
-            data: { 
+    static async updateRequestStatus(id: string, schoolId: string, branchId: string | undefined, status: string) {
+        const result = await prisma.dataRequest.updateMany({
+            where: { id, school_id: schoolId, ...(branchId && branchId !== 'all' ? { branch_id: branchId } : {}) },
+            data: {
                 status,
                 ...(status === 'completed' ? { completed_at: new Date() } : {})
             }
         });
+        if (result.count === 0) throw new Error('Data request not found in your school/branch');
+        return prisma.dataRequest.findUniqueOrThrow({ where: { id } });
     }
 }
 
@@ -96,14 +99,16 @@ export class InvoiceService {
         });
     }
 
-    static async updateInvoiceStatus(id: string, status: string) {
-        return prisma.invoice.update({
-            where: { id },
-            data: { 
+    static async updateInvoiceStatus(id: string, schoolId: string, branchId: string | undefined, status: string) {
+        const result = await prisma.invoice.updateMany({
+            where: { id, school_id: schoolId, ...(branchId && branchId !== 'all' ? { branch_id: branchId } : {}) },
+            data: {
                 status,
                 ...(status === 'sent' ? { sent_at: new Date() } : {})
             }
         });
+        if (result.count === 0) throw new Error('Invoice not found in your school/branch');
+        return prisma.invoice.findUniqueOrThrow({ where: { id } });
     }
 }
 
@@ -116,28 +121,42 @@ export class SessionService {
         });
     }
 
-    static async revokeSession(id: string, userId: string) {
+    static async revokeSession(id: string, userId: string, currentSid?: string) {
+        // @ts-ignore
+        const target = await prisma.userSession.findFirst({ where: { id, user_id: userId } });
+        if (!target) throw new Error('Session not found');
+        // Defense-in-depth: the frontend already hides the Revoke button for the
+        // caller's own live session (session.is_current), but a self-revoke via a
+        // direct API call would otherwise delete the session backing the caller's
+        // own refresh token — silently logging them out with no recovery.
+        if (currentSid && (target as any).token_id === currentSid) {
+            throw new Error('Cannot revoke your own active session');
+        }
         // @ts-ignore
         return prisma.userSession.delete({
             where: { id, user_id: userId }
         });
     }
 
-    static async revokeAllOtherSessions(userId: string, currentSessionId?: string) {
+    static async revokeAllOtherSessions(userId: string, currentSid?: string) {
         // @ts-ignore
         return prisma.userSession.deleteMany({
             where: {
                 user_id: userId,
-                ...(currentSessionId ? { NOT: { id: currentSessionId } } : {})
+                // currentSid is the token_id the caller's own session row was created
+                // with (see admin-hub.controller#revokeAllOtherSessions) — excluding by
+                // the wrong field (row id) here meant "Revoke All Others" always
+                // revoked the caller's own live session too, since it never matched.
+                ...(currentSid ? { NOT: { token_id: currentSid } } : {})
             }
         });
     }
 }
 
 export class AnalyticsService {
-    static async getEnrollmentTrends(schoolId: string) {
+    static async getEnrollmentTrends(schoolId: string, branchId?: string) {
         const students = await prisma.student.findMany({
-            where: { school_id: schoolId },
+            where: { school_id: schoolId, ...(branchId ? { branch_id: branchId } : {}) },
             select: { created_at: true, status: true }
         });
 
@@ -175,10 +194,10 @@ export class AnalyticsService {
 }
 
 export class ConsentService {
-    static async getConsents(schoolId: string) {
+    static async getConsents(schoolId: string, branchId?: string) {
         // @ts-ignore
         return prisma.parentalConsent.findMany({
-            where: { school_id: schoolId },
+            where: { school_id: schoolId, ...(branchId ? { branch_id: branchId } : {}) },
             include: {
                 student: {
                     select: {
@@ -192,16 +211,19 @@ export class ConsentService {
         });
     }
 
-    static async updateConsentStatus(id: string, status: string) {
+    static async updateConsentStatus(id: string, schoolId: string, branchId: string | undefined, status: string) {
         // @ts-ignore
-        return prisma.parentalConsent.update({
-            where: { id },
-            data: { 
+        const result = await prisma.parentalConsent.updateMany({
+            where: { id, school_id: schoolId, ...(branchId ? { branch_id: branchId } : {}) },
+            data: {
                 status,
                 ...(status === 'granted' ? { granted_at: new Date() } : {}),
                 ...(status === 'revoked' ? { revoked_at: new Date() } : {})
             }
         });
+        if (result.count === 0) throw new Error('Consent record not found in your school/branch');
+        // @ts-ignore
+        return prisma.parentalConsent.findUniqueOrThrow({ where: { id } });
     }
 }
 
@@ -231,10 +253,10 @@ export class NotificationSettingService {
 }
 
 export class KanbanService {
-    static async getBoard(schoolId: string) {
+    static async getBoard(schoolId: string, branchId?: string) {
         // @ts-ignore
         const columns = await prisma.kanbanColumn.findMany({
-            where: { school_id: schoolId },
+            where: { school_id: schoolId, ...(branchId ? { branch_id: branchId } : {}) },
             include: {
                 tasks: {
                     orderBy: { created_at: 'asc' }
@@ -255,13 +277,13 @@ export class KanbanService {
             for (const d of defaults) {
                 // @ts-ignore
                 await prisma.kanbanColumn.create({
-                    data: { school_id: schoolId, ...d }
+                    data: { school_id: schoolId, branch_id: branchId || null, ...d }
                 });
             }
 
             // @ts-ignore
             return prisma.kanbanColumn.findMany({
-                where: { school_id: schoolId },
+                where: { school_id: schoolId, ...(branchId ? { branch_id: branchId } : {}) },
                 include: { tasks: true },
                 orderBy: { order: 'asc' }
             });
@@ -270,17 +292,37 @@ export class KanbanService {
         return columns;
     }
 
-    static async createTask(columnId: string, data: any) {
+    static async createTask(columnId: string, schoolId: string, branchId: string | undefined, data: any) {
+        // A column belongs to exactly one tenant — confirm the caller's tenant
+        // owns it before attaching a task, otherwise a task (and its column_id
+        // pointer) could be created against another school/branch's board.
+        // @ts-ignore
+        const column = await prisma.kanbanColumn.findFirst({
+            where: { id: columnId, school_id: schoolId, ...(branchId ? { branch_id: branchId } : {}) },
+            select: { id: true }
+        });
+        if (!column) throw new Error('Board column not found in your school/branch');
+
         // @ts-ignore
         return prisma.kanbanTask.create({
             data: {
                 column_id: columnId,
+                school_id: schoolId,
+                branch_id: branchId || null,
                 ...data
             }
         });
     }
 
-    static async moveTask(taskId: string, targetColumnId: string) {
+    static async moveTask(taskId: string, targetColumnId: string, schoolId: string, branchId: string | undefined) {
+        // @ts-ignore
+        const [task, targetColumn] = await Promise.all([
+            prisma.kanbanTask.findFirst({ where: { id: taskId, school_id: schoolId, ...(branchId ? { branch_id: branchId } : {}) }, select: { id: true } }),
+            // @ts-ignore
+            prisma.kanbanColumn.findFirst({ where: { id: targetColumnId, school_id: schoolId, ...(branchId ? { branch_id: branchId } : {}) }, select: { id: true } }),
+        ]);
+        if (!task || !targetColumn) throw new Error('Task or target column not found in your school/branch');
+
         // @ts-ignore
         return prisma.kanbanTask.update({
             where: { id: taskId },
@@ -288,20 +330,23 @@ export class KanbanService {
         });
     }
 
-    static async deleteTask(taskId: string) {
+    static async deleteTask(taskId: string, schoolId: string, branchId: string | undefined) {
         // @ts-ignore
-        return prisma.kanbanTask.delete({
-            where: { id: taskId }
+        const result = await prisma.kanbanTask.deleteMany({
+            where: { id: taskId, school_id: schoolId, ...(branchId ? { branch_id: branchId } : {}) }
         });
+        if (result.count === 0) throw new Error('Task not found in your school/branch');
+        return { success: true };
     }
 }
 
 export class HealthService {
-    static async getHealthLogs(schoolId: string, studentId?: string) {
+    static async getHealthLogs(schoolId: string, branchId: string | undefined, studentId?: string) {
         // @ts-ignore
         return prisma.healthLog.findMany({
             where: {
                 school_id: schoolId,
+                ...(branchId ? { branch_id: branchId } : {}),
                 ...(studentId ? { student_id: studentId } : {})
             },
             include: {
@@ -313,12 +358,13 @@ export class HealthService {
         });
     }
 
-    static async createHealthLog(schoolId: string, data: any) {
+    static async createHealthLog(schoolId: string, branchId: string | undefined, data: any) {
         const { student_id, description, ...rest } = data;
         return prisma.healthLog.create({
             data: {
                 ...rest,
                 school_id: schoolId,
+                branch_id: branchId || null,
                 logged_date: data.logged_date ? new Date(data.logged_date) : new Date(),
                 notes: description,
                 ...(student_id ? { student: { connect: { id: student_id } } } : {})
@@ -326,59 +372,66 @@ export class HealthService {
         });
     }
 
-    static async updateHealthLog(id: string, data: any) {
+    static async updateHealthLog(id: string, schoolId: string, branchId: string | undefined, data: any) {
         // @ts-ignore
-        return prisma.healthLog.update({
-            where: { id },
+        const result = await prisma.healthLog.updateMany({
+            where: { id, school_id: schoolId, ...(branchId ? { branch_id: branchId } : {}) },
             data: {
                 ...data,
                 updated_at: new Date()
             }
         });
+        if (result.count === 0) throw new Error('Health log not found in your school/branch');
+        // @ts-ignore
+        return prisma.healthLog.findUniqueOrThrow({ where: { id } });
     }
-    static async deleteHealthLog(id: string, schoolId: string) {
+    static async deleteHealthLog(id: string, schoolId: string, branchId?: string) {
         // @ts-ignore
         return prisma.healthLog.deleteMany({
-            where: { id, school_id: schoolId }
+            where: { id, school_id: schoolId, ...(branchId ? { branch_id: branchId } : {}) }
         });
     }
 }
 
 export class SafetyService {
-    static async getEmergencyAlerts(schoolId: string) {
+    static async getEmergencyAlerts(schoolId: string, branchId?: string) {
         // @ts-ignore
         return prisma.emergencyAlert.findMany({
-            where: { school_id: schoolId },
+            where: { school_id: schoolId, ...(branchId ? { branch_id: branchId } : {}) },
             orderBy: { sent_at: 'desc' }
         });
     }
 
-    static async createEmergencyAlert(schoolId: string, data: any) {
+    static async createEmergencyAlert(schoolId: string, branchId: string | undefined, data: any) {
         // @ts-ignore
         return prisma.emergencyAlert.create({
             data: {
                 ...data,
                 school_id: schoolId,
+                branch_id: branchId || null,
                 sent_at: new Date()
             }
         });
     }
 
-    static async updateEmergencyAlert(id: string, data: any) {
+    static async updateEmergencyAlert(id: string, schoolId: string, branchId: string | undefined, data: any) {
         // @ts-ignore
-        return prisma.emergencyAlert.update({
-            where: { id },
+        const result = await prisma.emergencyAlert.updateMany({
+            where: { id, school_id: schoolId, ...(branchId ? { branch_id: branchId } : {}) },
             data: {
                 ...data,
                 sent_at: data.sent_at ? new Date(data.sent_at) : undefined
             }
         });
+        if (result.count === 0) throw new Error('Emergency alert not found in your school/branch');
+        // @ts-ignore
+        return prisma.emergencyAlert.findUniqueOrThrow({ where: { id } });
     }
 
-    static async getHealthIncidents(schoolId: string) {
+    static async getHealthIncidents(schoolId: string, branchId?: string) {
         // @ts-ignore
         return prisma.healthIncident.findMany({
-            where: { school_id: schoolId },
+            where: { school_id: schoolId, ...(branchId ? { branch_id: branchId } : {}) },
             include: {
                 student: {
                     select: { full_name: true }
@@ -396,26 +449,29 @@ export class SafetyService {
         return incident_time ? new Date(`${incident_date}T${incident_time}:00`) : new Date(incident_date);
     }
 
-    static async createHealthIncident(schoolId: string, data: any) {
+    static async createHealthIncident(schoolId: string, branchId: string | undefined, data: any) {
         const { student_id, incident_type, description, action_taken, location, severity, reported_by, witnesses, parent_notified, status, incident_date, incident_time } = data;
         return prisma.healthIncident.create({
             data: {
                 student_id, incident_type, description, action_taken, location, severity, reported_by, witnesses, parent_notified, status,
                 school_id: schoolId,
+                branch_id: branchId || null,
                 incident_date: this.combineIncidentDate(incident_date, incident_time) || new Date(),
             }
         });
     }
 
-    static async updateHealthIncident(id: string, data: any) {
+    static async updateHealthIncident(id: string, schoolId: string, branchId: string | undefined, data: any) {
         const { student_id, incident_type, description, action_taken, location, severity, reported_by, witnesses, parent_notified, status, incident_date, incident_time } = data;
-        return prisma.healthIncident.update({
-            where: { id },
+        const result = await prisma.healthIncident.updateMany({
+            where: { id, school_id: schoolId, ...(branchId ? { branch_id: branchId } : {}) },
             data: {
                 student_id, incident_type, description, action_taken, location, severity, reported_by, witnesses, parent_notified, status,
                 incident_date: this.combineIncidentDate(incident_date, incident_time),
             }
         });
+        if (result.count === 0) throw new Error('Health incident not found in your school/branch');
+        return prisma.healthIncident.findUniqueOrThrow({ where: { id } });
     }
 
     // The frontend's Drill form/list (components/admin/SafetyHealthLogs.tsx) uses
@@ -433,17 +489,17 @@ export class SafetyService {
         };
     }
 
-    static async getEmergencyDrills(schoolId: string) {
+    static async getEmergencyDrills(schoolId: string, branchId?: string) {
         // @ts-ignore
         const drills = await prisma.emergencyDrill.findMany({
-            where: { school_id: schoolId },
+            where: { school_id: schoolId, ...(branchId ? { branch_id: branchId } : {}) },
             orderBy: { drill_date: 'desc' }
         });
         return drills.map((d: any) => this.mapDrillToFrontend(d));
     }
 
-    static async createEmergencyDrill(schoolId: string, data: any) {
-        const { duration_minutes, participants_count, success_rating, drill_type, drill_date, start_time, end_time, notes, conducted_by, branch_id } = data;
+    static async createEmergencyDrill(schoolId: string, branchId: string | undefined, data: any) {
+        const { duration_minutes, participants_count, success_rating, drill_type, drill_date, start_time, end_time, notes, conducted_by } = data;
         // @ts-ignore
         const drill = await prisma.emergencyDrill.create({
             data: {
@@ -456,7 +512,7 @@ export class SafetyService {
                 participants: participants_count != null ? String(participants_count) : undefined,
                 outcome: success_rating,
                 school_id: schoolId,
-                branch_id: branch_id || null,
+                branch_id: branchId || data.branch_id || null,
                 drill_date: drill_date ? new Date(drill_date) : new Date()
             }
         });
@@ -488,27 +544,30 @@ export class SafetyService {
         });
     }
 
-    static async updateSafeguardingPolicy(id: string, data: any) {
+    static async updateSafeguardingPolicy(id: string, schoolId: string, branchId: string | undefined, data: any) {
         // @ts-ignore
-        return prisma.safeguardingPolicy.update({
-            where: { id },
+        const result = await prisma.safeguardingPolicy.updateMany({
+            where: { id, school_id: schoolId, ...(branchId && branchId !== 'all' ? { branch_id: branchId } : {}) },
             data: {
                 ...data,
                 effective_date: data.effective_date ? new Date(data.effective_date) : undefined,
                 review_date: data.review_date ? new Date(data.review_date) : undefined
             }
         });
+        if (result.count === 0) throw new Error('Policy not found in your school/branch');
+        // @ts-ignore
+        return prisma.safeguardingPolicy.findUniqueOrThrow({ where: { id } });
     }
 }
 
 export class GovernanceService {
-    static async getGovernanceStats(schoolId: string) {
+    static async getGovernanceStats(schoolId: string, branchId?: string) {
         // @ts-ignore
         const [students, teachers, policies, inspections] = await Promise.all([
             // @ts-ignore
-            prisma.student.count({ where: { school_id: schoolId } }),
+            prisma.student.count({ where: { school_id: schoolId, ...(branchId ? { branch_id: branchId } : {}) } }),
             // @ts-ignore
-            prisma.teacher.count({ where: { school_id: schoolId } }),
+            prisma.teacher.count({ where: { school_id: schoolId, ...(branchId ? { branch_id: branchId } : {}) } }),
             // @ts-ignore
             prisma.schoolPolicy.count({ where: { school_id: schoolId } }),
             // @ts-ignore
@@ -520,8 +579,8 @@ export class GovernanceService {
 
     static async getComplianceMetrics(schoolId: string) {
         // Since we don't have a concrete vw_compliance_metrics view accessible via Prisma,
-        // we're mocking these values for demonstration. In a real-world scenario, you might 
-        // calculate these dynamically based on the number of completed inspections, resolved 
+        // we're mocking these values for demonstration. In a real-world scenario, you might
+        // calculate these dynamically based on the number of completed inspections, resolved
         // safety issues, and up-to-date policies.
         return {
             facilities_score: 94,
@@ -536,4 +595,3 @@ export class GovernanceService {
         return prisma.userSession.count({ where: { school_id: schoolId } });
     }
 }
-

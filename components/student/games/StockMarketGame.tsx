@@ -165,6 +165,7 @@ const StockMarketGame: React.FC<StockMarketGameProps> = ({ onBack }) => {
                 setDay(1);
                 setStocks(INITIAL_STOCKS);
                 setPortfolio([]);
+                setSelectedStock(INITIAL_STOCKS[0]);
                 setGameState('PLAYING');
             }}
         >
@@ -331,7 +332,7 @@ const StockMarketGame: React.FC<StockMarketGameProps> = ({ onBack }) => {
                                 </div>
                             </div>
                             <button
-                                onClick={() => { setCash(INITIAL_CASH); setDay(1); setStocks(INITIAL_STOCKS); setPortfolio([]); setPortfolio([]); setGameState('PLAYING'); }}
+                                onClick={() => { setCash(INITIAL_CASH); setDay(1); setStocks(INITIAL_STOCKS); setPortfolio([]); setSelectedStock(INITIAL_STOCKS[0]); setGameState('PLAYING'); }}
                                 className="bg-blue-600 text-white px-8 py-3 rounded-full font-bold text-lg hover:bg-blue-500 shadow-lg"
                             >
                                 Start New Portfolio

@@ -83,14 +83,55 @@ router.get('/:id/badges', authenticate, async (req: any, res) => {
     const badges = await TeacherService.getTeacherBadges(teacher.user_id);
     res.json(badges);
 });
+// Teacher-facing workload snapshot. Computed live from the same real
+// class/duty/club assignment data the admin "view workload" screen uses
+// (TeacherAssignmentService.getWorkload) — there is no persisted
+// teacher_workload table populated anywhere in the app, so a previous
+// version of this route queried a non-existent `prisma.teacher_workload`
+// accessor (the real Prisma model is `TeacherWorkload`, client property
+// `teacherWorkload`) which always threw and was silently swallowed into `{}`.
 router.get('/:id/workload', authenticate, async (req: any, res) => {
     try {
         const { default: prisma } = await import('../config/database');
-        const data = await (prisma as any).teacher_workload.findFirst({
-            where: { teacher_id: req.params.id, school_id: req.user.school_id }, orderBy: { week_start_date: 'desc' }
-        }).catch(() => null);
-        res.json(data || {});
-    } catch (e: any) { res.json({}); }
+        const teacher = await prisma.teacher.findFirst({
+            where: { id: req.params.id, school_id: req.user.school_id },
+            select: { id: true, branch_id: true },
+        });
+        if (!teacher) return res.status(404).json({ message: 'Teacher not found' });
+
+        const { TeacherAssignmentService } = await import('../services/teacherAssignment.service');
+        const list = await TeacherAssignmentService.getWorkload(req.user.school_id, teacher.branch_id || undefined);
+        const entry = list.find((e: any) => e.teacher_id === teacher.id);
+        if (!entry) return res.json({});
+
+        const activeClasses = await (prisma as any).classTeacher.findMany({
+            where: { teacher_id: teacher.id, school_id: req.user.school_id, status: 'active', deleted_at: null },
+            select: { class_id: true, class: { select: { _count: { select: { enrollments: true } } } } },
+        }).catch(() => []);
+        const distinctClasses = new Map<string, number>();
+        for (const c of activeClasses) distinctClasses.set(c.class_id, c.class?._count?.enrollments || 0);
+        const numberOfClasses = distinctClasses.size;
+        const avgClassSize = numberOfClasses
+            ? Math.round((Array.from(distinctClasses.values()).reduce((s, n) => s + n, 0) / numberOfClasses) * 10) / 10
+            : 0;
+
+        // Normalize the raw score (periods + duty weight + club count) onto a
+        // 0-100 scale for the UI's High/Moderate/Light bands. 40 periods/week
+        // (a full teaching timetable plus duties) is treated as the "100" ceiling.
+        const WORKLOAD_MAX = 40;
+        const workloadScore = Math.min(100, Math.round((entry.workload_score / WORKLOAD_MAX) * 100));
+
+        res.json({
+            total_periods: entry.total_periods,
+            total_hours: Math.round(entry.total_periods * 0.75 * 10) / 10,
+            number_of_classes: numberOfClasses,
+            avg_class_size: avgClassSize,
+            workload_score: workloadScore,
+        });
+    } catch (e: any) {
+        console.error('[GET /teachers/:id/workload]', e);
+        res.json({});
+    }
 });
 router.get('/:id/certificates', authenticate, getTeacherCertificates);
 router.get('/:id', authenticate, getTeacherById);

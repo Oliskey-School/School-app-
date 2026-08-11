@@ -55,22 +55,56 @@ export default function UpdatePrompt({ forced = false, targetVersion }: UpdatePr
     // "needRefresh" only becomes true once the browser's own service-worker
     // lifecycle has already noticed a new build sitting in "waiting" — but
     // this banner (especially the forced/mandatory variant) can appear before
-    // that check has run. Clicking through to `updateServiceWorker(true)`
-    // straight away was frequently a no-op: nothing was waiting yet, so
-    // nothing got skip-activated, and the plain `window.location.reload()`
-    // fallback often just re-served the same old cached build. Forcing a
-    // fresh `registration.update()` first gives the browser a real chance to
-    // find and install the new worker before we try to activate it.
+    // that check has run. A fresh `registration.update()` gives the browser a
+    // real chance to find and install the new worker before we try to
+    // activate it — but installing takes a variable amount of time, so rather
+    // than guessing with a fixed delay (which is why this used to take two
+    // clicks: the first click primed the check, and only the second one
+    // landed after the worker had actually finished installing), this now
+    // waits on the real `updatefound` → `statechange` events for the new
+    // worker to reach "installed", then waits on `controllerchange` to know
+    // the new worker has genuinely taken over before reloading — so one
+    // click reliably lands on the new version.
     const handleUpdateNow = async () => {
         setUpdating(true);
         try {
-            if (registrationRef.current) {
-                await registrationRef.current.update();
-                // Give the install/"waiting" event a moment to land — it fires
-                // asynchronously after update() resolves.
-                await new Promise(resolve => setTimeout(resolve, 800));
+            const reg = registrationRef.current;
+
+            if (reg && !reg.waiting) {
+                await new Promise<void>((resolve) => {
+                    let settled = false;
+                    const finish = () => {
+                        if (settled) return;
+                        settled = true;
+                        resolve();
+                    };
+                    // Safety cap in case the events never fire for some reason
+                    // (e.g. no new version actually exists) — don't hang forever.
+                    const timeout = setTimeout(finish, 8000);
+
+                    reg.addEventListener('updatefound', () => {
+                        const installing = reg.installing;
+                        if (!installing) return finish();
+                        installing.addEventListener('statechange', () => {
+                            if (installing.state === 'installed' || installing.state === 'redundant') {
+                                clearTimeout(timeout);
+                                finish();
+                            }
+                        });
+                    }, { once: true });
+
+                    reg.update().catch(finish);
+                });
             }
-            await updateServiceWorker(true);
+
+            if (registrationRef.current?.waiting) {
+                const tookControl = new Promise<void>((resolve) => {
+                    navigator.serviceWorker.addEventListener('controllerchange', () => resolve(), { once: true });
+                });
+                await updateServiceWorker(true);
+                // Cap the wait — if control genuinely never transfers, still reload below.
+                await Promise.race([tookControl, new Promise((resolve) => setTimeout(resolve, 5000))]);
+            }
         } catch (error) {
             console.error('❌ Update check failed:', error);
         } finally {

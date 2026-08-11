@@ -23,6 +23,8 @@ interface Fish {
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split('');
 const FISH_COLORS = ['bg-orange-400', 'bg-blue-400', 'bg-pink-400', 'bg-purple-400', 'bg-red-400', 'bg-green-400'];
 
+const GAME_DURATION = 60;
+
 const AlphabetFishingGame: React.FC<AlphabetFishingGameProps> = ({ onBack }) => {
     const { addXP, unlockBadge } = useGamification();
     const [gameState, setGameState] = useState<'START' | 'PLAYING' | 'GAMEOVER'>('START');
@@ -30,22 +32,55 @@ const AlphabetFishingGame: React.FC<AlphabetFishingGameProps> = ({ onBack }) => 
     const [targetLetter, setTargetLetter] = useState('');
     const [fishes, setFishes] = useState<Fish[]>([]);
     const [caughtFish, setCaughtFish] = useState<Fish | null>(null); // For animation
+    const [timeLeft, setTimeLeft] = useState(GAME_DURATION);
 
     // Game Loop
     const spawnRef = useRef<NodeJS.Timeout | null>(null);
     const moveRef = useRef<NodeJS.Timeout | null>(null);
+    const timerRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
         if (gameState === 'PLAYING') {
             startGameLoop();
+            timerRef.current = setInterval(() => {
+                setTimeLeft(prev => Math.max(0, prev - 1));
+            }, 1000);
         }
         return () => cleanup();
     }, [gameState]);
 
+    // Separate from the interval tick so ending the game never happens inside a
+    // setState updater (avoids double-invoking endGame under React StrictMode).
+    useEffect(() => {
+        if (gameState === 'PLAYING' && timeLeft <= 0) {
+            endGame();
+        }
+    }, [timeLeft, gameState]);
+
     const cleanup = () => {
         if (spawnRef.current) clearInterval(spawnRef.current);
         if (moveRef.current) clearInterval(moveRef.current);
+        if (timerRef.current) clearInterval(timerRef.current);
         window.speechSynthesis.cancel();
+    };
+
+    const endGame = () => {
+        setGameState('GAMEOVER');
+        cleanup();
+        if (score > 0) {
+            addXP(score);
+            if (score >= 100) unlockBadge('master-angler');
+
+            // PERSIST TO DATABASE (single row per completed game)
+            api.submitGameScore({
+                game_id: 'alphabet-fishing',
+                game_name: 'Alphabet Fishing',
+                score,
+                metadata: {
+                    outcome: 'completed'
+                }
+            }).catch(err => console.error("Failed to save fish score:", err));
+        }
     };
 
     const startGameLoop = () => {
@@ -132,18 +167,6 @@ const AlphabetFishingGame: React.FC<AlphabetFishingGameProps> = ({ onBack }) => 
                 pickNewTarget();
             }, 1000);
 
-            // PERSIST TO DATABASE
-            api.submitGameScore({
-                game_id: 'alphabet-fishing',
-                game_name: 'Alphabet Fishing',
-                score: score + 10,
-                metadata: {
-                    letter: fish.letter,
-                    target: targetLetter,
-                    correct: true
-                }
-            }).catch(err => console.error("Failed to save fish score:", err));
-
         } else {
             // Wrong
             speak(`That is ${fish.letter}. Try finding ${targetLetter}.`);
@@ -163,8 +186,9 @@ const AlphabetFishingGame: React.FC<AlphabetFishingGameProps> = ({ onBack }) => 
             title="Alphabet Fishing"
             onExit={onBack}
             score={score}
+            timer={gameState === 'PLAYING' ? timeLeft : undefined}
             isGameOver={gameState === 'GAMEOVER'}
-            onRestart={() => { setScore(0); setGameState('PLAYING'); }}
+            onRestart={() => { setScore(0); setTimeLeft(GAME_DURATION); setGameState('PLAYING'); }}
         >
             <div className="h-full w-full bg-cyan-900 relative overflow-hidden cursor-crosshair">
                 {/* Background Water Effects */}

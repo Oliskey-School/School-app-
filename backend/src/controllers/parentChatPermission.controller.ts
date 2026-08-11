@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import prisma from '../config/database';
+import { getEffectiveBranchId } from '../utils/branchScope';
 
 const resolveSchoolId = (req: AuthRequest) =>
     req.user?.school_id || req.user?.app_metadata?.school_id || req.headers['x-school-id'] as string || '';
@@ -53,6 +54,17 @@ export const grantPermission = async (req: AuthRequest, res: Response) => {
             return res.status(400).json({ message: 'duration_type must be hours, days, or forever' });
         if (duration_type !== 'forever' && (!duration_value || duration_value < 1))
             return res.status(400).json({ message: 'duration_value is required for hours/days' });
+
+        // A branch admin must not be able to grant chat access involving a
+        // parent or teacher outside their own branch.
+        const branchId = getEffectiveBranchId(req.user);
+        const [parentInScope, teacherInScope] = await Promise.all([
+            prisma.parent.findFirst({ where: { id: parent_id, school_id: schoolId, ...(branchId ? { branch_id: branchId } : {}) }, select: { id: true } }),
+            prisma.teacher.findFirst({ where: { id: teacher_id, school_id: schoolId, ...(branchId ? { branch_id: branchId } : {}) }, select: { id: true } }),
+        ]);
+        if (!parentInScope || !teacherInScope) {
+            return res.status(404).json({ message: 'Parent or teacher not found in your school/branch' });
+        }
 
         let expires_at: Date | null = null;
         if (duration_type === 'hours') {
@@ -172,9 +184,11 @@ export const listParentsForPicker = async (req: AuthRequest, res: Response) => {
         if (!schoolId) return res.status(401).json({ message: 'Unauthorized' });
 
         const { search } = req.query;
+        const branchId = getEffectiveBranchId(req.user, req.query.branch_id as string);
         const parents = await prisma.parent.findMany({
             where: {
                 school_id: schoolId,
+                ...(branchId ? { branch_id: branchId } : {}),
                 ...(search ? { full_name: { contains: search as string, mode: 'insensitive' } } : {})
             },
             include: { user: { select: { id: true, full_name: true, avatar_url: true } } },
@@ -200,9 +214,11 @@ export const listTeachersForPicker = async (req: AuthRequest, res: Response) => 
         if (!schoolId) return res.status(401).json({ message: 'Unauthorized' });
 
         const { search } = req.query;
+        const branchId = getEffectiveBranchId(req.user, req.query.branch_id as string);
         const teachers = await prisma.teacher.findMany({
             where: {
                 school_id: schoolId,
+                ...(branchId ? { branch_id: branchId } : {}),
                 ...(search ? { full_name: { contains: search as string, mode: 'insensitive' } } : {})
             },
             include: { user: { select: { id: true, full_name: true, avatar_url: true } } },

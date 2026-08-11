@@ -100,6 +100,35 @@ export const deleteExam = async (req: AuthRequest, res: Response) => {
 
 export const getExamResults = async (req: AuthRequest, res: Response) => {
     try {
+        // This returns EVERY student's score/grade for the exam (the teacher
+        // results-entry grading view) — it had no role check at all, so any
+        // authenticated student could read every classmate's exam results by
+        // guessing/enumerating exam IDs, the same gap pattern as the quiz
+        // submissions endpoint fixed last round. Restrict to staff, and a
+        // non-admin teacher only to an exam they're the assigned teacher for
+        // (same ownership rule already enforced on upsertExamResults above).
+        const role = (req.user.role || '').toLowerCase();
+        if (!ADMIN_ROLES.includes(role)) {
+            if (role !== 'teacher') {
+                return res.status(403).json({ message: 'Only staff can view exam results' });
+            }
+            const teacher = await prisma.teacher.findUnique({ where: { user_id: req.user.id }, select: { id: true } });
+            if (!teacher) return res.status(403).json({ message: 'No teacher profile found for this account' });
+            const exam = await prisma.exam.findFirst({ where: { id: req.params.id as string, school_id: req.user.school_id } });
+            if (!exam) return res.status(404).json({ message: 'Exam not found' });
+            if (exam.teacher_id !== teacher.id) {
+                const subject = exam.class_id
+                    ? await prisma.subject.findFirst({ where: { school_id: req.user.school_id, name: { equals: exam.subject, mode: 'insensitive' } }, select: { id: true } })
+                    : null;
+                const isAssigned = subject && exam.class_id
+                    ? await TeacherAssignmentService.isSubjectTeacherOf(teacher.id, exam.class_id, subject.id)
+                    : false;
+                if (!isAssigned) {
+                    return res.status(403).json({ message: `You are not the assigned Subject Teacher for "${exam.subject}" in this class` });
+                }
+            }
+        }
+
         const branchId = getEffectiveBranchId(req.user, (req.query.branch_id || req.query.branchId) as string);
         const result = await ExamService.getExamResults(req.user.school_id, branchId, req.params.id as string);
         res.json(result);

@@ -18,6 +18,18 @@ const ParentSecurityScreen: React.FC<ParentSecurityScreenProps> = ({ navigateTo 
         setLoading(false);
     }, []);
 
+    const getTimeAgo = (dateStr?: string) => {
+        if (!dateStr) return 'Unknown time';
+        const diff = Date.now() - new Date(dateStr).getTime();
+        const minutes = Math.floor(diff / 60000);
+        if (minutes < 1) return 'Just now';
+        if (minutes < 60) return `${minutes}m ago`;
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) return `${hours}h ago`;
+        const days = Math.floor(hours / 24);
+        return `${days}d ago`;
+    };
+
     // Real-time synchronization
     useAutoSync(['login_history'], loadHistory);
 
@@ -66,10 +78,10 @@ const ParentSecurityScreen: React.FC<ParentSecurityScreenProps> = ({ navigateTo 
                         >
                             <LoginIcon className="text-gray-400 h-6 w-6" />
                             <div className="flex-grow">
-                                <p className="font-semibold text-gray-700">{item.device}</p>
-                                <p className="text-sm text-gray-500">{item.location} - {item.time}</p>
+                                <p className="font-semibold text-gray-700">{item.device_type || 'Unknown Device'}</p>
+                                <p className="text-sm text-gray-500">{item.location || 'Unknown Location'} - {getTimeAgo(item.last_active || item.created_at)}</p>
                             </div>
-                            {item.isCurrent && <span className="text-xs font-semibold text-green-700 bg-green-100 px-2 py-1 rounded-full">Active</span>}
+                            {item.is_current && <span className="text-xs font-semibold text-green-700 bg-green-100 px-2 py-1 rounded-full">Active</span>}
                         </motion.li>
                     )) : (
                         <li className="text-center py-4 text-gray-500 text-sm italic">
