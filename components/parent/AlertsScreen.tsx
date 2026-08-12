@@ -1,13 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { useAutoSync } from '../../hooks/useAutoSync';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
-import { useProfile } from '../../context/ProfileContext';
-import { useAuth } from '../../context/AuthContext';
 import { fetchStudentById, fetchStudentFeeSummary } from '../../lib/database';
 import { NOTIFICATION_CATEGORY_CONFIG } from '../../constants';
 import { Notification } from '../../types';
+import { useNotifications, NOTIFICATIONS_QUERY_KEY } from '../../hooks/useNotifications';
 
 const formatDistanceToNow = (isoDate: string): string => {
   const date = new Date(isoDate);
@@ -29,47 +27,30 @@ interface AlertsScreenProps {
 }
 
 const AlertsScreen: React.FC<AlertsScreenProps> = ({ navigateTo }) => {
-  const { profile } = useProfile();
-  const { currentSchool, currentBranchId } = useAuth();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Shared cache — the socket handler in SocketContext merges new
+  // notifications straight in, so this only fetches once per session
+  // (or reuses the fetch another screen already made), never re-polls.
+  const { notifications: rawNotifications, isLoading: loading, queryClient } = useNotifications();
 
-  const fetchNotifications = useCallback(async () => {
-    if (!profile?.id || !currentSchool?.id) return;
-    setLoading(true);
-    try {
-      const data = await api.getParentNotifications();
-
-      setNotifications((data || []).map((n: any) => ({
-        id: n.id,
-        title: n.title,
-        summary: n.message,
-        category: n.category || 'System',
-        timestamp: n.created_at,
-        isRead: n.is_read || false,
-        audience: n.audience || [],
-        studentId: n.student_id,
-        relatedId: n.related_id
-      })));
-    } catch (err) {
-      console.error("Error fetching alerts:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, [profile?.id, currentSchool?.id]);
-
-  // Real-time synchronization
-  useAutoSync(['notifications'], fetchNotifications);
-
-  useEffect(() => {
-    fetchNotifications();
-  }, [fetchNotifications]);
+  const notifications: Notification[] = useMemo(() => rawNotifications.map((n: any) => ({
+    id: n.id,
+    title: n.title,
+    summary: n.message,
+    category: n.category || 'System',
+    timestamp: n.created_at,
+    isRead: n.is_read || false,
+    audience: n.audience || [],
+    studentId: n.student_id,
+    relatedId: n.related_id
+  })), [rawNotifications]);
 
   const handleNotificationClick = async (notification: Notification) => {
     // Mark as read
     if (!notification.isRead) {
       await api.markNotificationsRead([notification.id]);
-      setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, isRead: true } : n));
+      queryClient.setQueryData(NOTIFICATIONS_QUERY_KEY, (prev: any[] | undefined) =>
+        (prev || []).map(n => n.id === notification.id ? { ...n, is_read: true } : n)
+      );
     }
 
     switch (notification.category) {

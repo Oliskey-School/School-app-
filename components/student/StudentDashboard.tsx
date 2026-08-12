@@ -24,6 +24,7 @@ import { toast } from 'react-hot-toast';
 import { offlineStorage } from '../../lib/offlineStorage';
 import { useOnlineStatus, OfflineIndicator } from '../shared/OfflineIndicator';
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
+import { useNotifications } from '../../hooks/useNotifications';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 
@@ -523,27 +524,23 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
     // Offline-safe: when the student comes online / opens the dashboard, surface the
     // most recent unread reminder they haven't seen yet (a reminder sent while they
     // were offline still shows). Each reminder is shown once (tracked by its id).
+    // Reads from the shared notifications cache (see useNotifications) instead of
+    // its own fetch — DashboardLayout's useRealtimeNotifications call already
+    // populates it on mount.
+    const { notifications: allNotifications } = useNotifications();
     useEffect(() => {
-        if (!user?.id || !currentSchool?.id) return;
-        let active = true;
-        (async () => {
-            try {
-                const notifs = await api.getMyNotifications(currentSchool.id);
-                if (!active || !Array.isArray(notifs)) return;
-                const mine = notifs
-                    .filter((n: any) => !n.is_read && String(n.user_id) === String(user.id))
-                    .sort((a: any, b: any) =>
-                        new Date(b.created_at || b.timestamp || 0).getTime() -
-                        new Date(a.created_at || a.timestamp || 0).getTime());
-                const latest = mine.find((n: any) => n.id && !localStorage.getItem(`reminderShown:${n.id}`));
-                if (latest) {
-                    localStorage.setItem(`reminderShown:${latest.id}`, '1');
-                    setReminderBanner({ title: latest.title || 'New Reminder', message: latest.message || '' });
-                }
-            } catch { /* non-fatal */ }
-        })();
-        return () => { active = false; };
-    }, [user?.id, currentSchool?.id]);
+        if (!user?.id || allNotifications.length === 0) return;
+        const mine = allNotifications
+            .filter((n: any) => !n.is_read && String(n.user_id) === String(user.id))
+            .sort((a: any, b: any) =>
+                new Date(b.created_at || b.timestamp || 0).getTime() -
+                new Date(a.created_at || a.timestamp || 0).getTime());
+        const latest = mine.find((n: any) => n.id && !localStorage.getItem(`reminderShown:${n.id}`));
+        if (latest) {
+            localStorage.setItem(`reminderShown:${latest.id}`, '1');
+            setReminderBanner({ title: latest.title || 'New Reminder', message: latest.message || '' });
+        }
+    }, [user?.id, allNotifications]);
 
     // Auto-dismiss the reminder banner after 4 seconds.
     useEffect(() => {

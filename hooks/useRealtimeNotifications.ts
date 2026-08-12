@@ -1,83 +1,38 @@
-import { useEffect, useState, useCallback } from 'react';
-import { api } from '../lib/api';
+import { useMemo } from 'react';
 import { useProfile } from '../context/ProfileContext';
 import { useAuth } from '../context/AuthContext';
-import toast from 'react-hot-toast';
+import { useNotifications } from './useNotifications';
 
+/**
+ * Unread notification count, derived from the shared notifications cache
+ * (see useNotifications) instead of its own poll. That cache is fetched once
+ * and kept live by the socket handler in SocketContext merging pushed
+ * notifications straight in — so every caller of this hook (DashboardLayout
+ * AND the individual role dashboards mount it independently) shares one
+ * underlying fetch instead of each running its own 30s interval.
+ */
 export function useRealtimeNotifications(userRole?: string) {
     const { profile } = useProfile();
-    const { currentSchool, user, isAuthenticated } = useAuth();
-    const [notificationCount, setNotificationCount] = useState(0);
-    const [lastFetchTime, setLastFetchTime] = useState<number>(0);
+    const { user } = useAuth();
+    const { notifications } = useNotifications();
 
-    const fetchCount = useCallback(async () => {
-        if (!isAuthenticated || !currentSchool?.id) return;
+    const roleToCheck = (userRole || profile?.role || user?.role || 'student').toLowerCase();
+    const currentUserId = user?.id || profile?.user_id;
 
-        try {
-            const schoolId = currentSchool.id;
-            // console.log(`🔔 [Notifications] Fetching for School: ${schoolId}`);
-            
-            // Use Promise.race with timeout to prevent hanging
-            const timeoutPromise = new Promise<any[]>((resolve) => 
-                setTimeout(() => resolve([]), 3000)
-            );
-            
-            const notifications = await Promise.race([
-                api.getMyNotifications(schoolId),
-                timeoutPromise
-            ]);
-            
-            if (!notifications) return;
+    return useMemo(() => {
+        return notifications.filter((n: any) => {
+            if (n.is_read) return false;
 
-            const roleToCheck = (userRole || profile?.role || user?.role || 'student').toLowerCase();
-            const currentUserId = user?.id || profile?.user_id;
+            const isUserMatch = n.user_id && currentUserId && (String(n.user_id) === String(currentUserId));
 
-            const unreadNotifications = notifications.filter(n => {
-                if (n.is_read) return false;
-
-                // Check if it's specifically for this user
-                const isUserMatch = n.user_id && currentUserId && (String(n.user_id) === String(currentUserId));
-
-                // Check if it's for the user's role
-                let isAudienceMatch = false;
-                const audience = Array.isArray(n.audience) ? n.audience :
-                    (typeof n.audience === 'string' ? [n.audience] : []);
-
-                isAudienceMatch = audience.some((s: any) => {
-                    const audStr = String(s || '').toLowerCase();
-                    return audStr === roleToCheck || audStr === 'all';
-                });
-
-                return isUserMatch || isAudienceMatch;
+            const audience = Array.isArray(n.audience) ? n.audience :
+                (typeof n.audience === 'string' ? [n.audience] : []);
+            const isAudienceMatch = audience.some((s: any) => {
+                const audStr = String(s || '').toLowerCase();
+                return audStr === roleToCheck || audStr === 'all';
             });
 
-            setNotificationCount(unreadNotifications.length);
-            
-            // If there's a new notification since last fetch, we could show a toast here 
-            // but RealtimeService already handles that.
-            
-            setLastFetchTime(Date.now());
-        } catch (err) {
-            // Silently fail - don't block UI or cause errors
-        }
-    }, [isAuthenticated, currentSchool?.id, user?.id, user?.role, profile?.role, profile?.user_id, userRole]);
-
-    useEffect(() => {
-        if (!isAuthenticated) {
-            setNotificationCount(0);
-            return;
-        }
-
-        fetchCount();
-
-        // Polling for "realtime" updates every 30 seconds
-        const interval = setInterval(() => {
-            fetchCount();
-        }, 30000);
-
-        return () => clearInterval(interval);
-    }, [isAuthenticated, fetchCount]);
-
-    return notificationCount;
+            return isUserMatch || isAudienceMatch;
+        }).length;
+    }, [notifications, roleToCheck, currentUserId]);
 }
-

@@ -69,6 +69,10 @@ test_output_utf8.txt
 !tests/**/*.ts
 !*.config.ts
 !*.config.js
+!scripts/**/*.js
+!scripts/**/*.mjs
+!scripts/**/*.ts
+!scripts/**/*.sh
 !package.json
 !tsconfig.json
 !prisma/schema.prisma

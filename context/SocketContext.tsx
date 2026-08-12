@@ -81,7 +81,16 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
         socket.on(`user:${user.id}:notification`, (notification: any) => {
             console.log('🔔 New notification received:', notification.title);
-            queryClient.invalidateQueries({ queryKey: ['notifications'] });
+            // Merge the pushed payload straight into the cache instead of
+            // refetching — the socket already gave us the full record. If
+            // nothing has fetched the initial list yet, there's no cache to
+            // merge into, so fall back to a normal invalidate.
+            const existing = queryClient.getQueryData<any[]>(['notifications']);
+            if (existing) {
+                queryClient.setQueryData(['notifications'], [notification, ...existing]);
+            } else {
+                queryClient.invalidateQueries({ queryKey: ['notifications'] });
+            }
             dispatchLegacyUpdate('notifications');
         });
     }
