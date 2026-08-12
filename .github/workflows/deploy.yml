@@ -16,11 +16,6 @@ jobs:
     runs-on: self-hosted
 
     steps:
-      - name: Clean stale actions cache
-        run: rm -rf "$RUNNER_WORKSPACE/../_actions/actions/checkout" "$RUNNER_WORKSPACE/../_actions/actions/setup-node" 2>/dev/null || true
-        continue-on-error: true
-        shell: bash
-
       - name: Checkout Code
         uses: actions/checkout@v4
 
