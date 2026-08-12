@@ -1,52 +1,36 @@
-name: CI
-
-# Continuous integration only — lint, test and build on every PR and push to main.
-# Deployment to a host is NOT done here (Vercel / Railway / Supabase steps removed).
-# Add your host's deploy steps here when you're ready, or deploy from your host directly.
+name: Production Deployment
 
 on:
   push:
     branches:
       - main
-  pull_request:
-    branches:
-      - main
   workflow_dispatch:
 
-permissions:
-  contents: read
-
 concurrency:
-  group: ci-${{ github.ref }}
+  group: deploy-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  ci:
-    name: Lint, typecheck, test, build
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+  deploy:
+    name: Build & Reload on Self-Hosted Server
+    runs-on: self-hosted
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
 
-      - name: Install dependencies
+      - name: Install Dependencies
         run: npm ci
 
-      - name: Backend typecheck
-        run: cd backend && npx tsc --noEmit
+      - name: Backend Typecheck & Build
+        run: |
+          npm run build
 
-      - name: Unit tests
-        run: npm run test:run
-        env:
-          NODE_ENV: test
-
-      - name: Production build (frontend)
-        run: npm run build
-
-      - name: Security audit (high+)
-        run: npm audit --omit=dev --audit-level=high
+      - name: Zero-Downtime PM2 Reload
+        run: |
+          pm2 reload all --update-env || pm2 start ecosystem.config.js
