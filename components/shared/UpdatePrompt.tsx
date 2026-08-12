@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { APP_VERSION } from '../../lib/config';
 import { api } from '../../lib/api';
+import { useAuth } from '../../context/AuthContext';
 
 interface UpdatePromptProps {
     forced?: boolean;
@@ -9,6 +10,15 @@ interface UpdatePromptProps {
 }
 
 export default function UpdatePrompt({ forced = false, targetVersion }: UpdatePromptProps) {
+    // UpdatePrompt is mounted unconditionally at the app root (alongside, not
+    // inside, the authenticated shell), so it renders before any login and
+    // survives logout too. Its version-check call below hits a protected
+    // endpoint — without checking for a session first, an unauthenticated
+    // visitor (or a moment between demo-role Suspense remounts) trips the API
+    // client's missing-token guard, which force-logs-out whatever session
+    // exists. See the matching guard in App.tsx's AuthenticatedApp.
+    const { user } = useAuth();
+
     // Holds the live ServiceWorkerRegistration so "Update Now" can force an
     // immediate check for a new build instead of waiting for the hourly poll.
     const registrationRef = React.useRef<ServiceWorkerRegistration | undefined>(undefined);
@@ -43,6 +53,7 @@ export default function UpdatePrompt({ forced = false, targetVersion }: UpdatePr
     const [latestVersion, setLatestVersion] = useState<string | null>(null);
     React.useEffect(() => {
         if (forced) return; // forced already carries the authoritative targetVersion
+        if (!user) return; // no session yet — avoid tripping the missing-token force-logout
         let active = true;
         api.getAppVersions()
             .then((list: any[]) => {
@@ -50,7 +61,7 @@ export default function UpdatePrompt({ forced = false, targetVersion }: UpdatePr
             })
             .catch(() => { /* non-blocking — fall back to APP_VERSION */ });
         return () => { active = false; };
-    }, [forced]);
+    }, [forced, user]);
 
     // "needRefresh" only becomes true once the browser's own service-worker
     // lifecycle has already noticed a new build sitting in "waiting" — but

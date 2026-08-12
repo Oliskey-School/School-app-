@@ -206,7 +206,7 @@ const ExamManagement: React.FC<ExamManagementProps> = ({ navigateTo, forceUpdate
                                         : <span className="text-amber-600 ml-1">Pending</span>
                                     }
                                 </p>
-                                <p className="text-sm text-gray-600 font-medium">{new Date(exam.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                                <p className="text-sm text-gray-600 font-medium">{exam.date ? new Date(exam.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Not scheduled'}</p>
                             </div>
                             <div className="flex justify-end items-center border-t border-gray-100 pt-3 space-x-3">
                                 {!exam.isPublished && <button onClick={() => handlePublish(exam.id)} className="flex items-center space-x-1 text-sm font-semibold text-sky-600 p-1"><PublishIcon className="w-4 h-4" /><span>Publish</span></button>}

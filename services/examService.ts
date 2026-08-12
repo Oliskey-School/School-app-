@@ -13,7 +13,7 @@ export async function fetchExams(schoolId?: string, branchId?: string, teacherId
 
         return (data || []).map((e: any) => ({
             id: e.id,
-            type: e.type,
+            type: e.exam_type || e.type,
             date: e.date,
             time: e.time,
             className: e.class_name || e.className,
@@ -39,7 +39,7 @@ export async function createExam(schoolId: string, branchId: string | undefined,
         });
         return result ? {
             id: result.id,
-            type: result.type,
+            type: result.exam_type || result.type,
             date: result.date,
             time: result.time,
             className: result.class_name || result.className,

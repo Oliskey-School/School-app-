@@ -66,7 +66,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.removeItem('auth_token');
         localStorage.removeItem('auth_refresh_token');
         localStorage.removeItem('last_school_id');
-        localStorage.removeItem('cached_user_profile');
+        sessionStorage.removeItem('cached_user_profile');
         localStorage.removeItem('selected_branch_id');
 
         React.startTransition(() => {
@@ -102,7 +102,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         if (!token) {
-            localStorage.removeItem('cached_user_profile');
+            sessionStorage.removeItem('cached_user_profile');
             React.startTransition(() => {
                 setUser(null);
                 setRole(null);
@@ -112,7 +112,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         // 0. Quick check for cached user to speed up initial render
-        const cachedUser = localStorage.getItem('cached_user_profile');
+        const cachedUser = sessionStorage.getItem('cached_user_profile');
         if (cachedUser) {
             try {
                 const userData = JSON.parse(cachedUser);
@@ -143,7 +143,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     console.log("⚡ [Auth] Optimistic load from cache...");
                 } else {
                     console.log("⚠️ [Auth] Cache ignored (potential mock/stale data detected)");
-                    localStorage.removeItem('cached_user_profile');
+                    sessionStorage.removeItem('cached_user_profile');
                 }
             } catch (e) {
                 console.warn("Failed to parse cached user");
@@ -173,8 +173,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     import('../lib/i18n').then((m) => m.setAppLanguage(userData.preferred_language)).catch(() => {});
                 }
 
-                // Cache for next time
-                localStorage.setItem('cached_user_profile', JSON.stringify(userData));
+                // Cache for next time (tab-scoped — must never leak across browser tabs)
+                sessionStorage.setItem('cached_user_profile', JSON.stringify(userData));
 
                 React.startTransition(() => {
                     setUser(userData);
@@ -264,7 +264,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const signIn = async (dashboard: DashboardType, userData: any) => {
         // Clear any old state or demo remnants first
-        localStorage.removeItem('cached_user_profile');
+        sessionStorage.removeItem('cached_user_profile');
         sessionStorage.removeItem('is_demo_mode');
 
         if (userData.token) {
@@ -307,8 +307,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 userObj.school = userData.school;
             }
 
-            // Cache the enriched user profile for instant reload
-            localStorage.setItem('cached_user_profile', JSON.stringify(userObj));
+            // Cache the enriched user profile for instant reload (tab-scoped — must never leak across browser tabs)
+            sessionStorage.setItem('cached_user_profile', JSON.stringify(userObj));
 
             setSession({ access_token: userData.token, user: userObj });
             setLoading(false);
@@ -360,7 +360,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 else if (userRole === 'parent') dashType = DashboardType.Parent;
 
                 api.clearCache();
-                localStorage.removeItem('cached_user_profile');
+                sessionStorage.removeItem('cached_user_profile');
                 sessionStorage.removeItem('demo_role_token');
 
                 // Explicitly set the token first to ensure any immediate API calls have it
@@ -434,7 +434,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     // Also update user.school if it exists to maintain consistency
                     if (user && user.school) {
                         setUser({ ...user, school: updatedSchool });
-                        localStorage.setItem('cached_user_profile', JSON.stringify({ ...user, school: updatedSchool }));
+                        sessionStorage.setItem('cached_user_profile', JSON.stringify({ ...user, school: updatedSchool }));
                     }
                 }
             } catch (err) {

@@ -114,6 +114,11 @@ const AuthenticatedApp: React.FC = () => {
   // to "update" to a version older than what they already have.
   const [latestRegistryVersion, setLatestRegistryVersion] = useState<string | null>(null);
   useEffect(() => {
+    // Guard against firing before the auth token has landed in sessionStorage
+    // (e.g. right after a demo role switch remounts this component) — an
+    // unauthenticated call here trips the API client's missing-token
+    // force-logout and silently kicks the user back to the sign-in screen.
+    if (!user) return;
     let active = true;
     api.getAppVersions()
       .then((list: any[]) => {
@@ -121,7 +126,7 @@ const AuthenticatedApp: React.FC = () => {
       })
       .catch(() => { /* non-blocking — fall back to platform_version / APP_VERSION */ });
     return () => { active = false; };
-  }, []);
+  }, [user]);
 
   const latestVersion = maxVersion(latestRegistryVersion, currentSchool?.platform_version, APP_VERSION);
   const isVersionMismatch = isOutdated(APP_VERSION, latestVersion);

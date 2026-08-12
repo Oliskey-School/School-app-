@@ -70,7 +70,7 @@ const PayslipGenerator: React.FC = () => {
 
             const teacherList: Teacher[] = (data || []).map((item: any) => ({
                 id: item.teacher_id,
-                full_name: item.teachers?.full_name || 'Unknown'
+                full_name: item.teacher?.full_name || 'Unknown'
             }));
 
             setTeachers(teacherList);

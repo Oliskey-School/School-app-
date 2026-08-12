@@ -85,10 +85,10 @@ const AddExamScreen: React.FC<AddExamScreenProps> = ({ onSave, examToEdit }) => 
     fetchFormData();
 
     if (examToEdit) {
-      setExamType(examToEdit.type);
-      setDate(examToEdit.date);
-      setClassName(examToEdit.className);
-      setSubject(examToEdit.subject);
+      setExamType(examToEdit.type || '');
+      setDate(examToEdit.date || '');
+      setClassName(examToEdit.className || '');
+      setSubject(examToEdit.subject || '');
     }
   }, [examToEdit, currentSchool?.id]);
 
@@ -136,7 +136,7 @@ const AddExamScreen: React.FC<AddExamScreenProps> = ({ onSave, examToEdit }) => 
               <label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
               <select id="subject" value={subject} onChange={e => setSubject(e.target.value)} required className="w-full px-3 py-3 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:ring-sky-500 focus:border-sky-500">
                 <option value="" disabled>Select subject...</option>
-                {availableSubjects.map(sub => <option key={sub.name} value={sub.name}>{sub.name}</option>)}
+                {Array.from(new Map(availableSubjects.map(sub => [sub.name, sub])).values()).map(sub => <option key={sub.id ?? sub.name} value={sub.name}>{sub.name}</option>)}
               </select>
             </div>
           </motion.div>

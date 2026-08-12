@@ -48,7 +48,7 @@ export default function VersionSettings() {
             toast.success(`Successfully switched to version ${version}`);
             
             // Invalidate cached user profile so the reload picks up new version
-            localStorage.removeItem('cached_user_profile');
+            sessionStorage.removeItem('cached_user_profile');
             
             setTimeout(() => window.location.reload(), 1500);
         } catch (error: any) {

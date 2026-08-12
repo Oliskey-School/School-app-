@@ -66,6 +66,10 @@ const PhysicsLabGame: React.FC<PhysicsLabGameProps> = ({ onBack }) => {
     const requestRef = useRef<number | undefined>(undefined);
     const canvasRef = useRef<HTMLDivElement>(null);
     const audioCtxRef = useRef<AudioContext | null>(null);
+    // Monotonic counter so particle IDs stay unique even when multiple
+    // fission events happen within the same animation frame (Date.now()
+    // alone has ~1ms resolution and can repeat across collisions in one tick).
+    const particleIdRef = useRef(0);
 
     // Init Sound
     useEffect(() => {
@@ -183,7 +187,7 @@ const PhysicsLabGame: React.FC<PhysicsLabGameProps> = ({ onBack }) => {
                             for (let n = 0; n < 3; n++) {
                                 const angle = Math.random() * Math.PI * 2;
                                 newNeutrons.push({
-                                    id: `n-${Date.now()}-${n}`,
+                                    id: `n-${Date.now()}-${particleIdRef.current++}`,
                                     x: p2.x,
                                     y: p2.y,
                                     vx: Math.cos(angle) * 0.8,
@@ -255,7 +259,7 @@ const PhysicsLabGame: React.FC<PhysicsLabGameProps> = ({ onBack }) => {
         setParticles(prev => [
             ...prev,
             {
-                id: `trigger-${Date.now()}`,
+                id: `trigger-${Date.now()}-${particleIdRef.current++}`,
                 x: 0,
                 y: 50,
                 vx: 1.5,
