@@ -16,7 +16,7 @@
     "server": "nodemon",
     "start": "npx tsx backend/src/server.ts",
     "prisma:generate": "npx prisma generate --schema=backend/prisma/schema.prisma",
-    "build:backend": "npm run prisma:generate && npx tsc -p backend/tsconfig.build.json",
+    "build:backend": "npm run prisma:generate && npx tsc -p backend/tsconfig.build.json && node scripts/link-prisma-dist.js",
     "start:backend": "pm2 start ecosystem.config.cjs --env production",
     "db:migrate": "npx prisma migrate dev --schema=backend/prisma/schema.prisma",
     "db:deploy": "npx prisma migrate deploy --schema=backend/prisma/schema.prisma",

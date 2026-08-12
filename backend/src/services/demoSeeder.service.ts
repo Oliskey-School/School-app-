@@ -1066,12 +1066,21 @@ export class DemoSeederService {
 
                     // 7o. Department Management — a Science department with a Head
                     // of Department, a teacher on the roster, a budget line, and a
-                    // logged meeting.
-                    const demoDepartment = await (tx as any).department.upsert({
-                        where: { id: `dept-${ipHash}-science` },
-                        update: {},
-                        create: { id: `dept-${ipHash}-science`, school_id: schoolId, branch_id: branchId, name: 'Science', head_teacher_id: michaelProfile.id },
+                    // logged meeting. Department has @@unique([school_id, branch_id, name]),
+                    // so an upsert keyed on the synthetic dept-${ipHash}-science id can
+                    // collide with a same-name department seeded under a different
+                    // ipHash — find-then-create/update by the natural key instead.
+                    const existingDept = await (tx as any).department.findFirst({
+                        where: { school_id: schoolId, branch_id: branchId, name: 'Science' },
                     });
+                    const demoDepartment = existingDept
+                        ? await (tx as any).department.update({
+                            where: { id: existingDept.id },
+                            data: { head_teacher_id: michaelProfile.id },
+                        })
+                        : await (tx as any).department.create({
+                            data: { id: `dept-${ipHash}-science`, school_id: schoolId, branch_id: branchId, name: 'Science', head_teacher_id: michaelProfile.id },
+                        });
                     await tx.teacher.updateMany({ where: { id: michaelProfile.id }, data: { department_id: demoDepartment.id } });
                     await tx.budget.upsert({
                         where: { id: `dept-budget-${ipHash}-1` },

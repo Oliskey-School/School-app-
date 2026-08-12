@@ -146,20 +146,30 @@ const start = async () => {
                     console.warn('⚠️ [TermService] Calendar seed skipped:', calErr.message);
                 }
 
-                // Subscription cron — production-only by default.
-                try {
-                    const { startSubscriptionCron } = require('./services/subscriptionCron.service');
-                    startSubscriptionCron();
-                } catch (cronErr: any) {
-                    console.warn('⚠️ [SubscriptionCron] start skipped:', cronErr.message);
-                }
+                // Crons only run on PM2 cluster worker 0 — otherwise every worker in
+                // the cluster (ecosystem.config.cjs runs instances: 'max') would fire
+                // the same cron on the same schedule. NODE_APP_INSTANCE is unset in
+                // dev (npm run server / npm run start), so crons still run there.
+                const isCronOwner = process.env.NODE_APP_INSTANCE === undefined || process.env.NODE_APP_INSTANCE === '0';
 
-                // Student Early Warning System — nightly risk scan, production-only by default.
-                try {
-                    const { startRiskScanCron } = require('./services/riskScanCron.service');
-                    startRiskScanCron();
-                } catch (riskCronErr: any) {
-                    console.warn('⚠️ [RiskScanCron] start skipped:', riskCronErr.message);
+                // Subscription cron — production-only by default.
+                if (isCronOwner) {
+                    try {
+                        const { startSubscriptionCron } = require('./services/subscriptionCron.service');
+                        startSubscriptionCron();
+                    } catch (cronErr: any) {
+                        console.warn('⚠️ [SubscriptionCron] start skipped:', cronErr.message);
+                    }
+
+                    // Student Early Warning System — nightly risk scan, production-only by default.
+                    try {
+                        const { startRiskScanCron } = require('./services/riskScanCron.service');
+                        startRiskScanCron();
+                    } catch (riskCronErr: any) {
+                        console.warn('⚠️ [RiskScanCron] start skipped:', riskCronErr.message);
+                    }
+                } else {
+                    console.log(`🚫 [Cron] Skipped on worker ${process.env.NODE_APP_INSTANCE} (only worker 0 runs crons).`);
                 }
 
                 // QR lesson attendance: close records whose teacher never
