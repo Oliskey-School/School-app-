@@ -14,6 +14,14 @@ export interface SyncAction {
     created_at: string;
     synced: number; // 0 for false, 1 for true (IndexedDB indexing)
     retry_count: number;
+    // JWT subject of the user who queued this action. sync_queue is a single
+    // IndexedDB store shared by the whole browser origin (not tab- or
+    // session-scoped like sessionStorage), so on a shared device — or in demo
+    // mode where switchDemoRole() swaps identity without a full logout — a
+    // queued action must not get replayed under a DIFFERENT user's/role's
+    // token once they log in next. Undefined means the entry predates this
+    // field (pre-migration); it is still replayed for backward compatibility.
+    user_scope?: string;
 }
 
 export interface CachedData {

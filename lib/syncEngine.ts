@@ -3,6 +3,17 @@ import { api } from './api';
 import { networkManager } from './networkManager';
 import { EventEmitter } from './EventEmitter';
 import { queryClient } from './react-query';
+import { getJwtSubject } from './tokenUtils';
+
+// sync_queue is one IndexedDB store shared by the whole browser origin — not
+// tab- or session-scoped. Every queued action is stamped with the JWT subject
+// of whoever queued it, so a later replay (e.g. after a demo role switch, or
+// a different user logging in on a shared device) never fires someone else's
+// queued mutation under the CURRENT user's token.
+function currentUserScope(): string | null {
+    const token = sessionStorage.getItem('auth_token');
+    return getJwtSubject(token);
+}
 
 class SyncEngine extends EventEmitter {
     private isSyncing = false;
@@ -47,7 +58,8 @@ class SyncEngine extends EventEmitter {
             payload,
             created_at: new Date().toISOString(),
             synced: 0,
-            retry_count: 0
+            retry_count: 0,
+            user_scope: currentUserScope() || undefined,
         };
 
         await offlineDB.sync_queue.add(action);
@@ -70,7 +82,8 @@ class SyncEngine extends EventEmitter {
             payload,
             created_at: new Date().toISOString(),
             synced: 0,
-            retry_count: 0
+            retry_count: 0,
+            user_scope: currentUserScope() || undefined,
         };
 
         await offlineDB.sync_queue.add(action);
@@ -99,14 +112,27 @@ class SyncEngine extends EventEmitter {
 
         console.log(`🔄 [SyncEngine] Syncing ${unsynced.length} actions...`);
 
+        const activeScope = currentUserScope();
+
         for (const action of unsynced) {
+            // Skip (don't delete) actions queued by a DIFFERENT identity than
+            // the one currently signed in — e.g. a demo role switch, or a
+            // different user logging in on a shared device, happened before
+            // this action synced. Leave it queued so it replays correctly
+            // once that original user/role is active again, rather than
+            // firing under the wrong identity's token right now.
+            if (action.user_scope && activeScope && action.user_scope !== activeScope) {
+                console.warn(`⏭️ [SyncEngine] Skipping action ${action.id} — queued by a different user/role than the one currently active.`);
+                continue;
+            }
+
             try {
                 const success = await this.replayAction(action);
                 if (success) {
                     await offlineDB.sync_queue.update(action.id!, { synced: 1 });
                 } else {
-                    await offlineDB.sync_queue.update(action.id!, { 
-                        retry_count: (action.retry_count || 0) + 1 
+                    await offlineDB.sync_queue.update(action.id!, {
+                        retry_count: (action.retry_count || 0) + 1
                     });
                 }
             } catch (err) {

@@ -21,18 +21,14 @@ function isOfflineBlockedEndpoint(endpoint: string): boolean {
 console.log(`ðŸ“¡ [API-TEST] Base URL: ${API_BASE_URL}`);
 
 const getAuthToken = async (): Promise<string | null> => {
-    // Tab-scoped session token. One-time migration from legacy localStorage.
-    let token = sessionStorage.getItem('auth_token');
+    // Tab-scoped session token. No app code path writes tokens to localStorage
+    // anymore, so a leftover localStorage.auth_token is stale/foreign and must
+    // not be silently adopted here (that previously let a stale token from
+    // another source hijack the active tab's session — see AuthContext.tsx).
+    const token = sessionStorage.getItem('auth_token');
     if (!token) {
-        const legacy = localStorage.getItem('auth_token');
-        if (legacy) {
-            sessionStorage.setItem('auth_token', legacy);
-            const legacyRefresh = localStorage.getItem('auth_refresh_token');
-            if (legacyRefresh) sessionStorage.setItem('auth_refresh_token', legacyRefresh);
-            localStorage.removeItem('auth_token');
-            localStorage.removeItem('auth_refresh_token');
-            token = legacy;
-        }
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_refresh_token');
     }
     return token;
 };
@@ -176,6 +172,7 @@ class ExpressApiClient {
                 created_at: new Date().toISOString(),
                 synced: 0,
                 retry_count: 0,
+                user_scope: userScope,
             });
             console.log(`ðŸ“¦ [API-OFFLINE] Queued ${method} ${endpoint} for sync`);
 

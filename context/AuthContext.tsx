@@ -39,6 +39,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [memberships, setMemberships] = useState<any[]>([]);
     const [isDemo, setIsDemo] = useState(() => sessionStorage.getItem('is_demo_mode') === 'true');
 
+    // Guards against a stale demo-login/sign-out race: if the user fires off a
+    // second "Try Demo" tile click (or navigates away) before the first
+    // switchDemoRole() request resolves, the first request's late response
+    // must not be allowed to clobber whatever session is active by the time
+    // it comes back. Bump on every login/sign-out attempt; a resolved
+    // request only commits its result if it's still the most recent one.
+    const authActionSeqRef = React.useRef(0);
+
     const getDashboardTypeFromUserType = (userType: string): DashboardType => {
         const normalized = (userType || '').toUpperCase().replace(/_/g, '');
         if (normalized === 'SUPERADMIN') return DashboardType.SuperAdmin;
@@ -55,6 +63,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const signOut = async () => {
+        // Invalidate any in-flight login/demo-switch so a late response can't
+        // resurrect a session right after the user signed out.
+        authActionSeqRef.current += 1;
         // Tab-scoped tokens — only this tab's session is cleared.
         sessionStorage.removeItem('auth_token');
         sessionStorage.removeItem('auth_refresh_token');
@@ -68,6 +79,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.removeItem('last_school_id');
         sessionStorage.removeItem('cached_user_profile');
         localStorage.removeItem('selected_branch_id');
+        // Defense in depth: drop the in-memory + roster_cache reads so a
+        // shared device's next sign-in can't observe this tab's cached
+        // responses (queued offline writes are separately isolated by
+        // per-action user_scope in syncEngine.ts).
+        api.invalidateCache();
 
         React.startTransition(() => {
             setUser(null);
@@ -87,18 +103,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const initializeAuth = async () => {
-        // Read tab-scoped token; one-time migration from any legacy localStorage token.
-        let token = sessionStorage.getItem('auth_token');
+        // Read tab-scoped token. No app code path writes auth tokens to localStorage
+        // anymore (signIn/switchDemoRole/signInWithGoogle all write sessionStorage only),
+        // so any leftover localStorage.auth_token is stale/foreign — e.g. from a script,
+        // an old browser tab predating the sessionStorage migration, or another tool.
+        // Previously this was silently adopted into the current tab's session ("one-time
+        // migration"), which meant a stale foreign token could hijack an active session on
+        // any remount. Purge it defensively instead of trusting it.
+        const token = sessionStorage.getItem('auth_token');
         if (!token) {
-            const legacy = localStorage.getItem('auth_token');
-            if (legacy) {
-                sessionStorage.setItem('auth_token', legacy);
-                const legacyRefresh = localStorage.getItem('auth_refresh_token');
-                if (legacyRefresh) sessionStorage.setItem('auth_refresh_token', legacyRefresh);
-                localStorage.removeItem('auth_token');
-                localStorage.removeItem('auth_refresh_token');
-                token = legacy;
-            }
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('auth_refresh_token');
         }
 
         if (!token) {
@@ -127,12 +142,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     React.startTransition(() => {
                         setUser(userData);
 
-                        // Priority: Session (tab-specific) > Default role
+                        // Priority: Session (tab-specific) > Default role. In demo mode the
+                        // visitor's underlying account role (usually ADMIN — the demo
+                        // school owner) is never the right fallback: it would silently
+                        // show an Admin dashboard to someone who picked Student/Teacher/
+                        // Parent, if the tab-scoped role marker is ever lost (e.g. the
+                        // lazy-chunk-retry reload path). Only fall back to the account's
+                        // real role for non-demo accounts, where it's actually correct.
                         const savedRole = sessionStorage.getItem('active_dashboard_role') as DashboardType;
                         if (savedRole) {
                             setRole(savedRole);
-                        } else {
+                        } else if (!currentIsDemo) {
                             setRole(getDashboardTypeFromUserType(userData.role));
+                        } else {
+                            setRole(null);
                         }
 
                         if (userData.school) {
@@ -179,9 +202,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 React.startTransition(() => {
                     setUser(userData);
 
-                    // Priority: Session (tab-specific) > Default role
+                    const isDemoAccount = !!(userData.is_demo || userData.isDemo || (userData.id && String(userData.id).startsWith('d3300')));
+
+                    // Priority: Session (tab-specific) > Default role. Same demo-safety
+                    // rule as the optimistic-cache path above: a demo visitor whose
+                    // tab-scoped role marker was lost must never be silently shown the
+                    // underlying demo account's real role (usually ADMIN) — force back
+                    // to the role picker instead.
                     const savedRole = sessionStorage.getItem('active_dashboard_role') as DashboardType;
-                    const dashboardRole = savedRole || getDashboardTypeFromUserType(userData.role);
+                    const dashboardRole = savedRole || (isDemoAccount ? null : getDashboardTypeFromUserType(userData.role));
                     setRole(dashboardRole);
                     if (savedRole) {
                         sessionStorage.setItem('active_dashboard_role', savedRole);
@@ -192,7 +221,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         setCurrentBranchId(userData.branch_id || userData.school.branch_id);
                     }
 
-                    const isDemoAccount = !!(userData.is_demo || userData.isDemo || (userData.id && String(userData.id).startsWith('d3300')));
                     setIsDemo(isDemoAccount);
 
                     if (isDemoAccount) {
@@ -345,10 +373,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const switchDemoRole = async (roleKey: string) => {
+        // Capture this request's sequence number. If another switchDemoRole /
+        // signOut fires before this one's network round-trip completes (e.g. a
+        // double click, or clicking a different demo tile before the first
+        // finishes, or navigating away and back), that call bumps the ref and
+        // this stale response is discarded below instead of overwriting the
+        // session that's actually active by the time it resolves.
+        const seq = ++authActionSeqRef.current;
         setLoading(true);
         try {
             // Instant Backend fetch - bypassing cached mock logic
             const { token, refreshToken, user: userData } = await api.demoLogin(roleKey);
+
+            if (seq !== authActionSeqRef.current) {
+                console.warn(`[Auth] Discarding stale demo login response for role "${roleKey}" — a newer auth action has since started.`);
+                return;
+            }
 
             if (token && userData) {
                 // Determine dashboard type based on true DB role
@@ -359,7 +399,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 else if (userRole === 'student') dashType = DashboardType.Student;
                 else if (userRole === 'parent') dashType = DashboardType.Parent;
 
-                api.clearCache();
+                // invalidateCache() (not clearCache()) — clears the in-memory
+                // response cache AND the persistent offlineDB.roster_cache, so
+                // no reads cached under the outgoing role can leak into the
+                // incoming one. (Queued offline writes in sync_queue are
+                // separately protected by per-action user_scope stamping in
+                // syncEngine.ts, so they don't need clearing here.)
+                api.invalidateCache();
                 sessionStorage.removeItem('cached_user_profile');
                 sessionStorage.removeItem('demo_role_token');
 
@@ -375,7 +421,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
         } catch (err: any) {
             console.error("Demo Database Login failed:", err);
-            setLoading(false);
+        } finally {
+            if (seq === authActionSeqRef.current) setLoading(false);
         }
     };
 
@@ -384,10 +431,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             throw new Error('Google credential is required');
         }
 
+        const seq = ++authActionSeqRef.current;
         setLoading(true);
         try {
             const { api } = await import('../lib/api');
             const { token, refreshToken, user: userData } = await api.googleLogin(credential);
+
+            if (seq !== authActionSeqRef.current) {
+                console.warn('[Auth] Discarding stale Google login response — a newer auth action has since started.');
+                return { success: false };
+            }
 
             if (token && userData) {
                 // Determine dashboard type based on role

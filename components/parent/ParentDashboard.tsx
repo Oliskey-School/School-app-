@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import DashboardLayout from '../layout/DashboardLayout';
-import AskAIWidget from '../shared/AskAIWidget';
 import { DEFAULT_AVATAR } from '../../lib/avatar';
 import { DashboardType, Student, StudentAttendance, AttendanceStatus, StudentAssignment } from '../../types';
 import {
@@ -843,7 +842,6 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
                 onClose={() => setIsPremiumModalOpen(false)}
                 featureName="Advanced Student Insights"
             />
-            <AskAIWidget />
         </DashboardLayout>
 
     );

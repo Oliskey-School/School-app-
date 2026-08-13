@@ -213,6 +213,12 @@ export const updateEmail = async (req: Request, res: Response) => {
         // Identity comes from the authenticated token, never the request body.
         const userId = (req as any).user?.id;
         if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+        // Demo accounts are shared by every visitor trying the product — permanently
+        // changing the shared account's email would lock everyone else out. Block it
+        // here (not just in the UI) since this is reachable directly via the API.
+        if ((req as any).user?.is_demo) {
+            return res.status(403).json({ message: 'Email changes are disabled in the demo. Create your own school to use this feature.' });
+        }
         const { newEmail } = req.body;
         const result = await AuthService.updateEmail(userId, newEmail);
         res.json(result);
@@ -248,6 +254,12 @@ export const updateUsername = async (req: Request, res: Response) => {
         // Identity comes from the authenticated token, never the request body.
         const userId = (req as any).user?.id;
         if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+        // Demo accounts are shared by every visitor trying the product — permanently
+        // changing the shared account's username would lock everyone else out. Block
+        // it here (not just in the UI) since this is reachable directly via the API.
+        if ((req as any).user?.is_demo) {
+            return res.status(403).json({ message: 'Username changes are disabled in the demo. Create your own school to use this feature.' });
+        }
         const { newUsername } = req.body;
         const result = await AuthService.updateUsername(userId, newUsername);
         res.json(result);
@@ -260,7 +272,15 @@ export const updatePassword = async (req: Request, res: Response) => {
     try {
         const userId = (req as any).user.id;
         const { currentPassword, newPassword } = req.body;
-        
+
+        // Demo accounts are shared by every visitor trying the product — permanently
+        // changing the shared account's password would lock everyone else out of the
+        // demo. Block it here (not just in the UI) since this is reachable directly
+        // via the API regardless of what the frontend shows.
+        if ((req as any).user?.is_demo) {
+            return res.status(403).json({ message: 'Password changes are disabled in the demo. Create your own school to use this feature.' });
+        }
+
         if (!currentPassword || !newPassword) {
             return res.status(400).json({ message: 'Current password and new password are required' });
         }

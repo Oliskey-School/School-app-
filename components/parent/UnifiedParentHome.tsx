@@ -196,11 +196,6 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
                 <ChildRiskBanner />
             </div>
 
-            {/* AI Insights */}
-            <div className="px-4 pt-4">
-                <AIInsightsPanel />
-            </div>
-
             {/* School Utilities Quick Grid */}
             <div className="px-4 pt-4">
                 <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
@@ -348,6 +343,11 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
                         <ChevronRight className="w-5 h-5 opacity-50" />
                     </motion.div>
                 )}
+            </div>
+
+            {/* AI Insights */}
+            <div className="px-4 pt-4 pb-4">
+                <AIInsightsPanel />
             </div>
         </div>
     );

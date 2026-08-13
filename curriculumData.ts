@@ -265,7 +265,10 @@ export const getCurriculum = (level: string, department?: Department): Curriculu
   const classLevel = parts.slice(1).join(' ');
 
   if (stage === 'Primary' || stage === 'JSS') {
-    return curriculum[stage][classLevel]?.subjects || [];
+    // 'Primary' and 'JSS' have no top-level entry in `curriculum` yet — indexing
+    // curriculum[stage] directly (without ?.) throws when it's undefined,
+    // crashing the Curriculum screen for every Primary/JSS student.
+    return curriculum[stage]?.[classLevel]?.subjects || [];
   }
   
   if (stage.startsWith('Nursery') || stage.startsWith('Crèche') || stage.startsWith('Reception')) {

@@ -1,6 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense, useRef } from 'react';
 import DashboardLayout from '../layout/DashboardLayout';
-import AskAIWidget from '../shared/AskAIWidget';
 import { DashboardType } from '../../types';
 import { THEME_CONFIG } from '../../constants';
 import { formatSchoolId } from '../../utils/idFormatter';
@@ -460,7 +459,6 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
           <GlobalSearchScreen dashboardType={DashboardType.Teacher} navigateTo={navigateTo} onClose={() => setIsSearchOpen(false)} />
         )}
       </Suspense>
-      <AskAIWidget />
     </DashboardLayout>
   );
 };

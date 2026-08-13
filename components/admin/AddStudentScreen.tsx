@@ -155,7 +155,13 @@ const MultiSelect: React.FC<{
 
 const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forceUpdate, handleBack }) => {
     const { profile, refreshProfile } = useProfile();
-    const { currentSchool, currentBranchId, user } = useAuth(); // Added user and currentBranchId
+    const { currentSchool, currentBranchId, user, role } = useAuth(); // Added user and currentBranchId
+    // GET /api/parents is admin-only on the backend (ADMIN_ROLES in
+    // parent.controller.ts). This screen is also reused for the Teacher
+    // "Add Student" quick action, which has no permission to list all
+    // parents — calling it there just 403s and leaves the parent-link
+    // dropdown empty, so skip the fetch entirely for non-admin roles.
+    const canListParents = ['ADMIN', 'PROPRIETOR', 'SUPER_ADMIN', 'SUPERADMIN'].includes((role || '').toUpperCase());
     const { currentBranch } = useBranch();
     // The branch the admin is ACTIVELY viewing — new students are created here, not
     // in the admin's home branch. (Falls back to home branch if none is active.)
@@ -407,7 +413,7 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
 
     useEffect(() => {
         const loadParents = async () => {
-            if (schoolId) {
+            if (schoolId && canListParents) {
                 try {
                     const data = await api.getParents(schoolId, currentBranchId || undefined);
                     setAvailableParents(data || []);
@@ -417,7 +423,7 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
             }
         };
         loadParents();
-    }, [schoolId, currentBranchId]);
+    }, [schoolId, currentBranchId, canListParents]);
 
     useEffect(() => {
         if (!schoolId) {
@@ -482,7 +488,7 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
     });
 
     useAutoSync(['parents'], () => {
-        if (schoolId) {
+        if (schoolId && canListParents) {
             const loadParents = async () => {
                 try {
                     const data = await api.getParents(schoolId, currentBranchId || undefined);

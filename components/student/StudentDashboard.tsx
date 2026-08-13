@@ -6,10 +6,9 @@ import { lazyWithRetry } from '../../lib/lazyRetry';
 import { api } from '../../lib/api';
 import { DashboardType, Student, StudentAssignment } from '../../types';
 import { formatSchoolId } from '../../utils/idFormatter';
-import { THEME_CONFIG, ClockIcon, ClipboardListIcon, BellIcon, ChartBarIcon, ChevronRightIcon, SUBJECT_COLORS, BookOpenIcon, MegaphoneIcon, AttendanceSummaryIcon, CalendarIcon, ElearningIcon, StudyBuddyIcon, SparklesIcon, ReceiptIcon, AwardIcon, HelpIcon, GameControllerIcon, VideoIcon, GlobeIcon } from '../../constants';
+import { THEME_CONFIG, ClockIcon, ClipboardListIcon, BellIcon, ChartBarIcon, ChevronRightIcon, SUBJECT_COLORS, BookOpenIcon, MegaphoneIcon, AttendanceSummaryIcon, CalendarIcon, ElearningIcon, StudyBuddyIcon, SparklesIcon, ReceiptIcon, AwardIcon, HelpIcon, GameControllerIcon, VideoIcon, GlobeIcon, getFormattedClassName } from '../../constants';
 import Header from '../ui/Header';
 import AIInsightsPanel from '../shared/AIInsightsPanel';
-import AskAIWidget from '../shared/AskAIWidget';
 import { StudentBottomNav } from '../ui/DashboardBottomNav';
 // import { mockNotifications } from '../../data'; // REMOVED
 import { } from '../../data'; // Ensure no mocks imported
@@ -379,7 +378,6 @@ const Overview: React.FC<{
                         navigateTo={navigateTo}
                         student={student}
                     />
-                    <AIInsightsPanel />
                     <div>
                         <h3 className="text-lg font-bold text-gray-800 mb-2 px-1">AI Tools</h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -401,6 +399,8 @@ const Overview: React.FC<{
                             ))}
                         </div>
                     </div>
+
+                    <AIInsightsPanel />
                 </div>
                 {/* Sidebar */}
                 <div className="lg:col-span-1 space-y-6 lg:sticky lg:top-6 lg:self-start">
@@ -951,7 +951,11 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                                 
                                 // Additional prop injection
                                 if (currentNavigation.view === 'curriculum') {
-                                    componentProps.level = student?.level;
+                                    // `student.level` is the gamification XP level (Int, defaults to 1) —
+                                    // not the academic class level string CurriculumScreen expects
+                                    // ("Primary 4", "JSS 1", ...). Derive it from `grade` instead, using
+                                    // the same grade->name convention as class creation (constants.tsx).
+                                    componentProps.level = getFormattedClassName(student?.grade ?? 0);
                                     componentProps.department = student?.department;
                                 }
                                 if (currentNavigation.view === 'chat') {
@@ -977,7 +981,6 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                         />
                     )}
                 </Suspense>
-                <AskAIWidget />
             </DashboardLayout>
 
         </GamificationProvider>

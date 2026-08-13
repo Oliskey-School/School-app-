@@ -1,6 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense, useRef } from 'react';
 import DashboardLayout from '../layout/DashboardLayout';
-import AskAIWidget from '../shared/AskAIWidget';
 import ErrorBoundary from '../ui/ErrorBoundary';
 import { MainAdminOnly } from '../shared/MainAdminOnly';
 import { useProfile } from '../../context/ProfileContext';
@@ -761,7 +760,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
             >
                 Audit
             </button>
-            <AskAIWidget />
         </DashboardLayout>
     );
 };

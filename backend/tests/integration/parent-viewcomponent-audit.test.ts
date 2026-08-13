@@ -160,9 +160,10 @@ describe('Parent viewComponent audit (comprehensive)', () => {
             data: { school_id: S, branch_id: M, title: 'Open Day', date: new Date(), type: 'General' }
         }).catch(() => ({ id: '' }))) as any).id || '';
 
-        // Permission slip
+        // Permission slip (PermissionSlip model has no student_id field — it is scoped
+        // by school/branch only, not per-student)
         SLIPID = ((await (prisma as any).permissionSlip?.create?.({
-            data: { school_id: S, branch_id: M, student_id: SID, title: 'Field Trip', description: 'Permission for zoo visit', status: 'Pending' }
+            data: { school_id: S, branch_id: M, title: 'Field Trip', description: 'Permission for zoo visit', status: 'Pending' }
         }).catch(() => ({ id: '' }))) as any).id || '';
 
         // Notification for mark-read test (user_id is the recipient field in this schema)
@@ -323,13 +324,15 @@ describe('Parent viewComponent audit (comprehensive)', () => {
     // ─── SECTION 7: PERMISSION SLIPS WRITE ───────────────────────────────────
 
     it('PermissionSlipScreen — GET /permission-slips responds without error', async () => {
-        const res = await get('/api/policies/permission-slips');
+        // Real mount point is /api/academic-policies (see routes/index.ts + lib/api.ts) —
+        // /api/policies/permission-slips does not exist and previously masked this test.
+        const res = await get('/api/academic-policies/permission-slips');
         expect([200, 404]).toContain(res.status); // 404 is fine if no slips yet
     });
 
     it('PermissionSlipScreen — PATCH /permission-slips/:id (approve) returns 200/201', async () => {
         if (!SLIPID) { console.log('No permission slip seeded — skip approve test'); return; }
-        const res = await patch(`/api/policies/permission-slips/${SLIPID}`, { status: 'Approved' });
+        const res = await patch(`/api/academic-policies/permission-slips/${SLIPID}`, { status: 'Approved' });
         if (![200, 201].includes(res.status)) console.log('Approve slip:', res.status, res.body);
         expect([200, 201]).toContain(res.status);
     });
@@ -374,12 +377,16 @@ describe('Parent viewComponent audit (comprehensive)', () => {
         expect(arr.some((f: any) => f.id === FEEID || f.title === 'Term 1 Fee')).toBe(true);
     });
 
-    it('FeeStatusScreen — record payment returns 200/201', async () => {
+    it('FeeStatusScreen — record payment without a verified gateway is rejected (security hardening)', async () => {
+        // As of parent.controller.ts recordPayment(), a client-supplied amount is never
+        // trusted directly — the reference must be verified against a real gateway
+        // (paystack/flutterwave) via TransactionService.verifyPayment before the payment
+        // is recorded. Without `gateway`, the endpoint correctly returns 400.
         const res = await post('/api/parents/me/payments', {
             student_id: SID, fee_id: FEEID, amount: 25000, reference: 'PAYREF-PVA2', payment_method: 'card'
         });
-        if (![200, 201].includes(res.status)) console.log('Record Payment:', res.status, res.body);
-        expect([200, 201]).toContain(res.status);
+        expect(res.status).toBe(400);
+        expect(res.body?.message).toMatch(/verified gateway reference/i);
     });
 
     // ─── SECTION 10: MESSAGING (ParentMessagesScreen) ────────────────────────
@@ -441,17 +448,20 @@ describe('Parent viewComponent audit (comprehensive)', () => {
 
     // ─── SECTION 14: LINK CHILD ───────────────────────────────────────────────
 
-    it('LinkChildScreen — POST /link-child links Child Two', async () => {
+    it('LinkChildScreen — POST /link-child is admin-only (security hardening, confirmed round 14)', async () => {
+        // parent-child linking was locked down to admins only (cross-family link abuse
+        // fix from the round 6-9 security audit) — a parent self-linking a child now
+        // correctly returns 403, not 200/201.
         const res = await post('/api/parents/link-child', { parentId: PID, studentId: SID2 });
-        if (![200, 201].includes(res.status)) console.log('Link Child:', res.status, res.body);
-        expect([200, 201]).toContain(res.status);
+        expect(res.status).toBe(403);
+        expect(res.body?.message).toMatch(/only admins can link a child/i);
     });
 
-    it('LinkChildScreen — Child Two now appears in /me/children', async () => {
+    it('LinkChildScreen — Child Two is correctly NOT linked (parent self-link was rejected above)', async () => {
         const res = await get('/api/parents/me/children');
         const arr = Array.isArray(res.body) ? res.body : (res.body?.data || []);
         const ids = arr.map((c: any) => c.id);
-        expect(ids).toContain(SID2);
+        expect(ids).not.toContain(SID2);
     });
 
     // ─── SECTION 15: CALENDAR / RSVP (SmartCalendar) ─────────────────────────

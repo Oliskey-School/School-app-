@@ -436,8 +436,6 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                         </div>
                     </motion.div>
 
-                    <AIInsightsPanel />
-
                     <div>
                         <h2 className="text-xl font-bold text-gray-700 mb-4 px-1">Quick Actions</h2>
 
@@ -782,6 +780,8 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                             <HealthLogWidget onClick={() => navigateTo('healthLog', 'Health Log')} latestLog={latestHealthLog} />
                         </div>
                     </div>
+
+                    <AIInsightsPanel />
 
                 </div>
 

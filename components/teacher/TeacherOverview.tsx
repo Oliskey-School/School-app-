@@ -331,8 +331,6 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
         </motion.div>
       </div>
 
-      <AIInsightsPanel />
-
       <div>
         <div className="flex overflow-x-auto pb-2 gap-3 no-scrollbar">
           {classesLoading ? (
@@ -569,6 +567,8 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
           </div>
         </div>
       </div>
+
+      <AIInsightsPanel />
     </div>
   );
 };
