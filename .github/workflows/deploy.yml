@@ -116,8 +116,10 @@ jobs:
         run: |
           for attempt in 1 2 3 4 5; do
             echo "npm ci attempt $attempt/5"
-            rm -rf node_modules 2>/dev/null
-            [ -d node_modules ] && (sudo -n rm -rf node_modules 2>/dev/null || echo "sudo unavailable or failed")
+            rm -rf node_modules 2>/dev/null || true
+            if [ -d node_modules ]; then
+              sudo -n rm -rf node_modules 2>/dev/null || echo "sudo unavailable or failed"
+            fi
             if npm ci --cache "${{ runner.temp }}/npm-cache-${{ github.run_id }}-$attempt"; then
               echo "npm ci succeeded"
               exit 0
