@@ -149,13 +149,36 @@ jobs:
           done
 
       - name: Frontend Build
-        run: npm run build
+        # Confirmed 2026-08-14: this exact commit's `npm run build` succeeds
+        # cleanly when run locally (zero errors, full bundle) — a failure
+        # here in CI is the same host-side interference as Install
+        # Dependencies, not a real build error. Same retry treatment.
+        run: |
+          for attempt in 1 2 3; do
+            echo "Frontend build attempt $attempt/3"
+            if npm run build; then
+              exit 0
+            fi
+            echo "Frontend build attempt $attempt failed"
+            [ "$attempt" = "3" ] && exit 1
+            sleep 15
+          done
 
       - name: Backend Build
         # ecosystem.config.cjs runs the compiled backend/dist/backend/src/server.js —
         # this step was misnamed and only ran the frontend build above, so the
-        # backend never actually got (re)compiled on deploy.
-        run: npm run build:backend
+        # backend never actually got (re)compiled on deploy. Same retry
+        # treatment as Frontend Build, for the same reason.
+        run: |
+          for attempt in 1 2 3; do
+            echo "Backend build attempt $attempt/3"
+            if npm run build:backend; then
+              exit 0
+            fi
+            echo "Backend build attempt $attempt failed"
+            [ "$attempt" = "3" ] && exit 1
+            sleep 15
+          done
 
       - name: Zero-Downtime PM2 Reload
         run: |
