@@ -80,25 +80,30 @@ jobs:
         # anything else touching /var/www.
         #
         # That same external interference also hits the actual extraction
-        # target: confirmed on 2026-08-14 with npm warn TAR_ENTRY_ERROR ENOENT
-        # on files disappearing out of node_modules mid-`npm ci`, which then
-        # cascaded into a fatal protobufjs postinstall failure and an
-        # ENOTEMPTY on npm's own cleanup (something was concurrently writing
-        # into node_modules while npm tried to remove it). Retrying with a
-        # forced-clean node_modules absorbs a transient hit; a fresh cache dir
-        # per attempt avoids retrying against a cache that got corrupted
-        # during the failed attempt itself.
+        # target. First seen as TAR_ENTRY_ERROR ENOENT (files disappearing
+        # mid-`npm ci`, cascading into a fatal protobufjs postinstall
+        # failure). Then, on a later run, EACCES: permission denied on
+        # thousands of unrelated node_modules files simultaneously, all
+        # within a ~70ms window — that pattern (not scattered over time, one
+        # atomic burst across the whole tree) is consistent with an
+        # antivirus/endpoint-security agent or backup process running an
+        # on-access scan over this directory, not a targeted cleanup cron.
+        # This needs a real fix on the runner host itself (excluding
+        # /opt/actions-runner/_work from whatever is scanning/backing it up)
+        # — nothing in this workflow can fully prevent it, since the whole
+        # tree can get hit inside a single retry's extraction window. Longer
+        # spacing + more attempts is the most this step can do on its own.
         run: |
-          for attempt in 1 2 3; do
-            echo "npm ci attempt $attempt/3"
+          for attempt in 1 2 3 4 5; do
+            echo "npm ci attempt $attempt/5"
             rm -rf node_modules
             if npm ci --cache "${{ runner.temp }}/npm-cache-${{ github.run_id }}-$attempt"; then
               echo "npm ci succeeded"
               exit 0
             fi
             echo "npm ci attempt $attempt failed"
-            [ "$attempt" = "3" ] && exit 1
-            sleep 10
+            [ "$attempt" = "5" ] && exit 1
+            sleep 30
           done
 
       - name: Frontend Build
