@@ -44,9 +44,28 @@ jobs:
           done
 
       - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+        # actions/setup-node@v4 hits the same runner-side corruption as
+        # Checkout Code above, one level up: the runner downloads the
+        # ACTION'S OWN code into the shared _work/_actions cache before
+        # running it, and that download gets wiped by the same external
+        # process (confirmed: "Can't find action.yml ... under
+        # _work/_actions/actions/setup-node/v4" — identical symptom to the
+        # _actions corruption already diagnosed in 740a013/a255998). This is
+        # a persistent VPS, not an ephemeral container, so Node is already
+        # installed on the host (every prior successful deploy proves it) —
+        # just verify it instead of re-downloading a toolchain via a
+        # mechanism this runner can't reliably use right now.
+        run: |
+          if ! command -v node >/dev/null 2>&1; then
+            echo "::error::node not found on PATH on this runner host."
+            exit 1
+          fi
+          echo "Using $(node --version), $(npm --version)"
+          NODE_MAJOR=$(node -e "console.log(process.versions.node.split('.')[0])")
+          if [ "$NODE_MAJOR" -lt 20 ]; then
+            echo "::error::Node major version is $NODE_MAJOR, need >=20"
+            exit 1
+          fi
 
       - name: Install Dependencies
         # Use a cache directory scoped to this run instead of the runner's
