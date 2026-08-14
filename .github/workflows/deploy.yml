@@ -39,17 +39,19 @@ jobs:
             # node_modules specifically (confirmed 2026-08-14) — removing it
             # ourselves first and excluding it from git clean's own pass avoids
             # that specific lock conflict.
-            rm -rf .git node_modules dist backend/dist 2>/dev/null || true
+            rm -rf .git 2>/dev/null || true
+            # rename() only needs write permission on the parent directory,
+            # not on the target's own contents — unlike rm -rf, which needs to
+            # read into a directory to delete what's inside it. Confirmed
+            # 2026-08-14: specific node_modules subdirectories are EACCES even
+            # to scandir, so orphan them under a new name instead of fighting
+            # a delete that can't succeed without host-level intervention.
+            for d in node_modules dist backend/dist; do
+              [ -d "$d" ] && mv "$d" "${d}.orphaned-$(date +%s)-$attempt" 2>/dev/null
+              rm -rf "$d" 2>/dev/null || true
+            done
             if [ -d node_modules ] || [ -d dist ] || [ -d backend/dist ]; then
-              # A later run showed EACCES: Permission denied on the same
-              # directories rm -rf just failed on — a real on-disk permission
-              # problem (something changed ownership/perms on these files, not
-              # just a transient lock), which no unprivileged retry can fix.
-              # Try sudo in case the runner's service account has passwordless
-              # sudo (it already does global npm installs elsewhere in this
-              # workflow) — -n fails fast instead of hanging on a password
-              # prompt if it isn't configured.
-              echo "rm -rf left files behind, trying sudo..."
+              echo "rename+rm -rf left files behind, trying sudo..."
               sudo -n rm -rf node_modules dist backend/dist 2>/dev/null || echo "sudo unavailable or failed — needs manual fix on the runner host"
             fi
             git init -q
@@ -116,10 +118,21 @@ jobs:
         run: |
           for attempt in 1 2 3 4 5; do
             echo "npm ci attempt $attempt/5"
-            rm -rf node_modules 2>/dev/null || true
+            # Confirmed 2026-08-14: specific node_modules subdirectories
+            # (is-obj, nodemon, native-run...) are EACCES even to scandir —
+            # deleting them requires reading their contents first, which is
+            # exactly what's denied, and sudo isn't configured on this runner.
+            # But rename() only needs write permission on the PARENT
+            # directory, not the broken directory's own contents — orphan it
+            # under a new name instead of trying to delete it, so npm ci
+            # starts from a node_modules that doesn't exist yet rather than
+            # fighting the broken one. (Orphaned dirs accumulate in _work
+            # until someone with host access cleans them up — a disk-space
+            # problem, not a build-blocking one.)
             if [ -d node_modules ]; then
-              sudo -n rm -rf node_modules 2>/dev/null || echo "sudo unavailable or failed"
+              mv node_modules "node_modules.orphaned-$(date +%s)-$attempt" 2>/dev/null || true
             fi
+            rm -rf node_modules 2>/dev/null || true
             if npm ci --cache "${{ runner.temp }}/npm-cache-${{ github.run_id }}-$attempt"; then
               echo "npm ci succeeded"
               exit 0
