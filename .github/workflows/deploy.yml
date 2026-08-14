@@ -31,10 +31,18 @@ jobs:
           set -e
           for attempt in 1 2 3; do
             echo "Checkout attempt $attempt/3"
-            rm -rf .git
+            # rm -rf first: on Linux, unlink() works on files another process
+            # still has open (the directory entry goes away immediately, unlike
+            # git clean's rmdir-based removal, which fails with "Directory not
+            # empty" the instant anything is touching a file inside). Whatever
+            # is scanning this tree kept git clean -ffdx failing on
+            # node_modules specifically (confirmed 2026-08-14) — removing it
+            # ourselves first and excluding it from git clean's own pass avoids
+            # that specific lock conflict.
+            rm -rf .git node_modules dist backend/dist
             git init -q
             git remote add origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
-            if git fetch --depth 1 origin "${{ github.sha }}" && git checkout -qf FETCH_HEAD && git clean -ffdx; then
+            if git fetch --depth 1 origin "${{ github.sha }}" && git checkout -qf FETCH_HEAD && git clean -ffdx -e node_modules -e dist -e backend/dist; then
               echo "Checkout succeeded"
               exit 0
             fi
