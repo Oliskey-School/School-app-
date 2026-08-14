@@ -39,7 +39,7 @@ jobs:
             # node_modules specifically (confirmed 2026-08-14) — removing it
             # ourselves first and excluding it from git clean's own pass avoids
             # that specific lock conflict.
-            rm -rf .git node_modules dist backend/dist 2>/dev/null
+            rm -rf .git node_modules dist backend/dist 2>/dev/null || true
             if [ -d node_modules ] || [ -d dist ] || [ -d backend/dist ]; then
               # A later run showed EACCES: Permission denied on the same
               # directories rm -rf just failed on — a real on-disk permission
