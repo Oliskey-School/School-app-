@@ -47,7 +47,9 @@ jobs:
             # to scandir, so orphan them under a new name instead of fighting
             # a delete that can't succeed without host-level intervention.
             for d in node_modules dist backend/dist; do
-              [ -d "$d" ] && mv "$d" "${d}.orphaned-$(date +%s)-$attempt" 2>/dev/null
+              if [ -d "$d" ]; then
+                mv "$d" "${d}.orphaned-$(date +%s)-$attempt" 2>/dev/null || true
+              fi
               rm -rf "$d" 2>/dev/null || true
             done
             if [ -d node_modules ] || [ -d dist ] || [ -d backend/dist ]; then
@@ -56,7 +58,11 @@ jobs:
             fi
             git init -q
             git remote add origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
-            if git fetch --depth 1 origin "${{ github.sha }}" && git checkout -qf FETCH_HEAD && git clean -ffdx -e node_modules -e dist -e backend/dist; then
+            # Exclude the orphaned-* names too — git clean doesn't know about
+            # them and would try (and fail, on the same broken permissions)
+            # to remove them otherwise. Renaming a directory doesn't fix the
+            # permissions on the files inside it.
+            if git fetch --depth 1 origin "${{ github.sha }}" && git checkout -qf FETCH_HEAD && git clean -ffdx -e node_modules -e dist -e backend/dist -e "node_modules.orphaned-*" -e "dist.orphaned-*" -e "backend/dist.orphaned-*"; then
               echo "Checkout succeeded"
               exit 0
             fi
