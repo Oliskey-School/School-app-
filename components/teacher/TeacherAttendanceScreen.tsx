@@ -13,6 +13,7 @@ import { getFormattedClassName } from '../../constants';
 import { api } from '../../lib/api';
 import { useProfile } from '../../context/ProfileContext';
 import { useAutoSync } from '../../hooks/useAutoSync';
+import { useBranch } from '../../context/BranchContext';
 
 
 const AttendanceStatusButtons = ({ status, onStatusChange }: { status: AttendanceStatus, onStatusChange: (newStatus: AttendanceStatus) => void }) => {
@@ -52,10 +53,20 @@ interface TeacherMarkAttendanceScreenProps {
 const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = ({ classInfo, currentBranchId }) => {
     const theme = THEME_CONFIG[DashboardType.Teacher];
     const { profile } = useProfile();
+    const { branches } = useBranch();
     const [students, setStudents] = useState<Student[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const now = new Date();
     const [selectedDate, setSelectedDate] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`);
+    const [selectedCurriculum, setSelectedCurriculum] = useState<'All' | 'Nigerian' | 'British'>('All');
+
+    // Only branches actually running two curricula side by side need this filter —
+    // showing it on every single-curriculum branch would just add noise.
+    const effectiveBranchId = currentBranchId || profile?.branchId;
+    const isDualCurriculumBranch = useMemo(
+        () => branches.find(b => b.id === effectiveBranchId)?.curriculum_type?.toLowerCase() === 'dual',
+        [branches, effectiveBranchId]
+    );
 
     const fetchData = useCallback(async () => {
         if (!classInfo) return;
@@ -109,28 +120,9 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
                     section: s.section,
                     avatarUrl: s.avatar_url,
                     attendanceStatus: displayStatus as AttendanceStatus,
+                    curriculum_type: s.curriculum_type || 'Nigerian',
                 } as unknown as Student;
             });
-
-            // Check for local draft
-            const storageKey = `attendance_draft_${classInfo.id}_${selectedDate}`;
-            const savedDraft = localStorage.getItem(storageKey);
-            if (savedDraft) {
-                try {
-                    const draft = JSON.parse(savedDraft);
-                    // Only apply draft if it contains the same students (to avoid mismatches)
-                    const draftStudentIds = new Set(draft.map((d: any) => String(d.id)));
-                    const currentStudentIds = new Set(studentsWithAttendance.map(s => String(s.id)));
-                    
-                    if (draft.length === studentsWithAttendance.length && 
-                        [...currentStudentIds].every(id => draftStudentIds.has(id))) {
-                        setStudents(draft);
-                        return;
-                    }
-                } catch (e) {
-                    console.error("Failed to parse attendance draft:", e);
-                }
-            }
 
             setStudents(studentsWithAttendance);
 
@@ -146,16 +138,18 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
         fetchData();
     }, [fetchData]);
 
-    // Save draft to localStorage whenever students array changes
-    useEffect(() => {
-        if (classInfo && students.length > 0 && !isLoading) {
-            const storageKey = `attendance_draft_${classInfo.id}_${selectedDate}`;
-            localStorage.setItem(storageKey, JSON.stringify(students));
-        }
-    }, [students, classInfo?.id, selectedDate, isLoading]);
-
     useAutoSync(['attendance', 'students'], fetchData);
 
+
+    const visibleStudents = useMemo(() => {
+        if (selectedCurriculum === 'All') return students;
+        // 'Both' students belong to every track — they must show up whichever
+        // track is selected, not just an exact string match on one track.
+        return students.filter(s => {
+            const track = (s as any).curriculum_type || 'Nigerian';
+            return track === selectedCurriculum || track === 'Both';
+        });
+    }, [students, selectedCurriculum]);
 
     const handleStatusChange = useCallback((studentId: string | number, status: AttendanceStatus) => {
         setStudents(currentStudents =>
@@ -166,10 +160,13 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
     }, []);
 
     const handleMarkAll = useCallback((status: 'Present' | 'Absent') => {
+        const visibleIds = new Set(visibleStudents.map(s => String(s.id)));
         setStudents(currentStudents =>
-            currentStudents.map(student => ({ ...student, attendanceStatus: status }))
+            currentStudents.map(student =>
+                visibleIds.has(String(student.id)) ? { ...student, attendanceStatus: status } : student
+            )
         );
-    }, []);
+    }, [visibleStudents]);
 
     const submitAttendance = async () => {
         if (!classInfo) return;
@@ -181,7 +178,7 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
             return;
         }
 
-        const upsertData = students.map(s => {
+        const upsertData = visibleStudents.map(s => {
             let status = s.attendanceStatus.toLowerCase();
             if (status === 'leave') status = 'excused'; // Map UI 'Leave' to DB 'excused'
 
@@ -198,8 +195,6 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
         try {
             await api.saveAttendance(upsertData);
             toast.success(`Attendance for ${selectedDate} saved successfully!`);
-            // Clear draft after successful save
-            localStorage.removeItem(`attendance_draft_${classInfo.id}_${selectedDate}`);
         } catch (err) {
             console.error('Error submitting attendance:', err);
             toast.error('Failed to save attendance.');
@@ -207,17 +202,17 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
     };
 
     const attendanceSummary = useMemo(() => {
-        const total = students.length;
+        const total = visibleStudents.length;
         if (total === 0) return { total: 0, present: 0, absent: 0, onLeave: 0, late: 0, presentPercentage: 0 };
 
-        const present = students.filter(s => s.attendanceStatus === 'Present').length;
-        const absent = students.filter(s => s.attendanceStatus === 'Absent').length;
-        const onLeave = students.filter(s => s.attendanceStatus === 'Leave').length;
-        const late = students.filter(s => s.attendanceStatus === 'Late').length;
+        const present = visibleStudents.filter(s => s.attendanceStatus === 'Present').length;
+        const absent = visibleStudents.filter(s => s.attendanceStatus === 'Absent').length;
+        const onLeave = visibleStudents.filter(s => s.attendanceStatus === 'Leave').length;
+        const late = visibleStudents.filter(s => s.attendanceStatus === 'Late').length;
         const presentPercentage = total > 0 ? Math.round(((present + late) / total) * 100) : 0;
 
         return { total, present, absent, onLeave, late, presentPercentage };
-    }, [students]);
+    }, [visibleStudents]);
 
     if (!classInfo) return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Select a class to mark attendance.</div>;
 
@@ -254,7 +249,18 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
                         <p className="font-bold text-lg text-gray-800">{formattedClassName} Attendance</p>
                         <p className="text-sm text-gray-500">Select a date to view or mark attendance.</p>
                     </div>
-                    <div className="relative">
+                    <div className="flex items-center gap-3">
+                        {isDualCurriculumBranch && (
+                            <select
+                                value={selectedCurriculum}
+                                onChange={(e) => setSelectedCurriculum(e.target.value as 'All' | 'Nigerian' | 'British')}
+                                className="block pl-3 pr-8 py-2 text-sm border-gray-300 focus:outline-none focus:ring-purple-500 focus:border-purple-500 rounded-md bg-white"
+                            >
+                                <option value="All">All Curricula</option>
+                                <option value="Nigerian">🇳🇬 Nigerian Track</option>
+                                <option value="British">🇬🇧 British Track</option>
+                            </select>
+                        )}
                         <input
                             type="date"
                             value={selectedDate}
@@ -305,7 +311,7 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
                     <CenteredLoader message="Loading attendance data..." className="py-12" />
                 ) : (
                     <ul className="divide-y divide-gray-200">
-                        {students.map((student, i) => (
+                        {visibleStudents.map((student, i) => (
                             <motion.li key={student.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(i, 15) * 0.02 }} className="p-4 flex items-center justify-between bg-white hover:bg-gray-50">
                                 <div className="flex items-center space-x-4">
                                     {student.avatarUrl ? (
@@ -323,9 +329,13 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
                                 <AttendanceStatusButtons status={student.attendanceStatus} onStatusChange={(newStatus) => handleStatusChange(student.id, newStatus)} />
                             </motion.li>
                         ))}
-                        {students.length === 0 && (
+                        {visibleStudents.length === 0 && (
                             <div className="text-center py-10 bg-white">
-                                <p className="text-gray-500">No students found for this class.</p>
+                                <p className="text-gray-500">
+                                    {selectedCurriculum === 'All'
+                                        ? 'No students found for this class.'
+                                        : `No students on the ${selectedCurriculum} track for this class.`}
+                                </p>
                             </div>
                         )}
                     </ul>
@@ -340,7 +350,7 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
                     onClick={submitAttendance}
                     className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
                 >
-                    Save Attendance for {selectedDate}
+                    Save Attendance for {selectedDate}{selectedCurriculum !== 'All' ? ` (${selectedCurriculum} Track)` : ''}
                 </motion.button>
             </div>
         </div>

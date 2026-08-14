@@ -291,7 +291,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, [signOut]);
 
     const signIn = async (dashboard: DashboardType, userData: any) => {
-        // Clear any old state or demo remnants first
+        // Clear any old state or demo remnants first. A visitor commonly tries the
+        // demo (or another school) in this SAME tab, then uses "Create Your School"
+        // and logs in as the new admin without ever going through signOut() — without
+        // this, cached API responses (dashboard stats, school info, roster data) from
+        // that prior session/school would still be sitting in the in-memory + offline
+        // caches and could render under the new school's admin until each entry
+        // happened to be naturally refetched.
+        api.invalidateCache();
         sessionStorage.removeItem('cached_user_profile');
         sessionStorage.removeItem('is_demo_mode');
 
@@ -360,6 +367,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             if (result.token) {
                 sessionStorage.setItem('auth_token', result.token);
+                // Same account, different tenant — cached API responses (dashboard
+                // stats, rosters, school info) from the OUTGOING school must not
+                // survive into the new one. Without this, a user who owns multiple
+                // schools could see the previous school's data until each cache
+                // entry happened to be naturally refetched.
+                api.invalidateCache();
+                sessionStorage.removeItem('cached_user_profile');
                 // No more window.location.reload(); to avoid full page reloads
                 // Instead, we'll refresh the user profile to get the new school context
                 await initializeAuth();

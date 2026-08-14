@@ -44,7 +44,6 @@ const viewTitles = {
   salaryProfile: 'Salary Profile',
   paymentHistory: 'Payment History',
   assessmentsHub: 'Assessments',
-  attendanceTrackSelector: 'Attendance',
   badgeSystem: 'Achievement Badges',
   certificateViewer: 'Certificates',
   courseCatalog: 'Course Catalog',

@@ -34,13 +34,64 @@ interface DashboardLayoutProps {
     stickyFooterLayout?: boolean;
     hideBottomNav?: boolean;
     onLogout?: () => void;
+    // Identifies the screen currently being shown (e.g. `${view}::${JSON.stringify(props)}`).
+    // Scroll position is remembered per key for the life of the session: the first time a
+    // key is seen the page opens at the top; returning to a key already visited (back
+    // button, or re-tapping a bottom-nav tab) restores exactly where the user left off.
+    scrollKey?: string;
 }
 
 import { useProfile } from '../../context/ProfileContext';
 import { useAutoSync } from '../../hooks/useAutoSync';
 
-const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBack, activeScreen = 'home', setActiveScreen = () => { }, hideHeader = false, hideSidebar = false, hidePadding = false, stickyFooterLayout = false, hideBottomNav = false, onLogout }) => {
+const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBack, activeScreen = 'home', setActiveScreen = () => { }, hideHeader = false, hideSidebar = false, hidePadding = false, stickyFooterLayout = false, hideBottomNav = false, onLogout, scrollKey }) => {
     const { t } = useTranslation();
+    const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+    // Persists for the life of the tab (not across reloads) — a fresh session always
+    // opens every screen at the top, exactly like a fresh app install would. Populated
+    // ONLY by the live onScroll handler below — by the time this effect runs for a NEW
+    // scrollKey, the DOM has already been swapped to the new screen's content, so
+    // reading el.scrollTop here would capture the new screen's position, not the one
+    // being left. The onScroll handler is the only reliably-timed source of truth.
+    const scrollPositions = React.useRef<Map<string, number>>(new Map());
+
+    // Restore (or reset) scroll position whenever the visible screen changes.
+    // useLayoutEffect so the jump happens before paint — no visible flash of the
+    // wrong scroll position. A screen that loads its data asynchronously is often
+    // still short (loading skeleton) at this exact moment, so the browser clamps
+    // scrollTop down to whatever's scrollable right now. ResizeObserver can't help
+    // here — it watches the scroll container's own box, which never changes (fixed
+    // flex height); the CONTENT inside it grows instead. So we poll for a short
+    // window instead, re-applying the target once there's enough to scroll to.
+    React.useLayoutEffect(() => {
+        const el = scrollContainerRef.current;
+        if (!el || scrollKey === undefined) return;
+        const target = scrollPositions.current.get(scrollKey) ?? 0;
+        el.scrollTop = target;
+        if (target === 0) return;
+
+        let cancelled = false;
+        const deadline = Date.now() + 1500;
+        const tick = () => {
+            if (cancelled) return;
+            if (el.scrollTop < target && el.scrollHeight - el.clientHeight >= target) {
+                el.scrollTop = target;
+            }
+            // Stop once it's holding correctly, or once the window's up (content that
+            // never grows enough just keeps whatever the browser clamped it to).
+            if (Date.now() < deadline && el.scrollTop < target) {
+                requestAnimationFrame(tick);
+            }
+        };
+        requestAnimationFrame(tick);
+        return () => { cancelled = true; };
+    }, [scrollKey]);
+
+    const handleContentScroll = (e: React.UIEvent<HTMLDivElement>) => {
+        if (scrollKey === undefined) return;
+        scrollPositions.current.set(scrollKey, e.currentTarget.scrollTop);
+    };
+
     const { user, role, signOut, currentSchool, isDemo, switchDemoRole } = useAuth();
     const { profile, refreshProfile } = useProfile(); // Use Profile Context
     const { activeBranchGeneratedId } = useBranch(); // Branch-aware Global ID for the header
@@ -229,7 +280,11 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
                     />
                 )}
 
-                <div className={`flex-1 ${(hidePadding || stickyFooterLayout) && !isLocked ? 'overflow-hidden' : 'overflow-y-auto'} overflow-x-hidden relative ${!hideHeader ? '-mt-8 sm:-mt-10 md:-mt-12 lg:-mt-16' : ''} ${!hidePadding && !stickyFooterLayout ? 'pb-24 lg:pb-12' : 'pb-0'}`}>
+                <div
+                    ref={scrollContainerRef}
+                    onScroll={handleContentScroll}
+                    className={`flex-1 ${(hidePadding || stickyFooterLayout) && !isLocked ? 'overflow-hidden' : 'overflow-y-auto'} overflow-x-hidden relative ${!hideHeader ? '-mt-8 sm:-mt-10 md:-mt-12 lg:-mt-16' : ''} ${!hidePadding && !stickyFooterLayout ? 'pb-32 lg:pb-16' : 'pb-0'}`}
+                >
                     {isLocked ? (
                         <div className={`w-full min-h-full ${!hideHeader ? 'pt-8 sm:pt-10 md:pt-12 lg:pt-16' : ''}`}>
                             <PlanLockScreen isAdmin={isAdmin} schoolName={currentSchool?.name} />
@@ -260,8 +315,12 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
             </div>
             {/* Single, ALWAYS-VISIBLE install banner for the web version — it stays on screen
                 until the app is installed (then self-hides). The one-time pop-up card was
-                removed so there is exactly one, persistent install entry point. */}
-            <InstallAppButton />
+                removed so there is exactly one, persistent install entry point.
+                Suppressed on hidePadding/stickyFooterLayout screens: those reserve zero
+                bottom padding and often have their own sticky footer (e.g. a form's Save
+                bar) docked to the same bottom-left corner — the floating button would sit
+                on top of it instead of clearing it. */}
+            {!hidePadding && !stickyFooterLayout && <InstallAppButton />}
         </div>
     );
 };

@@ -18,6 +18,10 @@ export class AcademicService {
                     const band = bands.find((b: any) => score >= b.min && score <= b.max) || bands[bands.length - 1];
                     return { grade: band.grade, remark: band.remark };
                 },
+                // Real grade labels for this scheme, high-to-low — needed so callers
+                // (e.g. analytics gradeDistribution) can seed every possible bucket
+                // instead of guessing from ca_percent. See gradeLabels note below.
+                gradeLabels: bands.map((b: any) => b.grade),
             };
         }
 
@@ -41,7 +45,8 @@ export class AcademicService {
                     if (score >= 60) return { grade: 'C', remark: 'Good' };
                     if (score >= 50) return { grade: 'D', remark: 'Pass' };
                     return { grade: 'U', remark: 'Ungraded' };
-                }
+                },
+                gradeLabels: ['A*', 'A', 'B', 'C', 'D', 'U'],
             };
         }
 
@@ -55,7 +60,8 @@ export class AcademicService {
                 if (score >= 50) return { grade: 'C', remark: 'Good' };
                 if (score >= 45) return { grade: 'D', remark: 'Pass' };
                 return { grade: 'F', remark: 'Fail' };
-            }
+            },
+            gradeLabels: ['A', 'B', 'C', 'D', 'F'],
         };
     }
 
@@ -197,12 +203,16 @@ export class AcademicService {
         };
 
         const gradeMap: Record<string, number> = {};
-        // Initialize gradeMap based on curriculum
-        if (settings.ca_percent === 0.3) {
-            ['A*', 'A', 'B', 'C', 'D', 'U'].forEach(g => gradeMap[g] = 0);
-        } else {
-            ['A', 'B', 'C', 'D', 'F'].forEach(g => gradeMap[g] = 0);
-        }
+        // Seed every real bucket for this school's actual grading scheme. This
+        // used to guess Nigerian vs. British purely from ca_percent === 0.3,
+        // which silently dropped any custom-configured band (e.g. the built-in
+        // 'E' — "Weak Pass" — band, or any school-defined letter) from the
+        // chart entirely: computeGrade() would return a grade the map never
+        // initialized, `gradeMap[grade] !== undefined` would be false, and
+        // those students' scores vanished from Grade Distribution while still
+        // counting toward totals elsewhere — percentages silently stopped
+        // summing to 100%.
+        (settings.gradeLabels || ['A', 'B', 'C', 'D', 'F']).forEach(g => gradeMap[g] = 0);
 
         const subjectMap: Record<string, { total: number, scores: number[], passed: number }> = {};
         const classMap: Record<string, { total: number, scores: number[], passed: number }> = {};

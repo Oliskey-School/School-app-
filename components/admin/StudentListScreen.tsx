@@ -104,6 +104,11 @@ const StudentRow: React.FC<{
           <p className="font-bold text-sm text-gray-800 truncate">{student.name || student.full_name}</p>
           <p className="text-xs text-gray-500">
             ID: {student.schoolGeneratedId || student.school_generated_id || 'Pending'}
+            {student.curriculum_type && (
+              <span className="ml-2 text-gray-600 bg-gray-100 px-1 py-0.5 rounded text-xs">
+                {student.curriculum_type}
+              </span>
+            )}
             {(student.user?.initial_password || student.initial_password) && (
               <span className="ml-2 text-indigo-600 bg-indigo-50 px-1 py-0.5 rounded text-xs">
                 Pass: {student.user?.initial_password || student.initial_password}

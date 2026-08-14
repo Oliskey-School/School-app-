@@ -92,7 +92,6 @@ import { QuickAttendance } from './QuickAttendance';
 import AssessmentsHub from './AssessmentsHub';
 
 // Missing Audit Components
-import AttendanceTrackSelector from './AttendanceTrackSelector';
 import BadgeSystem from './BadgeSystem';
 import CertificateViewer from './CertificateViewer';
 import CourseCatalog from './CourseCatalog';
@@ -351,7 +350,6 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     assessmentsHub: (props: any) => <AssessmentsHub {...props} teacherId={teacherId || ''} />,
 
     // Additional Audit Registered Views
-    attendanceTrackSelector: AttendanceTrackSelector,
     badgeSystem: BadgeSystem,
     certificateViewer: CertificateViewer,
     courseCatalog: CourseCatalog,
@@ -368,6 +366,14 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
   const currentNavigation = viewStack[viewStack.length - 1]
     || { view: 'overview', props: {}, title: 'Dashboard' };
   const ComponentToRender = viewComponents[currentNavigation.view as keyof typeof viewComponents];
+  // Identifies THIS exact screen (view + its data) so scroll position can be
+  // remembered per screen and restored on return, while a screen never visited
+  // this session still opens at the top. Computed unconditionally (before any
+  // early return below) to keep hook order stable across renders.
+  const scrollKey = React.useMemo(() => {
+    try { return `${currentNavigation.view}::${JSON.stringify((currentNavigation as any).props)}`; }
+    catch { return currentNavigation.view; }
+  }, [currentNavigation.view, (currentNavigation as any).props]);
 
   // --- AUDIT SYSTEM EXPOSURE ---
   useEffect(() => {
@@ -432,6 +438,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     <DashboardLayout
       title={currentNavigation.title}
       onBack={viewStack.length > 1 ? handleBack : undefined}
+      scrollKey={scrollKey}
       activeScreen={activeBottomNav}
       setActiveScreen={handleBottomNavClick}
       hideHeader={hideBottomNav}

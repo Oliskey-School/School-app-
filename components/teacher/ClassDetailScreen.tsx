@@ -38,7 +38,8 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ classInfo, naviga
                     section: s.section,
                     department: s.department,
                     attendanceStatus: s.attendance_status || 'Absent',
-                    birthday: s.birthday
+                    birthday: s.birthday,
+                    curriculum_type: s.curriculum_type
                 })));
             }
         } catch (err) {
@@ -97,7 +98,12 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ classInfo, naviga
                 <img src={student.avatarUrl} alt={student.name} className="w-12 h-12 rounded-full object-cover" />
                 <div className="flex-grow text-left">
                   <p className="font-bold text-gray-800">{student.name}</p>
-                  <p className="text-sm text-gray-500">ID: {student.schoolId || 'Pending'}</p>
+                  <p className="text-sm text-gray-500">
+                    ID: {student.schoolId || 'Pending'}
+                    {student.curriculum_type && (
+                      <span className="ml-2 text-gray-600 bg-gray-100 px-1 py-0.5 rounded text-xs">{student.curriculum_type}</span>
+                    )}
+                  </p>
                 </div>
                 <ChevronRightIcon className="text-gray-400" />
               </button>

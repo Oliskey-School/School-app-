@@ -123,11 +123,11 @@ const SessionManagementScreen = () => {
             {/* Revoke All Bar */}
             <div className="flex items-center justify-between bg-white rounded-3xl shadow-sm border border-gray-100 p-5">
                 <div className="flex items-center space-x-3">
-                    <AlertTriangle className="w-5 h-5 text-amber-500" />
+                    <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
                     <p className="text-sm font-medium text-gray-600">See a session you don't recognize? Revoke it immediately and change your password.</p>
                 </div>
-                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={handleRevokeAll} className="flex items-center space-x-2 px-5 py-2.5 bg-red-600 text-white rounded-2xl font-bold hover:bg-red-700 transition-all text-sm">
-                    <LogOut className="w-4 h-4" /><span>Revoke All Others</span>
+                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={handleRevokeAll} className="flex items-center space-x-2 px-5 py-2.5 bg-red-600 text-white rounded-2xl font-bold hover:bg-red-700 transition-all text-sm shrink-0">
+                    <LogOut className="w-4 h-4 shrink-0" /><span>Revoke All Others</span>
                 </motion.button>
             </div>
 
@@ -150,14 +150,14 @@ const SessionManagementScreen = () => {
                                         </div>
                                         <p className="text-sm text-gray-500 mt-1 truncate max-w-md">{session.user_agent || 'Web Browser'}</p>
                                         <div className="flex items-center space-x-4 mt-3">
-                                            <div className="flex items-center space-x-1 text-xs text-gray-500">
-                                                <MapPin className="w-3 h-3" /><span>{session.location || 'Unknown Location'}</span>
+                                            <div className="flex items-center space-x-1 text-xs text-gray-500 min-w-0">
+                                                <MapPin className="w-3 h-3 shrink-0" /><span className="truncate">{session.location || 'Unknown Location'}</span>
                                             </div>
-                                            <div className="flex items-center space-x-1 text-xs text-gray-500">
-                                                <Globe className="w-3 h-3" /><span>{session.ip_address || 'Hidden IP'}</span>
+                                            <div className="flex items-center space-x-1 text-xs text-gray-500 min-w-0">
+                                                <Globe className="w-3 h-3 shrink-0" /><span className="truncate">{session.ip_address || 'Hidden IP'}</span>
                                             </div>
-                                            <div className="flex items-center space-x-1 text-xs text-gray-500">
-                                                <Clock className="w-3 h-3" /><span>Active {getTimeAgo(session.last_active)}</span>
+                                            <div className="flex items-center space-x-1 text-xs text-gray-500 min-w-0">
+                                                <Clock className="w-3 h-3 shrink-0" /><span className="truncate">Active {getTimeAgo(session.last_active)}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -165,7 +165,7 @@ const SessionManagementScreen = () => {
                                 {!session.is_current && (
                                     <motion.button whileHover={revoking !== session.id ? { scale: 1.03 } : {}} whileTap={revoking !== session.id ? { scale: 0.97 } : {}} onClick={() => handleRevoke(session.id)} disabled={revoking === session.id}
                                         className="flex items-center space-x-2 px-4 py-2 bg-red-50 text-red-600 rounded-xl font-bold text-sm hover:bg-red-100 transition-all disabled:opacity-50">
-                                        {revoking === session.id ? <RefreshCw className="w-4 h-4 animate-spin" /> : <LogOut className="w-4 h-4" />}
+                                        {revoking === session.id ? <RefreshCw className="w-4 h-4 shrink-0 animate-spin" /> : <LogOut className="w-4 h-4 shrink-0" />}
                                         <span>{revoking === session.id ? 'Revoking...' : 'Revoke'}</span>
                                     </motion.button>
                                 )}

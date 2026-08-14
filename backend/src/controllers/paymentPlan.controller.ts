@@ -241,11 +241,19 @@ export const processInstallmentPayment = async (req: AuthRequest, res: Response)
         }
 
         const newPaidAmount = (installment.paid_amount || 0) + parseFloat(amount);
+        // Mirror FeeService/ParentService.recordPayment's paid-vs-partial logic —
+        // without this, status stayed 'pending'/'partial' forever after a full
+        // payment, so the parent-facing schedule kept showing "Pay Now" on an
+        // already-settled installment (risking a double charge) and the
+        // progress bar / upcoming-installments reminder never reflected the
+        // real balance.
+        const newStatus = newPaidAmount >= (installment.amount || 0) ? 'paid' : 'partial';
 
         const updated = await prisma.installment.update({
             where: { id: parseInt(id) },
             data: {
                 paid_amount: newPaidAmount,
+                status: newStatus,
                 transaction_id: transactionId ? parseInt(transactionId) : null
             }
         });

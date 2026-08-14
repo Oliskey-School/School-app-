@@ -72,7 +72,7 @@ const LateArrivalConfig = () => {
             </header>
 
             <div className="bg-amber-50 border border-amber-100 rounded-2xl px-5 py-3 flex items-start space-x-3">
-                <AlertTriangle className="w-5 h-5 text-amber-500 mt-0.5" />
+                <AlertTriangle className="w-5 h-5 text-amber-500 mt-0.5 shrink-0" />
                 <p className="text-sm text-amber-700">Students arriving after the assembly time + threshold will be automatically flagged as <strong>Late</strong> in attendance records.</p>
             </div>
 

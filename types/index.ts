@@ -153,6 +153,7 @@ export interface Student {
   // Status (Database Fields)
   status?: 'Active' | 'Inactive' | 'Suspended' | 'Pending'; // TEXT DEFAULT 'Active'
   attendanceStatus: AttendanceStatus; // attendance_status TEXT DEFAULT 'Present'
+  curriculum_type?: string; // Which curriculum track the student is enrolled in (e.g. 'Nigerian' | 'British')
 
   // Joined/Computed Fields (NOT in database, from other tables/joins)
   rollNumber?: string; // Alias for admission_number

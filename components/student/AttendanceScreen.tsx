@@ -14,6 +14,21 @@ const attendanceColors: { [key in AttendanceStatus]: string } = {
     Leave: 'bg-gray-200 text-gray-500', // For weekends/holidays
 };
 
+// The attendance-marking flow writes status lowercase ('present'/'absent'/'late')
+// while this screen's AttendanceStatus type and all the comparisons below use the
+// capitalized form ('Present'/'Absent'/'Late'/'Leave'). Without normalizing at the
+// fetch boundary, every comparison silently fails: the calendar renders every day
+// as "not marked" and the term/monthly percentages compute to 0% regardless of the
+// student's real attendance.
+const normalizeStatus = (status: string | null | undefined): AttendanceStatus => {
+    const s = (status || '').toLowerCase();
+    if (s === 'present') return 'Present';
+    if (s === 'absent') return 'Absent';
+    if (s === 'late') return 'Late';
+    if (s === 'leave') return 'Leave';
+    return (status as AttendanceStatus) || 'Present';
+};
+
 const SimpleLineChart = ({ data, color }: { data: { month: string, percentage: number }[], color: string }) => {
     const width = 320;
     const height = 150;
@@ -74,7 +89,7 @@ const AttendanceScreen: React.FC<AttendanceScreenProps> = ({ studentId }) => {
                     id: d.id,
                     studentId: d.student_id,
                     date: new Date(d.date).toISOString().split('T')[0],
-                    status: d.status as AttendanceStatus,
+                    status: normalizeStatus(d.status),
                     remarks: d.remark
                 }));
                 setAttendanceData(formatted);

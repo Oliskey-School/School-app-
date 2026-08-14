@@ -838,6 +838,16 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
     }, [navigateTo, viewComponents]);
     // -----------------------------
 
+    // Identifies THIS exact screen (view + its data) so scroll position can be
+    // remembered per screen and restored on return, while a screen never visited
+    // this session still opens at the top. Computed unconditionally (before any
+    // early return below) to keep hook order stable across renders.
+    const scrollKeyNav = viewStack[viewStack.length - 1] || { view: 'overview', props: {} };
+    const scrollKey = React.useMemo(() => {
+        try { return `${scrollKeyNav.view}::${JSON.stringify((scrollKeyNav as any).props)}`; }
+        catch { return scrollKeyNav.view; }
+    }, [scrollKeyNav.view, (scrollKeyNav as any).props]);
+
     // Optimistic UI: Only show full loading spinner if we are loading AND have no student data
     if (loadingStudent && !student) {
         return <PremiumLoader message="Preparing your school experience..." />;
@@ -936,6 +946,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
             <DashboardLayout
                 title={currentNavigation.title}
                 onBack={viewStack.length > 1 ? handleBack : undefined}
+                scrollKey={scrollKey}
                 activeScreen={activeBottomNav}
                 setActiveScreen={handleBottomNavClick}
                 hideHeader={hideBottomNav || currentNavigation.view === 'profile'}

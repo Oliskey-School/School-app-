@@ -128,6 +128,11 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
                             className="flex items-center gap-2 mt-1 hover:bg-gray-50 px-2 py-1 -ml-2 rounded-lg transition-colors"
                         >
                             <h2 className="text-xl font-bold text-gray-900">{child.name}</h2>
+                            {students[activeChildIndex]?.curriculum_type && (
+                                <span className="text-xs font-semibold text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">
+                                    {students[activeChildIndex].curriculum_type}
+                                </span>
+                            )}
                             {children.length > 1 && <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isSwitcherOpen ? 'rotate-180' : ''}`} />}
                         </button>
                         

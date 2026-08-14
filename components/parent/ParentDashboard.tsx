@@ -35,6 +35,9 @@ import SchoolContextSwitcher from '../ui/SchoolContextSwitcher';
 
 import { getHomeworkStatus } from '../../utils/homeworkUtils';
 import { realtimeService } from '../../services/RealtimeService';
+
+const formatCurriculumLabel = (curriculumType?: string) =>
+    curriculumType === 'Both' ? 'Nigerian & British Curriculum' : `${curriculumType} Curriculum`;
 import { syncEngine } from '../../lib/syncEngine';
 import { useAutoSync } from '../../hooks/useAutoSync';
 
@@ -368,6 +371,13 @@ const AttendanceTab = ({ student }: { student: Student }) => {
 
     return (
         <div className="p-4 bg-white rounded-xl shadow-sm">
+            {student.curriculum_type && (
+                <div className="flex justify-center mb-3">
+                    <span className="text-xs font-semibold px-3 py-1 rounded-full bg-gray-100 text-gray-600">
+                        {formatCurriculumLabel(student.curriculum_type)}
+                    </span>
+                </div>
+            )}
             <div className="flex justify-between items-center mb-4">
                 <motion.button whileTap={{ scale: 0.9 }} onClick={goToPreviousMonth} className="p-2 rounded-full hover:bg-gray-100"><ChevronLeftIcon className="h-5 w-5 text-gray-600" /></motion.button>
                 <AnimatePresence mode="wait">
@@ -430,7 +440,7 @@ const ChildDetailScreen = ({ student, initialTab, navigateTo, schoolId, currentB
     );
     return (
         <div className="flex flex-col h-full bg-gray-50">
-            <div className="p-4 bg-white flex items-center space-x-4"><img src={student.avatarUrl} alt={student.name} className="w-16 h-16 rounded-full object-cover border-4 border-green-100" /><div><h3 className="text-xl font-bold text-gray-800">{student.name}</h3><p className="text-gray-700 font-medium">{getFormattedClassName(student.grade, student.section)}</p></div></div>
+            <div className="p-4 bg-white flex items-center space-x-4"><img src={student.avatarUrl} alt={student.name} className="w-16 h-16 rounded-full object-cover border-4 border-green-100" /><div><h3 className="text-xl font-bold text-gray-800">{student.name}</h3><p className="text-gray-700 font-medium">{getFormattedClassName(student.grade, student.section)}{student.curriculum_type ? ` · ${formatCurriculumLabel(student.curriculum_type)}` : ''}</p></div></div>
             <div className="px-4 py-2 bg-white"><div className="flex space-x-1 bg-gray-200 p-1 rounded-lg"><TabButton id="academics" label="Academics" /><TabButton id="behavior" label="Behavior" /><TabButton id="attendance" label="Attendance" /></div></div>
             <div className="flex-grow overflow-y-auto">
                 <AnimatePresence mode="wait">
@@ -593,6 +603,7 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
                             grade: s.grade,
                             section: s.section,
                             attendanceStatus: s.attendance_status || 'Present',
+                            curriculum_type: s.curriculum_type,
                             birthday: s.birthday,
                             schoolGeneratedId: s.school_generated_id,
                             schoolId: s.school_id,
@@ -752,6 +763,14 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
     // Always resolve to a valid view — never let an empty/corrupt stack crash the dashboard.
     const currentNavigation = viewStack[viewStack.length - 1]
         || { view: 'dashboard', props: {}, title: 'Dashboard' };
+    // Identifies THIS exact screen (view + its data) so scroll position can be
+    // remembered per screen and restored on return, while a screen never visited
+    // this session still opens at the top. Computed unconditionally (before any
+    // early return below) to keep hook order stable across renders.
+    const scrollKey = React.useMemo(() => {
+        try { return `${currentNavigation.view}::${JSON.stringify((currentNavigation as any).props)}`; }
+        catch { return currentNavigation.view; }
+    }, [currentNavigation.view, (currentNavigation as any).props]);
 
     // Safety check for Component rendering
     const ComponentToRender = viewComponents[currentNavigation.view] || (() => (
@@ -809,6 +828,7 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
         <DashboardLayout
             title={currentNavigation.title}
             onBack={viewStack.length > 1 ? handleBack : undefined}
+            scrollKey={scrollKey}
             onLogout={handleLogout}
             activeScreen={activeBottomNav}
             setActiveScreen={handleBottomNavClick}

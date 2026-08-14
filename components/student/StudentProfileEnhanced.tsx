@@ -449,6 +449,12 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                                             <GraduationCap className="w-4 h-4 mr-2" />
                                             {student.class_name || `Grade ${student.grade}`}
                                         </Badge>
+                                        {student.curriculum_type && (
+                                            <Badge className="bg-white/20 text-white border-white/30 backdrop-blur-sm px-4 py-1.5 text-sm font-semibold">
+                                                <Globe className="w-4 h-4 mr-2" />
+                                                {student.curriculum_type === 'Both' ? 'Nigerian & British Curriculum' : `${student.curriculum_type} Curriculum`}
+                                            </Badge>
+                                        )}
                                         <motion.button
                                             type="button"
                                             whileHover={{ opacity: 0.85 }}

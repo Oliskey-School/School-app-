@@ -139,11 +139,11 @@ const ReferralSystem: React.FC = () => {
     const getUrgencyIcon = (urgency: string) => {
         switch (urgency) {
             case 'Critical':
-                return <AlertCircle className="h-5 w-5" />;
+                return <AlertCircle className="h-5 w-5 shrink-0" />;
             case 'High':
-                return <AlertCircle className="h-5 w-5" />;
+                return <AlertCircle className="h-5 w-5 shrink-0" />;
             default:
-                return <Clock className="h-5 w-5" />;
+                return <Clock className="h-5 w-5 shrink-0" />;
         }
     };
 
@@ -162,7 +162,7 @@ const ReferralSystem: React.FC = () => {
             {/* Info Banner */}
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
                 <div className="flex items-start space-x-3">
-                    <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
+                    <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5 shrink-0" />
                     <div>
                         <p className="text-sm text-blue-900">
                             <strong>Confidential Support:</strong> This referral system connects you with local resources for health, food, legal aid, and more. All referrals are confidential and reviewed by trained staff.

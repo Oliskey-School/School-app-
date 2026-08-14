@@ -147,15 +147,27 @@ export class AssignmentService {
             where.assignment.class.branch_id = branchId;
         }
 
-        return await prisma.assignmentSubmission.findMany({
+        const submissions = await prisma.assignmentSubmission.findMany({
             where,
             include: {
-                student: true
+                student: true,
+                assignment: { select: { due_date: true } }
             }
         });
+
+        // is_late is not a stored column — there is no `is_late` field on
+        // AssignmentSubmission, and the frontend has always read `sub.is_late`
+        // expecting the backend to supply it, so every submission silently
+        // rendered "On Time" regardless of whether it actually beat the
+        // deadline. Compute it here from submitted_at vs. the assignment's
+        // due_date instead of leaving it permanently false.
+        return submissions.map((s: any) => ({
+            ...s,
+            is_late: !!(s.assignment?.due_date && s.submitted_at && new Date(s.submitted_at) > new Date(s.assignment.due_date))
+        }));
     }
 
-    static async gradeSubmission(schoolId: string, branchId: string | undefined, callerTeacherId: string | null, isAdmin: boolean, submissionId: string, gradeData: { score?: number; feedback?: string; status?: string }) {
+    static async gradeSubmission(schoolId: string, branchId: string | undefined, callerTeacherId: string | null, isAdmin: boolean, submissionId: string, gradeData: { score?: number; grade?: number; feedback?: string; status?: string }) {
         // First verify ownership
         const submission = await prisma.assignmentSubmission.findUnique({
             where: { id: submissionId },
@@ -188,8 +200,17 @@ export class AssignmentService {
         }
 
         // Whitelist — never spread the raw request body into an update().
+        // The Prisma column is `grade` (there is no `score` column on
+        // AssignmentSubmission); the teacher UI posts `grade`, so that must
+        // be checked first. `score` is kept as a fallback alias for any other
+        // caller. Bug found in round 17 review: this previously only ever
+        // looked at `gradeData.score`, which the UI never sends — every
+        // "graded" submission silently kept `grade: null` while `status`
+        // flipped to 'Graded' and `feedback` saved, so students/parents saw
+        // "Graded" with no score.
+        const gradeValue = gradeData.grade !== undefined ? gradeData.grade : gradeData.score;
         const allowed: any = {};
-        if (gradeData.score !== undefined) allowed.score = gradeData.score;
+        if (gradeValue !== undefined) allowed.grade = gradeValue;
         if (gradeData.feedback !== undefined) allowed.feedback = gradeData.feedback;
         allowed.status = gradeData.status || 'Graded';
 

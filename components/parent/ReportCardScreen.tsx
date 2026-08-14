@@ -65,6 +65,7 @@ const TermReport: React.FC<{ report: ReportCard, student: Student, schoolName?: 
                 <InfoField label="Term" value={report.term} />
                 <InfoField label="Session" value={report.session} />
                 {student.admission_number && <InfoField label="Admission No." value={student.admission_number} />}
+                {student.curriculum_type && <InfoField label="Curriculum" value={student.curriculum_type} />}
                 {student.gender && <InfoField label="Gender" value={student.gender} />}
                 {(student.birthday || student.dateOfBirth) && <InfoField label="Date of Birth" value={student.birthday || student.dateOfBirth} />}
                 {report.position && <InfoField label="Position in Class" value={`${report.position}${report.totalStudents ? ` / ${report.totalStudents}` : ''}`} />}

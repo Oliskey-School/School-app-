@@ -368,7 +368,13 @@ export class AuthService {
             role: user.role,
             school_id: user.school_id,
             branch_id: user.branch_id,
-            allowed_branch_ids: allowedBranchIds
+            allowed_branch_ids: allowedBranchIds,
+            // The demo auth path (auth.middleware.ts) trusts this claim directly instead
+            // of re-querying the database like real logins do — without it, req.user.
+            // school_generated_id is always undefined for demo sessions, which makes
+            // BranchIdentityService.resolveForUser() return an empty ID and the header's
+            // ID badge disappear on every reload.
+            school_generated_id: user.school_generated_id || null,
         };
 
         // Mark demo tokens so the auth middleware routes them through the demo path,

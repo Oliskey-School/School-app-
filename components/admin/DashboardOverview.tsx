@@ -44,7 +44,7 @@ import {
 import { AuditLog, RoleName } from '../../types';
 import DonutChart from '../ui/DonutChart';
 import { EmergencyBroadcastModal } from './EmergencyBroadcastModal';
-import { AlertTriangle, Activity, Flame, ShieldCheck, Shield, FileText, Rocket, Beaker, Calendar, TrendingUp, Building2, Bus, BarChart3, Database, Monitor, Star, Receipt, Clock, FileCheck, Download, BellRing, LayoutGrid, GraduationCap, QrCode, ScanLine, Archive, UsersRound, ClipboardCheck, Repeat, ShieldAlert, ClipboardEdit, LogOut, DoorOpen, Gauge, School, Landmark, Settings } from 'lucide-react';
+import { AlertTriangle, Activity, Flame, ShieldCheck, Shield, FileText, Rocket, Beaker, Calendar, TrendingUp, Building2, Bus, BarChart3, Database, Monitor, Star, Receipt, Clock, FileCheck, Download, BellRing, LayoutGrid, GraduationCap, QrCode, ScanLine, Archive, UsersRound, ClipboardCheck, Repeat, ShieldAlert, ClipboardEdit, LogOut, DoorOpen, Gauge, School, Landmark, Settings, Globe } from 'lucide-react';
 import AIInsightsPanel from '../shared/AIInsightsPanel';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
@@ -468,6 +468,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                                     <QuickActionCard index={5} label="Past Students" icon={<Archive className="w-6 h-6" />} onClick={() => navigateTo('pastStudents', 'Past Students')} color="bg-slate-600" />
                                     <QuickActionCard index={6} label="User Accounts" icon={<UsersIcon />} onClick={() => navigateTo('userAccounts', 'User Accounts')} color="bg-indigo-600" />
                                     <QuickActionCard index={7} label="Manage Branches" icon={<Building2 className="w-6 h-6" />} onClick={() => navigateTo('schoolManagement', 'Manage Branches')} color="bg-blue-600" />
+                                    <QuickActionCard index={9} label="Curriculum" icon={<Globe className="w-6 h-6" />} onClick={() => navigateTo('curriculumManagement', 'Curriculum Management')} color="bg-emerald-700" />
                                     {!currentBranchId && (
                                         <QuickActionCard index={8} label="Branch Transfers" icon={<UsersIcon />} onClick={() => navigateTo('branchTransfer', 'Branch Transfers')} color="bg-fuchsia-600" />
                                     )}

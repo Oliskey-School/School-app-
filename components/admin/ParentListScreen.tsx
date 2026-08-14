@@ -36,9 +36,13 @@ const ParentCard: React.FC<{ parent: Parent, onSelect: (parent: Parent) => void,
       <div className="flex-grow">
         <p className="font-bold text-lg text-gray-800">{parent.name || 'Unknown Parent'}</p>
         <p className="text-xs text-gray-500 mb-1 font-mono">{formatSchoolId(parent.schoolGeneratedId || parent.id, 'Parent')}</p>
-        <div className="flex items-center space-x-1 text-sm text-gray-500 mt-1">
-          <StudentsIcon className="w-4 h-4" />
-          <span>Children: {parent.childrenNames?.length ? parent.childrenNames.join(', ') : (parent.childIds?.length ? parent.childIds.join(', ') : 'None')}</span>
+        <div className="flex items-center space-x-1 text-sm text-gray-500 mt-1 min-w-0">
+          <StudentsIcon className="w-4 h-4 shrink-0" />
+          <span className="truncate">
+            Children: {parent.childrenNames?.length
+              ? parent.childrenNames.join(', ')
+              : (parent.childIds?.length ? `${parent.childIds.length} linked` : 'None')}
+          </span>
         </div>
       </div>
     </div>

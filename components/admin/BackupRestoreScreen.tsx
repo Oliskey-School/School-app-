@@ -116,7 +116,7 @@ const BackupRestoreScreen = () => {
             {/* Action Bar */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div className="bg-blue-50 border border-blue-100 rounded-2xl px-5 py-3 flex items-center space-x-3 flex-grow">
-                    <Info className="w-5 h-5 text-blue-500" />
+                    <Info className="w-5 h-5 text-blue-500 shrink-0" />
                     <p className="text-sm text-blue-700"><strong>Your database is backed up automatically.</strong> Manual backups create an additional snapshot you can restore from at any time.</p>
                 </div>
                 <motion.button whileHover={!isBackingUp ? { scale: 1.02 } : {}} whileTap={!isBackingUp ? { scale: 0.98 } : {}} onClick={handleCreateBackup} disabled={isBackingUp}

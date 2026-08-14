@@ -159,6 +159,7 @@ const AddBranchAdminScreen = lazyWithRetry(() => import('./AddBranchAdminScreen'
 const AssignFeePage = lazyWithRetry(() => import('./AssignFeePage'));
 const AdminActionsScreen = lazyWithRetry(() => import('./AdminActionsScreen'));
 const SchoolManagementScreen = lazyWithRetry(() => import('./SchoolManagementScreen'));
+const CurriculumManagementScreen = lazyWithRetry(() => import('./CurriculumManagementScreen'));
 const ClassFormScreen = lazyWithRetry(() => import('./ClassFormScreen'));
 const RecordPaymentScreen = lazyWithRetry(() => import('./RecordPaymentScreen'));
 const HostelManagementScreen = lazyWithRetry(() => import('./HostelManagementScreen'));
@@ -478,6 +479,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         assignFee: AssignFeePage,
         adminActions: AdminActionsScreen,
         schoolManagement: SchoolManagementScreen,
+        curriculumManagement: CurriculumManagementScreen,
         classForm: ClassFormScreen,
         recordPayment: RecordPaymentScreen,
         hostelManagement: HostelManagementScreen,
@@ -676,7 +678,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
 
         // schoolInfo excluded: branch admins need calendar access within it.
         // Backend still rejects school-wide field writes from non-main admins.
-        const MAIN_ADMIN_ONLY_VIEWS = ['schoolManagement', 'brandingSettings', 'manageSchoolInfo', 'subscription', 'upgrade'];
+        const MAIN_ADMIN_ONLY_VIEWS = ['schoolManagement', 'curriculumManagement', 'brandingSettings', 'manageSchoolInfo', 'subscription', 'upgrade'];
         const view = <ComponentToRender {...currentNavigation.props} {...commonProps} />;
         return (
             <Suspense fallback={<DashboardSkeletonLoader type="overview" />}>
@@ -702,11 +704,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
     const stickyFooterViews = ['studentProfileAdminView', 'studentProfileDashboard'];
     const stickyFooterLayout = stickyFooterViews.includes(currentNavigation.view);
     const hideBottomNav = hideLayoutNav || currentNavigation.view === 'chat';
+    // Identifies THIS exact screen (view + its data, e.g. which student) so scroll
+    // position can be remembered per screen and restored on return, while a screen
+    // never visited this session still opens at the top.
+    const scrollKey = React.useMemo(() => {
+        try { return `${currentNavigation.view}::${JSON.stringify(currentNavigation.props)}`; }
+        catch { return currentNavigation.view; }
+    }, [currentNavigation.view, currentNavigation.props]);
 
     return (
         <DashboardLayout
             title={currentNavigation.title}
             onBack={viewStack.length > 1 ? handleBack : undefined}
+            scrollKey={scrollKey}
             activeScreen={activeBottomNav}
             setActiveScreen={handleBottomNavClick}
             hideHeader={hideLayoutNav}

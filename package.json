@@ -1,6 +1,6 @@
 {
   "name": "school-app-oliskey",
-  "version": "0.7.0",
+  "version": "0.7.2",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
