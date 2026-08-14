@@ -39,7 +39,19 @@ jobs:
             # node_modules specifically (confirmed 2026-08-14) — removing it
             # ourselves first and excluding it from git clean's own pass avoids
             # that specific lock conflict.
-            rm -rf .git node_modules dist backend/dist
+            rm -rf .git node_modules dist backend/dist 2>/dev/null
+            if [ -d node_modules ] || [ -d dist ] || [ -d backend/dist ]; then
+              # A later run showed EACCES: Permission denied on the same
+              # directories rm -rf just failed on — a real on-disk permission
+              # problem (something changed ownership/perms on these files, not
+              # just a transient lock), which no unprivileged retry can fix.
+              # Try sudo in case the runner's service account has passwordless
+              # sudo (it already does global npm installs elsewhere in this
+              # workflow) — -n fails fast instead of hanging on a password
+              # prompt if it isn't configured.
+              echo "rm -rf left files behind, trying sudo..."
+              sudo -n rm -rf node_modules dist backend/dist 2>/dev/null || echo "sudo unavailable or failed — needs manual fix on the runner host"
+            fi
             git init -q
             git remote add origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
             if git fetch --depth 1 origin "${{ github.sha }}" && git checkout -qf FETCH_HEAD && git clean -ffdx -e node_modules -e dist -e backend/dist; then
@@ -104,7 +116,8 @@ jobs:
         run: |
           for attempt in 1 2 3 4 5; do
             echo "npm ci attempt $attempt/5"
-            rm -rf node_modules
+            rm -rf node_modules 2>/dev/null
+            [ -d node_modules ] && (sudo -n rm -rf node_modules 2>/dev/null || echo "sudo unavailable or failed")
             if npm ci --cache "${{ runner.temp }}/npm-cache-${{ github.run_id }}-$attempt"; then
               echo "npm ci succeeded"
               exit 0
