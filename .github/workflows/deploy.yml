@@ -181,6 +181,11 @@ jobs:
           done
 
       - name: Zero-Downtime PM2 Reload
+        # pm2 is now a devDependency (npm ci already installed it into
+        # node_modules/.bin) instead of relying on a global install — the
+        # global fallback (`npm install -g pm2`) needs to write to
+        # /usr/lib/node_modules, which requires root and fails with EACCES
+        # for this runner's unprivileged user. npx resolves the local binary
+        # first, so no install step is needed at all.
         run: |
-          command -v pm2 >/dev/null 2>&1 || npm install -g pm2 --no-audit --no-fund
-          pm2 reload all --update-env || pm2 start ecosystem.config.cjs --env production
+          npx pm2 reload all --update-env || npx pm2 start ecosystem.config.cjs --env production
