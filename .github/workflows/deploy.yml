@@ -78,7 +78,28 @@ jobs:
         # same root cause, different shared directory. Isolating the cache
         # per-run costs a fresh download each time but can't be corrupted by
         # anything else touching /var/www.
-        run: npm ci --cache "${{ runner.temp }}/npm-cache-${{ github.run_id }}"
+        #
+        # That same external interference also hits the actual extraction
+        # target: confirmed on 2026-08-14 with npm warn TAR_ENTRY_ERROR ENOENT
+        # on files disappearing out of node_modules mid-`npm ci`, which then
+        # cascaded into a fatal protobufjs postinstall failure and an
+        # ENOTEMPTY on npm's own cleanup (something was concurrently writing
+        # into node_modules while npm tried to remove it). Retrying with a
+        # forced-clean node_modules absorbs a transient hit; a fresh cache dir
+        # per attempt avoids retrying against a cache that got corrupted
+        # during the failed attempt itself.
+        run: |
+          for attempt in 1 2 3; do
+            echo "npm ci attempt $attempt/3"
+            rm -rf node_modules
+            if npm ci --cache "${{ runner.temp }}/npm-cache-${{ github.run_id }}-$attempt"; then
+              echo "npm ci succeeded"
+              exit 0
+            fi
+            echo "npm ci attempt $attempt failed"
+            [ "$attempt" = "3" ] && exit 1
+            sleep 10
+          done
 
       - name: Frontend Build
         run: npm run build
