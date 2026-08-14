@@ -17,7 +17,31 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        # Plain git instead of actions/checkout@v4. The JS action writes its
+        # internal state via the runner's _work/_temp/_runner_file_commands
+        # IPC file — something outside this workflow periodically deletes
+        # files under the runner's shared _work/_temp while jobs are running
+        # (same root cause already diagnosed for the _actions cache in
+        # 740a013/a255998, and for /var/www/.npm above), and when it hits
+        # that specific file mid-step, actions/checkout dies with "Missing
+        # file at path: .../save_state_...". A plain `run:` step never calls
+        # that IPC mechanism at all, so it can't hit this failure — retrying
+        # on top absorbs whatever transient window causes the deletion.
+        run: |
+          set -e
+          for attempt in 1 2 3; do
+            echo "Checkout attempt $attempt/3"
+            rm -rf .git
+            git init -q
+            git remote add origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+            if git fetch --depth 1 origin "${{ github.sha }}" && git checkout -qf FETCH_HEAD && git clean -ffdx; then
+              echo "Checkout succeeded"
+              exit 0
+            fi
+            echo "Checkout attempt $attempt failed"
+            [ "$attempt" = "3" ] && exit 1
+            sleep 5
+          done
 
       - name: Setup Node
         uses: actions/setup-node@v4
