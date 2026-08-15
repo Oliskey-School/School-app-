@@ -215,6 +215,14 @@ jobs:
         # being "extra". The orphaned-* excludes skip the disk-bloat
         # artifacts from the node_modules EACCES workaround earlier in this
         # pipeline — no reason to ship those.
+        #
+        # node_modules is excluded too — confirmed 2026-08-15: some packages
+        # already at the deploy path (nanoid, import-in-the-middle,
+        # es-module-lexer) are owned by a different user than the runner's
+        # service account (root, from files touched directly on the server),
+        # so rsync can't overwrite or delete them and sudo isn't configured.
+        # Never touching node_modules here at all sidesteps that; the next
+        # step gives the deploy path its own independent npm ci instead.
         run: |
           DEPLOY_PATH="/var/www/School-app"
           RSYNC_ARGS=(-a --delete
@@ -222,6 +230,7 @@ jobs:
             --exclude=.env
             --exclude=.env.production
             --exclude=logs/
+            --exclude=node_modules/
             --exclude='node_modules.orphaned-*'
             --exclude='dist.orphaned-*'
             --exclude='backend/dist.orphaned-*'
@@ -241,6 +250,43 @@ jobs:
               || { echo "::error::Sync to $DEPLOY_PATH failed even with sudo fallback — needs manual fix on the runner host."; exit 1; }
             echo "Synced to $DEPLOY_PATH"
           fi
+
+      - name: Install Dependencies at Deploy Path
+        # node_modules at DEPLOY_PATH is never touched by the sync step above
+        # (see its comment) — give it a fully independent install instead of
+        # trying to reconcile ownership. Same rename-before-delete pattern
+        # already proven earlier in this pipeline: rename() only needs write
+        # permission on the parent directory, so it works even on entries
+        # owned by a different user that rm -rf/npm ci's own cleanup can't
+        # touch directly.
+        run: |
+          DEPLOY_PATH="/var/www/School-app"
+          cd "$DEPLOY_PATH"
+          if [ "$(cd "${{ github.workspace }}" && pwd -P)" = "$(pwd -P)" ]; then
+            echo "Workspace already is the deploy path — node_modules is already current from Install Dependencies."
+            exit 0
+          fi
+          for attempt in 1 2 3; do
+            echo "Deploy-path npm ci attempt $attempt/3"
+            if [ -d node_modules ]; then
+              mv node_modules "node_modules.orphaned-$(date +%s)-$attempt" 2>/dev/null \
+                || sudo -n mv node_modules "node_modules.orphaned-$(date +%s)-$attempt" 2>/dev/null \
+                || true
+            fi
+            rm -rf node_modules 2>/dev/null || true
+            # Full install, not --omit=dev: pm2 is a devDependency but is the
+            # one thing actually needed at runtime here (npx pm2 in the next
+            # step resolves it from node_modules/.bin) — omitting dev deps
+            # would leave it missing and fall back to npx downloading a temp
+            # copy over the network on every deploy.
+            if npm ci --cache "${{ runner.temp }}/npm-cache-deploy-${{ github.run_id }}-$attempt"; then
+              echo "Deploy-path npm ci succeeded"
+              exit 0
+            fi
+            echo "Deploy-path npm ci attempt $attempt failed"
+            [ "$attempt" = "3" ] && { echo "::error::npm ci at $DEPLOY_PATH failed after 3 attempts — needs manual fix on the runner host."; exit 1; }
+            sleep 15
+          done
 
       - name: Zero-Downtime PM2 Reload
         # pm2 is a devDependency (npm ci already installed it into
