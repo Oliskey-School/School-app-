@@ -8,7 +8,7 @@ on:
 
 concurrency:
   group: deploy-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -17,31 +17,242 @@ jobs:
 
     steps:
       - name: Fix Safe Directory Permissions
+        # Added by a server-side commit (0bae67d, authored as root@cipher-lab.org)
+        # that also reverted several already-diagnosed CI fixes — this one
+        # piece is harmless and additive (just tells git to trust this path
+        # regardless of ownership), so it's kept; the rest of that commit's
+        # changes were not, since they reintroduced bugs verified against
+        # real CI logs earlier the same day (wrong ecosystem.config filename,
+        # missing backend build step, actions/checkout@v4's proven runner-IPC
+        # failure, cancel-in-progress: true already reverted once before in
+        # this repo's history for causing the same class of failure).
+        run: git config --global --add safe.directory /var/www/School-app
+
+      - name: Checkout Code
+        # Plain git instead of actions/checkout@v4. The JS action writes its
+        # internal state via the runner's _work/_temp/_runner_file_commands
+        # IPC file — something outside this workflow periodically deletes
+        # files under the runner's shared _work/_temp while jobs are running
+        # (same root cause already diagnosed for the _actions cache in
+        # 740a013/a255998, and for /var/www/.npm above), and when it hits
+        # that specific file mid-step, actions/checkout dies with "Missing
+        # file at path: .../save_state_...". A plain `run:` step never calls
+        # that IPC mechanism at all, so it can't hit this failure — retrying
+        # on top absorbs whatever transient window causes the deletion.
         run: |
-          git config --global --add safe.directory /var/www/School-app
+          set -e
+          for attempt in 1 2 3; do
+            echo "Checkout attempt $attempt/3"
+            # rm -rf first: on Linux, unlink() works on files another process
+            # still has open (the directory entry goes away immediately, unlike
+            # git clean's rmdir-based removal, which fails with "Directory not
+            # empty" the instant anything is touching a file inside). Whatever
+            # is scanning this tree kept git clean -ffdx failing on
+            # node_modules specifically (confirmed 2026-08-14) — removing it
+            # ourselves first and excluding it from git clean's own pass avoids
+            # that specific lock conflict.
+            rm -rf .git 2>/dev/null || true
+            # rename() only needs write permission on the parent directory,
+            # not on the target's own contents — unlike rm -rf, which needs to
+            # read into a directory to delete what's inside it. Confirmed
+            # 2026-08-14: specific node_modules subdirectories are EACCES even
+            # to scandir, so orphan them under a new name instead of fighting
+            # a delete that can't succeed without host-level intervention.
+            for d in node_modules dist backend/dist; do
+              if [ -d "$d" ]; then
+                mv "$d" "${d}.orphaned-$(date +%s)-$attempt" 2>/dev/null || true
+              fi
+              rm -rf "$d" 2>/dev/null || true
+            done
+            if [ -d node_modules ] || [ -d dist ] || [ -d backend/dist ]; then
+              echo "rename+rm -rf left files behind, trying sudo..."
+              sudo -n rm -rf node_modules dist backend/dist 2>/dev/null || echo "sudo unavailable or failed — needs manual fix on the runner host"
+            fi
+            git init -q
+            git remote add origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+            # Exclude the orphaned-* names too — git clean doesn't know about
+            # them and would try (and fail, on the same broken permissions)
+            # to remove them otherwise. Renaming a directory doesn't fix the
+            # permissions on the files inside it.
+            if git fetch --depth 1 origin "${{ github.sha }}" && git checkout -qf FETCH_HEAD && git clean -ffdx -e node_modules -e dist -e backend/dist -e "node_modules.orphaned-*" -e "dist.orphaned-*" -e "backend/dist.orphaned-*"; then
+              echo "Checkout succeeded"
+              exit 0
+            fi
+            echo "Checkout attempt $attempt failed"
+            [ "$attempt" = "3" ] && exit 1
+            sleep 5
+          done
 
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-        with:
-          clean: false
-
-      - name: Setup Node.js Environment
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install Production Dependencies
-        working-directory: /var/www/School-app
+      - name: Setup Node
+        # actions/setup-node@v4 hits the same runner-side corruption as
+        # Checkout Code above, one level up: the runner downloads the
+        # ACTION'S OWN code into the shared _work/_actions cache before
+        # running it, and that download gets wiped by the same external
+        # process (confirmed: "Can't find action.yml ... under
+        # _work/_actions/actions/setup-node/v4" — identical symptom to the
+        # _actions corruption already diagnosed in 740a013/a255998). This is
+        # a persistent VPS, not an ephemeral container, so Node is already
+        # installed on the host (every prior successful deploy proves it) —
+        # just verify it instead of re-downloading a toolchain via a
+        # mechanism this runner can't reliably use right now.
         run: |
-          npm ci
+          if ! command -v node >/dev/null 2>&1; then
+            echo "::error::node not found on PATH on this runner host."
+            exit 1
+          fi
+          echo "Using $(node --version), $(npm --version)"
+          NODE_MAJOR=$(node -e "console.log(process.versions.node.split('.')[0])")
+          if [ "$NODE_MAJOR" -lt 20 ]; then
+            echo "::error::Node major version is $NODE_MAJOR, need >=20"
+            exit 1
+          fi
 
-      - name: Build Application Artifacts
-        working-directory: /var/www/School-app
+      - name: Install Dependencies
+        # Use a cache directory scoped to this run instead of the runner's
+        # shared /var/www/.npm — something outside this workflow (a VPS
+        # cleanup cron, or another app sharing /var/www) periodically deletes
+        # files from that shared cache mid-job, corrupting npm's
+        # content-addressable store and failing `npm ci` with ENOENT on a
+        # _cacache entry. This has already happened once before for the
+        # runner's shared _actions cache (see commits 740a013 / a255998) —
+        # same root cause, different shared directory. Isolating the cache
+        # per-run costs a fresh download each time but can't be corrupted by
+        # anything else touching /var/www.
+        #
+        # That same external interference also hits the actual extraction
+        # target. First seen as TAR_ENTRY_ERROR ENOENT (files disappearing
+        # mid-`npm ci`, cascading into a fatal protobufjs postinstall
+        # failure). Then, on a later run, EACCES: permission denied on
+        # thousands of unrelated node_modules files simultaneously, all
+        # within a ~70ms window — that pattern (not scattered over time, one
+        # atomic burst across the whole tree) is consistent with an
+        # antivirus/endpoint-security agent or backup process running an
+        # on-access scan over this directory, not a targeted cleanup cron.
+        # This needs a real fix on the runner host itself (excluding
+        # /opt/actions-runner/_work from whatever is scanning/backing it up)
+        # — nothing in this workflow can fully prevent it, since the whole
+        # tree can get hit inside a single retry's extraction window. Longer
+        # spacing + more attempts is the most this step can do on its own.
         run: |
-          npm run build --if-present
+          for attempt in 1 2 3 4 5; do
+            echo "npm ci attempt $attempt/5"
+            # Confirmed 2026-08-14: specific node_modules subdirectories
+            # (is-obj, nodemon, native-run...) are EACCES even to scandir —
+            # deleting them requires reading their contents first, which is
+            # exactly what's denied, and sudo isn't configured on this runner.
+            # But rename() only needs write permission on the PARENT
+            # directory, not the broken directory's own contents — orphan it
+            # under a new name instead of trying to delete it, so npm ci
+            # starts from a node_modules that doesn't exist yet rather than
+            # fighting the broken one. (Orphaned dirs accumulate in _work
+            # until someone with host access cleans them up — a disk-space
+            # problem, not a build-blocking one.)
+            if [ -d node_modules ]; then
+              mv node_modules "node_modules.orphaned-$(date +%s)-$attempt" 2>/dev/null || true
+            fi
+            rm -rf node_modules 2>/dev/null || true
+            if npm ci --cache "${{ runner.temp }}/npm-cache-${{ github.run_id }}-$attempt"; then
+              echo "npm ci succeeded"
+              exit 0
+            fi
+            echo "npm ci attempt $attempt failed"
+            [ "$attempt" = "5" ] && exit 1
+            sleep 30
+          done
 
-      - name: Execute Zero-Downtime PM2 Reload
-        working-directory: /var/www/School-app
+      - name: Frontend Build
+        # Confirmed 2026-08-14: this exact commit's `npm run build` succeeds
+        # cleanly when run locally (zero errors, full bundle) — a failure
+        # here in CI is the same host-side interference as Install
+        # Dependencies, not a real build error. Same retry treatment.
         run: |
-          export PATH=$PATH:/usr/local/bin:~/.nvm/versions/node/v20.0.0/bin
-          pm2 reload all --update-env || pm2 start ecosystem.config.js
+          for attempt in 1 2 3; do
+            echo "Frontend build attempt $attempt/3"
+            if npm run build; then
+              exit 0
+            fi
+            echo "Frontend build attempt $attempt failed"
+            [ "$attempt" = "3" ] && exit 1
+            sleep 15
+          done
+
+      - name: Backend Build
+        # ecosystem.config.cjs runs the compiled backend/dist/backend/src/server.js —
+        # a server-side commit today (0bae67d) dropped this step entirely
+        # (its replacement only ran the frontend build), which would have
+        # meant the compiled backend never gets rebuilt again, silently.
+        # Restored. Same retry treatment as Frontend Build, for the same
+        # reason.
+        run: |
+          for attempt in 1 2 3; do
+            echo "Backend build attempt $attempt/3"
+            if npm run build:backend; then
+              exit 0
+            fi
+            echo "Backend build attempt $attempt failed"
+            [ "$attempt" = "3" ] && exit 1
+            sleep 15
+          done
+
+      - name: Sync to Deploy Path
+        # Confirmed 2026-08-15: every step above builds inside the runner's
+        # own workspace (/opt/actions-runner/_work/School-app-/School-app-),
+        # but ecosystem.config.cjs sets cwd to DEPLOY_PATH
+        # (/var/www/School-app) — a different directory this workflow
+        # doesn't build in. Whoever pushed 0bae67d/17883bd may have
+        # reconfigured the runner's own work directory to be
+        # /var/www/School-app directly (their "Fix Safe Directory
+        # Permissions" step and dropped `working-directory` overrides are
+        # consistent with that) — if so this sync becomes a cheap,
+        # effectively-no-op self-copy. If not, it's the difference between
+        # PM2 running today's build or a stale one. Either way this step
+        # can't make things worse and removes the dependency on an
+        # unverified assumption about the runner's configuration.
+        #
+        # --exclude on .env/.env.production/logs matters even with --delete:
+        # those only ever exist at the destination (never in git, never in
+        # this workspace) and must survive the sync, not get deleted for
+        # being "extra". The orphaned-* excludes skip the disk-bloat
+        # artifacts from the node_modules EACCES workaround earlier in this
+        # pipeline — no reason to ship those.
+        run: |
+          DEPLOY_PATH="/var/www/School-app"
+          RSYNC_ARGS=(-a --delete
+            --exclude=.git
+            --exclude=.env
+            --exclude=.env.production
+            --exclude=logs/
+            --exclude='node_modules.orphaned-*'
+            --exclude='dist.orphaned-*'
+            --exclude='backend/dist.orphaned-*'
+          )
+          mkdir -p "$DEPLOY_PATH" 2>/dev/null || sudo -n mkdir -p "$DEPLOY_PATH"
+          if [ "$(cd "${{ github.workspace }}" && pwd -P)" = "$(cd "$DEPLOY_PATH" 2>/dev/null && pwd -P)" ]; then
+            echo "Workspace already is the deploy path — nothing to sync."
+          elif command -v rsync >/dev/null 2>&1; then
+            rsync "${RSYNC_ARGS[@]}" "${{ github.workspace }}/" "$DEPLOY_PATH/" \
+              || sudo -n rsync "${RSYNC_ARGS[@]}" "${{ github.workspace }}/" "$DEPLOY_PATH/" \
+              || { echo "::error::Sync to $DEPLOY_PATH failed even with sudo fallback — needs manual fix on the runner host."; exit 1; }
+            echo "Synced to $DEPLOY_PATH"
+          else
+            echo "rsync not found, falling back to cp -a (no --delete, stale files may accumulate)"
+            cp -a "${{ github.workspace }}/." "$DEPLOY_PATH/" \
+              || sudo -n cp -a "${{ github.workspace }}/." "$DEPLOY_PATH/" \
+              || { echo "::error::Sync to $DEPLOY_PATH failed even with sudo fallback — needs manual fix on the runner host."; exit 1; }
+            echo "Synced to $DEPLOY_PATH"
+          fi
+
+      - name: Zero-Downtime PM2 Reload
+        # pm2 is a devDependency (npm ci already installed it into
+        # node_modules/.bin) instead of relying on a global install — the
+        # global fallback (`npm install -g pm2`) needs to write to
+        # /usr/lib/node_modules, which requires root and fails with EACCES
+        # for this runner's unprivileged user. npx resolves the local binary
+        # first, so no install step is needed at all.
+        #
+        # ecosystem.config.cjs — NOT ecosystem.config.js (that filename
+        # doesn't exist in this repo; a server-side commit today referenced
+        # it and would have failed the fallback path).
+        run: |
+          cd /var/www/School-app
+          npx pm2 reload all --update-env || npx pm2 start ecosystem.config.cjs --env production
