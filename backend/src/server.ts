@@ -128,14 +128,19 @@ const start = async () => {
                     }
                 }
 
-                const shouldSeedDemo = process.env.NODE_ENV !== 'production'
-                    || process.env.RUN_DEMO_SEEDER === 'true';
+                // The demo school is meant to be permanently live everywhere, including
+                // production (it's the public "Try Demo" entry point) — so seeding runs
+                // by default now. ensureDemoData()/seedBranchData() are upsert-based on
+                // deterministic ids, so re-running this on every restart is safe and does
+                // not create duplicates or touch any real school's data. Set
+                // RUN_DEMO_SEEDER=false explicitly if you ever need to disable it.
+                const shouldSeedDemo = process.env.RUN_DEMO_SEEDER !== 'false';
                 if (shouldSeedDemo) {
                     const { DemoSeederService } = require('./services/demoSeeder.service');
                     await DemoSeederService.ensureDemoData();
                     console.log('✅ [Database] Connected and demo data verified.');
                 } else {
-                    console.log('🚫 [Database] Connected. Demo seeder skipped (production mode). Set RUN_DEMO_SEEDER=true to override.');
+                    console.log('🚫 [Database] Connected. Demo seeder skipped — RUN_DEMO_SEEDER=false is set.');
                 }
 
                 // Always seed the academic calendar — tiny table, runs once.
