@@ -89,10 +89,13 @@ export class UserService {
 
     // Fields that must never be set through the generic update endpoint.
     // Role/tenant/credential changes require dedicated, audited admin flows.
+    // NOTE: two_factor_secret (the raw TOTP secret) is forbidden here — but
+    // two_factor_enabled is just a boolean preference toggle (used by the
+    // Personal Security Settings screen) and is safe to allow.
     private static readonly FORBIDDEN_UPDATE_FIELDS = [
         'id', 'role', 'school_id', 'password_hash', 'password',
         'email_verified', 'initial_password', 'two_factor_secret',
-        'two_factor_enabled', 'created_at', 'updated_at'
+        'created_at', 'updated_at'
     ];
 
     static async updateUser(school_id: string, branch_id: string | undefined, userId: string, updates: any) {
@@ -106,10 +109,24 @@ export class UserService {
         // OLISKEY_MAIN_ADM_0001 — demo tokens carry the readable id). Match either.
         // STRICT tenant scoping: only update if the target user belongs to the caller's school.
         const where = { OR: [{ id: userId }, { school_generated_id: userId }], school_id };
+
+        // If every field the caller sent was stripped as forbidden, there is nothing
+        // left to write. Prisma's updateMany() with an empty `data` object matches
+        // ZERO rows (it is not a no-op on the matched set), which would otherwise be
+        // misread as "user not found" below even though the user exists. Treat this
+        // as a successful no-op instead of a false 404/500.
+        if (Object.keys(data).length === 0) {
+            const existing = await prisma.user.findFirst({ where });
+            if (!existing) {
+                throw Object.assign(new Error('User not found or access denied'), { status: 404 });
+            }
+            return existing;
+        }
+
         const result = await prisma.user.updateMany({ where, data });
 
         if (result.count === 0) {
-            throw new Error('User not found or access denied');
+            throw Object.assign(new Error('User not found or access denied'), { status: 404 });
         }
 
         return await prisma.user.findFirst({ where });
