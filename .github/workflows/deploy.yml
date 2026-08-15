@@ -180,6 +180,48 @@ jobs:
             sleep 15
           done
 
+      - name: Sync to Deploy Path
+        # Confirmed 2026-08-15: every step above builds inside the runner's
+        # own workspace (/opt/actions-runner/_work/School-app-/School-app-),
+        # but ecosystem.config.cjs sets cwd to DEPLOY_PATH
+        # (/var/www/School-app) — a completely different directory this
+        # workflow never wrote to. PM2 was running whatever was already
+        # sitting there, disconnected from every fix shipped today, which is
+        # the real explanation for a MODULE_NOT_FOUND crash the built code
+        # here doesn't reproduce. Sync the built workspace into the stable
+        # path nginx/PM2 actually expect, instead of pointing PM2 at the
+        # ephemeral CI workspace.
+        #
+        # --exclude on .env/.env.production/logs matters even with --delete:
+        # those only ever exist at the destination (never in git, never in
+        # this workspace) and must survive the sync, not get deleted for
+        # being "extra". The orphaned-* excludes skip the disk-bloat
+        # artifacts from the node_modules EACCES workaround earlier in this
+        # pipeline — no reason to ship those.
+        run: |
+          DEPLOY_PATH="/var/www/School-app"
+          RSYNC_ARGS=(-a --delete
+            --exclude=.git
+            --exclude=.env
+            --exclude=.env.production
+            --exclude=logs/
+            --exclude='node_modules.orphaned-*'
+            --exclude='dist.orphaned-*'
+            --exclude='backend/dist.orphaned-*'
+          )
+          mkdir -p "$DEPLOY_PATH" 2>/dev/null || sudo -n mkdir -p "$DEPLOY_PATH"
+          if command -v rsync >/dev/null 2>&1; then
+            rsync "${RSYNC_ARGS[@]}" "${{ github.workspace }}/" "$DEPLOY_PATH/" \
+              || sudo -n rsync "${RSYNC_ARGS[@]}" "${{ github.workspace }}/" "$DEPLOY_PATH/" \
+              || { echo "::error::Sync to $DEPLOY_PATH failed even with sudo fallback — needs manual fix on the runner host."; exit 1; }
+          else
+            echo "rsync not found, falling back to cp -a (no --delete, stale files may accumulate)"
+            cp -a "${{ github.workspace }}/." "$DEPLOY_PATH/" \
+              || sudo -n cp -a "${{ github.workspace }}/." "$DEPLOY_PATH/" \
+              || { echo "::error::Sync to $DEPLOY_PATH failed even with sudo fallback — needs manual fix on the runner host."; exit 1; }
+          fi
+          echo "Synced to $DEPLOY_PATH"
+
       - name: Zero-Downtime PM2 Reload
         # pm2 is now a devDependency (npm ci already installed it into
         # node_modules/.bin) instead of relying on a global install — the
@@ -187,5 +229,11 @@ jobs:
         # /usr/lib/node_modules, which requires root and fails with EACCES
         # for this runner's unprivileged user. npx resolves the local binary
         # first, so no install step is needed at all.
+        #
+        # Run from DEPLOY_PATH now that Sync to Deploy Path has populated it —
+        # ecosystem.config.cjs itself also sets cwd there for the managed
+        # process, but pm2's own CLI invocation needs to find the config
+        # file in the same place.
         run: |
+          cd /var/www/School-app
           npx pm2 reload all --update-env || npx pm2 start ecosystem.config.cjs --env production
