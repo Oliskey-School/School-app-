@@ -223,6 +223,16 @@ jobs:
         # so rsync can't overwrite or delete them and sudo isn't configured.
         # Never touching node_modules here at all sidesteps that; the next
         # step gives the deploy path its own independent npm ci instead.
+        #
+        # Confirmed 2026-08-16: the same ownership problem isn't unique to
+        # node_modules — dist/ at the deploy path hit the identical EACCES
+        # (files owned by a different user, sudo unavailable). Rather than
+        # excluding dist too (which would mean it never actually updates),
+        # orphan-rename any pre-existing dist/backend/dist at the deploy path
+        # BEFORE rsync runs, so rsync creates them fresh — owned by whoever
+        # runs this step — instead of trying to reconcile against
+        # foreign-owned files. Same rename-not-delete pattern proven earlier
+        # in this pipeline (rename only needs parent-directory permission).
         run: |
           DEPLOY_PATH="/var/www/School-app"
           RSYNC_ARGS=(-a --delete
@@ -234,8 +244,23 @@ jobs:
             --exclude='node_modules.orphaned-*'
             --exclude='dist.orphaned-*'
             --exclude='backend/dist.orphaned-*'
+            --exclude='backend/generated.orphaned-*'
           )
           mkdir -p "$DEPLOY_PATH" 2>/dev/null || sudo -n mkdir -p "$DEPLOY_PATH"
+          # Every one of these is build/install OUTPUT (not git-tracked source) —
+          # the pattern behind both ownership failures so far (node_modules, then
+          # dist) is specifically generated/installed directories, likely from a
+          # build or install command run as root directly on the server at some
+          # point. backend/generated (the Prisma client) is the same kind of
+          # directory and hasn't failed yet only because nothing's forced rsync to
+          # touch it — orphaning it proactively here too, same reasoning.
+          for d in dist backend/dist backend/generated; do
+            if [ -d "$DEPLOY_PATH/$d" ]; then
+              mv "$DEPLOY_PATH/$d" "$DEPLOY_PATH/${d}.orphaned-$(date +%s)" 2>/dev/null \
+                || sudo -n mv "$DEPLOY_PATH/$d" "$DEPLOY_PATH/${d}.orphaned-$(date +%s)" 2>/dev/null \
+                || true
+            fi
+          done
           if [ "$(cd "${{ github.workspace }}" && pwd -P)" = "$(cd "$DEPLOY_PATH" 2>/dev/null && pwd -P)" ]; then
             echo "Workspace already is the deploy path — nothing to sync."
           elif command -v rsync >/dev/null 2>&1; then
