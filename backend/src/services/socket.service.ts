@@ -3,15 +3,24 @@ import { Server as HTTPServer } from 'http';
 import { registerClassBattle } from './classBattleSocket';
 import { redisConnection } from '../config/redis';
 
+// Same reasoning as backend/src/app.ts's Express CORS block: in production,
+// the browser always reaches Socket.io through nginx on the same origin as
+// the page (deploy/nginx.conf proxies /socket.io/ same-domain), so no CORS
+// headers are needed there — `origin: '*'` was needlessly permissive for a
+// credentialed real-time connection. In development, the Vite dev server
+// (localhost:3000) connects to the backend (localhost:5000) cross-origin, so
+// that still needs the request origin reflected.
+const IS_PROD = process.env.NODE_ENV === 'production';
+const SOCKET_CORS_OPTIONS = (!IS_PROD || process.env.ENABLE_CORS === 'true')
+  ? { origin: true, methods: ['GET', 'POST'], credentials: true }
+  : undefined;
+
 export class SocketService {
   private static io: SocketIOServer | null = null;
 
   static init(server: HTTPServer) {
     this.io = new SocketIOServer(server, {
-      cors: {
-        origin: '*',
-        methods: ['GET', 'POST'],
-      },
+      cors: SOCKET_CORS_OPTIONS,
       transports: ['websocket', 'polling']
     });
 
