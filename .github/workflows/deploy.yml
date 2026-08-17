@@ -209,12 +209,18 @@ jobs:
         # can't make things worse and removes the dependency on an
         # unverified assumption about the runner's configuration.
         #
-        # --exclude on .env/.env.production/logs matters even with --delete:
-        # those only ever exist at the destination (never in git, never in
-        # this workspace) and must survive the sync, not get deleted for
-        # being "extra". The orphaned-* excludes skip the disk-bloat
-        # artifacts from the node_modules EACCES workaround earlier in this
-        # pipeline — no reason to ship those.
+        # --exclude on .env/.env.production/logs/uploads matters even with
+        # --delete: those only ever exist at the destination (never in git,
+        # never in this workspace) and must survive the sync, not get
+        # deleted for being "extra". uploads/ specifically holds real
+        # user-uploaded files (avatars, resources, documents) — it was only
+        # ever safe from --delete by accident, because the same root-level
+        # permission failure below (see the orphan loop) also happened to
+        # block rsync from deleting it. Fixing that permission problem
+        # without this exclude would have turned into a data-loss bug the
+        # moment rsync could finally write there. The orphaned-* excludes
+        # skip the disk-bloat artifacts from the node_modules EACCES
+        # workaround earlier in this pipeline — no reason to ship those.
         #
         # node_modules is excluded too — confirmed 2026-08-15: some packages
         # already at the deploy path (nanoid, import-in-the-middle,
@@ -230,18 +236,52 @@ jobs:
             --exclude=.env
             --exclude=.env.production
             --exclude=logs/
+            --exclude=uploads/
             --exclude=node_modules/
             --exclude='node_modules.orphaned-*'
             --exclude='dist.orphaned-*'
             --exclude='backend/dist.orphaned-*'
+            --exclude='*.orphaned-*'
           )
           mkdir -p "$DEPLOY_PATH" 2>/dev/null || sudo -n mkdir -p "$DEPLOY_PATH"
+
+          # Root-level tracked files (package.json, tsconfig.json,
+          # tailwind.config.js, ...) at $DEPLOY_PATH are owned by a different
+          # user than this runner — leftover from before this pipeline
+          # existed. rsync can't even create its temp file to overwrite them
+          # (mkstemp EACCES on e.g. .package.json.BVmheM), the same class of
+          # problem already solved for node_modules/dist/backend/dist by
+          # orphaning those specific directories. Same fix here, applied
+          # per top-level entry instead of the whole directory: rename()
+          # only needs write permission on the PARENT directory
+          # ($DEPLOY_PATH), not on the target's own contents, so this
+          # doesn't depend on ever fixing ownership on the runner host. This
+          # loop only ever touches entries that exist in the git workspace
+          # (rsync is about to recreate every one of them from source
+          # anyway) — .env/.env.production/logs/uploads/node_modules are
+          # never in the workspace, so this can never reach them, unlike
+          # orphaning the whole $DEPLOY_PATH directory would.
+          if [ "$(cd "${{ github.workspace }}" && pwd -P)" != "$(cd "$DEPLOY_PATH" 2>/dev/null && pwd -P)" ]; then
+            for entry in "${{ github.workspace }}"/*; do
+              name="$(basename "$entry")"
+              case "$name" in
+                node_modules|dist) continue ;;
+              esac
+              target="$DEPLOY_PATH/$name"
+              if [ -e "$target" ]; then
+                mv "$target" "${target}.orphaned-$(date +%s)" 2>/dev/null \
+                  || sudo -n mv "$target" "${target}.orphaned-$(date +%s)" 2>/dev/null \
+                  || true
+              fi
+            done
+          fi
+
           if [ "$(cd "${{ github.workspace }}" && pwd -P)" = "$(cd "$DEPLOY_PATH" 2>/dev/null && pwd -P)" ]; then
             echo "Workspace already is the deploy path — nothing to sync."
           elif command -v rsync >/dev/null 2>&1; then
             rsync "${RSYNC_ARGS[@]}" "${{ github.workspace }}/" "$DEPLOY_PATH/" \
               || sudo -n rsync "${RSYNC_ARGS[@]}" "${{ github.workspace }}/" "$DEPLOY_PATH/" \
-              || { echo "::error::Sync to $DEPLOY_PATH failed even with sudo fallback — needs manual fix on the runner host."; exit 1; }
+              || { echo "::error::Sync to $DEPLOY_PATH failed even with sudo fallback and after orphaning conflicting root-level files — needs manual fix on the runner host."; exit 1; }
             echo "Synced to $DEPLOY_PATH"
           else
             echo "rsync not found, falling back to cp -a (no --delete, stale files may accumulate)"
