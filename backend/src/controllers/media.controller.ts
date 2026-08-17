@@ -1,6 +1,8 @@
+import path from 'path';
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { MediaService } from '../services/media.service';
+import { storeUploadedFile } from '../services/fileStorage.service';
 
 export const sendSMSLesson = async (req: AuthRequest, res: Response) => {
     try {
@@ -35,13 +37,20 @@ export const uploadFile = async (req: AuthRequest, res: Response) => {
         }
 
         const bucket = req.body.bucket || 'general';
-        const filePath = req.body.path || req.file.filename;
 
-        // Relative path: /uploads is served same-origin (see app.ts static
-        // mount + deploy/nginx.conf), so the browser resolves this against
-        // whatever host it's already on — no hardcoded host/protocol needed.
-        const publicUrl = `/uploads/${bucket}/${filePath}`;
+        // Same naming rule multer's old diskStorage callback used: an
+        // explicit path from the client (sanitized against traversal) or a
+        // generated unique name.
+        let relativePath: string;
+        if (req.body.path) {
+            const safePath = String(req.body.path).replace(/\.\./g, '');
+            relativePath = safePath;
+        } else {
+            const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+            relativePath = `file-${uniqueSuffix}${path.extname(req.file.originalname)}`;
+        }
 
+        const { publicUrl } = await storeUploadedFile(req.file.buffer, req.file.mimetype, bucket, relativePath);
         res.json({ publicUrl });
     } catch (error: any) {
         res.status(500).json({ message: error.message });

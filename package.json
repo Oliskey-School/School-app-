@@ -1,6 +1,6 @@
 {
   "name": "school-app-oliskey",
-  "version": "0.7.13",
+  "version": "0.7.15",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -41,6 +41,7 @@
     "shell-quote": "1.10.0"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1111.0",
     "@capacitor/android": "8.1.0",
     "@capacitor/app": "8.0.0",
     "@capacitor/core": "8.1.0",

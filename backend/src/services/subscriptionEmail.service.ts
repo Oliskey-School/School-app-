@@ -105,7 +105,7 @@ export class SubscriptionEmailService {
                 ${nextTerm
                     ? `<p>Renew now to be ready for <strong>Term ${nextTerm.term}</strong> starting ${fmtDate(nextTerm.resumption_date)}.</p>`
                     : `<p>Renew now to avoid disruption.</p>`}
-                <a href="${process.env.APP_URL || ''}/#/subscription" style="display: inline-block; background: #4f46e5; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; margin-top: 16px;">Renew now</a>
+                <a href="${process.env.APP_URL || ''}/subscription" style="display: inline-block; background: #4f46e5; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; margin-top: 16px;">Renew now</a>
             `)
         });
     }
@@ -119,7 +119,7 @@ export class SubscriptionEmailService {
             subject: `3 days left on Term ${term.term} — renew before ${fmtDate(term.closing_date)}`,
             html: wrap('3 days left — renew now', `
                 <p>Only <strong>3 days remain</strong> on Term ${term.term} (${term.session}). After ${fmtDate(term.closing_date)} your account will downgrade to Free until you renew.</p>
-                <a href="${process.env.APP_URL || ''}/#/subscription" style="display: inline-block; background: #dc2626; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; margin-top: 16px;">Renew now</a>
+                <a href="${process.env.APP_URL || ''}/subscription" style="display: inline-block; background: #dc2626; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; margin-top: 16px;">Renew now</a>
             `)
         });
     }
@@ -136,7 +136,7 @@ export class SubscriptionEmailService {
                 ${nextTerm
                     ? `<p><strong>Term ${nextTerm.term}</strong> resumes ${fmtDate(nextTerm.resumption_date)}. Renew now to be active from day one.</p>`
                     : ''}
-                <a href="${process.env.APP_URL || ''}/#/subscription" style="display: inline-block; background: #4f46e5; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; margin-top: 16px;">Renew subscription</a>
+                <a href="${process.env.APP_URL || ''}/subscription" style="display: inline-block; background: #4f46e5; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; margin-top: 16px;">Renew subscription</a>
             `)
         });
     }
@@ -151,7 +151,7 @@ export class SubscriptionEmailService {
             html: wrap('Welcome back to Oliskey', `
                 <p>Term ${nextTerm.term} (${nextTerm.session}) resumes on <strong>${fmtDate(nextTerm.resumption_date)}</strong>.</p>
                 <p>Pay now so your school is ready from day one.</p>
-                <a href="${process.env.APP_URL || ''}/#/subscription" style="display: inline-block; background: #4f46e5; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; margin-top: 16px;">Activate Term ${nextTerm.term}</a>
+                <a href="${process.env.APP_URL || ''}/subscription" style="display: inline-block; background: #4f46e5; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; margin-top: 16px;">Activate Term ${nextTerm.term}</a>
             `)
         });
     }
@@ -185,7 +185,7 @@ export class SubscriptionEmailService {
             subject: 'Payment failed — update your payment method',
             html: wrap('Payment failed', `
                 <p>We couldn't process your payment${reason ? ` (${reason})` : ''}. Please update your payment method to restore access.</p>
-                <a href="${process.env.APP_URL || ''}/#/subscription" style="display: inline-block; background: #dc2626; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; margin-top: 16px;">Update payment method</a>
+                <a href="${process.env.APP_URL || ''}/subscription" style="display: inline-block; background: #dc2626; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; margin-top: 16px;">Update payment method</a>
             `)
         });
     }
