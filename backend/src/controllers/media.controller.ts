@@ -36,11 +36,11 @@ export const uploadFile = async (req: AuthRequest, res: Response) => {
 
         const bucket = req.body.bucket || 'general';
         const filePath = req.body.path || req.file.filename;
-        
-        // Return public URL (assuming backend serves /uploads as static)
-        // Adjust the base URL as needed (e.g., from ENV)
-        const baseUrl = process.env.BACKEND_URL || 'http://localhost:5000';
-        const publicUrl = `${baseUrl}/uploads/${bucket}/${filePath}`;
+
+        // Relative path: /uploads is served same-origin (see app.ts static
+        // mount + deploy/nginx.conf), so the browser resolves this against
+        // whatever host it's already on — no hardcoded host/protocol needed.
+        const publicUrl = `/uploads/${bucket}/${filePath}`;
 
         res.json({ publicUrl });
     } catch (error: any) {
