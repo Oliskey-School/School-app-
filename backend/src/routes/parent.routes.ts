@@ -66,9 +66,12 @@ router.get('/me/volunteer-signups', async (req: any, res) => {
             where: { parent_id: parent.id },
             include: { opportunity: true },
             orderBy: { created_at: 'desc' },
-        }).catch(() => []);
+        });
         res.json(signups);
-    } catch (e: any) { res.json([]); }
+    } catch (e: any) {
+        console.error('[GET /parents/me/volunteer-signups]', e);
+        res.status(500).json({ message: 'Failed to load volunteer signups' });
+    }
 });
 router.get('/volunteering/opportunities', getVolunteeringOpportunities); // Frontend compatibility
 router.post('/volunteering/signups', volunteerSignup); // Frontend compatibility

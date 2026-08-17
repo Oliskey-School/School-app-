@@ -49,27 +49,37 @@ router.get('/:studentId/stats', async (req: any, res) => {
             }
         }
 
-        const performance = await (prisma as any).academic_performance.findMany({
+        // Real model names are AcademicPerformance/Attendance (there is no
+        // separate "student_attendance" model) — the old snake_case names
+        // never existed on the client, so this always threw and the failure
+        // was masked by a fallback that fabricated a 100% attendance rate.
+        const performance = await prisma.academicPerformance.findMany({
             where: { student_id: studentId },
             select: { subject: true, score: true }
-        }).catch(() => []);
+        });
 
         const avgScore = performance.length > 0
             ? Math.round(performance.reduce((s: number, p: any) => s + (p.score || 0), 0) / performance.length)
             : 0;
 
-        const totalAtt = await (prisma as any).student_attendance.count({
+        const totalAtt = await prisma.attendance.count({
             where: { student_id: studentId }
-        }).catch(() => 0);
+        });
 
-        const presentAtt = await (prisma as any).student_attendance.count({
+        const presentAtt = await prisma.attendance.count({
             where: { student_id: studentId, status: { in: ['Present', 'Late'] } }
-        }).catch(() => 0);
+        });
 
         const attendancePct = totalAtt > 0 ? Math.round((presentAtt / totalAtt) * 100) : 100;
 
         res.json({ avgScore, attendancePct, performance });
-    } catch (e: any) { res.json({ avgScore: 0, attendancePct: 100, performance: [] }); }
+    } catch (e: any) {
+        // Never fabricate stats (an old bug here defaulted to attendancePct: 100
+        // on failure — a real outage would have shown a perfect attendance
+        // record that wasn't real). Fail loudly instead.
+        console.error(`[GET /student-reports/:studentId/stats]`, e);
+        res.status(500).json({ message: 'Failed to load student report stats' });
+    }
 });
 
 export default router;

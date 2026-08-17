@@ -173,7 +173,7 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
             }
 
             // Fetch attendance via backend API
-            const attendanceRecords: any[] = await api.getStudentAttendance(student.id).catch(() => []);
+            const attendanceRecords: any[] = await api.getStudentAttendance(student.id);
             if (attendanceRecords && attendanceRecords.length > 0) {
                 const counts = { present: 0, absent: 0, late: 0, leave: 0 };
                 attendanceRecords.forEach((record: any) => {
@@ -186,7 +186,7 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
                 setAttendanceData(counts);
             }
 
-            const suspensions: any[] = await api.get<any[]>(`/suspensions/student/${student.id}`).catch(() => []);
+            const suspensions: any[] = await api.get<any[]>(`/suspensions/student/${student.id}`);
             setActiveSuspension((suspensions || []).find((s: any) => s.status === 'active') || null);
         } catch (err) {
             console.error('Error loading profile data:', err);

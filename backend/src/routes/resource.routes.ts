@@ -27,82 +27,63 @@ router.get('/:id/related', async (req: any, res) => {
             },
             orderBy: { created_at: 'desc' },
             take: 6,
-        }).catch(() => []);
+        });
         res.json(related);
-    } catch (e: any) { res.json([]); }
+    } catch (e: any) {
+        // "Related resources" is a secondary widget on the resource detail
+        // page — an empty list here is a reasonable degrade, but the failure
+        // still needs to be visible somewhere, so log it instead of staying silent.
+        console.error('[GET /resources/:id/related]', e);
+        res.json([]);
+    }
 });
 
-// PD Course Catalog
+// PD Course Catalog. Previously queried prisma.pd_course (doesn't exist —
+// the real model is PDCourse) filtered by an is_published field that
+// doesn't exist on it either, and prisma.teacher_course_enrollment (the
+// real model is PDEnrollment) — every request threw and was silently
+// caught into an empty catalog. Also never scoped courses by school_id,
+// so it would have leaked every school's PD courses together even once the
+// naming was fixed. enrolledCourseIds was typed Set<number> against string
+// UUIDs too, so is_enrolled could never have been true even by accident.
 router.get('/courses', async (req: any, res) => {
     try {
         const { default: prisma } = await import('../config/database');
         const schoolId = req.user.school_id;
         const userId = req.user.id;
-        // Get all published PD courses
-        const courses = await (prisma as any).pd_course.findMany({
-            where: { is_published: true },
+        const courses = await prisma.pDCourse.findMany({
+            where: { school_id: schoolId, deleted_at: null },
             orderBy: { created_at: 'desc' }
-        }).catch(() => []);
-        // Get teacher's enrollments at once
-        const teacher = await (prisma as any).teacher.findFirst({ where: { user_id: userId } }).catch(() => null);
-        let enrolledCourseIds = new Set<number>();
+        });
+        // Get teacher's enrollments at once — secondary annotation on the
+        // catalog (which courses are already enrolled); a failure here just
+        // means is_enrolled defaults to false, the catalog itself still loads.
+        const teacher = await prisma.teacher.findFirst({ where: { user_id: userId } }).catch(() => null);
+        const enrolledCourseIds = new Set<string>();
         if (teacher) {
-            const enrollments = await (prisma as any).teacher_course_enrollment.findMany({
+            const enrollments = await prisma.pDEnrollment.findMany({
                 where: { teacher_id: teacher.id },
                 select: { course_id: true }
             }).catch(() => []);
-            enrolledCourseIds = new Set(enrollments.map((e: any) => e.course_id));
+            enrollments.forEach((e) => enrolledCourseIds.add(e.course_id));
         }
-        const result = courses.map((c: any) => ({ ...c, is_enrolled: enrolledCourseIds.has(c.id) }));
+        const result = courses.map((c) => ({ ...c, is_enrolled: enrolledCourseIds.has(c.id) }));
         res.json(result);
-    } catch (e: any) { res.json([]); }
+    } catch (e: any) {
+        console.error('[GET /resources/courses]', e);
+        res.status(500).json({ message: 'Failed to load PD course catalog' });
+    }
 });
 
-router.get('/courses/:id', async (req: any, res) => {
-    try {
-        const { default: prisma } = await import('../config/database');
-        const course = await (prisma as any).pd_course.findUnique({
-            where: { id: Number(req.params.id) },
-            include: { modules: { orderBy: { order_index: 'asc' } } }
-        }).catch(() => null);
-        res.json(course || {});
-    } catch (e: any) { res.json({}); }
-});
-
-router.post('/courses/:id/enroll', async (req: any, res) => {
-    try {
-        const { default: prisma } = await import('../config/database');
-        const userId = req.user.id;
-        const teacher = await (prisma as any).teacher.findFirst({ where: { user_id: userId } });
-        if (!teacher) return res.status(400).json({ message: 'Teacher not found' });
-        const result = await (prisma as any).teacher_course_enrollment.create({
-            data: { teacher_id: teacher.id, course_id: Number(req.params.id), status: 'In Progress', enrolled_at: new Date() }
-        });
-        res.status(201).json(result);
-    } catch (e: any) { res.status(500).json({ message: e.message }); }
-});
-
-router.post('/courses/:id/progress', async (req: any, res) => {
-    try {
-        const { default: prisma } = await import('../config/database');
-        const userId = req.user.id;
-        const teacher = await (prisma as any).teacher.findFirst({ where: { user_id: userId } });
-        if (!teacher) return res.status(400).json({ message: 'Teacher not found' });
-        const enrollment = await (prisma as any).teacher_course_enrollment.findFirst({
-            where: { teacher_id: teacher.id, course_id: Number(req.params.id) }
-        });
-        if (!enrollment) return res.status(400).json({ message: 'Enrollment not found' });
-        const result = await (prisma as any).module_progress.upsert({
-            where: { enrollment_id_module_id: { enrollment_id: enrollment.id, module_id: Number(req.body.lesson_id) } },
-            create: { enrollment_id: enrollment.id, module_id: Number(req.body.lesson_id), is_completed: true, completed_at: new Date() },
-            update: { is_completed: true, completed_at: new Date() }
-        }).catch(async () => {
-            return await (prisma as any).module_progress.create({
-                data: { enrollment_id: enrollment.id, module_id: Number(req.body.lesson_id), is_completed: true, completed_at: new Date() }
-            });
-        });
-        res.json(result);
-    } catch (e: any) { res.status(500).json({ message: e.message }); }
-});
+// GET /courses/:id, POST /courses/:id/enroll and POST /courses/:id/progress
+// used to live here, referencing prisma.pd_course / teacher_course_enrollment
+// / module_progress and treating course ids as autoincrement ints via
+// Number(req.params.id) — none of those models exist anywhere in the schema
+// (PDCourse.id is a uuid string) and nothing in the frontend ever called
+// these paths (confirmed via lib/api.ts, which only calls /pd/courses/...).
+// The real, working, tested implementation is pd.routes.ts + pd.controller.ts
+// (see its own comment: "The teacher CourseCatalog UI posts to
+// /pd/courses/:id/enroll and /pd/courses/:id/progress"). Removed rather than
+// invented a fake modules/module_progress feature to make dead code compile.
 
 export default router;

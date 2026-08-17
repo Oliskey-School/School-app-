@@ -29,6 +29,7 @@ const ExamOfficerDashboard: React.FC<ExamOfficerDashboardProps> = ({ onLogout, s
         completedExams: 0,
         pendingResults: 0
     });
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         setIsHomePage?.(true);
@@ -39,10 +40,11 @@ const ExamOfficerDashboard: React.FC<ExamOfficerDashboardProps> = ({ onLogout, s
         (async () => {
             try {
                 const [examsRes, stats] = await Promise.all([
-                    api.get('/exams').catch(() => []),
-                    api.getDashboardStats().catch(() => null),
+                    api.get('/exams'),
+                    api.getDashboardStats(),
                 ]);
                 if (!active) return;
+                setError(null);
                 const exams: any[] = Array.isArray(examsRes) ? examsRes : ((examsRes as any)?.data || []);
                 const now = Date.now();
                 const isPast = (e: any) => e?.date && new Date(e.date).getTime() < now;
@@ -53,8 +55,13 @@ const ExamOfficerDashboard: React.FC<ExamOfficerDashboardProps> = ({ onLogout, s
                     pendingResults: exams.filter((e) => isPast(e) && !isPublished(e)).length,
                     totalCandidates: (stats?.totalStudents ?? stats?.students ?? stats?.studentCount ?? 0) as number,
                 });
-            } catch {
-                /* leave zeros — never show fabricated numbers */
+            } catch (e: any) {
+                // Leave zeros — never show fabricated numbers — but the user must
+                // know the zeros mean "failed to load", not "nothing to show".
+                if (active) {
+                    console.error('[ExamOfficerDashboard] Failed to load exam stats:', e);
+                    setError('Unable to load exam data. Please try again.');
+                }
             }
         })();
         return () => { active = false; };
@@ -99,6 +106,9 @@ const ExamOfficerDashboard: React.FC<ExamOfficerDashboardProps> = ({ onLogout, s
             />
 
             <main className="flex-1 overflow-y-auto p-6 space-y-6">
+                {error && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>
+                )}
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="bg-gradient-to-r from-amber-600 to-amber-800 rounded-xl p-6 text-white">
                     <h2 className="text-2xl font-bold">Welcome, {profile.name}</h2>
                     <p className="mt-2 text-amber-100">Manage exams and candidates</p>

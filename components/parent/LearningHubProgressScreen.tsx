@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
+import { toast } from 'react-hot-toast';
 import { Student } from '../../types';
 import { api } from '../../lib/api';
 import { ElearningIcon, AwardIcon, ClockIcon, SparklesIcon, BookOpenIcon } from '../../constants';
@@ -20,11 +21,14 @@ const LearningHubProgressScreen: React.FC<LearningHubProgressScreenProps> = ({ s
     setLoading(true);
     try {
       const [sum, prog] = await Promise.all([
-        api.getStudentLearningHubSummary(selectedChildId).catch(() => null),
-        api.getStudentLearningHubProgress(selectedChildId).catch(() => []),
+        api.getStudentLearningHubSummary(selectedChildId),
+        api.getStudentLearningHubProgress(selectedChildId),
       ]);
       setSummary(sum);
       setProgress(Array.isArray(prog) ? prog : []);
+    } catch (e) {
+      console.error('[LearningHubProgressScreen] Failed to load progress:', e);
+      toast.error('Unable to load learning progress. Please try again.');
     } finally {
       setLoading(false);
     }

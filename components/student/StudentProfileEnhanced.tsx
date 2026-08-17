@@ -185,8 +185,8 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                 fetchUpcomingEvents(currentStudent.grade, currentStudent.section, id),
                 fetchStudentActivities(id),
                 fetchStudentDocuments(id),
-                api.getStudentSubjects(currentStudent.id).catch(() => []),
-                api.getStudentReportCards(String(currentStudent.id)).catch(() => [])
+                api.getStudentSubjects(currentStudent.id),
+                api.getStudentReportCards(String(currentStudent.id))
             ]);
 
             setPerformance(perfData);
@@ -213,6 +213,7 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
 
             } catch (error) {
             console.error('Error fetching profile data:', error);
+            toast.error('Unable to load profile data. Please try again.');
             } finally {
             setLoading(false);
             }

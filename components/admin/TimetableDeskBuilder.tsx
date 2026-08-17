@@ -228,10 +228,10 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
         if (!silent) setLoading(true);
         try {
             const [cls, subs, tch, existing] = await Promise.all([
-                api.getClasses(sid, bid).catch(() => []),
-                api.getSubjects(sid, bid).catch(() => []),
-                api.getTeachers(sid, bid).catch(() => []),
-                api.getTimetable(bid).catch(() => []),
+                api.getClasses(sid, bid),
+                api.getSubjects(sid, bid),
+                api.getTeachers(sid, bid),
+                api.getTimetable(bid),
             ]);
             setClasses(Array.isArray(cls) ? cls : []);
             const teachersOnly = (Array.isArray(tch) ? tch : []).filter((t: any) => {
@@ -279,6 +279,9 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
                 }
             }
             setGrid(g);
+        } catch (e: any) {
+            console.error('[TimetableDeskBuilder] Failed to load timetable data:', e);
+            if (!silent) toast.error('Unable to load timetable data. Please try again.');
         } finally {
             if (!silent) setLoading(false);
         }

@@ -48,8 +48,8 @@ const CustomGamesListScreen: React.FC<CustomGamesListScreenProps> = () => {
             setError(null);
             try {
                 const [resources, teachers] = await Promise.all([
-                    api.getGeneratedResources(currentSchool.id).catch(() => []),
-                    api.getTeachers(currentSchool.id).catch(() => [])
+                    api.getGeneratedResources(currentSchool.id),
+                    api.getTeachers(currentSchool.id)
                 ]);
                 if (cancelled) return;
 

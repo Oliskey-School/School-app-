@@ -78,8 +78,8 @@ const PrivacyDashboard: React.FC = () => {
         setLoadingDsar(true); setLoadingPolicies(true); setError(null);
         try {
             const [drResp, polResp] = await Promise.all([
-                api.getDataRequests(schoolId, currentBranchId || undefined).catch(() => []),
-                api.getSafeguardingPolicies(schoolId, currentBranchId || undefined).catch(() => []),
+                api.getDataRequests(schoolId, currentBranchId || undefined),
+                api.getSafeguardingPolicies(schoolId, currentBranchId || undefined),
             ]);
             const dr = Array.isArray(drResp) ? drResp : ((drResp as any)?.data || []);
             const pol = Array.isArray(polResp) ? polResp : ((polResp as any)?.data || []);

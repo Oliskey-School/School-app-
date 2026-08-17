@@ -29,25 +29,41 @@ router.get('/me/pd-courses', authenticate, async (req: any, res) => {
     try {
         const { default: prisma } = await import('../config/database');
         const userId = req.user.id;
-        const teacher = await (prisma as any).teacher.findFirst({ where: { user_id: userId } });
+        const teacher = await prisma.teacher.findFirst({ where: { user_id: userId } });
         if (!teacher) return res.json([]);
-        const enrollments = await (prisma as any).pdEnrollment.findMany({
+        // The generated client property is pDEnrollment (Prisma only
+        // lowercases the leading letter of the model name "PDEnrollment"),
+        // and the enrollment's relation field is named `course`, not
+        // `pd_course` — the old `(prisma as any).pdEnrollment...
+        // include:{pd_course:true}` never matched either and was silently
+        // caught into an empty list on every request.
+        const enrollments = await prisma.pDEnrollment.findMany({
             where: { teacher_id: teacher.id }, orderBy: { enrolled_at: 'desc' },
-            include: { pd_course: true }
-        }).catch(() => []);
+            include: { course: true }
+        });
         res.json(enrollments);
-    } catch (e: any) { res.json([]); }
+    } catch (e: any) {
+        console.error('[GET /teachers/me/pd-courses]', e);
+        res.status(500).json({ message: 'Failed to load PD courses' });
+    }
 });
 
 router.get('/substitutes', authenticate, async (req: any, res) => {
     try {
         const { default: prisma } = await import('../config/database');
-        const teachers = await (prisma as any).teacher.findMany({
+        // The Teacher model's field is subject_specialty (a string array) —
+        // there is no `subject` column. The old select crashed on every
+        // request and the swallowed catch made it look like "no substitute
+        // teachers" instead of a broken query.
+        const teachers = await prisma.teacher.findMany({
             where: { school_id: req.user.school_id },
-            select: { id: true, full_name: true, email: true, subject: true }
-        }).catch(() => []);
+            select: { id: true, full_name: true, email: true, subject_specialty: true }
+        });
         res.json(teachers);
-    } catch (e: any) { res.json([]); }
+    } catch (e: any) {
+        console.error('[GET /teachers/substitutes]', e);
+        res.status(500).json({ message: 'Failed to load substitute teachers' });
+    }
 });
 
 router.post('/', authenticate, requirePlanCapacity('teacher'), createTeacher);

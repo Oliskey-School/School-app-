@@ -105,7 +105,7 @@ const StudentProfileDashboard: React.FC<StudentProfileDashboardProps> = ({
             }
 
             // Fetch attendance via backend API
-            const attendanceRecords: any[] = await api.getStudentAttendance(student.id).catch(() => []);
+            const attendanceRecords: any[] = await api.getStudentAttendance(student.id);
             if (attendanceRecords && attendanceRecords.length > 0) {
                 const counts = { present: 0, absent: 0, late: 0, leave: 0 };
                 attendanceRecords.forEach((record: any) => {
@@ -124,7 +124,7 @@ const StudentProfileDashboard: React.FC<StudentProfileDashboardProps> = ({
             const [perf, notes, subs] = await Promise.all([
                 fetchAcademicPerformance(student.id),
                 (fetchBehaviorNotes as any)(student.id),
-                api.getStudentSubjects(student.id).catch(() => [])
+                api.getStudentSubjects(student.id)
             ]);
             setPerformance(perf || []);
             setBehaviorNotes(notes || []);
@@ -136,6 +136,7 @@ const StudentProfileDashboard: React.FC<StudentProfileDashboardProps> = ({
 
         } catch (err) {
             console.error('Error fetching student details:', err);
+            toast.error('Unable to load student data. Please try again.');
         } finally {
             setLoading(false);
         }

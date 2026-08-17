@@ -45,8 +45,8 @@ const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ onLogout, setIs
             setError(null);
             try {
                 const [aptResp, studentResp] = await Promise.all([
-                    api.get('/counseling').catch(() => []),
-                    api.getStudents().catch(() => []),
+                    api.get('/counseling'),
+                    api.getStudents(),
                 ]);
                 if (cancelled) return;
                 const aptList: Appointment[] = Array.isArray(aptResp) ? aptResp : ((aptResp as any)?.data || []);
