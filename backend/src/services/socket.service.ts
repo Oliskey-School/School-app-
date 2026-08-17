@@ -1,7 +1,18 @@
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import { Server as HTTPServer } from 'http';
+import jwt from 'jsonwebtoken';
 import { registerClassBattle } from './classBattleSocket';
 import { redisConnection } from '../config/redis';
+import { config, DEMO_SCHOOL_ID } from '../config/env';
+import prisma from '../config/database';
+
+interface SocketUser {
+  id: string;
+  schoolId: string;
+  branchId: string | null;
+  role: string;
+  isDemo: boolean;
+}
 
 // Same reasoning as backend/src/app.ts's Express CORS block: in production,
 // the browser always reaches Socket.io through nginx on the same origin as
@@ -24,6 +35,46 @@ export class SocketService {
       transports: ['websocket', 'polling']
     });
 
+    // Auth handshake: without this, any anonymous socket could previously
+    // call join-school('<any-school-id>')/register-user('<any-user-id>') and
+    // receive that school's or that user's real-time events — announcements,
+    // notifications, private messages — with no login at all. The REST API
+    // has always verified the JWT on every call (auth.middleware.ts); sockets
+    // now do the equivalent once, at connect time, and every room a socket is
+    // allowed to join is derived server-side from that verified identity, not
+    // from whatever id the client happens to send.
+    this.io.use((socket, next) => {
+      try {
+        const token = socket.handshake.auth?.token as string | undefined;
+        if (!token) return next(new Error('Authentication required'));
+
+        const decoded: any = jwt.verify(token, config.jwtSecret, { algorithms: ['HS256'] });
+        if (!decoded?.id) return next(new Error('Invalid token'));
+
+        if (decoded.is_demo === true) {
+          socket.data.user = {
+            id: decoded.id,
+            schoolId: DEMO_SCHOOL_ID,
+            branchId: decoded.branch_id || null,
+            role: decoded.role,
+            isDemo: true,
+          };
+          return next();
+        }
+
+        socket.data.user = {
+          id: decoded.id,
+          schoolId: decoded.school_id,
+          branchId: decoded.branch_id || null,
+          role: decoded.role,
+          isDemo: false,
+        };
+        next();
+      } catch {
+        next(new Error('Authentication failed'));
+      }
+    });
+
     // Opt-in Redis pub/sub adapter: on a single instance (today's Contabo VPS
     // deployment) this changes nothing — Socket.io's default in-memory adapter
     // already handles everything. It matters the moment the app runs on more
@@ -44,32 +95,54 @@ export class SocketService {
     }
 
     this.io.on('connection', (socket: Socket) => {
-      console.log(`🔌 Socket connected: ${socket.id}`);
+      const authedUser = socket.data.user!; // guaranteed by the io.use() auth middleware above
+      console.log(`🔌 Socket connected: ${socket.id} (user: ${authedUser.id})`);
 
-      socket.on('join-school', (schoolId: string) => {
-        socket.join(`school:${schoolId}`);
-        console.log(`🏫 Socket ${socket.id} joined school: ${schoolId}`);
+      // The school id comes from the socket's OWN verified identity, never
+      // from the client argument — otherwise any connected socket could join
+      // another school's room just by passing its id.
+      socket.on('join-school', () => {
+        socket.join(`school:${authedUser.schoolId}`);
+        console.log(`🏫 Socket ${socket.id} joined school: ${authedUser.schoolId}`);
       });
 
-      // Chat room management — client emits this when opening a conversation
-      socket.on('join-chat-room', (roomId: string) => {
-        socket.join(`chat:room:${roomId}`);
-        console.log(`💬 Socket ${socket.id} joined chat room: ${roomId}`);
+      // Chat room management — client emits this when opening a conversation.
+      // Verify actual membership (ChatParticipant) before letting the socket
+      // listen in — a room id alone used to be enough to eavesdrop on any
+      // conversation in any school.
+      socket.on('join-chat-room', async (roomId: string) => {
+        try {
+          const participant = await prisma.chatParticipant.findFirst({
+            where: { room_id: roomId, user_id: authedUser.id },
+            select: { id: true },
+          });
+          if (!participant) {
+            console.warn(`🚨 [Socket] User ${authedUser.id} tried to join chat room ${roomId} without membership`);
+            return;
+          }
+          socket.join(`chat:room:${roomId}`);
+          console.log(`💬 Socket ${socket.id} joined chat room: ${roomId}`);
+        } catch (err: any) {
+          console.error('[Socket] join-chat-room membership check failed:', err.message);
+        }
       });
 
       socket.on('leave-chat-room', (roomId: string) => {
         socket.leave(`chat:room:${roomId}`);
       });
 
-      // Typing indicators
-      socket.on('typing', ({ roomId, userId, isTyping }: { roomId: string; userId: string; isTyping: boolean }) => {
-        socket.to(`chat:room:${roomId}`).emit('user:typing', { userId, isTyping });
+      // Typing indicators — userId is always the authenticated socket's own
+      // id, never a client-supplied value, so a socket can't spoof someone
+      // else's typing indicator in a room it's joined.
+      socket.on('typing', ({ roomId, isTyping }: { roomId: string; isTyping: boolean }) => {
+        socket.to(`chat:room:${roomId}`).emit('user:typing', { userId: authedUser.id, isTyping });
       });
 
-      // User identity binding — lets backend target a specific user's socket
-      socket.on('register-user', (userId: string) => {
-        socket.join(`user:${userId}`);
-        console.log(`👤 Socket ${socket.id} registered as user: ${userId}`);
+      // User identity binding — lets backend target a specific user's socket.
+      // Always the socket's own verified id, never a client-supplied one.
+      socket.on('register-user', () => {
+        socket.join(`user:${authedUser.id}`);
+        console.log(`👤 Socket ${socket.id} registered as user: ${authedUser.id}`);
       });
 
       registerClassBattle(this.io!, socket);

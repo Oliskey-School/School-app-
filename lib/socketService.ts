@@ -18,7 +18,15 @@ class SocketService {
         this.schoolId = schoolId;
         console.log(`🔌 [SocketService] Connecting to ${SOCKET_URL} for School: ${schoolId}`);
 
+        // Same per-tab token AuthContext uses for every REST call (see
+        // context/AuthContext.tsx). The server verifies it in its io.use()
+        // handshake middleware and derives the socket's own school/user id
+        // from it — join-school/register-user no longer trust whatever id
+        // this client happens to send.
+        const authToken = sessionStorage.getItem('auth_token');
+
         this.socket = io(SOCKET_URL, {
+            auth: { token: authToken },
             transports: ['websocket'], // Force websocket to avoid HTTP polling drops behind a stateless load balancer
             autoConnect: true,
             reconnection: true,
@@ -28,9 +36,8 @@ class SocketService {
 
         this.socket.on('connect', () => {
             console.log('🔌 [SocketService] WebSocket Connected');
-            if (this.schoolId) {
-                this.socket?.emit('join-school', this.schoolId);
-            }
+            this.socket?.emit('join-school');
+            this.socket?.emit('register-user');
         });
 
         this.socket.on('teacher:updated', (data) => {

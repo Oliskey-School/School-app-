@@ -19,8 +19,17 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    // Connect to the backend
+    // No identity yet (still loading / logged out) — nothing to connect for.
+    if (!user?.id) return;
+
+    // Same per-tab token used for every REST call. The server verifies it in
+    // its io.use() handshake middleware and derives the socket's own
+    // school/user id from it directly — join-school/register-user no longer
+    // trust whatever id a client happens to send, so this token is required
+    // for the connection to be accepted at all.
+    const authToken = sessionStorage.getItem('auth_token');
     const socket = io(SOCKET_URL, {
+      auth: { token: authToken },
       transports: ['websocket', 'polling'],
       withCredentials: true
     });
@@ -29,13 +38,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     socket.on('connect', () => {
       console.log('🔌 Connected to real-time server');
-      if (user?.school_id) {
-        socket.emit('join-school', user.school_id);
-      }
-      // Register user identity so backend can target this socket for personal notifications
-      if (user?.id) {
-        socket.emit('register-user', user.id);
-      }
+      socket.emit('join-school');
+      socket.emit('register-user');
     });
 
     // Helper to dispatch custom events for legacy useAutoSync hook

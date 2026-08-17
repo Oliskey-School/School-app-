@@ -58,6 +58,17 @@ export const getAllTeachers = async (req: AuthRequest, res: Response) => {
             return res.json(result ? [result] : []);
         }
 
+        // Full staff directory (every teacher's linked user record — email,
+        // certificates, compliance documents) is admin/proprietor territory.
+        // PARENT is allowed too: AppointmentScreen needs it to populate the
+        // "book with" teacher picker. No other role has a legitimate caller —
+        // in particular a STUDENT has no reason to list every teacher's full
+        // record, so this was previously an open read for any authenticated role.
+        const roleLower = (req.user.role || '').toLowerCase();
+        if (!isAdmin(req) && roleLower !== 'parent') {
+            return res.status(403).json({ message: 'You do not have access to the full teacher directory' });
+        }
+
         const requestedBranch = (req.query.branch_id as string) || (req.query.branchId as string);
         const branchId = getEffectiveBranchId(req.user, requestedBranch);
         const result = await TeacherService.getAllTeachers(req.user.school_id, branchId);
