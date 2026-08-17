@@ -2,7 +2,6 @@ import { Request, Response, NextFunction } from 'express';
 import { AuthRequest } from './auth.middleware';
 import * as yup from 'yup';
 import { getEffectiveBranchId } from '../utils/branchScope';
-import { getTenantPrisma } from '../config/database';
 
 /**
  * Lead DevSecOps TENANT ENFORCEMENT MIDDLEWARE
@@ -18,12 +17,10 @@ export const enforceTenant = (schema?: yup.AnyObjectSchema) => {
             return res.status(401).json({ error: 'SecurityException: Tenant context required.' });
         }
 
-        // SPOOF PROTECTION: Attach the tenant-scoped Prisma client.
-        // Downstream controllers MUST use req.db instead of global prisma.
-        // Both school_id and branch_id are forwarded so all RLS policies
-        // (school-only and school+branch) fire correctly inside transactions.
-        const activeBranch = (req.headers['x-branch-id'] as string) || user.branch_id || null;
-        (req as any).db = getTenantPrisma(user.school_id, activeBranch);
+        // The Postgres RLS session vars (app.current_school_id / app.current_branch_id
+        // / app.current_user_id) are already set for every query on this request by
+        // auth.middleware.ts's runWithTenantContext — every prisma.* call anywhere in
+        // the call chain below picks them up automatically (see config/database.ts).
 
         // 1. Write Protection: Ensure school_id in body (if present) matches the authorized tenant
         if (req.method === 'POST' || req.method === 'PUT') {

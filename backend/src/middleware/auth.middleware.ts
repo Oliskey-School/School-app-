@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import prisma from '../config/database';
 import { config, DEMO_SCHOOL_ID } from '../config/env';
+import { runWithTenantContext } from '../lib/tenantContext';
 
 export interface AuthRequest extends Request {
     user?: any;
@@ -105,9 +106,12 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
             // Set Postgres context for RLS policies (demo mode)
             req.school_id = DEMO_SCHOOL_ID;
             req.branch_id = demoActiveBranch || null;
-            
+
             console.log(`🛡️ [Auth] Demo token validated — identity: ${req.user.role} (${req.user.email})`);
-            return next();
+            return runWithTenantContext(
+                { schoolId: DEMO_SCHOOL_ID, branchId: demoActiveBranch || null, userId: decoded.id },
+                next
+            );
         }
 
         // REAL USER: Fetch from database
@@ -227,7 +231,10 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
         req.school_id = user.school_id;
         req.branch_id = effectiveBranchId;
 
-        next();
+        runWithTenantContext(
+            { schoolId: user.school_id, branchId: effectiveBranchId, userId: user.id },
+            next
+        );
     } catch (error: any) {
         if (error.name === 'TokenExpiredError') {
             return res.status(401).json({ code: 'TOKEN_EXPIRED', message: 'Session expired' });

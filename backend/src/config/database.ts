@@ -1,4 +1,5 @@
 import { PrismaClient } from '../../generated/prisma-client';
+import { getTenantContext } from '../lib/tenantContext';
 
 // Recursively deletes password_hash / two_factor_secret from a Prisma result,
 // mutating in place. Handles arrays, nested objects (e.g. an `include`d user
@@ -61,13 +62,44 @@ const prismaClientSingleton = () => {
 
   return client.$extends({
     query: {
-        async $allOperations({ args, query }) {
+        async $allOperations({ model, args, query }) {
             const TIMEOUT_MS = 30000;
             const timeoutPromise = new Promise((_, reject) =>
                 setTimeout(() => reject(new Error('PrismaQueryTimeout: Operation exceeded 30s limit.')), TIMEOUT_MS)
             );
 
-            const result = await Promise.race([query(args), timeoutPromise]);
+            const ctx = getTenantContext();
+
+            const run = async () => {
+                // Only model operations (not $queryRaw/$executeRaw calls the app makes
+                // directly, e.g. via getRawPrisma()) get tenant-scoped — and only when
+                // an authenticated request actually set a context (see auth.middleware.ts).
+                if (ctx?.schoolId && model) {
+                    // set_config and the real query MUST run on the exact same
+                    // connection, or the session var never reaches the query that
+                    // needs it. prisma.$transaction(async (tx) => ...) does NOT
+                    // guarantee that — query(args) here is bound to this client, not
+                    // to `tx`, and gets dispatched on a separate pooled connection.
+                    // The array/batch form below is Prisma's documented pattern for
+                    // this exact case: it runs every element as one real DB
+                    // transaction over one connection.
+                    const raw = globalThis.__rawPrisma!;
+                    const setters = [
+                        raw.$executeRaw`SELECT set_config('app.current_school_id', ${ctx.schoolId}, true)`,
+                    ];
+                    if (ctx.branchId) {
+                        setters.push(raw.$executeRaw`SELECT set_config('app.current_branch_id', ${ctx.branchId}, true)`);
+                    }
+                    if (ctx.userId) {
+                        setters.push(raw.$executeRaw`SELECT set_config('app.current_user_id', ${ctx.userId}, true)`);
+                    }
+                    const results = await raw.$transaction([...setters, query(args)] as any);
+                    return results[results.length - 1];
+                }
+                return query(args);
+            };
+
+            const result = await Promise.race([run(), timeoutPromise]);
             stripSensitiveFields(result);
             return result;
         },
@@ -88,40 +120,6 @@ export function getRawPrisma(): PrismaClient {
   }
   return globalThis.__rawPrisma!;
 }
-
-/**
- * Returns a Prisma client scoped to a specific school (and optionally a branch).
- * Every query is wrapped in a transaction that first sets the Postgres session
- * variables consumed by the RLS helper functions:
- *   app.current_school_id  → enforced by all school-scoped RLS policies
- *   app.current_branch_id  → enforced by branch-scoped RLS policies
- * set_config is_local=true scopes the variable to the transaction only,
- * preventing it from leaking to the next caller on a pooled connection.
- */
-export const getTenantPrisma = (schoolId: string, branchId?: string | null) => {
-  return prisma.$extends({
-    query: {
-      $allModels: {
-        async $allOperations({ args, query }) {
-          const TIMEOUT_MS = 30000;
-          const timeoutPromise = new Promise((_, reject) =>
-              setTimeout(() => reject(new Error('PrismaQueryTimeout: Tenant operation exceeded 30s limit.')), TIMEOUT_MS)
-          );
-
-          const operationPromise = prisma.$transaction(async (tx) => {
-            await tx.$executeRaw`SELECT set_config('app.current_school_id', ${schoolId}, true)`;
-            if (branchId) {
-              await tx.$executeRaw`SELECT set_config('app.current_branch_id', ${branchId}, true)`;
-            }
-            return query(args);
-          });
-
-          return Promise.race([operationPromise, timeoutPromise]);
-        },
-      },
-    },
-  });
-};
 
 const dbUrl = process.env.DATABASE_URL || '';
 const finalObfuscatedUrl = dbUrl.replace(/\/\/.*:.*@/, '//****:****@');
