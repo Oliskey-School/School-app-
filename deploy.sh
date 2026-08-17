@@ -50,15 +50,9 @@ if [ ! -f .env ]; then
     fi
 fi
 
-# Check for required env vars
-required_vars=("VITE_SUPABASE_URL" "VITE_SUPABASE_ANON_KEY")
-for var in "${required_vars[@]}"; do
-    if ! grep -q "^$var=" .env; then
-        echo -e "${RED}❌ Missing environment variable: $var${NC}"
-        exit 1
-    fi
-done
-echo -e "${GREEN}✅ Environment variables configured${NC}"
+# Frontend env var validation now runs as part of `npm run build` itself
+# (see scripts/check-env.mjs) — no separate check needed here.
+echo -e "${GREEN}✅ Environment file present${NC}"
 
 # Step 4: Run production build
 echo -e "\n${YELLOW}Step 4: Building for production...${NC}"

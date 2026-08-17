@@ -3,9 +3,9 @@
 This repository contains the backend logic, database migrations, and Prisma configuration for the School App.
 
 ## Directory Structure
-- `supabase/migrations`: Database schema changes.
-- `supabase/functions`: Edge functions.
-- `supabase/seed.sql`: Seed data.
+- `backend/prisma/migrations`: Database schema changes (self-hosted PostgreSQL via Prisma — this project does not use Supabase).
+- `backend/prisma/schema.prisma`: Prisma schema.
+- `prisma/seed.ts`: Seed data.
 
 ## Deployment Instructions
 

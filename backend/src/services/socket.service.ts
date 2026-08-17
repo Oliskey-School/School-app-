@@ -70,9 +70,16 @@ export class SocketService {
           isDemo: false,
         };
         next();
-      } catch {
+      } catch (err: any) {
+        console.warn(`⚠️ [Socket] Auth handshake failed for ${socket.id}: ${err.message}`);
         next(new Error('Authentication failed'));
       }
+    });
+
+    // Low-level transport/handshake errors (before a socket even reaches
+    // the 'connection' event) — e.g. malformed requests, origin rejections.
+    this.io.engine.on('connection_error', (err: any) => {
+      console.error(`🔥 [Socket] Engine connection error: ${err.code} ${err.message}`);
     });
 
     // Opt-in Redis pub/sub adapter: on a single instance (today's Contabo VPS
@@ -146,6 +153,10 @@ export class SocketService {
       });
 
       registerClassBattle(this.io!, socket);
+
+      socket.on('error', (err: any) => {
+        console.error(`🔥 [Socket] Error on ${socket.id} (user: ${authedUser.id}):`, err);
+      });
 
       socket.on('disconnect', () => {
         console.log(`🔌 Socket disconnected: ${socket.id}`);

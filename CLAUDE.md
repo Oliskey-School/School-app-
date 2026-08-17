@@ -366,7 +366,7 @@ backend/src/
 
 ### Database Migrations
 
-Database access is via Prisma (`backend/prisma/schema.prisma`); apply changes with `npm run db:migrate`. Legacy SQL migration history lives under `supabase/migrations/` and `supabase/sql_scripts/` (kept for reference).
+Database access is via Prisma (`backend/prisma/schema.prisma`); apply changes with `npm run db:migrate`. This app is not on Supabase — it's a self-hosted PostgreSQL database, with Row-Level Security applied via real Prisma migrations (`backend/prisma/migrations/`), not Supabase's tooling.
 
 ### Offline-First Features
 

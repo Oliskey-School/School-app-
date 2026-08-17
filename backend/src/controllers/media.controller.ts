@@ -9,6 +9,7 @@ export const sendSMSLesson = async (req: AuthRequest, res: Response) => {
         const result = await MediaService.sendSMSLesson(req.user.school_id, req.body);
         res.json(result);
     } catch (error: any) {
+        console.error('[POST /media/sms-lesson]', error);
         res.status(500).json({ message: error.message });
     }
 };
@@ -18,6 +19,7 @@ export const scheduleRadioBroadcast = async (req: AuthRequest, res: Response) =>
         const result = await MediaService.scheduleRadioBroadcast(req.user.school_id, req.body);
         res.json(result);
     } catch (error: any) {
+        console.error('[POST /media/radio-broadcast]', error);
         res.status(500).json({ message: error.message });
     }
 };
@@ -27,6 +29,7 @@ export const recordIVRLesson = async (req: AuthRequest, res: Response) => {
         const result = await MediaService.recordIVRLesson(req.user.school_id, req.body);
         res.json(result);
     } catch (error: any) {
+        console.error('[POST /media/ivr-lesson]', error);
         res.status(500).json({ message: error.message });
     }
 };
@@ -53,6 +56,7 @@ export const uploadFile = async (req: AuthRequest, res: Response) => {
         const { publicUrl } = await storeUploadedFile(req.file.buffer, req.file.mimetype, bucket, relativePath);
         res.json({ publicUrl });
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        console.error('[POST /media/upload] File upload failed:', error);
+        res.status(500).json({ message: 'File upload failed. Please try again.' });
     }
 };

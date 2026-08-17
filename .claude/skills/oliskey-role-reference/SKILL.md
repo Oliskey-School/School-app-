@@ -1,6 +1,6 @@
 ---
 name: oliskey-role-reference
-description: Reference for every Oliskey School App user role — what each role sees, what each role does, how roles interact through one login + Supabase RLS, competitor links per role for deeper research, and the concrete feature gaps still open. Use this before designing, building, or reviewing any dashboard, permission, RLS policy, or role-specific feature in the Oliskey School App.
+description: Reference for every Oliskey School App user role — what each role sees, what each role does, how roles interact through one login + PostgreSQL RLS, competitor links per role for deeper research, and the concrete feature gaps still open. Use this before designing, building, or reviewing any dashboard, permission, RLS policy, or role-specific feature in the Oliskey School App.
 ---
 
 # Oliskey School App — Role Reference & Gap-Closing Skill
@@ -13,7 +13,7 @@ Purpose: give Claude Code a fast, accurate mental model of "who sees what" in a 
 1. Before building or reviewing anything role-specific (a dashboard widget, an RLS policy, an API endpoint, a permission check), open the matching role section below.
 2. Check "Gaps to close" for that role before writing new code — if the feature already appears there, build toward that spec instead of guessing.
 3. If you need deeper detail than this file gives, follow the "Reference" link for that role and read the live page before implementing.
-4. Every role shares one login page. Routing logic is always: `JWT { school_id, role, is_active }` → Supabase RLS filters every query to that `school_id` → frontend renders the dashboard matching `role`. Never build a feature that queries data without a `school_id` filter, and never let one role's route render another role's data even during testing.
+4. Every role shares one login page. Routing logic is always: `JWT { school_id, role, is_active }` → PostgreSQL RLS filters every query to that `school_id` (self-hosted Postgres + Prisma, not Supabase) → frontend renders the dashboard matching `role`. Never build a feature that queries data without a `school_id` filter, and never let one role's route render another role's data even during testing.
 5. When a competitor does something Oliskey doesn't, don't copy blindly — check it against Oliskey's tiered pricing (Level 1–4) and phase plan (Phase 1–6) before recommending it as in-scope.
 
 ---
@@ -21,7 +21,7 @@ Purpose: give Claude Code a fast, accurate mental model of "who sees what" in a 
 ## 1. Core interaction model (how roles connect)
 
 - **One login, nine dashboards.** Administrator/Principal, Teacher, Student, Parent, Counselor/Guidance Officer, Proprietor/Owner, Compliance Officer, Exam Officer, Inspector/Ministry Official — same auth flow, different `role` claim.
-- **Data isolation.** Every table carries `school_id`. RLS means one school's outage, bug, or breach never touches another school's data. This is the #1 thing every competitor above (except Google Classroom/Moodle, which are single-tenant-per-domain) solves differently — Oliskey's Supabase RLS approach is closer to PowerSchool/Blackbaud's enterprise multi-tenant model than to the others.
+- **Data isolation.** Every table carries `school_id`. RLS means one school's outage, bug, or breach never touches another school's data. This is the #1 thing every competitor above (except Google Classroom/Moodle, which are single-tenant-per-domain) solves differently — Oliskey's self-hosted PostgreSQL RLS approach is closer to PowerSchool/Blackbaud's enterprise multi-tenant model than to the others.
 - **Typical data flow between roles:**
   - Teacher marks attendance → Parent sees it in real time → Admin sees it rolled up in KPIs → Compliance Officer sees it in attendance-based compliance scoring.
   - Teacher submits grades → Admin/Exam Officer approves & publishes report card → Parent + Student can view/download.

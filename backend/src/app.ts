@@ -266,7 +266,11 @@ if (sentryEnabled) {
 app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
     const status = err.status || 500;
     console.error(`[Global Error] ${req.method} ${req.path} → ${status}: ${err.name}: ${err.message}`);
-    if (!IS_PROD && err.stack) console.error(err.stack);
+    // The stack trace never reaches the client response below (production
+    // hides err.message too for 5xx) but it must always reach the SERVER
+    // log — this used to be gated to dev-only, which meant a production
+    // error's stack went nowhere unless SENTRY_DSN happened to be set.
+    if (err.stack) console.error(err.stack);
 
     // Don't leak internal error messages in production
     const message = IS_PROD && status >= 500

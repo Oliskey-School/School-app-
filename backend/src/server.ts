@@ -1,4 +1,4 @@
-import './config/instrument'; // MUST be first — sets up Sentry before app/express load
+import { Sentry, sentryEnabled } from './config/instrument'; // MUST be first — sets up Sentry before app/express load
 import { app } from './app';
 import http from 'http';
 import { config } from './config/env';
@@ -218,13 +218,21 @@ const start = async () => {
     setInterval(() => {}, 1000 * 60 * 60);
 };
 
-// Global error handlers
+// Global error handlers. process.exit() right after an uncaught exception
+// races Sentry's own async network flush — without explicitly capturing +
+// awaiting the flush first, a production crash report can be silently
+// dropped (the process exits before the event reaches Sentry's servers).
 process.on('unhandledRejection', (reason, promise) => {
     console.error('🔥 Unhandled Rejection at:', promise, 'reason:', reason);
+    if (sentryEnabled) Sentry.captureException(reason);
 });
 
-process.on('uncaughtException', (err) => {
+process.on('uncaughtException', async (err) => {
     console.error('🔥 Uncaught Exception:', err);
+    if (sentryEnabled) {
+        Sentry.captureException(err);
+        await Sentry.flush(2000).catch(() => {});
+    }
     process.exit(1);
 });
 
