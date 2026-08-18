@@ -306,7 +306,12 @@ export class AuthService {
         }
 
         const { token, refreshToken } = await this.generateTokens(user);
-        return { user, token, refreshToken };
+        // `user` here came from getRawPrisma() (needed above for the bcrypt.compare
+        // against password_hash) — unlike every other query in the app, it was never
+        // auto-stripped of password_hash/two_factor_secret. Strip them before they
+        // go out over the wire; the client never has any use for either.
+        const { password_hash, two_factor_secret, ...safeUser } = user;
+        return { user: safeUser, token, refreshToken };
     }
 
     static async verify2FALogin(mfaToken: string, code: string) {
