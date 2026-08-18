@@ -282,6 +282,16 @@ jobs:
           # binary; if the host is later found to be missing a shared
           # library Chromium needs, that needs a one-time host-side
           # `apt-get install` by someone with real sudo, not this step.
+          #
+          # PLAYWRIGHT_BROWSERS_PATH: the default is $HOME/.cache/ms-playwright,
+          # which resolves to /var/www/.cache on this runner — the same shared
+          # /var/www directory whose external interference already forced the
+          # npm cache to be run-scoped above. Confirmed 2026-08-18: the browser
+          # download died mid-transfer with "Unable to update lock within the
+          # stale threshold Path: /var/www/.cache/ms-playwright/__dirlock".
+          # Scoping the browser cache to this run costs a re-download each
+          # deploy but can't be corrupted by whatever else touches /var/www.
+          export PLAYWRIGHT_BROWSERS_PATH="${{ runner.temp }}/pw-browsers-${{ github.run_id }}"
           npx playwright install chromium
           BASE_URL=http://localhost:4173 npx playwright test tests/e2e/production-critical-path.spec.ts --project=chromium --workers=1
 
