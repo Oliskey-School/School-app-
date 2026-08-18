@@ -194,6 +194,72 @@ jobs:
             sleep 15
           done
 
+      - name: Production Critical Path Tests
+        # Step 24 release gate: the app is built (Frontend Build, Backend
+        # Build above) but not yet synced to the live deploy path — this is
+        # the last point where a broken build can be stopped before it
+        # reaches production. Runs against TEST_DATABASE_URL (a SEPARATE
+        # database on the same Postgres server, never the production one —
+        # this suite creates real throwaway schools/students/admins via the
+        # live API, which must never touch real school data) and a distinct
+        # Redis DB index, on ports that don't collide with the live PM2
+        # process on this same host. A failure here exits non-zero, which
+        # stops the job before Sync to Deploy Path — nothing below this step
+        # runs.
+        #
+        # One-time setup this step depends on (see the repo's env docs):
+        #   - TEST_DATABASE_URL secret: same Postgres server as production,
+        #     a separate database (e.g. CREATE DATABASE school_app_test;)
+        #   - JWT_SECRET / REFRESH_TOKEN_SECRET: reuses the same production
+        #     secrets — they're just signing keys, and every token minted
+        #     here is scoped to throwaway rows in the TEST database only.
+        env:
+          DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+          NODE_ENV: development
+          BACKEND_PORT: 5099
+          REDIS_URL: redis://127.0.0.1:6379/1
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          REFRESH_TOKEN_SECRET: ${{ secrets.REFRESH_TOKEN_SECRET }}
+        run: |
+          set -e
+          if [ -z "${{ secrets.TEST_DATABASE_URL }}" ]; then
+            echo "::error::TEST_DATABASE_URL secret is not set — see this step's comment for one-time setup. Refusing to deploy without running the release gate."
+            exit 1
+          fi
+
+          echo "Applying migrations to the test database..."
+          npx prisma migrate deploy --schema=backend/prisma/schema.prisma
+
+          echo "Starting backend on port $BACKEND_PORT..."
+          npx tsx backend/src/server.ts > /tmp/critical-path-backend.log 2>&1 &
+          BACKEND_PID=$!
+
+          echo "Starting frontend preview on port 4173..."
+          npx vite preview --port 4173 --strictPort > /tmp/critical-path-preview.log 2>&1 &
+          PREVIEW_PID=$!
+
+          cleanup() {
+            kill "$BACKEND_PID" "$PREVIEW_PID" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          echo "Waiting for backend to become healthy..."
+          for i in $(seq 1 30); do
+            if curl -sf "http://127.0.0.1:$BACKEND_PORT/live" > /dev/null 2>&1; then
+              echo "Backend healthy after ${i}s"
+              break
+            fi
+            if [ "$i" = "30" ]; then
+              echo "::error::Backend never became healthy — log:"
+              cat /tmp/critical-path-backend.log
+              exit 1
+            fi
+            sleep 1
+          done
+
+          npx playwright install chromium --with-deps
+          BASE_URL=http://localhost:4173 npx playwright test tests/e2e/production-critical-path.spec.ts --project=chromium --workers=1
+
       - name: Sync to Deploy Path
         # Confirmed 2026-08-15: every step above builds inside the runner's
         # own workspace (/opt/actions-runner/_work/School-app-/School-app-),

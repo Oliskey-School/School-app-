@@ -53,6 +53,14 @@ export class OnboardingService {
         if (!data.adminEmail?.trim()) throw new Error('Admin email is required.');
         if (!data.adminPassword || data.adminPassword.length < 8) throw new Error('Admin password is required and must be at least 8 characters.');
 
+        // AuthService.login always lowercases the identifier before querying —
+        // storing the email with whatever case the onboarding form happened to
+        // submit means a school owner who signed up as "Name@Example.com" and
+        // later types "name@example.com" (near-universal in practice; almost
+        // nobody preserves exact casing typing their own email from memory)
+        // would get "Invalid credentials" despite the right password.
+        data.adminEmail = data.adminEmail.trim().toLowerCase();
+
         // Check for existing school code
         const existingCode = await prisma.school.findUnique({
             where: { code: schoolCode }
