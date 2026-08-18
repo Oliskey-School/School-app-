@@ -41,6 +41,12 @@ jobs:
         # on top absorbs whatever transient window causes the deletion.
         run: |
           set -e
+          # The orphaned-* renames below are a workaround for undeletable
+          # files, which means they pile up on a persistent VPS and would
+          # eventually fill the disk. Best-effort sweep of anything left
+          # from a previous run — whatever is still undeletable stays, and
+          # is someone's one-time host-side cleanup.
+          find . -maxdepth 2 -name "*.orphaned-*" -mmin +60 -exec rm -rf {} + 2>/dev/null || true
           for attempt in 1 2 3; do
             echo "Checkout attempt $attempt/3"
             # rm -rf first: on Linux, unlink() works on files another process
@@ -51,7 +57,29 @@ jobs:
             # node_modules specifically (confirmed 2026-08-14) — removing it
             # ourselves first and excluding it from git clean's own pass avoids
             # that specific lock conflict.
-            rm -rf .git 2>/dev/null || true
+            # Confirmed 2026-08-18 (runs 32181037716 / 32182333594): this
+            # `rm -rf .git` was silently failing — its error went to
+            # /dev/null and `|| true` swallowed the exit code — leaving a
+            # corrupt object store behind. `git init` then reused it, and
+            # the fetch died with "error: Could not read <sha>" / "bad
+            # object" / "remote did not send all necessary objects" on all
+            # 3 attempts. A genuinely empty .git would just fetch the sha
+            # cleanly; "could not read" means the object file was there but
+            # unreadable. Same rename-first treatment as node_modules below
+            # (rename needs write on the parent only, not on the corrupt
+            # contents), and loud this time rather than silent.
+            if [ -d .git ]; then
+              mv .git ".git.orphaned-$(date +%s)-$attempt" 2>/dev/null || true
+              rm -rf .git 2>/dev/null || true
+            fi
+            if [ -d .git ]; then
+              echo "::warning::.git survived rename+rm — trying sudo"
+              sudo -n rm -rf .git 2>/dev/null || true
+            fi
+            if [ -d .git ]; then
+              echo "::error::Cannot clear .git at $(pwd) — the git object store is corrupt and not removable by the runner user. Needs a one-time host-side: rm -rf $(pwd)/.git"
+              exit 1
+            fi
             # rename() only needs write permission on the parent directory,
             # not on the target's own contents — unlike rm -rf, which needs to
             # read into a directory to delete what's inside it. Confirmed
@@ -74,7 +102,7 @@ jobs:
             # them and would try (and fail, on the same broken permissions)
             # to remove them otherwise. Renaming a directory doesn't fix the
             # permissions on the files inside it.
-            if git fetch --depth 1 origin "${{ github.sha }}" && git checkout -qf FETCH_HEAD && git clean -ffdx -e node_modules -e dist -e backend/dist -e "node_modules.orphaned-*" -e "dist.orphaned-*" -e "backend/dist.orphaned-*"; then
+            if git fetch --depth 1 origin "${{ github.sha }}" && git checkout -qf FETCH_HEAD && git clean -ffdx -e node_modules -e dist -e backend/dist -e "node_modules.orphaned-*" -e "dist.orphaned-*" -e "backend/dist.orphaned-*" -e ".git.orphaned-*"; then
               echo "Checkout succeeded"
               exit 0
             fi
