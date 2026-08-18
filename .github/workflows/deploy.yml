@@ -165,9 +165,22 @@ jobs:
         # cleanly when run locally (zero errors, full bundle) — a failure
         # here in CI is the same host-side interference as Install
         # Dependencies, not a real build error. Same retry treatment.
+        #
+        # Confirmed 2026-08-18: the same interference also deletes
+        # scripts/check-env.mjs itself (the `prebuild` hook `npm run build`
+        # runs first) between Checkout Code and this step, or between
+        # retries — Checkout Code verifiably wrote it (it's a tracked file
+        # in the checked-out commit), yet `node scripts/check-env.mjs`
+        # fails with MODULE_NOT_FOUND on every one of 3 attempts. Restore it
+        # from the git index before each attempt so a mid-job deletion of
+        # this one file can't fail the whole build the way it did here.
         run: |
           for attempt in 1 2 3; do
             echo "Frontend build attempt $attempt/3"
+            if [ ! -f scripts/check-env.mjs ]; then
+              echo "scripts/check-env.mjs missing — restoring from git HEAD"
+              git show HEAD:scripts/check-env.mjs > scripts/check-env.mjs
+            fi
             if npm run build; then
               exit 0
             fi
