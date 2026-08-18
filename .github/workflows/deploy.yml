@@ -321,7 +321,39 @@ jobs:
           # deploy but can't be corrupted by whatever else touches /var/www.
           export PLAYWRIGHT_BROWSERS_PATH="${{ runner.temp }}/pw-browsers-${{ github.run_id }}"
           npx playwright install chromium
-          BASE_URL=http://localhost:4173 npx playwright test tests/e2e/production-critical-path.spec.ts --project=chromium --workers=1
+
+          # Preflight: confirm the host actually has the shared libraries
+          # Chromium links against, BEFORE running the suite. Without this,
+          # a missing library shows up as 9 tests x 3 retries all failing
+          # with "browserType.launch: Target page, context or browser has
+          # been closed" and the real cause (one "error while loading
+          # shared libraries" line) buried inside each of 27 stack traces.
+          # Confirmed 2026-08-18 (runs 32139789771, 32196424795): libnspr4
+          # was missing and cost two full debugging cycles to spot.
+          SHELL_BIN="$(find "$PLAYWRIGHT_BROWSERS_PATH" -type f -name chrome-headless-shell 2>/dev/null | head -1)"
+          if [ -n "$SHELL_BIN" ]; then
+            MISSING="$(ldd "$SHELL_BIN" 2>/dev/null | awk '/not found/{print $1}' | sort -u | tr '\n' ' ')"
+            if [ -n "$MISSING" ]; then
+              echo "::error::Chromium cannot start — this host is missing shared libraries: $MISSING"
+              echo "::error::One-time fix, as root on this server: apt-get update && apt-get install -y libnspr4 libnss3 libdbus-1-3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libatspi2.0-0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libxkbcommon0 libpango-1.0-0 libcairo2 libasound2"
+              exit 1
+            fi
+            echo "Chromium shared-library preflight passed"
+          fi
+
+          # Dump the backend/preview logs when the suite fails — an API-level
+          # test failure (e.g. a non-2xx from /schools/onboard) is otherwise
+          # invisible here, since the server's own stderr goes to these files
+          # and was previously only surfaced if the health check timed out.
+          if ! BASE_URL=http://localhost:4173 npx playwright test tests/e2e/production-critical-path.spec.ts --project=chromium --workers=1; then
+            echo "::group::backend log (last 120 lines)"
+            tail -120 /tmp/critical-path-backend.log || true
+            echo "::endgroup::"
+            echo "::group::vite preview log (last 40 lines)"
+            tail -40 /tmp/critical-path-preview.log || true
+            echo "::endgroup::"
+            exit 1
+          fi
 
       - name: Sync to Deploy Path
         # Confirmed 2026-08-15: every step above builds inside the runner's
