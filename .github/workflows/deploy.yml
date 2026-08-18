@@ -37,7 +37,7 @@ jobs:
             fi
             git init -q
             git remote add origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
-            if git fetch --depth 1 origin "${{ github.sha }}" && git checkout -qf FETCH_HEAD && git clean -ffdx -e node_modules -e dist -e backend/dist -e "node_modules.orphaned-*" -e "dist.orphaned-*" -e "backend/dist.orphaned-*"; then
+            if git fetch --depth 1 origin "${{ github.ref }}" && git checkout -qf FETCH_HEAD && git clean -ffdx -e node_modules -e dist -e backend/dist -e "node_modules.orphaned-*" -e "dist.orphaned-*" -e "backend/dist.orphaned-*"; then
               echo "Checkout succeeded"
               exit 0
             fi
