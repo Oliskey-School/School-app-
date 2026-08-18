@@ -275,7 +275,14 @@ jobs:
             sleep 1
           done
 
-          npx playwright install chromium --with-deps
+          # --with-deps shells out to `sudo apt-get install` for OS-level
+          # libraries — this runner has no passwordless sudo (same
+          # constraint as every other step in this file), so that always
+          # fails with "a password is required". Install just the browser
+          # binary; if the host is later found to be missing a shared
+          # library Chromium needs, that needs a one-time host-side
+          # `apt-get install` by someone with real sudo, not this step.
+          npx playwright install chromium
           BASE_URL=http://localhost:4173 npx playwright test tests/e2e/production-critical-path.spec.ts --project=chromium --workers=1
 
       - name: Sync to Deploy Path
