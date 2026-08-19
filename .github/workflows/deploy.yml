@@ -330,12 +330,36 @@ jobs:
           # shared libraries" line) buried inside each of 27 stack traces.
           # Confirmed 2026-08-18 (runs 32139789771, 32196424795): libnspr4
           # was missing and cost two full debugging cycles to spot.
+          # Confirmed 2026-08-19: `apt-get install` on this host reports every
+          # Chromium dependency as "already the newest version", yet the
+          # loader still fails with "libnspr4.so: cannot open shared object
+          # file". Files present + loader can't find them = a stale
+          # /etc/ld.so.cache (apt reported "1 not upgraded", i.e. pending
+          # dpkg triggers, which is exactly when the cache goes stale).
+          # Pointing LD_LIBRARY_PATH at the multiarch dir bypasses the cache
+          # and resolves against the real files directly, so this doesn't
+          # depend on anyone running `ldconfig` on the host.
+          for libdir in /usr/lib/x86_64-linux-gnu /usr/lib64 /lib/x86_64-linux-gnu; do
+            [ -d "$libdir" ] && export LD_LIBRARY_PATH="$libdir${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+          done
+          echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
+
           SHELL_BIN="$(find "$PLAYWRIGHT_BROWSERS_PATH" -type f -name chrome-headless-shell 2>/dev/null | head -1)"
           if [ -n "$SHELL_BIN" ]; then
-            MISSING="$(ldd "$SHELL_BIN" 2>/dev/null | awk '/not found/{print $1}' | sort -u | tr '\n' ' ')"
+            MISSING="$(ldd "$SHELL_BIN" 2>/dev/null | awk '/not found/{print $1}' | sort -u)"
             if [ -n "$MISSING" ]; then
-              echo "::error::Chromium cannot start — this host is missing shared libraries: $MISSING"
-              echo "::error::One-time fix, as root on this server: apt-get update && apt-get install -y libnspr4 libnss3 libdbus-1-3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libatspi2.0-0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libxkbcommon0 libpango-1.0-0 libcairo2 libasound2"
+              echo "::error::Chromium cannot start — the loader cannot resolve: $(echo "$MISSING" | tr '\n' ' ')"
+              # Distinguish "package not installed" from "installed but the
+              # loader can't see it" — those need different fixes, and the
+              # bare ldd output cannot tell them apart.
+              for lib in $MISSING; do
+                HIT="$(find /usr/lib /lib -name "${lib}*" -maxdepth 3 2>/dev/null | head -2 | tr '\n' ' ')"
+                if [ -n "$HIT" ]; then
+                  echo "::error::  $lib IS on disk at: $HIT — installed, but unresolvable. Fix: run 'ldconfig' as root."
+                else
+                  echo "::error::  $lib is NOT on disk — the package is genuinely missing."
+                fi
+              done
               exit 1
             fi
             echo "Chromium shared-library preflight passed"
