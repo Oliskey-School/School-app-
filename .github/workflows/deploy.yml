@@ -264,8 +264,18 @@ jobs:
           NODE_ENV: development
           BACKEND_PORT: 5099
           REDIS_URL: redis://127.0.0.1:6379/1
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          REFRESH_TOKEN_SECRET: ${{ secrets.REFRESH_TOKEN_SECRET }}
+          # Confirmed 2026-08-19 (run 32312891750): these two GitHub secrets
+          # were never created, so both resolved to empty and the backend
+          # logged "WARNING: Using fallback JWT secret. Development only."
+          # The app requires these to be set and to DIFFER from each other
+          # (see backend/.env.example), so an empty/identical pair is a
+          # plausible source of auth failures in this suite. These are
+          # deliberately literal, test-only values: they sign tokens for
+          # throwaway rows in the TEST database only, in NODE_ENV=development,
+          # and are never used by the live site. A real secret in GitHub
+          # still wins if one is ever added.
+          JWT_SECRET: ${{ secrets.JWT_SECRET || 'ci-only-jwt-secret-throwaway-test-db-do-not-reuse' }}
+          REFRESH_TOKEN_SECRET: ${{ secrets.REFRESH_TOKEN_SECRET || 'ci-only-refresh-secret-throwaway-test-db-distinct' }}
         run: |
           set -e
           if [ -z "${{ secrets.TEST_DATABASE_URL }}" ]; then
@@ -289,15 +299,28 @@ jobs:
           }
           trap cleanup EXIT
 
+          # Confirmed 2026-08-19 (run 32312891750): 30s was too tight and
+          # the run died here before even reaching the browser checks. The
+          # backend had reached "[Prisma] Status: CONNECTED" and was still
+          # working — boot does migrations-check plus the demo seeder (on by
+          # default) before it binds, on a host shared with the live site.
+          # Earlier runs bound at 13-22s, i.e. already close to the limit.
+          # 120s with progress output: a healthy boot still exits the loop
+          # the moment it binds, so this costs nothing when things work.
           echo "Waiting for backend to become healthy..."
-          for i in $(seq 1 30); do
+          for i in $(seq 1 120); do
             if curl -sf "http://127.0.0.1:$BACKEND_PORT/live" > /dev/null 2>&1; then
               echo "Backend healthy after ${i}s"
               break
             fi
-            if [ "$i" = "30" ]; then
-              echo "::error::Backend never became healthy — log:"
+            if [ $((i % 15)) -eq 0 ]; then
+              echo "  ...still waiting (${i}s) — last backend log line: $(tail -1 /tmp/critical-path-backend.log 2>/dev/null)"
+            fi
+            if [ "$i" = "120" ]; then
+              echo "::error::Backend never became healthy after 120s — full log:"
               cat /tmp/critical-path-backend.log
+              echo "::error::--- vite preview log ---"
+              tail -40 /tmp/critical-path-preview.log 2>/dev/null || true
               exit 1
             fi
             sleep 1
