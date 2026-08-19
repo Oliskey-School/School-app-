@@ -111,3 +111,4 @@ graphify-out/
 # Expo/React Native web cache (regenerated automatically, never needs to be tracked)
 .expo/
 dev-dist/
+backend/generated/
