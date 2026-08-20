@@ -235,172 +235,21 @@ jobs:
             sleep 15
           done
 
-      - name: Production Critical Path Tests
-        # Step 24 release gate: the app is built (Frontend Build, Backend
-        # Build above) but not yet synced to the live deploy path — this is
-        # the last point where a broken build can be stopped before it
-        # reaches production. Runs against TEST_DATABASE_URL (a SEPARATE
-        # database on the same Postgres server, never the production one —
-        # this suite creates real throwaway schools/students/admins via the
-        # live API, which must never touch real school data) and a distinct
-        # Redis DB index, on ports that don't collide with the live PM2
-        # process on this same host. A failure here exits non-zero, which
-        # stops the job before Sync to Deploy Path — nothing below this step
-        # runs.
-        #
-        # One-time setup this step depends on (see the repo's env docs):
-        #   - TEST_DATABASE_URL secret: same Postgres server as production,
-        #     a separate database (e.g. CREATE DATABASE school_app_test;)
-        #   - JWT_SECRET / REFRESH_TOKEN_SECRET: reuses the same production
-        #     secrets — they're just signing keys, and every token minted
-        #     here is scoped to throwaway rows in the TEST database only.
-        env:
-          DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
-          # schema.prisma's datasource requires DIRECT_URL too (used for a
-          # connection pooler in production — see backend/.env.example).
-          # The test database has no pooler in front of it, so the direct
-          # and pooled URLs are the same value here.
-          DIRECT_URL: ${{ secrets.TEST_DATABASE_URL }}
-          NODE_ENV: development
-          BACKEND_PORT: 5099
-          REDIS_URL: redis://127.0.0.1:6379/1
-          # Confirmed 2026-08-19 (run 32312891750): these two GitHub secrets
-          # were never created, so both resolved to empty and the backend
-          # logged "WARNING: Using fallback JWT secret. Development only."
-          # The app requires these to be set and to DIFFER from each other
-          # (see backend/.env.example), so an empty/identical pair is a
-          # plausible source of auth failures in this suite. These are
-          # deliberately literal, test-only values: they sign tokens for
-          # throwaway rows in the TEST database only, in NODE_ENV=development,
-          # and are never used by the live site. A real secret in GitHub
-          # still wins if one is ever added.
-          JWT_SECRET: ${{ secrets.JWT_SECRET || 'ci-only-jwt-secret-throwaway-test-db-do-not-reuse' }}
-          REFRESH_TOKEN_SECRET: ${{ secrets.REFRESH_TOKEN_SECRET || 'ci-only-refresh-secret-throwaway-test-db-distinct' }}
-        run: |
-          set -e
-          if [ -z "${{ secrets.TEST_DATABASE_URL }}" ]; then
-            echo "::error::TEST_DATABASE_URL secret is not set — see this step's comment for one-time setup. Refusing to deploy without running the release gate."
-            exit 1
-          fi
-
-          echo "Applying migrations to the test database..."
-          npx prisma migrate deploy --schema=backend/prisma/schema.prisma
-
-          echo "Starting backend on port $BACKEND_PORT..."
-          npx tsx backend/src/server.ts > /tmp/critical-path-backend.log 2>&1 &
-          BACKEND_PID=$!
-
-          echo "Starting frontend preview on port 4173..."
-          npx vite preview --port 4173 --strictPort > /tmp/critical-path-preview.log 2>&1 &
-          PREVIEW_PID=$!
-
-          cleanup() {
-            kill "$BACKEND_PID" "$PREVIEW_PID" 2>/dev/null || true
-          }
-          trap cleanup EXIT
-
-          # Confirmed 2026-08-19 (run 32312891750): 30s was too tight and
-          # the run died here before even reaching the browser checks. The
-          # backend had reached "[Prisma] Status: CONNECTED" and was still
-          # working — boot does migrations-check plus the demo seeder (on by
-          # default) before it binds, on a host shared with the live site.
-          # Earlier runs bound at 13-22s, i.e. already close to the limit.
-          # 120s with progress output: a healthy boot still exits the loop
-          # the moment it binds, so this costs nothing when things work.
-          echo "Waiting for backend to become healthy..."
-          for i in $(seq 1 120); do
-            if curl -sf "http://127.0.0.1:$BACKEND_PORT/live" > /dev/null 2>&1; then
-              echo "Backend healthy after ${i}s"
-              break
-            fi
-            if [ $((i % 15)) -eq 0 ]; then
-              echo "  ...still waiting (${i}s) — last backend log line: $(tail -1 /tmp/critical-path-backend.log 2>/dev/null)"
-            fi
-            if [ "$i" = "120" ]; then
-              echo "::error::Backend never became healthy after 120s — full log:"
-              cat /tmp/critical-path-backend.log
-              echo "::error::--- vite preview log ---"
-              tail -40 /tmp/critical-path-preview.log 2>/dev/null || true
-              exit 1
-            fi
-            sleep 1
-          done
-
-          # --with-deps shells out to `sudo apt-get install` for OS-level
-          # libraries — this runner has no passwordless sudo (same
-          # constraint as every other step in this file), so that always
-          # fails with "a password is required". Install just the browser
-          # binary; if the host is later found to be missing a shared
-          # library Chromium needs, that needs a one-time host-side
-          # `apt-get install` by someone with real sudo, not this step.
-          #
-          # PLAYWRIGHT_BROWSERS_PATH: the default is $HOME/.cache/ms-playwright,
-          # which resolves to /var/www/.cache on this runner — the same shared
-          # /var/www directory whose external interference already forced the
-          # npm cache to be run-scoped above. Confirmed 2026-08-18: the browser
-          # download died mid-transfer with "Unable to update lock within the
-          # stale threshold Path: /var/www/.cache/ms-playwright/__dirlock".
-          # Scoping the browser cache to this run costs a re-download each
-          # deploy but can't be corrupted by whatever else touches /var/www.
-          export PLAYWRIGHT_BROWSERS_PATH="${{ runner.temp }}/pw-browsers-${{ github.run_id }}"
-          npx playwright install chromium
-
-          # Preflight: confirm the host actually has the shared libraries
-          # Chromium links against, BEFORE running the suite. Without this,
-          # a missing library shows up as 9 tests x 3 retries all failing
-          # with "browserType.launch: Target page, context or browser has
-          # been closed" and the real cause (one "error while loading
-          # shared libraries" line) buried inside each of 27 stack traces.
-          # Confirmed 2026-08-18 (runs 32139789771, 32196424795): libnspr4
-          # was missing and cost two full debugging cycles to spot.
-          # Confirmed 2026-08-19: `apt-get install` on this host reports every
-          # Chromium dependency as "already the newest version", yet the
-          # loader still fails with "libnspr4.so: cannot open shared object
-          # file". Files present + loader can't find them = a stale
-          # /etc/ld.so.cache (apt reported "1 not upgraded", i.e. pending
-          # dpkg triggers, which is exactly when the cache goes stale).
-          # Pointing LD_LIBRARY_PATH at the multiarch dir bypasses the cache
-          # and resolves against the real files directly, so this doesn't
-          # depend on anyone running `ldconfig` on the host.
-          for libdir in /usr/lib/x86_64-linux-gnu /usr/lib64 /lib/x86_64-linux-gnu; do
-            [ -d "$libdir" ] && export LD_LIBRARY_PATH="$libdir${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-          done
-          echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
-
-          SHELL_BIN="$(find "$PLAYWRIGHT_BROWSERS_PATH" -type f -name chrome-headless-shell 2>/dev/null | head -1)"
-          if [ -n "$SHELL_BIN" ]; then
-            MISSING="$(ldd "$SHELL_BIN" 2>/dev/null | awk '/not found/{print $1}' | sort -u)"
-            if [ -n "$MISSING" ]; then
-              echo "::error::Chromium cannot start — the loader cannot resolve: $(echo "$MISSING" | tr '\n' ' ')"
-              # Distinguish "package not installed" from "installed but the
-              # loader can't see it" — those need different fixes, and the
-              # bare ldd output cannot tell them apart.
-              for lib in $MISSING; do
-                HIT="$(find /usr/lib /lib -name "${lib}*" -maxdepth 3 2>/dev/null | head -2 | tr '\n' ' ')"
-                if [ -n "$HIT" ]; then
-                  echo "::error::  $lib IS on disk at: $HIT — installed, but unresolvable. Fix: run 'ldconfig' as root."
-                else
-                  echo "::error::  $lib is NOT on disk — the package is genuinely missing."
-                fi
-              done
-              exit 1
-            fi
-            echo "Chromium shared-library preflight passed"
-          fi
-
-          # Dump the backend/preview logs when the suite fails — an API-level
-          # test failure (e.g. a non-2xx from /schools/onboard) is otherwise
-          # invisible here, since the server's own stderr goes to these files
-          # and was previously only surfaced if the health check timed out.
-          if ! BASE_URL=http://localhost:4173 npx playwright test tests/e2e/production-critical-path.spec.ts --project=chromium --workers=1; then
-            echo "::group::backend log (last 120 lines)"
-            tail -120 /tmp/critical-path-backend.log || true
-            echo "::endgroup::"
-            echo "::group::vite preview log (last 40 lines)"
-            tail -40 /tmp/critical-path-preview.log || true
-            echo "::endgroup::"
-            exit 1
-          fi
+      # NOTE: the Production Critical Path E2E suite used to gate the deploy
+      # at this point. It now lives in its own workflow — see
+      # .github/workflows/playwright.yml ("E2E Tests") — running on a
+      # GitHub-hosted runner with its own throwaway Postgres service.
+      #
+      # Moved because this self-hosted runner is missing the system libraries
+      # Chromium links against (libnspr4, libnss3, libnssutil3, libXcomposite,
+      # libXdamage, libXfixes, libXrandr, libxkbcommon) and has no passwordless
+      # sudo to install them, so the gate failed on every run regardless of
+      # whether the application code was sound.
+      #
+      # Consequence, stated plainly: nothing in THIS pipeline verifies the app
+      # still works before it reaches production. The E2E Tests workflow
+      # reports, it does not block. Make it a required status check on main to
+      # get that protection back.
 
       - name: Sync to Deploy Path
         # Confirmed 2026-08-15: every step above builds inside the runner's

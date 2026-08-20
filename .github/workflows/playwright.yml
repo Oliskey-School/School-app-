@@ -1,28 +1,128 @@
-name: Playwright Tests
-# Manual-only. The E2E suite drives a fully running app (frontend + backend + database)
-# via `npm run start:all`, which isn't available in CI — so it can only fail there.
-# Run it locally (`npx playwright test`) or trigger this workflow by hand from the
-# Actions tab when a live environment is provided.
+name: E2E Tests
+
+# Runs the production critical-path suite on a GitHub-hosted runner, fully
+# self-contained — deliberately NOT on the self-hosted VPS runner.
+#
+# Why not self-hosted: that box is missing the system libraries Chromium
+# links against (libnspr4, libnss3, libXcomposite, libXdamage, libXfixes,
+# libXrandr, libnssutil3, libxkbcommon), has no passwordless sudo so
+# `playwright install --with-deps` cannot add them, and something on the
+# host periodically deletes files under the runner's workspace mid-job.
+# ubuntu-latest has all of it already and --with-deps just works.
+#
+# Why its own Postgres service instead of TEST_DATABASE_URL: that secret
+# points at 10.10.2.5, a private address a GitHub-hosted runner cannot
+# reach. A throwaway service container needs no secret, no network access
+# to the VPS, and is destroyed with the job — so this suite can never
+# touch real school data, which matters because it genuinely creates
+# students, marks attendance, and onboards whole schools through the API.
+#
+# This is intentionally decoupled from Production Deployment: a failure
+# here does NOT block a deploy. It reports, it does not gate. If you want
+# it to gate releases again, add it as a required check on the branch.
+
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [main]
+  schedule:
+    # Nightly, 03:00 UTC — catches regressions even when nobody opens a PR.
+    - cron: '0 3 * * *'
+
 jobs:
-  test:
-    timeout-minutes: 60
+  e2e:
+    name: Production Critical Path
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: school_app_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/school_app_test
+      # schema.prisma's datasource requires DIRECT_URL alongside DATABASE_URL
+      # (it exists for a connection pooler in production). No pooler here, so
+      # the direct and pooled URLs are the same value.
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/school_app_test
+      # Throwaway signing keys. These are not secrets and must never match
+      # production's — every token minted here is scoped to a database that
+      # is destroyed when the job ends.
+      JWT_SECRET: ci-only-jwt-signing-key-not-used-anywhere-real
+      REFRESH_TOKEN_SECRET: ci-only-refresh-signing-key-not-used-for-real
+      NODE_ENV: development
+      BACKEND_PORT: 5099
+
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-node@v4
-      with:
-        node-version: lts/*
-    - name: Install dependencies
-      run: npm ci
-    - name: Install Playwright Browsers
-      run: npx playwright install --with-deps
-    - name: Run Playwright tests
-      run: npx playwright test
-    - uses: actions/upload-artifact@v4
-      if: ${{ !cancelled() }}
-      with:
-        name: playwright-report
-        path: playwright-report/
-        retention-days: 30
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Apply database migrations
+        run: npx prisma migrate deploy --schema=backend/prisma/schema.prisma
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Install Playwright browsers
+        # --with-deps works here (unlike on the self-hosted runner) because
+        # GitHub-hosted images grant passwordless sudo.
+        run: npx playwright install --with-deps chromium
+
+      - name: Start backend and frontend preview
+        run: |
+          npx tsx backend/src/server.ts > /tmp/e2e-backend.log 2>&1 &
+          npx vite preview --port 4173 --strictPort > /tmp/e2e-preview.log 2>&1 &
+          echo "Waiting for backend to become healthy..."
+          for i in $(seq 1 60); do
+            if curl -sf "http://127.0.0.1:$BACKEND_PORT/live" > /dev/null 2>&1; then
+              echo "Backend healthy after $((i * 2))s"
+              exit 0
+            fi
+            if [ "$i" = "60" ]; then
+              echo "::error::Backend never became healthy — log:"
+              cat /tmp/e2e-backend.log
+              exit 1
+            fi
+            sleep 2
+          done
+
+      - name: Run critical path suite
+        # BASE_URL being set also disables playwright.config.ts's webServer
+        # block, so Playwright never runs `npm run start:all` (whose
+        # prestart hook kill -9s whatever holds ports 3000/5000).
+        run: BASE_URL=http://localhost:4173 npx playwright test tests/e2e/production-critical-path.spec.ts --project=chromium --workers=1
+
+      - name: Server logs on failure
+        if: failure()
+        run: |
+          echo "::group::backend log (last 150 lines)"
+          tail -150 /tmp/e2e-backend.log || true
+          echo "::endgroup::"
+          echo "::group::vite preview log (last 50 lines)"
+          tail -50 /tmp/e2e-preview.log || true
+          echo "::endgroup::"
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: .playwright-report/
+          retention-days: 30
