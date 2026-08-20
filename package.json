@@ -82,7 +82,7 @@
     "express": "5.1.0",
     "express-rate-limit": "^8.5.2",
     "formik": "2.4.9",
-    "framer-motion": "12.25.0",
+    "framer-motion": "11.11.17",
     "glob": "13.0.3",
     "helmet": "8.1.0",
     "html2canvas": "1.4.1",
