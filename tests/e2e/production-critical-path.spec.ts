@@ -126,13 +126,13 @@ test.describe('Production critical path', () => {
             const label = classLabels.nth(i);
             const text = (await label.innerText().catch(() => '')) || '';
             if (/JSS|SSS|Primary|Basic|Grade|Year|Nursery/i.test(text)) {
-                picked = await label.locator('input[type="checkbox"]')
+                picked = await label.locator('input[type="radio"]')
                     .check({ force: true, timeout: 5000 }).then(() => true).catch(() => false);
                 if (picked) break;
             }
         }
         if (!picked) {
-            picked = await classLabels.first().locator('input[type="checkbox"]')
+            picked = await classLabels.first().locator('input[type="radio"]')
                 .check({ force: true, timeout: 5000 }).then(() => true).catch(() => false);
         }
         test.skip(!picked, 'Could not select a class to enrol the student into');
