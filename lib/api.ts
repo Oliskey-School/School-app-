@@ -1468,11 +1468,15 @@ class ExpressApiClient {
         return this.linkParentToChild(parentId, studentId, schoolId);
     }
 
-    async linkStudentToParent(parentId: string, studentIdOrCode: string, relationshipOrSchoolId: string, schoolId?: string): Promise<any> {
-        return this.post('/parents/link-child', { 
-            parentId, 
-            studentId: studentIdOrCode, 
+    async linkStudentToParent(parentId: string, studentIdOrCode: string, relationshipOrSchoolId: string, schoolId?: string, dateOfBirth?: string): Promise<any> {
+        return this.post('/parents/link-child', {
+            parentId,
+            studentId: studentIdOrCode,
             relationship: relationshipOrSchoolId,
+            // Proof of relationship — the backend requires the child's date of
+            // birth (or admission number) from a parent linking their own child,
+            // so a guessable student code alone can't claim someone else's child.
+            dateOfBirth,
             schoolId: schoolId || (typeof relationshipOrSchoolId === 'string' && relationshipOrSchoolId.length > 20 ? relationshipOrSchoolId : undefined)
         });
     }

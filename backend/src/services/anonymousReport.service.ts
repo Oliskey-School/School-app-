@@ -5,18 +5,26 @@ export class AnonymousReportService {
     static async create(data: {
         report_hash: string;
         track_code: string;
-        school_id?: string;
+        school_id: string;
+        branch_id?: string | null;
         category: string;
         severity?: string;
         description_encrypted: string;
         location?: string;
         status?: string;
     }) {
+        // school_id is NOT NULL on the row. It was previously defaulted to null
+        // here, which made every create throw a foreign-key error.
+        if (!data.school_id) {
+            throw new Error('school_id is required to file an anonymous report');
+        }
+
         const result = await (prisma as any).secureAnonymousReport.create({
             data: {
                 report_hash: data.report_hash,
                 track_code: data.track_code,
-                school_id: data.school_id || null,
+                school_id: data.school_id,
+                branch_id: data.branch_id || null,
                 category: data.category,
                 severity: data.severity || 'Medium',
                 description_encrypted: data.description_encrypted,

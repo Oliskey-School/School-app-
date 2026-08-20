@@ -14,10 +14,18 @@ const SchoolPoliciesScreen: React.FC<SchoolPoliciesScreenProps> = ({ schoolId })
   const [loading, setLoading] = useState(true);
 
   const fetchPolicies = useCallback(async () => {
+    // Must clear `loading` before bailing out — it starts as true, so an early
+    // return left the screen on a permanent spinner instead of showing the
+    // "No policies found" empty state.
+    if (!schoolId) {
+      setPolicies([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       // Use Central API
-      const data = await api.getSchoolPolicies(schoolId || '');
+      const data = await api.getSchoolPolicies(schoolId);
 
       setPolicies(data.map((p: any) => ({
         id: p.id,

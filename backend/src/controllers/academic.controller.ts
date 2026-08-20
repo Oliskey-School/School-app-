@@ -94,6 +94,17 @@ export const saveGrade = async (req: AuthRequest, res: Response) => {
             }
         }
 
+        // The checks above only prove the teacher teaches SOMETHING — the
+        // ClassTeacher fallback matches any class at all and never looks at
+        // studentId. That let a teacher write a grade for any student in the
+        // school, including one in another branch (verified live: HTTP 201 on a
+        // class the teacher does not teach). getGrades already restricts reads
+        // with this same helper, so writes were the asymmetric hole.
+        const authorizedStudentIds = await getAuthorizedStudentIds(req);
+        if (authorizedStudentIds !== null && !authorizedStudentIds.includes(studentId)) {
+            return res.status(403).json({ message: "You are not assigned to this student's class" });
+        }
+
         const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
         const result = await AcademicService.saveGrade(req.user.school_id, branchId, studentId, subject, term, score, session);
         res.status(201).json(result);

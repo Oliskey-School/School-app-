@@ -21,7 +21,11 @@ router.put('/bulk/status', authenticate, requireRole(['SUPER_ADMIN']), SchoolCon
 router.delete('/bulk', authenticate, requireRole(['SUPER_ADMIN']), SchoolController.deleteSchoolsBulk);
 
 router.put('/', authenticate, SchoolController.updateMySchool);
-router.delete('/:id', authenticate, SchoolController.deleteSchool);
+// Deleting a school wipes its users, students, teachers, parents, classes and
+// branches. `authenticate` alone let ANY role of that school (student, parent,
+// teacher) through the controller's "is this your own school?" check, so the
+// destructive action must be role-gated here as well.
+router.delete('/:id', authenticate, requireRole(['SUPER_ADMIN', 'ADMIN', 'PROPRIETOR']), SchoolController.deleteSchool);
 router.put('/:id', authenticate, SchoolController.updateSchool);
 router.post('/:id/subscription', authenticate, SchoolController.updateSchoolSubscription);
 

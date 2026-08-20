@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ParentDashboard from '../ParentDashboard';
 import { MemoryRouter } from 'react-router';
 
@@ -41,10 +42,19 @@ vi.mock('../../../lib/api', () => ({
 
 describe('ParentDashboard Visibility (Minimal)', () => {
     it('renders the parent dashboard shell', async () => {
+        // The dashboard tree reaches useNotifications -> useQuery, so it needs a
+        // QueryClient in scope. The context providers are mocked above at the hook
+        // level, so we provide only the query client rather than the full app shell.
+        const queryClient = new QueryClient({
+            defaultOptions: { queries: { retry: false, gcTime: 0 } },
+        });
+
         render(
-            <MemoryRouter>
-                <ParentDashboard setIsHomePage={vi.fn()} />
-            </MemoryRouter>
+            <QueryClientProvider client={queryClient}>
+                <MemoryRouter>
+                    <ParentDashboard setIsHomePage={vi.fn()} />
+                </MemoryRouter>
+            </QueryClientProvider>
         );
 
         expect(await screen.findByText('Parent Dashboard')).toBeInTheDocument();

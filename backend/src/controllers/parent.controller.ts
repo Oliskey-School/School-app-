@@ -165,9 +165,78 @@ export const getChildrenForParent = async (req: AuthRequest, res: Response) => {
 };
 
 
+// Admins can link/unlink any parent to any student. A parent may only act on
+// their OWN account (parentId in the request body must resolve to their own
+// user/parent record) — never on behalf of another parent. This is what lets
+// the parent-facing "Link a New Child" self-service screen work at all, while
+// still stopping a parent from linking themselves to (or unlinking) a child
+// via someone else's parent account.
+async function assertActingOnOwnParentAccount(req: AuthRequest, parentId: string): Promise<boolean> {
+    if (isAdmin(req)) return true;
+    if ((req.user.role || '').toLowerCase() !== 'parent') return false;
+    const ownParent = await prisma.parent.findFirst({
+        where: { user_id: req.user.id, school_id: req.user.school_id },
+        select: { id: true, user_id: true }
+    });
+    if (!ownParent) return false;
+    return parentId === ownParent.id || parentId === ownParent.user_id;
+}
+
+// Proof-of-relationship for parent self-service linking. The parent must supply
+// a detail only someone who actually knows the child would have: the child's
+// date of birth, or their admission number. Matched against the student record
+// inside the caller's own school.
+async function assertProvesRelationship(
+    schoolId: string,
+    studentIdOrCode: string,
+    body: any
+): Promise<{ ok: boolean; message?: string }> {
+    const dateOfBirth: string | undefined = body?.dateOfBirth || body?.date_of_birth;
+    const admissionNumber: string | undefined = body?.admissionNumber || body?.admission_number;
+
+    if (!dateOfBirth && !admissionNumber) {
+        return { ok: false, message: "To link a child you must confirm the child's date of birth or admission number." };
+    }
+
+    const code = String(studentIdOrCode).trim();
+    const student = await prisma.student.findFirst({
+        where: {
+            school_id: schoolId,
+            deleted_at: null,
+            OR: [
+                { id: code },
+                { school_generated_id: code },
+                { admission_number: code }
+            ]
+        },
+        select: { dob: true, admission_number: true }
+    });
+
+    // Deliberately the SAME message as a failed match, so this endpoint cannot
+    // be used to probe which student codes exist.
+    const denied = { ok: false, message: "The details provided do not match our records for that student." };
+    if (!student) return denied;
+
+    if (admissionNumber && student.admission_number
+        && String(admissionNumber).trim().toLowerCase() === student.admission_number.trim().toLowerCase()) {
+        return { ok: true };
+    }
+
+    if (dateOfBirth && student.dob) {
+        const supplied = new Date(dateOfBirth);
+        if (!isNaN(supplied.getTime())) {
+            const asDay = (d: Date) => d.toISOString().slice(0, 10);
+            if (asDay(supplied) === asDay(new Date(student.dob))) {
+                return { ok: true };
+            }
+        }
+    }
+
+    return denied;
+}
+
 export const linkChild = async (req: AuthRequest, res: Response) => {
     try {
-        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can link a child to a parent' });
         const { parentId, studentId } = req.body;
         console.log('📡 [ParentController] linkChild called with:', { parentId, studentId });
 
@@ -175,13 +244,29 @@ export const linkChild = async (req: AuthRequest, res: Response) => {
             return res.status(400).json({ message: 'parentId and studentId are required' });
         }
 
+        if (!(await assertActingOnOwnParentAccount(req, parentId))) {
+            return res.status(403).json({ message: 'You may only link a child to your own account' });
+        }
+
+        // Acting on your OWN account is not the same as being entitled to THIS
+        // child. Student codes are sequential and guessable (…_STU_0001), so
+        // without a second factor any parent could enumerate codes and claim
+        // any child in the school. Admins are exempt — they link on the
+        // school's authority.
+        if (!isAdmin(req)) {
+            const proof = await assertProvesRelationship(req.user.school_id, studentId, req.body);
+            if (!proof.ok) {
+                return res.status(403).json({ message: proof.message });
+            }
+        }
+
         const branchId = getEffectiveBranchId(req.user, req.body?.branch_id);
         const result = await ParentService.linkChild(req.user.school_id, branchId, parentId, studentId);
         res.status(201).json(result);
     } catch (error: any) {
-        console.error('❌ [ParentController] linkChild error details:', { 
-            message: error.message, 
-            stack: error.stack 
+        console.error('❌ [ParentController] linkChild error details:', {
+            message: error.message,
+            stack: error.stack
         });
         res.status(500).json({ message: error.message });
     }
@@ -189,8 +274,10 @@ export const linkChild = async (req: AuthRequest, res: Response) => {
 
 export const unlinkChild = async (req: AuthRequest, res: Response) => {
     try {
-        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can unlink a child from a parent' });
         const { parentId, studentId } = req.body;
+        if (!(await assertActingOnOwnParentAccount(req, parentId))) {
+            return res.status(403).json({ message: 'You may only unlink a child from your own account' });
+        }
         const branchId = getEffectiveBranchId(req.user, req.body?.branch_id);
         await ParentService.unlinkChild(req.user.school_id, branchId, parentId, studentId);
         res.status(204).send();

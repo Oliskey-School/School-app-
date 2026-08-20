@@ -68,12 +68,20 @@ export class AcademicService {
     static async saveGrade(schoolId: string, branchId: string | undefined, studentId: string | number, subject: string, term: string, score: number, session: string) {
         const id = String(studentId);
 
-        const student = await prisma.student.findUnique({
-            where: { id: id },
+        // Scope the lookup to the caller's tenant. findUnique by id alone meant
+        // the row was created with the CALLER's school_id while connecting to a
+        // possibly foreign-school student — a cross-tenant write primitive.
+        // Every sibling method in this service scopes by school_id.
+        const student = await prisma.student.findFirst({
+            where: { id: id, school_id: schoolId },
             select: { status: true }
         });
 
-        if (!student || student.status !== 'Active') {
+        if (!student) {
+            throw new Error('Student not found.');
+        }
+
+        if (student.status !== 'Active') {
             throw new Error('Grades can only be saved for students with Active status.');
         }
         

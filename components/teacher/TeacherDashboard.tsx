@@ -42,6 +42,7 @@ import TimetableScreen from '../shared/TimetableScreen';
 import ChatScreen from '../shared/ChatScreen';
 import TeacherReportsScreen from './TeacherReportsScreen';
 import TeacherSettingsScreen from './TeacherSettingsScreen';
+import HelpSupportScreen from './HelpSupportScreen';
 import EditTeacherProfileScreen from './EditTeacherProfileScreen';
 import TeacherNotificationSettingsScreen from './TeacherNotificationSettingsScreen';
 import TeacherSecurityScreen from './TeacherSecurityScreen';
@@ -316,6 +317,9 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     reports: TeacherReportsScreen,
     reportCardPreview: TeacherReportCardPreviewScreen,
     settings: (props: any) => <TeacherSettingsScreen {...props} dashboardProfile={teacherProfile} refreshDashboardProfile={fetchProfile} />,
+    // Settings links here via navigateTo('helpSupport', …), but the key was never
+    // registered, so the screen rendered the literal "View not found: helpSupport".
+    helpSupport: HelpSupportScreen,
     editTeacherProfile: (props: any) => <EditTeacherProfileScreen {...props} onProfileUpdate={fetchProfile} />,
     teacherNotificationSettings: (props: any) => <TeacherNotificationSettingsScreen {...props} teacherId={teacherId} />,
     teacherSecurity: (props: any) => <TeacherSecurityScreen {...props} teacherId={teacherId} userId={currentUserId} />,

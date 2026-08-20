@@ -122,10 +122,10 @@ export async function fetchChildrenForParent(parentId: string): Promise<Student[
     }
 }
 
-export async function linkStudentToParent(studentCode: string, relationship: string, parentId?: string): Promise<{success: boolean, message: string}> {
+export async function linkStudentToParent(studentCode: string, relationship: string, parentId?: string, dateOfBirth?: string): Promise<{success: boolean, message: string}> {
     try {
         if (!parentId) throw new Error('Parent ID is required');
-        const result = await api.linkStudentToParent(parentId, studentCode, relationship);
+        const result = await api.linkStudentToParent(parentId, studentCode, relationship, undefined, dateOfBirth);
         return { success: true, message: 'Student linked successfully.' };
     } catch (err: any) {
         console.error('Error linking student:', err);

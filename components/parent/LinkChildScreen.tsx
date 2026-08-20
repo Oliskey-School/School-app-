@@ -17,6 +17,7 @@ interface LinkChildScreenProps {
 const LinkChildScreen: React.FC<LinkChildScreenProps> = ({ handleBack, forceUpdate }) => {
     const { userProfile } = useAuth();
     const [studentCode, setStudentCode] = useState('');
+    const [dateOfBirth, setDateOfBirth] = useState('');
     const [relationship, setRelationship] = useState('Parent');
     const [loading, setLoading] = useState(false);
     const [linkedChildren, setLinkedChildren] = useState<any[]>([]);
@@ -66,13 +67,18 @@ const LinkChildScreen: React.FC<LinkChildScreenProps> = ({ handleBack, forceUpda
             toast.error("Please enter the student's ID code.");
             return;
         }
+        if (!dateOfBirth) {
+            toast.error("Please enter the child's date of birth to confirm the link.");
+            return;
+        }
 
         setLoading(true);
         try {
-            const result = await linkStudentToParent(studentCode.trim(), relationship, userProfile?.id);
+            const result = await linkStudentToParent(studentCode.trim(), relationship, userProfile?.id, dateOfBirth);
             if (result.success) {
                 toast.success(result.message);
                 setStudentCode('');
+                setDateOfBirth('');
                 loadLinkedChildren();
                 forceUpdate();
             } else {
@@ -151,6 +157,21 @@ const LinkChildScreen: React.FC<LinkChildScreenProps> = ({ handleBack, forceUpda
 
                             <div>
                                 <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    Child's Date of Birth
+                                </label>
+                                <input
+                                    type="date"
+                                    value={dateOfBirth}
+                                    onChange={(e) => setDateOfBirth(e.target.value)}
+                                    className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                />
+                                <p className="text-xs text-gray-500 mt-2 font-medium">
+                                    Used to confirm this child is yours
+                                </p>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
                                     Relationship
                                 </label>
                                 <select
@@ -180,7 +201,7 @@ const LinkChildScreen: React.FC<LinkChildScreenProps> = ({ handleBack, forceUpda
                             <div className="bg-blue-50 p-4 rounded-xl flex items-start space-x-3">
                                 <ShieldCheckIcon className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
                                 <p className="text-xs text-blue-800 leading-relaxed font-medium">
-                                    For security, linking requires the exact unique ID. Once linked, you can view grades, attendance, and pay fees instantly.
+                                    For security, linking requires the exact unique ID and the child's date of birth. Once linked, you can view grades, attendance, and pay fees instantly.
                                 </p>
                             </div>
                         </form>

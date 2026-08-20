@@ -154,6 +154,13 @@ export class SchoolService {
     }
 
     static async updateSchoolSubscription(schoolId: string, id: string, updates: any) {
+        // Defence in depth: the target row must be the caller's own tenant. The
+        // controller also checks this, but scoping the write here means a future
+        // caller cannot reintroduce a cross-tenant update by passing a foreign id.
+        if (!schoolId || schoolId !== id) {
+            throw new Error('School not found or permission denied');
+        }
+
         const result = await prisma.school.updateMany({
             where: {
                 id: id,

@@ -85,11 +85,22 @@ export const getAttendance = async (req: AuthRequest, res: Response) => {
             }
         }
 
+        // Only TEACHER was special-cased above; PARENT and STUDENT fell straight
+        // through to the school-wide date query below, so a parent could read
+        // every student's attendance for a date (verified live: a parent got back
+        // a record for a child that was not theirs, and the `studentId` query
+        // param was silently ignored). Restrict them to their own/linked students.
+        const authorizedStudentIds = await getAuthorizedStudentIds(req);
+
         // If classId is provided, fetch for class, otherwise fetch all for school on that date
         let result;
         const branchId = getEffectiveBranchId(req.user, (req.query.branch_id || req.query.branchId) as string);
         if (targetClassId && targetClassId !== 'any' && targetClassId !== 'all') {
             result = await AttendanceService.getAttendance(req.user.school_id, branchId, targetClassId, date as string);
+            if (authorizedStudentIds !== null) {
+                const allowed = new Set(authorizedStudentIds);
+                result = (result || []).filter((r: any) => allowed.has(r.student_id));
+            }
         } else {
             result = await prisma.attendance.findMany({
                 where: {
@@ -97,7 +108,8 @@ export const getAttendance = async (req: AuthRequest, res: Response) => {
                         school_id: req.user.school_id,
                         branch_id: branchId && branchId !== 'all' ? branchId : undefined
                     },
-                    date: new Date(date as string)
+                    date: new Date(date as string),
+                    ...(authorizedStudentIds !== null ? { student_id: { in: authorizedStudentIds } } : {})
                 },
                 include: {
                     student: true

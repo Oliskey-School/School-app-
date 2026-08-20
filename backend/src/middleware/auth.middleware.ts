@@ -175,6 +175,27 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
             }
         }
 
+        // School-level admins skip the allow-list above by design (they manage every
+        // branch of their school). That previously let them assert ANOTHER SCHOOL's
+        // branch id: the request was accepted, and only the school_id filter on each
+        // downstream query kept the data separate. Any branch-only query would have
+        // turned that into a cross-tenant read. Reject a branch that demonstrably
+        // belongs to a different school.
+        //
+        // Only a branch that actually EXISTS and resolves to another tenant is
+        // rejected — demo sandbox branch ids ("demo-v-<id>" / "<root>__<child>") are
+        // virtual and have no Branch row, so they are unaffected.
+        if (headerBranchId && isSchoolLevelAdmin && user.school_id) {
+            const branchOwner = await prisma.branch.findUnique({
+                where: { id: headerBranchId },
+                select: { school_id: true }
+            });
+            if (branchOwner && branchOwner.school_id !== user.school_id) {
+                console.error(`🚨 [Security] Cross-tenant branch assertion: ${user.id} (school ${user.school_id}) tried branch ${headerBranchId} of school ${branchOwner.school_id}`);
+                return res.status(403).json({ message: 'User not authorized to access this branch' });
+            }
+        }
+
         console.log(`✅ [Auth Success] User: ${user.email}`);
 
         // Phone now lives on the core user (all roles); fall back to a role profile.

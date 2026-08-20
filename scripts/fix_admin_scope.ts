@@ -2,7 +2,9 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 async function main() {
     console.log('Promoting admin@demo.com to Global Admin...');
-    await prisma.user.update({
+    // Email is unique per school+branch, not globally, so this is not a
+    // findUnique target — updateMany matches every admin@demo.com row.
+    await prisma.user.updateMany({
         where: { email: 'admin@demo.com' },
         data: { branch_id: null }
     });

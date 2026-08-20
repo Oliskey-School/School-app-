@@ -81,8 +81,31 @@ export const approveStudent = async (req: AuthRequest, res: Response) => {
     }
 };
 
+// `initial_password` mirrors a student's CURRENT real login password (it is
+// rewritten on every change/reset — see the same note in teacher.service.ts),
+// so it must never reach a non-admin caller. Admins keep it: the credential
+// hand-out screens legitimately display it.
+function stripStudentCredentials(result: any): any {
+    const scrub = (student: any) => {
+        if (student && student.user && 'initial_password' in student.user) {
+            delete student.user.initial_password;
+        }
+        return student;
+    };
+    return Array.isArray(result) ? result.map(scrub) : scrub(result);
+};
+
 export const getAllStudents = async (req: AuthRequest, res: Response) => {
     try {
+        // The full student roster (every classmate's linked user record) is
+        // admin/teacher territory. A STUDENT listing every other student was an
+        // open read of 22 peer records including their live login passwords;
+        // a PARENT has their own /children endpoints and no need for the roster.
+        const roleLower = (req.user.role || '').toLowerCase();
+        if (!isAdmin(req) && roleLower !== 'teacher') {
+            return res.status(403).json({ message: 'You do not have access to the full student directory' });
+        }
+
         const requestedBranch = (req.query.branch_id as string) || (req.query.branchId as string);
         const branchId = getEffectiveBranchId(req.user, requestedBranch);
         const classId = (req.query.class_id as string) || (req.query.classId as string);
@@ -92,7 +115,7 @@ export const getAllStudents = async (req: AuthRequest, res: Response) => {
 
         const result = await StudentService.getAllStudents(req.user.school_id, branchId, classId, status);
 
-        res.json(result);
+        res.json(isAdmin(req) ? result : stripStudentCredentials(result));
     } catch (error: any) {
         res.status(500).json({ message: error.message });
     }
@@ -155,7 +178,7 @@ export const updateStudent = async (req: AuthRequest, res: Response) => {
         const result = await StudentService.updateStudent(req.user.school_id, branchId, req.params.id as string, req.body);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        res.status(error.statusCode || 500).json({ message: error.message });
     }
 };
 

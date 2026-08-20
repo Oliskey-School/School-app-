@@ -51,7 +51,12 @@ export const upsertExamResults = async (req: AuthRequest, res: Response) => {
 export const getExams = async (req: AuthRequest, res: Response) => {
     try {
         let teacherId = undefined;
-        if (req.user.role === 'teacher') {
+        // The JWT carries an UPPERCASE role ("TEACHER"), so the old strict
+        // `=== 'teacher'` comparison never matched and teacherId stayed
+        // undefined — every teacher saw every exam in the school (verified
+        // live: byte-identical response to the admin's). Normalise like every
+        // other role check in this codebase does.
+        if ((req.user.role || '').toLowerCase() === 'teacher') {
             const teacher = await prisma.teacher.findUnique({
                 where: { user_id: req.user.id },
                 select: { id: true }

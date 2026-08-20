@@ -681,7 +681,9 @@ export class StudentService {
             });
 
             if (!student) {
-                throw new Error('Student record to update not found.');
+                const err: any = new Error('Student record to update not found.');
+                err.statusCode = 404;
+                throw err;
             }
 
             const studentUpdates: any = {};

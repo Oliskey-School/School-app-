@@ -19,8 +19,12 @@ const router = Router();
 // fixes from earlier rounds, just on a more sensitive dataset.
 const ADMIN_ROLES = ['admin', 'proprietor', 'superadmin', 'super_admin'];
 
-// Public endpoint - no auth needed for anonymous reporting
-router.post('/', createAnonymousReport);
+// Submitting requires a session so the report can be filed against the right
+// school — the row's school_id is NOT NULL, and without a token there was no
+// way to derive it, so every submission failed with a 500 and nothing was ever
+// saved. The report stays anonymous: only school_id/branch_id are taken from
+// the token, never the reporter's identity.
+router.post('/', authenticate, createAnonymousReport);
 
 // Public endpoint - track report by code (no auth, only returns limited info)
 router.get('/track/:trackCode', getReportByTrackCode);

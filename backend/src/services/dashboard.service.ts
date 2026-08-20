@@ -1,4 +1,5 @@
 import prisma from '../config/database';
+import { Role } from '../../generated/prisma-client';
 
 export class DashboardService {
     static async getStats(schoolId: string, teacherId?: string, branchId?: string) {
@@ -8,8 +9,15 @@ export class DashboardService {
             const isAllBranches = branchId === 'all' || !branchId;
             const effectiveBranchId = isAllBranches ? undefined : branchId;
 
-            // Define base filters
-            const baseWhere: any = { school_id: schoolId };
+            // Define base filters.
+            // deleted_at: null matches what the list services already do (see
+            // StudentService.getAllStudents) — without it the dashboard counted
+            // soft-deleted rows, so the admin home screen reported 25 students
+            // while the Student List showed 20. Every model this baseWhere is
+            // spread into (Student, Teacher, Parent, Class, Attendance,
+            // ReportCard, AuditLog, Timetable, BehaviorNote, AcademicPerformance,
+            // StudentFee, ClassTeacher) has a deleted_at column.
+            const baseWhere: any = { school_id: schoolId, deleted_at: null };
             if (effectiveBranchId) baseWhere.branch_id = effectiveBranchId;
 
             const now = new Date();
@@ -316,6 +324,13 @@ export class DashboardService {
                 prisma.teacher.count({
                     where: {
                         school_id: schoolId,
+                        deleted_at: null,
+                        // Only count records whose linked user actually has the TEACHER
+                        // role. Admins can hold rows in the teacher table after a role
+                        // change, and counting them made the dashboard report 6 staff
+                        // while the Teacher List (which already applies this rule in
+                        // TeacherService.getAllTeachers) correctly showed 5.
+                        user: { role: Role.TEACHER },
                         // A teacher counts toward a branch if it's their primary branch
                         // OR the admin assigned them to it (allowed_branch_ids). This is
                         // why a teacher added to Lekki now shows in Lekki's staff total.

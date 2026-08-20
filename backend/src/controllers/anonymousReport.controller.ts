@@ -3,11 +3,25 @@ import { AnonymousReportService } from '../services/anonymousReport.service';
 
 export const createAnonymousReport = async (req: Request, res: Response) => {
     try {
-        const report = await AnonymousReportService.create(req.body);
+        // school_id is NOT NULL on the row and the client never sends one, so it
+        // must come from the verified token — never from req.body, which would let
+        // a caller file a report into another school.
+        const schoolId = (req as any).user?.school_id;
+        if (!schoolId) {
+            return res.status(400).json({ error: 'School context required to file a report' });
+        }
+
+        const report = await AnonymousReportService.create({
+            ...req.body,
+            school_id: schoolId,
+            branch_id: (req as any).user?.branch_id || null,
+        });
         res.status(201).json(report);
     } catch (error: any) {
         console.error('Error creating anonymous report:', error);
-        res.status(500).json({ error: 'Failed to create report', details: error.message });
+        // Never return error.message here — the raw Prisma error carries absolute
+        // source paths, the model shape and the submitted values.
+        res.status(500).json({ error: 'Failed to create report' });
     }
 };
 

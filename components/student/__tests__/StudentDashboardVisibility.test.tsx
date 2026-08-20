@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import StudentDashboard from '../StudentDashboard';
 import { MemoryRouter } from 'react-router';
 
@@ -83,10 +84,19 @@ describe('StudentDashboard Visibility (Minimal)', () => {
     const mockUser = { id: 'test-user', email: 'student@demo.com', user_metadata: { full_name: 'Test Student' } };
 
     it('renders the student dashboard shell and internal overview', async () => {
+        // The dashboard tree reaches useNotifications -> useQuery, so it needs a
+        // QueryClient in scope. The context providers are mocked above at the hook
+        // level, so we provide only the query client rather than the full app shell.
+        const queryClient = new QueryClient({
+            defaultOptions: { queries: { retry: false, gcTime: 0 } },
+        });
+
         render(
-            <MemoryRouter>
-                <StudentDashboard setIsHomePage={vi.fn()} currentUser={mockUser} />
-            </MemoryRouter>
+            <QueryClientProvider client={queryClient}>
+                <MemoryRouter>
+                    <StudentDashboard setIsHomePage={vi.fn()} currentUser={mockUser} />
+                </MemoryRouter>
+            </QueryClientProvider>
         );
 
         // 1. Wait for the dashboard shell to appear
