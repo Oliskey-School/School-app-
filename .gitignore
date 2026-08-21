@@ -76,6 +76,11 @@ test_output_utf8.txt
 !package.json
 !tsconfig.json
 !prisma/schema.prisma
+# prisma/seed.ts was silently excluded by the blanket *.ts rule above, so it
+# was never committed — `npm run db:seed` (and package.json's prisma.seed
+# hook) pointed at a file that only ever existed on one developer's machine,
+# and failed with ERR_MODULE_NOT_FOUND everywhere else, including CI.
+!prisma/seed.ts
 !ddl.sql
 !*.md
 !pwa.d.ts
