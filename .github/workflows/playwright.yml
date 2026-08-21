@@ -119,6 +119,22 @@ jobs:
         run: npm run db:seed
 
       - name: Build frontend
+        env:
+          # Override the job-level NODE_ENV=development for THIS step only.
+          #
+          # The backend genuinely needs development (it enables CORS, which the
+          # suite depends on because the SPA and API are served from different
+          # ports here). But that job-level value also reached `vite build`, and
+          # a development-mode production build renders a completely blank page
+          # — reproduced locally on 2026-08-21: `NODE_ENV=development npm run
+          # build` then `vite preview` serves HTTP 200 with an empty body.
+          #
+          # That is why run 32494561069 failed 8 of 9 tests waiting for the
+          # "Try Demo School" button while both the backend and the preview
+          # reported healthy: the page really was served, and really was empty.
+          # The one test that passed is the API-level isolation check, which
+          # never opens the UI.
+          NODE_ENV: production
         run: npm run build
 
       - name: Install Playwright browsers
