@@ -75,8 +75,25 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Apply database migrations
-        run: npx prisma migrate deploy --schema=backend/prisma/schema.prisma
+      - name: Create schema
+        # `db push`, NOT `migrate deploy`, and deliberately so.
+        #
+        # Confirmed 2026-08-21: `prisma migrate diff` between a
+        # migrate-deploy'd database and backend/prisma/schema.prisma emits 223
+        # statements. The committed migrations are far behind the schema —
+        # missing created_by/branch_id and other columns across dozens of
+        # tables — so a database built from them does not match the models the
+        # app actually uses. Seeding it failed with P2022 "The column
+        # `User.created_by` does not exist in the current database".
+        #
+        # This throwaway container is destroyed with the job, so `db push`
+        # (which makes the database match the schema exactly) is both correct
+        # and the only thing that works here.
+        #
+        # The drift itself is a real, separate problem: the migrations cannot
+        # rebuild production from scratch, which matters for disaster recovery
+        # and for standing up any new environment. That needs fixing on its own.
+        run: npx prisma db push --schema=backend/prisma/schema.prisma --skip-generate --accept-data-loss
 
       - name: Seed demo data
         # migrate deploy creates the schema but no rows. The suite signs in as

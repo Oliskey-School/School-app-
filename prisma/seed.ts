@@ -1,4 +1,24 @@
-import { PrismaClient, Role } from '@prisma/client';
+// Import the BACKEND client explicitly, not the bare '@prisma/client'.
+//
+// This repo has two schemas and package.json's postinstall generates a client
+// from each:
+//   prisma/schema.prisma          -> node_modules/@prisma/client   (STALE: still
+//                                    models User.email as globally @unique, the
+//                                    pre-multi-tenant design)
+//   backend/prisma/schema.prisma  -> backend/generated/prisma-client (current:
+//                                    @@unique([school_id, branch_id, email]))
+//
+// The live database is migrated from the BACKEND schema, so a seed written
+// against the bare import is type-checked and executed against a model shape
+// the database does not have. Confirmed on run 32488120782: bare email lookups
+// were rejected by Postgres as 42P10, and the composite key was rejected by the
+// stale client as "Unknown argument `school_id_branch_id_email`" — the seed
+// could not satisfy both at once.
+//
+// The root schema should be reconciled with (or deleted in favour of) the
+// backend one; until then, every consumer must be explicit about which client
+// it means.
+import { PrismaClient, Role } from '../backend/generated/prisma-client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -509,7 +529,13 @@ export async function seedDemoSchool() {
               due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
               teacher_id: mathTeacher.id,
               is_published: true,
-              description: 'Complete exercises 1-10 on page 45 of the textbook.'
+              description: 'Complete exercises 1-10 on page 45 of the textbook.',
+              // Required, and the `as any` below hides its absence from tsc —
+              // it only surfaced at runtime as P2012 "Argument `school_id` is
+              // missing", which aborted the seed before assignments, timetable
+              // or anything after it was written.
+              school_id: school.id,
+              branch_id: branch.id
           } as any
       });
 
@@ -554,6 +580,11 @@ export async function seedDemoSchool() {
                   },
                   update: {},
                   create: {
+                      // Required on Attendance; its absence aborted the seed
+                      // here at runtime (the `as any` cast below hides it from
+                      // the type checker).
+                      school_id: school.id,
+                      branch_id: branch.id,
                       student_id: s.id,
                       class_id: firstClass.id,
                       date: date,
