@@ -13,6 +13,19 @@ import { defineConfig, devices } from '@playwright/test';
  */
 export default defineConfig({
   testDir: './tests/e2e',
+  /**
+   * Per-test timeout. Playwright's default is 30s, which is too short for the
+   * critical-path flow: load the SPA, click into the demo, authenticate, and
+   * wait for a dashboard to mount and expose its navigation hook.
+   *
+   * Confirmed run 32496942845: the Login test died with "Test timeout of
+   * 30000ms exceeded" while waiting for window.ADMIN_NAVIGATE — and its own
+   * `waitForFunction(..., { timeout: 60_000 })` could never be reached,
+   * because a per-call timeout longer than the test timeout is unreachable by
+   * definition. Individual tests already raise this to 60-90s ad hoc; setting
+   * it once here covers the ones that don't.
+   */
+  timeout: 90_000,
   /* Run tests in files in parallel */
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
