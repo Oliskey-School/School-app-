@@ -236,6 +236,49 @@ jobs:
           done
 
       - name: Zero-Downtime PM2 Reload
+        # RUNNER_TRACKING_ID="" is load-bearing, do not remove it.
+        #
+        # Confirmed 2026-08-20 (runs 32426968440 and 32429642043): the job
+        # reported success, then the runner's own teardown immediately killed
+        # everything this step had just started:
+        #
+        #   Cleaning up orphan processes
+        #   Terminate orphan process: pid (...) (PM2 v5.4.3: God)
+        #   Terminate orphan process: pid (...) (node /var/www/S)   x6
+        #
+        # The runner tags every process it spawns with RUNNER_TRACKING_ID and
+        # SIGKILLs the whole tagged tree at job end. Because CI spawned the PM2
+        # daemon, the daemon and all six app instances were tagged — so each
+        # "successful" deploy took the site down. That is also why every run
+        # logged "Applications oliskey-api not running, starting..." : the
+        # previous deploy's processes had already been killed.
+        #
+        # Blanking the variable for this step leaves the daemon untagged, so
+        # teardown leaves it alone.
+        #
+        # This is the in-CI fix and needs no server access. The durable fix is
+        # to have systemd own the daemon (`pm2 startup systemd` once, as root),
+        # after which this step's `pm2 reload` just talks to the existing
+        # daemon over its socket and never spawns anything to be cleaned up.
         run: |
+          set -e
+          export RUNNER_TRACKING_ID=""
           cd /var/www/School-app
           npx pm2 reload ecosystem.config.cjs --update-env || npx pm2 start ecosystem.config.cjs --env production
+          # Persist the process list so a host reboot restores it.
+          npx pm2 save || true
+
+          # Prove the app is actually serving before calling this a success —
+          # a green PM2 table only means the processes launched, not that they
+          # stayed up or bound the port.
+          echo "Verifying the API responds..."
+          for i in $(seq 1 15); do
+            if curl -sf http://127.0.0.1:3000/live > /dev/null 2>&1; then
+              echo "API is live on port 3000 after ${i}s"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::PM2 reported the app started, but nothing answered on http://127.0.0.1:3000/live after 30s."
+          npx pm2 logs oliskey-api --lines 40 --nostream || true
+          exit 1
