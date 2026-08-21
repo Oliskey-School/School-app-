@@ -62,7 +62,17 @@ jobs:
       JWT_SECRET: ci-only-jwt-signing-key-not-used-anywhere-real
       REFRESH_TOKEN_SECRET: ci-only-refresh-signing-key-not-used-for-real
       NODE_ENV: development
-      BACKEND_PORT: 5099
+      # Must be 5000, not an arbitrary free port. The built SPA resolves its
+      # API base in lib/config.ts: on a localhost origin with no VITE_API_URL
+      # it hardcodes http://localhost:5000/api. vite preview also does NOT
+      # apply vite.config.mts's proxy (that lives under `server.proxy`, which
+      # is dev-server only), so nothing redirects /api either.
+      #
+      # Confirmed run 32490216450: with the backend on 5099 the frontend
+      # called port 5000, reached nothing, never rendered the login screen,
+      # and all 9 tests timed out waiting for the "Try Demo School" button —
+      # which was a fault in this workflow, not in the application.
+      BACKEND_PORT: 5000
 
     steps:
       - uses: actions/checkout@v4
