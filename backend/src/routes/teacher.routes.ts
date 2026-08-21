@@ -111,9 +111,18 @@ router.get('/:id/workload', authenticate, async (req: any, res) => {
         const { default: prisma } = await import('../config/database');
         const teacher = await prisma.teacher.findFirst({
             where: { id: req.params.id, school_id: req.user.school_id },
-            select: { id: true, branch_id: true },
+            select: { id: true, branch_id: true, user_id: true },
         });
         if (!teacher) return res.status(404).json({ message: 'Teacher not found' });
+
+        // Sibling endpoints (/salary-profile, /certificates) already 403 for
+        // another teacher's record; this one was scoped by school only, so any
+        // teacher could read any colleague's workload.
+        const roleLower = (req.user.role || '').toLowerCase();
+        const isStaffAdmin = ['admin', 'proprietor', 'superadmin', 'super_admin'].includes(roleLower);
+        if (!isStaffAdmin && teacher.user_id !== req.user.id) {
+            return res.status(403).json({ message: 'You may only view your own workload' });
+        }
 
         const { TeacherAssignmentService } = await import('../services/teacherAssignment.service');
         const list = await TeacherAssignmentService.getWorkload(req.user.school_id, teacher.branch_id || undefined);
@@ -145,8 +154,9 @@ router.get('/:id/workload', authenticate, async (req: any, res) => {
             workload_score: workloadScore,
         });
     } catch (e: any) {
+        // Returning {} made a genuine failure indistinguishable from "no data".
         console.error('[GET /teachers/:id/workload]', e);
-        res.json({});
+        res.status(500).json({ message: 'Failed to load workload' });
     }
 });
 router.get('/:id/certificates', authenticate, getTeacherCertificates);

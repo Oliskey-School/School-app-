@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { StudentReportService } from '../services/studentReport.service';
 import { getEffectiveBranchId } from '../utils/branchScope';
+import { sendError } from '../utils/httpError';
 
 export const createAnonymousReport = async (req: AuthRequest, res: Response) => {
     try {
@@ -9,7 +10,7 @@ export const createAnonymousReport = async (req: AuthRequest, res: Response) => 
         const result = await StudentReportService.createAnonymousReport(req.user.school_id, branchId, req.body);
         res.status(201).json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'studentReport.controller.ts');
     }
 };
 
@@ -19,7 +20,7 @@ export const createDiscreetRequest = async (req: AuthRequest, res: Response) => 
         const result = await StudentReportService.createDiscreetRequest(req.user.school_id, branchId, req.body);
         res.status(201).json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'studentReport.controller.ts');
     }
 };
 
@@ -31,6 +32,6 @@ export const getStudentReports = async (req: AuthRequest, res: Response) => {
         const reports = await StudentReportService.getReports(req.user.school_id, branchId);
         res.json(reports);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'studentReport.controller.ts');
     }
 };

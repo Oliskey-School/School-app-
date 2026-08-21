@@ -45,7 +45,11 @@ export async function seedDemoSchool() {
 
   // 1. Setup Admin Account
   const admin = await prisma.user.upsert({
-    where: { email: 'admin@demo.com' },
+    // Users are unique per (school, branch, email) — the multi-tenant key —
+    // not by email alone. Looking up by bare email made Postgres reject the
+    // upsert outright: 42P10 "no unique or exclusion constraint matching the
+    // ON CONFLICT specification", which aborted the whole seed.
+    where: { school_id_branch_id_email: { school_id: school.id, branch_id: branch.id, email: 'admin@demo.com' } },
     update: { 
       password_hash: hashedAdminPassword, 
       school_id: school.id, 
@@ -144,7 +148,7 @@ export async function seedDemoSchool() {
   for (let i = 0; i < teacherData.length; i++) {
     const t = teacherData[i];
     const u = await prisma.user.upsert({
-      where: { email: t.email },
+      where: { school_id_branch_id_email: { school_id: school.id, branch_id: branch.id, email: t.email } },
       update: { password_hash: hashedAdminPassword, school_id: school.id, branch_id: branch.id, role: Role.TEACHER, email_verified: true },
       create: {
         email: t.email,
@@ -222,7 +226,7 @@ export async function seedDemoSchool() {
       const fullName = realisticParentNames[i] || `Parent Name ${i+1}`;
 
       const u = await prisma.user.upsert({
-          where: { email },
+          where: { school_id_branch_id_email: { school_id: school.id, branch_id: branch.id, email } },
           update: { password_hash: hashedAdminPassword, school_id: school.id, branch_id: branch.id, role: Role.PARENT, email_verified: true, full_name: fullName },
           create: {
               email,
@@ -326,7 +330,7 @@ export async function seedDemoSchool() {
       const fullName = realisticStudentNames[i] || `Student First Last ${i+1}`;
 
       const u = await prisma.user.upsert({
-          where: { email },
+          where: { school_id_branch_id_email: { school_id: school.id, branch_id: branch.id, email } },
           update: { password_hash: hashedAdminPassword, school_id: school.id, branch_id: branch.id, role: Role.STUDENT, email_verified: true, updated_at: new Date(), full_name: fullName },
           create: {
               email,
@@ -388,7 +392,12 @@ export async function seedDemoSchool() {
                   route_id: route.id,
                   student_id: s.id,
                   academic_year: '2025/2026',
-                  status: 'active'
+                  status: 'active',
+                  // school_id is required on this model (see schema.prisma) and
+                  // omitting it made Prisma reject the whole create input.
+                  // Every row is tenant-scoped; the seed must say which tenant.
+                  school_id: school.id,
+                  branch_id: branch.id
               }
           });
       }

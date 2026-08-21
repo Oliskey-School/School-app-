@@ -3,6 +3,7 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import { BusService } from '../services/bus.service';
 import { getEffectiveBranchId } from '../utils/branchScope';
 import prisma from '../config/database';
+import { sendError } from '../utils/httpError';
 
 const ADMIN_ROLES = ['admin', 'proprietor', 'superadmin', 'super_admin'];
 function isAdmin(req: AuthRequest): boolean {
@@ -35,7 +36,7 @@ export const getBuses = async (req: AuthRequest, res: Response) => {
         const buses = await BusService.getBuses(schoolId, branchId);
         res.json(buses);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'bus.controller.ts');
     }
 };
 
@@ -90,6 +91,6 @@ export const getStudentBus = async (req: AuthRequest, res: Response) => {
 
         res.json(bus);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'bus.controller.ts');
     }
 };

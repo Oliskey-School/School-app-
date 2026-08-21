@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import prisma from '../config/database';
 import { getEffectiveBranchId } from '../utils/branchScope';
+import { sendError } from '../utils/httpError';
 
 const db = prisma as any;
 
@@ -36,7 +37,7 @@ export const getLeaveBalances = async (req: AuthRequest, res: Response) => {
 
         res.json(formatted);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'leaveBalance.controller.ts');
     }
 };
 
@@ -67,7 +68,7 @@ export const createLeaveBalance = async (req: AuthRequest, res: Response) => {
 
         res.status(201).json(balance);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'leaveBalance.controller.ts');
     }
 };
 
@@ -91,7 +92,7 @@ export const updateLeaveBalance = async (req: AuthRequest, res: Response) => {
 
         res.json(updated);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'leaveBalance.controller.ts');
     }
 };
 
@@ -104,6 +105,6 @@ export const deleteLeaveBalance = async (req: AuthRequest, res: Response) => {
         await db.leaveBalance.update({ where: { id }, data: { deleted_at: new Date() } });
         res.json({ success: true });
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'leaveBalance.controller.ts');
     }
 };

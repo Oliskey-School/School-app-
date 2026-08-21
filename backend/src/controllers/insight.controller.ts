@@ -4,6 +4,7 @@ import { InsightService } from '../services/insight.service';
 import { AskAIService } from '../services/askAI.service';
 import prisma from '../config/database';
 import { getEffectiveBranchId } from '../utils/branchScope';
+import { sendError } from '../utils/httpError';
 
 const ADMIN_ROLES = ['admin', 'proprietor', 'superadmin', 'super_admin'];
 
@@ -32,7 +33,7 @@ export const getMyInsights = async (req: AuthRequest, res: Response) => {
         }
         return res.json({ role, recommendations: [] });
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'insight.controller.ts');
     }
 };
 
@@ -50,6 +51,6 @@ export const getAskAISuggestions = async (req: AuthRequest, res: Response) => {
     try {
         res.json({ questions: AskAIService.listAvailableQuestions(req.user.role) });
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'insight.controller.ts');
     }
 };

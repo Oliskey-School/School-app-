@@ -24,20 +24,20 @@ const DiscreetReporting: React.FC = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const locations = ['Nurse Office', 'Female Restroom', 'Counselor Office'];
-            const randomLocation = locations[Math.floor(Math.random() * locations.length)];
-
+            // The pickup point is decided by the school when it fulfils the
+            // request. This used to pick one of three at random on the client and
+            // announce it as if the school had assigned it — the student was sent
+            // to a collection point nobody had been told about.
             const { error } = await api.createDiscreetRequest({
                 ...formData,
-                is_anonymous: true,
-                pickup_location: randomLocation
+                is_anonymous: true
             }, { useBackend: true })
                 .then(() => ({ error: null }))
                 .catch(err => ({ error: err }));
 
             if (error) throw error;
 
-            toast.success(`Request submitted! Pick up from: ${randomLocation}`);
+            toast.success('Request sent privately. The school will confirm where to collect.');
             setShowForm(false);
             setFormData({ request_type: 'Pads', quantity_needed: 1, notes: '' });
         } catch (error: any) {
@@ -53,7 +53,7 @@ const DiscreetReporting: React.FC = () => {
                 <div className="bg-pink-50 border border-pink-200 rounded-lg p-4 mb-6">
                     <p className="text-sm text-pink-800">
                         <strong>Your privacy matters:</strong> All requests are completely anonymous.
-                        You'll receive a pickup location where you can collect items discreetly.
+                        The school will confirm a pickup location where you can collect items discreetly.
                     </p>
                 </div>
 

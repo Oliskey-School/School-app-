@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import prisma from '../config/database';
 import { VolunteeringService } from '../services/volunteering.service';
+import { sendError } from '../utils/httpError';
 
 export const getSurveys = async (req: AuthRequest, res: Response) => {
     try {
@@ -10,7 +11,7 @@ export const getSurveys = async (req: AuthRequest, res: Response) => {
         console.warn(`[LocalStub] getSurveys called for school ${schoolId}`);
         res.json([]);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'community.controller.ts');
     }
 };
 
@@ -21,7 +22,7 @@ export const getSurveyQuestions = async (req: AuthRequest, res: Response) => {
         console.warn(`[LocalStub] getSurveyQuestions called for survey ${id}`);
         res.json([]);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'community.controller.ts');
     }
 };
 
@@ -31,7 +32,7 @@ export const submitSurveyResponse = async (req: AuthRequest, res: Response) => {
         // Stubbed until SurveyResponse model is in Prisma
         res.status(201).json({ success: true, message: 'Survey response stubbed' });
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'community.controller.ts');
     }
 };
 
@@ -41,7 +42,7 @@ export const getMentalHealthResources = async (req: AuthRequest, res: Response) 
         // Stubbed until MentalHealthResource model is in Prisma
         res.json([]);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'community.controller.ts');
     }
 };
 
@@ -51,7 +52,7 @@ export const getCrisisHelplines = async (req: AuthRequest, res: Response) => {
         // Stubbed until CrisisHelpline model is in Prisma
         res.json([]);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'community.controller.ts');
     }
 };
 
@@ -62,7 +63,7 @@ export const triggerPanicAlert = async (req: AuthRequest, res: Response) => {
         console.warn(`[EMERGENCY] Panic Alert triggered by user ${req.user.id}:`, alertData);
         res.status(201).json({ success: true, message: 'Emergency alert logged locally' });
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'community.controller.ts');
     }
 };
 
@@ -72,7 +73,7 @@ export const getPhotos = async (req: AuthRequest, res: Response) => {
         // Stubbed until Photo model is in Prisma
         res.json([]);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'community.controller.ts');
     }
 };
 

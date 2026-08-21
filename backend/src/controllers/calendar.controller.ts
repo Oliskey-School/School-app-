@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { CalendarService } from '../services/calendar.service';
 import { getEffectiveBranchId } from '../utils/branchScope';
+import { sendError } from '../utils/httpError';
 
 export const getCalendarEvents = async (req: AuthRequest, res: Response) => {
     try {
@@ -10,7 +11,7 @@ export const getCalendarEvents = async (req: AuthRequest, res: Response) => {
         const result = await CalendarService.getCalendarEvents(req.user.school_id, branchId, parentId);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'calendar.controller.ts');
     }
 };
 
@@ -35,7 +36,7 @@ export const createCalendarEvent = async (req: AuthRequest, res: Response) => {
         const result = await CalendarService.createCalendarEvent(req.user.school_id, branchId, req.body);
         res.status(201).json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'calendar.controller.ts');
     }
 };
 

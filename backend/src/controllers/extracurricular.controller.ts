@@ -3,6 +3,7 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import { ExtracurricularService } from '../services/extracurricular.service';
 import { StudentService } from '../services/student.service';
 import { getEffectiveBranchId } from '../utils/branchScope';
+import { sendError } from '../utils/httpError';
 
 export const getAllActivities = async (req: AuthRequest, res: Response) => {
     try {
@@ -11,7 +12,7 @@ export const getAllActivities = async (req: AuthRequest, res: Response) => {
         const result = await ExtracurricularService.getActivities(schoolId, branchId);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'extracurricular.controller.ts');
     }
 };
 
@@ -83,7 +84,7 @@ export const getMyActivities = async (req: AuthRequest, res: Response) => {
         const result = await ExtracurricularService.getMyActivities(student.id);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'extracurricular.controller.ts');
     }
 };
 
@@ -125,6 +126,6 @@ export const getEventsByDateRange = async (req: AuthRequest, res: Response) => {
         const result = await ExtracurricularService.getEvents(schoolId, branchId, startDate, endDate);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'extracurricular.controller.ts');
     }
 };

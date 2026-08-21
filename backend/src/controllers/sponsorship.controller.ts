@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import prisma from '../config/database';
 import { getEffectiveBranchId } from '../utils/branchScope';
+import { sendError } from '../utils/httpError';
 
 const db = prisma as any;
 
@@ -40,7 +41,7 @@ export const getSponsorshipRequests = async (req: AuthRequest, res: Response) =>
 
         res.json(formatted);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'sponsorship.controller.ts');
     }
 };
 
@@ -63,7 +64,7 @@ export const createSponsorshipRequest = async (req: AuthRequest, res: Response) 
 
         res.status(201).json(request);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'sponsorship.controller.ts');
     }
 };
 
@@ -84,7 +85,7 @@ export const updateSponsorshipRequest = async (req: AuthRequest, res: Response) 
         });
         res.json(updated);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'sponsorship.controller.ts');
     }
 };
 
@@ -119,7 +120,7 @@ export const getSponsorships = async (req: AuthRequest, res: Response) => {
 
         res.json(formatted);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'sponsorship.controller.ts');
     }
 };
 
@@ -142,7 +143,7 @@ export const createSponsorship = async (req: AuthRequest, res: Response) => {
 
         res.status(201).json(sponsorship);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'sponsorship.controller.ts');
     }
 };
 
@@ -163,7 +164,7 @@ export const updateSponsorship = async (req: AuthRequest, res: Response) => {
         });
         res.json(updated);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'sponsorship.controller.ts');
     }
 };
 
@@ -178,6 +179,6 @@ export const getSponsorshipsCount = async (req: AuthRequest, res: Response) => {
         const count = await db.sponsorship.count({ where });
         res.json({ count });
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'sponsorship.controller.ts');
     }
 };

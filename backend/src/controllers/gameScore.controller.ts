@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { GameScoreService } from '../services/gameScore.service';
+import { getEffectiveBranchId } from '../utils/branchScope';
 
 export const submitScore = async (req: Request, res: Response) => {
     try {
@@ -14,12 +15,17 @@ export const submitScore = async (req: Request, res: Response) => {
             player_id: userId,
             score,
             school_id: schoolId,
+            branch_id: getEffectiveBranchId((req as any).user) || null,
             metadata,
         });
         res.status(201).json(result);
     } catch (error: any) {
+        // A rejected score is a client error (400), not a server failure.
+        if (error?.status === 400) {
+            return res.status(400).json({ error: error.message });
+        }
         console.error('Error submitting game score:', error);
-        res.status(500).json({ error: 'Failed to submit score', details: error.message });
+        res.status(500).json({ error: 'Failed to submit score' });
     }
 };
 
@@ -30,7 +36,8 @@ export const getLeaderboard = async (req: Request, res: Response) => {
         const schoolId: string | undefined = (req as any).user?.school_id;
         const limit = parseInt(req.query.limit as string) || 20;
 
-        const scores = await GameScoreService.getLeaderboard(gameId, schoolId, limit);
+        const branchId = getEffectiveBranchId((req as any).user);
+        const scores = await GameScoreService.getLeaderboard(gameId, schoolId, limit, branchId);
         res.json(scores);
     } catch (error: any) {
         console.error('Error fetching leaderboard:', error);

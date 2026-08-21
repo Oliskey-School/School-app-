@@ -3,6 +3,7 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import { DashboardService } from '../services/dashboard.service';
 import prisma from '../config/database';
 import { getEffectiveBranchId } from '../utils/branchScope';
+import { sendError } from '../utils/httpError';
 
 export const getStats = async (req: AuthRequest, res: Response) => {
     try {
@@ -31,7 +32,7 @@ export const getStats = async (req: AuthRequest, res: Response) => {
         res.json(stats);
     } catch (error: any) {
         console.error('[DashboardController] Error:', error);
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'dashboard.controller.ts');
     }
 };
 
@@ -43,7 +44,7 @@ export const getAuditLogs = async (req: AuthRequest, res: Response) => {
         const logs = await DashboardService.getAuditLogs(schoolId, limit, branchId);
         res.json(logs);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'dashboard.controller.ts');
     }
 };
 
@@ -52,7 +53,7 @@ export const getParentTodayUpdate = async (req: AuthRequest, res: Response) => {
         const result = await DashboardService.getParentTodayUpdate(req.user.id, req.user.school_id);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'dashboard.controller.ts');
     }
 };
 
@@ -73,6 +74,6 @@ export const globalSearch = async (req: AuthRequest, res: Response) => {
         );
         res.json(results);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'dashboard.controller.ts');
     }
 };

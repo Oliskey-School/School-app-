@@ -503,6 +503,15 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
 
                                         <div className="h-px bg-gray-100 w-full mb-6"></div>
 
+                                        {availableSlots.length === 0 && (
+                                            // The backend now returns [] when a teacher has published no
+                                            // availability, instead of inventing a 09:00–15:30 day. Without
+                                            // this the parent just saw a blank area.
+                                            <p className="text-sm text-gray-500 text-center py-6">
+                                                This teacher has not published any times for this date. Please try another date.
+                                            </p>
+                                        )}
+
                                         <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
                                             {availableSlots.map(slot => (
                                                 <motion.button

@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { UserService } from '../services/user.service';
 import { getEffectiveBranchId } from '../utils/branchScope';
+import { sendError } from '../utils/httpError';
 
 export const getUsers = async (req: AuthRequest, res: Response) => {
     try {
@@ -21,7 +22,7 @@ export const getUsers = async (req: AuthRequest, res: Response) => {
         
         res.json(mappedUsers);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'user.controller.ts');
     }
 };
 
@@ -42,7 +43,7 @@ export const getUserById = async (req: AuthRequest, res: Response) => {
         const result = await UserService.getUserById(req.user.school_id, branchId, req.params.id as string);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'user.controller.ts');
     }
 };
 
@@ -71,7 +72,7 @@ export const getUserByEmail = async (req: AuthRequest, res: Response) => {
         if (!result) return res.status(404).json({ message: 'User not found' });
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'user.controller.ts');
     }
 };
 
@@ -80,6 +81,6 @@ export const deleteUser = async (req: AuthRequest, res: Response) => {
         await UserService.deleteUser(req.user.school_id, req.params.id as string);
         res.json({ message: 'User deleted successfully' });
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'user.controller.ts');
     }
 };

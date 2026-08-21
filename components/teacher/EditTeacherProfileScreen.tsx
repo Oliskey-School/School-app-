@@ -28,6 +28,7 @@ const EditTeacherProfileScreen: React.FC<EditTeacherProfileScreenProps> = ({ onP
     const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
     const [subjects, setSubjects] = useState<string[]>([]);
+    const [teacherRowId, setTeacherRowId] = useState<string | null>(null);
 
     // Account Security State
     const [username, setUsername] = useState(authUser?.user_metadata?.username || '');
@@ -40,6 +41,9 @@ const EditTeacherProfileScreen: React.FC<EditTeacherProfileScreenProps> = ({ onP
             try {
                 // Use unified API client
                 const teacher = await api.getTeacherById(profile.id);
+                // Keep the teacher ROW id — updating subject_specialty needs it,
+                // and it is not the same as the user/profile id.
+                if (teacher?.id) setTeacherRowId(teacher.id);
                 // Backend now maps subject_specialty to subjects
                 const teacherSubjects = teacher?.subjects || teacher?.subject_specialty;
                 if (teacherSubjects) {
@@ -120,14 +124,20 @@ const EditTeacherProfileScreen: React.FC<EditTeacherProfileScreenProps> = ({ onP
         setSaving(true);
 
         try {
-            // 2. Use updateProfile from Context - updated to include subjects
-            // This is now the single source of truth for updates
+            // ProfileContext.updateProfile whitelists user fields only
+            // (full_name/phone/avatar_url/display_name) — it does NOT forward
+            // `subjects`, so passing it here silently dropped every subject the
+            // teacher picked while still toasting success. Persist the
+            // specialisation through the teacher record instead.
             await updateProfile({
                 full_name: name,
                 avatar_url: avatar,
                 phone,
-                subjects // Passed to api.updateTeacher via ProfileContext
             } as any);
+
+            if (teacherRowId) {
+                await api.updateTeacher(teacherRowId, { subject_specialty: subjects });
+            }
 
             toast.success('Profile updated successfully!');
 

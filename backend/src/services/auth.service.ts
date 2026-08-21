@@ -12,19 +12,27 @@ import { EmailService } from './email.service';
 // Lazy-load otplib only when a 2FA method is actually called.
 // Top-level require() fails in the test environment because @otplib's CJS
 // build requires @scure/base and @noble/hashes which are ESM-only in Node 20.
-let _auth: any = null;
-function getAuthenticator() {
-    if (!_auth) {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const _otplib = require('otplib') as any;
-        _auth = _otplib.authenticator ?? _otplib.TOTP?.instance ?? {
-            generate: (s: string) => _otplib.generate?.(s) ?? '',
-            verify: (o: any) => _otplib.verify?.(o) ?? false,
-            generateSecret: () => _otplib.generateSecret?.() ?? '',
-            keyuri: () => '',
-        };
+// otplib 13.x exposes generateSecret / generateURI / generateSync / verifySync —
+// there is NO `authenticator` export, so the old `_otplib.authenticator ?? …`
+// lookup always fell through to a stub whose keyuri() returned ''. Worse, the
+// CJS `require('otplib')` path throws "s is not defined" under Node 20, which is
+// what GET /auth/2fa/setup was actually returning as a 400. Load it via dynamic
+// import (ESM) and adapt the real API behind the same small interface.
+let _authPromise: Promise<any> | null = null;
+function getAuthenticator(): Promise<any> {
+    if (!_authPromise) {
+        _authPromise = import('otplib').then((otp: any) => ({
+            generateSecret: () => otp.generateSecret(),
+            keyuri: (label: string, issuer: string, secret: string) =>
+                otp.generateURI({ secret, label, issuer }),
+            generate: (secret: string) => otp.generateSync({ secret }),
+            // verifySync returns { valid, delta, … } — NOT a boolean. Returning
+            // the object directly would make every code "truthy", i.e. accepted.
+            verify: (opts: { token: string; secret: string }) =>
+                otp.verifySync({ token: opts.token, secret: opts.secret })?.valid === true,
+        }));
     }
-    return _auth;
+    return _authPromise;
 }
 import QRCode from 'qrcode';
 import { DemoSeederService } from './demoSeeder.service';
@@ -50,8 +58,9 @@ export class AuthService {
         const user = await prisma.user.findFirst({ where: { id: userId } });
         if (!user) throw new Error('User not found');
 
-        const secret = getAuthenticator().generateSecret();
-        const otpauth = getAuthenticator().keyuri(user.email, 'SchoolSaaS', secret);
+        const auth = await getAuthenticator();
+        const secret = auth.generateSecret();
+        const otpauth = auth.keyuri(user.email, 'SchoolSaaS', secret);
         const qrCodeUrl = await QRCode.toDataURL(otpauth);
 
         // Store secret temporarily (don't enable yet)
@@ -64,10 +73,14 @@ export class AuthService {
     }
 
     static async verifyAndEnable2FA(userId: string, code: string) {
-        const user = await prisma.user.findFirst({ where: { id: userId } });
+        // MUST read through the raw client: the global Prisma extension strips
+        // two_factor_secret from every result, so the normal client returns it
+        // undefined and this always threw "2FA not initiated". Same reason login
+        // uses getRawPrisma() for password_hash.
+        const user = await getRawPrisma().user.findFirst({ where: { id: userId } });
         if (!user || !user.two_factor_secret) throw new Error('2FA not initiated');
 
-        const isValid = getAuthenticator().verify({
+        const isValid = (await getAuthenticator()).verify({
             token: code,
             secret: user.two_factor_secret
         });
@@ -83,12 +96,13 @@ export class AuthService {
     }
 
     static async disable2FA(userId: string, code: string) {
-        const user = await prisma.user.findUnique({ where: { id: userId } });
+        // Raw client — two_factor_secret is stripped by the sanitising extension.
+        const user = await getRawPrisma().user.findUnique({ where: { id: userId } });
         if (!user || !user.two_factor_enabled || !user.two_factor_secret) {
             throw new Error('2FA not enabled');
         }
 
-        const isValid = getAuthenticator().verify({
+        const isValid = (await getAuthenticator()).verify({
             token: code,
             secret: user.two_factor_secret
         });
@@ -319,14 +333,17 @@ export class AuthService {
             const decoded = jwt.verify(mfaToken, config.jwtSecret) as any;
             if (decoded.purpose !== 'mfa_verification') throw new Error('Invalid MFA token');
 
-            const user = await prisma.user.findFirst({
+            // Raw client: the sanitising extension strips two_factor_secret, so
+            // reading through the normal client made this throw for EVERY user —
+            // anyone who enabled 2FA would have been permanently locked out.
+            const user = await getRawPrisma().user.findFirst({
                 where: { id: decoded.id },
                 include: { school: true, branch: true }
             });
 
             if (!user || !user.two_factor_secret) throw new Error('User or 2FA secret not found');
 
-            const isValid = getAuthenticator().verify({
+            const isValid = (await getAuthenticator()).verify({
                 token: code,
                 secret: user.two_factor_secret
             });

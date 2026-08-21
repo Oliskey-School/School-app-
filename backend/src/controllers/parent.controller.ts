@@ -4,6 +4,7 @@ import { ParentService } from '../services/parent.service';
 import { TransactionService } from '../services/transaction.service';
 import prisma from '../config/database';
 import { getEffectiveBranchId } from '../utils/branchScope';
+import { sendError } from '../utils/httpError';
 
 const ADMIN_ROLES = ['admin', 'proprietor', 'superadmin', 'super_admin'];
 function isAdmin(req: AuthRequest): boolean {
@@ -29,7 +30,7 @@ export const getParents = async (req: AuthRequest, res: Response) => {
 
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'parent.controller.ts');
     }
 };
 
@@ -62,7 +63,7 @@ export const getParentsByClassId = async (req: AuthRequest, res: Response) => {
 
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'parent.controller.ts');
     }
 };
 
@@ -92,7 +93,7 @@ export const getParentById = async (req: AuthRequest, res: Response) => {
         }
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'parent.controller.ts');
     }
 };
 
@@ -126,7 +127,7 @@ export const getMyProfile = async (req: AuthRequest, res: Response) => {
         if (!result) return res.status(404).json({ message: 'Parent profile not found' });
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'parent.controller.ts');
     }
 };
 
@@ -137,7 +138,7 @@ export const getMyChildren = async (req: AuthRequest, res: Response) => {
         const result = await ParentService.getChildren(req.user.school_id, undefined, req.user.id);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'parent.controller.ts');
     }
 };
 
@@ -160,7 +161,7 @@ export const getChildrenForParent = async (req: AuthRequest, res: Response) => {
         const result = await ParentService.getChildren(req.user.school_id, branchId, parent.user_id);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'parent.controller.ts');
     }
 };
 
@@ -261,14 +262,14 @@ export const linkChild = async (req: AuthRequest, res: Response) => {
         }
 
         const branchId = getEffectiveBranchId(req.user, req.body?.branch_id);
-        const result = await ParentService.linkChild(req.user.school_id, branchId, parentId, studentId);
+        const result = await ParentService.linkChild(req.user.school_id, branchId, parentId, studentId, req.body?.relationship);
         res.status(201).json(result);
     } catch (error: any) {
         console.error('❌ [ParentController] linkChild error details:', {
             message: error.message,
             stack: error.stack
         });
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'parent.controller.ts');
     }
 };
 
@@ -282,7 +283,7 @@ export const unlinkChild = async (req: AuthRequest, res: Response) => {
         await ParentService.unlinkChild(req.user.school_id, branchId, parentId, studentId);
         res.status(204).send();
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'parent.controller.ts');
     }
 };
 
@@ -354,7 +355,7 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
         res.status(201).json(result);
     } catch (error: any) {
         console.error('🔥 [ParentController] createAppointment Error:', error);
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'parent.controller.ts');
     }
 };
 
@@ -386,7 +387,7 @@ export const getMyAppointments = async (req: AuthRequest, res: Response) => {
         });
         res.json(appointments);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'parent.controller.ts');
     }
 };
 
@@ -410,7 +411,7 @@ export const volunteerSignup = async (req: AuthRequest, res: Response) => {
         if (error.message?.includes('23505')) {
             res.status(409).json({ message: 'You have already signed up for this opportunity' });
         } else {
-            res.status(500).json({ message: error.message });
+            sendError(res, error, 'parent.controller.ts');
         }
     }
 };
@@ -484,7 +485,7 @@ export const getPTAMeetings = async (req: AuthRequest, res: Response) => {
         const result = await ParentService.getPTAMeetings(req.user.school_id, branchId, req.user.id);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'parent.controller.ts');
     }
 };
 
@@ -494,7 +495,7 @@ export const getLearningResources = async (req: AuthRequest, res: Response) => {
         const result = await ParentService.getLearningResources(req.user.school_id, branchId);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'parent.controller.ts');
     }
 };
 
@@ -503,7 +504,7 @@ export const getParentMessages = async (req: AuthRequest, res: Response) => {
         const result = await ParentService.getParentMessages(req.user.school_id, req.user.id);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'parent.controller.ts');
     }
 };
 
@@ -514,7 +515,7 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
         const result = await ParentService.sendMessage(req.user.school_id, branchId, req.user.id, receiverId, content);
         res.status(201).json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'parent.controller.ts');
     }
 };
 
@@ -524,7 +525,7 @@ export const getNotifications = async (req: AuthRequest, res: Response) => {
         const result = await ParentService.getNotifications(req.user.school_id, branchId, req.user.id);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'parent.controller.ts');
     }
 };
 
@@ -534,7 +535,7 @@ export const getVolunteeringOpportunities = async (req: AuthRequest, res: Respon
         const result = await ParentService.getVolunteeringOpportunities(req.user.school_id, branchId);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'parent.controller.ts');
     }
 };
 
@@ -543,7 +544,7 @@ export const getComplaints = async (req: AuthRequest, res: Response) => {
         const result = await ParentService.getComplaints(req.user.school_id, req.user.id);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'parent.controller.ts');
     }
 };
 
@@ -552,7 +553,7 @@ export const createComplaint = async (req: AuthRequest, res: Response) => {
         const result = await ParentService.createComplaint(req.user.school_id, req.user.id, req.body);
         res.status(201).json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'parent.controller.ts');
     }
 };
 
@@ -563,7 +564,7 @@ export const getParentTodayUpdate = async (req: AuthRequest, res: Response) => {
         res.json(result);
     } catch (error: any) {
         console.error('❌ [ParentController] getParentTodayUpdate error:', error);
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'parent.controller.ts');
     }
 };
 
@@ -575,7 +576,7 @@ export const getTeacherAvailability = async (req: AuthRequest, res: Response) =>
         const result = await ParentService.getTeacherAvailability(req.user.school_id, teacherId as string, date);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'parent.controller.ts');
     }
 };
 

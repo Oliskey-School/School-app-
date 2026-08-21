@@ -3,6 +3,7 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import { NotificationService } from '../services/notification.service';
 import { getEffectiveBranchId } from '../utils/branchScope';
 import prisma from '../config/database';
+import { sendError } from '../utils/httpError';
 
 export const createNotification = async (req: AuthRequest, res: Response) => {
     try {
@@ -34,7 +35,7 @@ export const createNotification = async (req: AuthRequest, res: Response) => {
         const result = await NotificationService.createNotification(req.user.school_id, branchId, req.body);
         res.status(201).json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'notification.controller.ts');
     }
 };
 
@@ -45,7 +46,7 @@ export const getMyNotifications = async (req: AuthRequest, res: Response) => {
         const result = await NotificationService.getNotificationsForUser(req.user.school_id, branchId, req.user.id, audience);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'notification.controller.ts');
     }
 };
 
@@ -55,7 +56,7 @@ export const markAsRead = async (req: AuthRequest, res: Response) => {
         const result = await NotificationService.markAsRead(req.user.school_id, branchId, req.params.id as string);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'notification.controller.ts');
     }
 };
 
@@ -67,7 +68,7 @@ export const createPlatformNotification = async (req: AuthRequest, res: Response
         });
         res.status(201).json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'notification.controller.ts');
     }
 };
 
@@ -76,7 +77,7 @@ export const getAllPlatformNotifications = async (req: AuthRequest, res: Respons
         const result = await NotificationService.getAllPlatformNotifications();
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'notification.controller.ts');
     }
 };
 
@@ -85,7 +86,7 @@ export const getMyPlatformNotifications = async (req: AuthRequest, res: Response
         const result = await NotificationService.getPlatformNotificationsForSchool(req.user.school_id);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'notification.controller.ts');
     }
 };
 
@@ -95,7 +96,7 @@ export const getNotificationSettings = async (req: AuthRequest, res: Response) =
         const result = await NotificationService.getSettingsByUserId(userId);
         res.json(result.categories);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'notification.controller.ts');
     }
 };
 
@@ -110,6 +111,6 @@ export const updateNotificationSettings = async (req: AuthRequest, res: Response
         );
         res.json(result.categories);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'notification.controller.ts');
     }
 };

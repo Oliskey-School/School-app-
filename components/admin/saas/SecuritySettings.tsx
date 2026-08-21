@@ -42,12 +42,11 @@ export const SecuritySettings: React.FC<SecuritySettingsProps> = ({ navigateTo }
 
     const checkTwoFactorStatus = async () => {
         try {
+            // Read the real state from the server. This used to read
+            // localStorage, so "2FA enabled" was a flag in the admin's own
+            // browser that any other device (or a cleared cache) disagreed with.
             const user = await api.getMe();
-
-            // Check if 2FA is enabled (this would need backend support)
-            // For now, we'll simulate it
-            const has2FA = localStorage.getItem('2fa_enabled') === 'true';
-            setTwoFactorEnabled(has2FA);
+            setTwoFactorEnabled(!!(user as any)?.two_factor_enabled);
         } catch (error) {
             console.error('Error checking 2FA status:', error);
         }
@@ -57,20 +56,13 @@ export const SecuritySettings: React.FC<SecuritySettingsProps> = ({ navigateTo }
         try {
             setLoading(true);
 
-            // In a real implementation, you would:
-            // 1. Generate a secret on the backend using speakeasy
-            // 2. Create QR code using qrcode library
-            // 3. Return both to the frontend
-
-            // Simulated response
-            const mockSecret = 'JBSWY3DPEHPK3PXP';
-            const user = await api.getMe();
-            const appName = 'SchoolApp';
-            const otpauthUrl = `otpauth://totp/${appName}:${user?.email}?secret=${mockSecret}&issuer=${appName}`;
-
-            // In production, use qrcode.toDataURL(otpauthUrl)
-            setSecret(mockSecret);
-            setQrCode(otpauthUrl); // This would be a data URL in production
+            // The backend already implements this properly (otplib + qrcode):
+            // it generates a per-user secret, stores it unverified, and returns a
+            // real QR data URL. This screen used to hand out the hardcoded,
+            // publicly-known test secret JBSWY3DPEHPK3PXP instead.
+            const { secret: realSecret, qrCodeUrl } = await api.setup2FA();
+            setSecret(realSecret);
+            setQrCode(qrCodeUrl);
             setShowQR(true);
 
         } catch (error) {
@@ -90,18 +82,19 @@ export const SecuritySettings: React.FC<SecuritySettingsProps> = ({ navigateTo }
         try {
             setLoading(true);
 
-            // In production, verify the code on the backend using speakeasy.verify()
-            // For now, we'll simulate success
+            // The code is now verified against the stored secret on the server.
+            // Previously ANY 6-digit string was accepted and 2FA was "enabled" by
+            // writing a localStorage flag — the account gained no second factor.
+            await api.enable2FA(verificationCode);
 
-            localStorage.setItem('2fa_enabled', 'true');
             setTwoFactorEnabled(true);
             setShowQR(false);
             setVerificationCode('');
             toast.success('Two-Factor Authentication enabled successfully!');
 
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error enabling 2FA:', error);
-            toast.error('Failed to enable 2FA. Please try again.');
+            toast.error(error?.message || 'That code was not correct. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -112,17 +105,23 @@ export const SecuritySettings: React.FC<SecuritySettingsProps> = ({ navigateTo }
             return;
         }
 
+        // Turning the second factor OFF must itself be authenticated, otherwise
+        // anyone with a borrowed session could strip it. The backend requires a
+        // current code. Uses prompt() to match the confirm() already above rather
+        // than introducing new UI.
+        const code = window.prompt('Enter the 6-digit code from your authenticator app to confirm:');
+        if (!code) return;
+
         try {
             setLoading(true);
 
-            // In production, disable on backend
-            localStorage.removeItem('2fa_enabled');
+            await api.disable2FA(code.trim());
             setTwoFactorEnabled(false);
             toast.success('Two-Factor Authentication disabled');
 
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error disabling 2FA:', error);
-            toast.error('Failed to disable 2FA');
+            toast.error(error?.message || 'Failed to disable 2FA');
         } finally {
             setLoading(false);
         }
@@ -218,10 +217,20 @@ export const SecuritySettings: React.FC<SecuritySettingsProps> = ({ navigateTo }
                                         <strong>Step 1:</strong> Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.)
                                     </p>
                                     <div className="bg-white p-4 rounded-lg text-center">
-                                        {/* In production, display actual QR code image */}
-                                        <div className="w-48 h-48 mx-auto bg-gray-200 flex items-center justify-center rounded">
-                                            <p className="text-sm text-gray-500">QR Code Here</p>
-                                        </div>
+                                        {/* The backend returns a real QR data URL from /auth/2fa/setup.
+                                            This was a grey "QR Code Here" placeholder, so Step 1 asked
+                                            the admin to scan a code that was never rendered. */}
+                                        {qrCode ? (
+                                            <img
+                                                src={qrCode}
+                                                alt="Two-factor authentication QR code"
+                                                className="w-48 h-48 mx-auto rounded"
+                                            />
+                                        ) : (
+                                            <div className="w-48 h-48 mx-auto bg-gray-200 flex items-center justify-center rounded">
+                                                <p className="text-sm text-gray-500">Loading QR code…</p>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 

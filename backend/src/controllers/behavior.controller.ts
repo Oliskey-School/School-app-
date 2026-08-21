@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { BehaviorService } from '../services/behavior.service';
 import prisma from '../config/database';
 import { getEffectiveBranchId } from '../utils/branchScope';
+import { sendError } from '../utils/httpError';
 
 const ADMIN_ROLES = ['admin', 'proprietor', 'superadmin', 'super_admin'];
 function isAdmin(req: any): boolean {
@@ -63,7 +64,7 @@ export const getBehaviorNotes = async (req: any, res: Response) => {
         );
         res.json(notes);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'behavior.controller.ts');
     }
 };
 
@@ -110,7 +111,7 @@ export const createBehaviorNote = async (req: any, res: Response) => {
         );
         res.status(201).json(note);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'behavior.controller.ts');
     }
 };
 

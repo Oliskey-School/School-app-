@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { DigitalTwinService } from '../services/digitalTwin.service';
 import { getEffectiveBranchId } from '../utils/branchScope';
+import { sendError } from '../utils/httpError';
 
 const ADMIN_ROLES = ['admin', 'proprietor', 'superadmin', 'super_admin'];
 
@@ -14,6 +15,6 @@ export const getSnapshot = async (req: AuthRequest, res: Response) => {
         const result = await DigitalTwinService.getSnapshot(req.user.school_id, branchId);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'digitalTwin.controller.ts');
     }
 };

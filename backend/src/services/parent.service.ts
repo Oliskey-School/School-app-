@@ -70,7 +70,7 @@ export class ParentService {
         }));
     }
 
-    static async linkChild(schoolId: string, branchId: string | undefined, parentId: string, studentIdOrCode: string) {
+    static async linkChild(schoolId: string, branchId: string | undefined, parentId: string, studentIdOrCode: string, relationship?: string) {
         // 1. Resolve Parent ID (could be Parent.id or User.id)
         const parent = await prisma.parent.findFirst({
             where: {
@@ -110,7 +110,9 @@ export class ParentService {
                     parent_id: resolvedParentId,
                     student_id: studentId,
                     school_id: schoolId,
-                    branch_id: branchId && branchId !== 'all' ? branchId : null
+                    branch_id: branchId && branchId !== 'all' ? branchId : null,
+                    // Was collected by the UI and thrown away until now.
+                    relationship: relationship ? String(relationship) : null
                 }
             });
 
@@ -612,11 +614,18 @@ export class ParentService {
 
         if (!parent) return [];
 
+        // No branch filter. `parentChild.branch_id` is stamped from the branch of
+        // whoever CREATED the link (see linkChild), not the student's own branch —
+        // so a link made by a Main-branch admin for a sub-branch child is filed
+        // under Main, and filtering by the active branch silently hid that child.
+        // The product rule is explicit: a parent sees ALL their children across
+        // branches. The linkage itself is the entitlement, and it is already
+        // scoped by school_id. `/parents/me/children` (getMyChildren) has always
+        // passed `undefined` here for exactly this reason; the `:id` route did not.
         const relations = await (prisma.parentChild.findMany as any)({
             where: {
                 parent_id: parent.id,
-                school_id: schoolId,
-                branch_id: branchId && branchId !== 'all' ? branchId : undefined
+                school_id: schoolId
             },
             include: {
                 student: {
@@ -778,8 +787,10 @@ export class ParentService {
         try {
             // 1. Get Student basic info
             console.log('   [1/5] Querying student basic info...');
-            const student = await prisma.student.findUnique({
-                where: { id: studentId },
+            // Tenant predicate as defence in depth — this is safe today only
+            // because the controller calls assertParentOwnsStudent first.
+            const student = await prisma.student.findFirst({
+                where: { id: studentId, school_id: schoolId },
                 select: {
                     id: true,
                     full_name: true,
@@ -1200,20 +1211,13 @@ export class ParentService {
             return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
         });
 
-        // If no explicit availabilities are set, we might want to return default slots
-        // But for persistence, we should probably follow the database
+        // A teacher who has published no availability has no availability. This
+        // used to invent a full 09:00–15:30 day, which parents were shown as the
+        // teacher's real schedule — they could book a meeting in a slot the
+        // teacher never offered and knew nothing about. Return nothing instead,
+        // so the UI can say "no times published".
         if (availabilities.length === 0) {
-            // Return some default slots for the demo if none exist, or empty array
-            // Let's return default slots for now to make it useful
-            const defaultSlots = [
-                '09:00 AM', '09:30 AM', '10:00 AM', '10:30 AM',
-                '11:00 AM', '11:30 AM', '01:00 PM', '01:30 PM',
-                '02:00 PM', '02:30 PM', '03:00 PM', '03:30 PM'
-            ];
-            return defaultSlots.map(time => ({
-                time,
-                isBooked: bookedTimes.includes(time)
-            }));
+            return [];
         }
 
         return availabilities.map(a => ({

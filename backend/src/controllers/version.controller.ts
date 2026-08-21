@@ -1,12 +1,13 @@
 import { Request, Response } from 'express';
 import { VersionService } from '../services/version.service';
+import { sendError } from '../utils/httpError';
 
 export const getVersions = async (req: Request, res: Response) => {
     try {
         const versions = await VersionService.getLatestVersions();
         res.json(versions);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'version.controller.ts');
     }
 };
 
@@ -47,6 +48,6 @@ export const registerVersion = async (req: Request, res: Response) => {
         const result = await VersionService.registerVersion(version, description);
         res.json({ message: `Version ${version} registered successfully`, result });
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'version.controller.ts');
     }
 };

@@ -14,6 +14,7 @@ import {
 } from '../services/admin-hub.service';
 import { SchoolService } from '../services/school.service';
 import { getEffectiveBranchId } from '../utils/branchScope';
+import { sendError } from '../utils/httpError';
 
 function branchOf(req: Request, override?: string): string | undefined {
     return getEffectiveBranchId((req as any).user, override);
@@ -27,7 +28,7 @@ export class AdminHubController {
             const reports = await CustomReportService.getSavedReports((req as any).user.school_id, branchId);
             res.json(reports);
         } catch (error: any) {
-            res.status(500).json({ error: error.message });
+            sendError(res, error, 'admin-hub.controller.ts');
         }
     }
 
@@ -37,7 +38,7 @@ export class AdminHubController {
             const report = await CustomReportService.createSavedReport((req as any).user.school_id, branchId, req.body);
             res.json(report);
         } catch (error: any) {
-            res.status(500).json({ error: error.message });
+            sendError(res, error, 'admin-hub.controller.ts');
         }
     }
 
@@ -47,7 +48,7 @@ export class AdminHubController {
             await CustomReportService.deleteSavedReport((req as any).user.school_id, branchId, req.params.id as string);
             res.json({ success: true });
         } catch (error: any) {
-            res.status(500).json({ error: error.message });
+            sendError(res, error, 'admin-hub.controller.ts');
         }
     }
 
@@ -58,7 +59,7 @@ export class AdminHubController {
             const requests = await DataRequestService.getRequests((req as any).user.school_id, branchId);
             res.json(requests);
         } catch (error: any) {
-            res.status(500).json({ error: error.message });
+            sendError(res, error, 'admin-hub.controller.ts');
         }
     }
 
@@ -72,7 +73,7 @@ export class AdminHubController {
             );
             res.json(request);
         } catch (error: any) {
-            res.status(500).json({ error: error.message });
+            sendError(res, error, 'admin-hub.controller.ts');
         }
     }
 
@@ -96,7 +97,7 @@ export class AdminHubController {
             );
             res.json(invoices);
         } catch (error: any) {
-            res.status(500).json({ error: error.message });
+            sendError(res, error, 'admin-hub.controller.ts');
         }
     }
 
@@ -110,7 +111,7 @@ export class AdminHubController {
             );
             res.json(invoice);
         } catch (error: any) {
-            res.status(500).json({ error: error.message });
+            sendError(res, error, 'admin-hub.controller.ts');
         }
     }
 
@@ -148,7 +149,7 @@ export class AdminHubController {
 
             res.json(sessionsWithCurrent);
         } catch (error: any) {
-            res.status(500).json({ error: error.message });
+            sendError(res, error, 'admin-hub.controller.ts');
         }
     }
 
@@ -174,7 +175,7 @@ export class AdminHubController {
             await SessionService.revokeAllOtherSessions(userId, currentSid);
             res.json({ success: true });
         } catch (error: any) {
-            res.status(500).json({ error: error.message });
+            sendError(res, error, 'admin-hub.controller.ts');
         }
     }
 
@@ -185,7 +186,7 @@ export class AdminHubController {
             const school = await SchoolService.getSchoolById(schoolId, schoolId);
             res.json(school?.settings || {});
         } catch (error: any) {
-            res.status(500).json({ error: error.message });
+            sendError(res, error, 'admin-hub.controller.ts');
         }
     }
 
@@ -199,7 +200,7 @@ export class AdminHubController {
             await SchoolService.updateSchool(schoolId, schoolId, { settings: updatedSettings });
             res.json(updatedSettings);
         } catch (error: any) {
-            res.status(500).json({ error: error.message });
+            sendError(res, error, 'admin-hub.controller.ts');
         }
     }
 
@@ -210,7 +211,7 @@ export class AdminHubController {
             const trends = await AnalyticsService.getEnrollmentTrends((req as any).user.school_id, branchId);
             res.json(trends);
         } catch (error: any) {
-            res.status(500).json({ error: error.message });
+            sendError(res, error, 'admin-hub.controller.ts');
         }
     }
 
@@ -221,7 +222,7 @@ export class AdminHubController {
             const consents = await ConsentService.getConsents((req as any).user.school_id, branchId);
             res.json(consents);
         } catch (error: any) {
-            res.status(500).json({ error: error.message });
+            sendError(res, error, 'admin-hub.controller.ts');
         }
     }
 
@@ -243,7 +244,7 @@ export class AdminHubController {
             const settings = await NotificationSettingService.getSettings(userId);
             res.json(settings);
         } catch (error: any) {
-            res.status(500).json({ error: error.message });
+            sendError(res, error, 'admin-hub.controller.ts');
         }
     }
 
@@ -254,7 +255,7 @@ export class AdminHubController {
             const settings = await NotificationSettingService.updateSettings(userId, req.body);
             res.json(settings);
         } catch (error: any) {
-            res.status(500).json({ error: error.message });
+            sendError(res, error, 'admin-hub.controller.ts');
         }
     }
 
@@ -265,7 +266,7 @@ export class AdminHubController {
             const board = await KanbanService.getBoard((req as any).user.school_id, branchId);
             res.json(board);
         } catch (error: any) {
-            res.status(500).json({ error: error.message });
+            sendError(res, error, 'admin-hub.controller.ts');
         }
     }
 
@@ -310,7 +311,7 @@ export class AdminHubController {
             );
             res.json(logs);
         } catch (error: any) {
-            res.status(500).json({ error: error.message });
+            sendError(res, error, 'admin-hub.controller.ts');
         }
     }
 
@@ -320,7 +321,7 @@ export class AdminHubController {
             const log = await HealthService.createHealthLog((req as any).user.school_id, branchId, req.body);
             res.json(log);
         } catch (error: any) {
-            res.status(500).json({ error: error.message });
+            sendError(res, error, 'admin-hub.controller.ts');
         }
     }
 
@@ -340,7 +341,7 @@ export class AdminHubController {
             await HealthService.deleteHealthLog(req.params.id as string, (req as any).user.school_id, branchId);
             res.json({ success: true });
         } catch (error: any) {
-            res.status(500).json({ error: error.message });
+            sendError(res, error, 'admin-hub.controller.ts');
         }
     }
     // Emergency Alerts
@@ -350,7 +351,7 @@ export class AdminHubController {
             const alerts = await SafetyService.getEmergencyAlerts((req as any).user.school_id, branchId);
             res.json(alerts);
         } catch (error: any) {
-            res.status(500).json({ error: error.message });
+            sendError(res, error, 'admin-hub.controller.ts');
         }
     }
 
@@ -360,7 +361,7 @@ export class AdminHubController {
             const alert = await SafetyService.createEmergencyAlert((req as any).user.school_id, branchId, req.body);
             res.json(alert);
         } catch (error: any) {
-            res.status(500).json({ error: error.message });
+            sendError(res, error, 'admin-hub.controller.ts');
         }
     }
 
@@ -381,7 +382,7 @@ export class AdminHubController {
             const incidents = await SafetyService.getHealthIncidents((req as any).user.school_id, branchId);
             res.json(incidents);
         } catch (error: any) {
-            res.status(500).json({ error: error.message });
+            sendError(res, error, 'admin-hub.controller.ts');
         }
     }
 
@@ -391,7 +392,7 @@ export class AdminHubController {
             const incident = await SafetyService.createHealthIncident((req as any).user.school_id, branchId, req.body);
             res.json(incident);
         } catch (error: any) {
-            res.status(500).json({ error: error.message });
+            sendError(res, error, 'admin-hub.controller.ts');
         }
     }
 
@@ -412,7 +413,7 @@ export class AdminHubController {
             const drills = await SafetyService.getEmergencyDrills((req as any).user.school_id, branchId);
             res.json(drills);
         } catch (error: any) {
-            res.status(500).json({ error: error.message });
+            sendError(res, error, 'admin-hub.controller.ts');
         }
     }
 
@@ -422,7 +423,7 @@ export class AdminHubController {
             const drill = await SafetyService.createEmergencyDrill((req as any).user.school_id, branchId, req.body);
             res.json(drill);
         } catch (error: any) {
-            res.status(500).json({ error: error.message });
+            sendError(res, error, 'admin-hub.controller.ts');
         }
     }
 
@@ -433,7 +434,7 @@ export class AdminHubController {
             const policies = await SafetyService.getSafeguardingPolicies((req as any).user.school_id, branchId);
             res.json(policies);
         } catch (error: any) {
-            res.status(500).json({ error: error.message });
+            sendError(res, error, 'admin-hub.controller.ts');
         }
     }
 
@@ -443,7 +444,7 @@ export class AdminHubController {
             const policy = await SafetyService.createSafeguardingPolicy((req as any).user.school_id, branchId, req.body);
             res.json(policy);
         } catch (error: any) {
-            res.status(500).json({ error: error.message });
+            sendError(res, error, 'admin-hub.controller.ts');
         }
     }
 
@@ -464,7 +465,7 @@ export class AdminHubController {
             const stats = await GovernanceService.getGovernanceStats((req as any).user.school_id, branchId);
             res.json(stats);
         } catch (error: any) {
-            res.status(500).json({ error: error.message });
+            sendError(res, error, 'admin-hub.controller.ts');
         }
     }
 
@@ -473,7 +474,7 @@ export class AdminHubController {
             const metrics = await GovernanceService.getComplianceMetrics((req as any).user.school_id);
             res.json(metrics);
         } catch (error: any) {
-            res.status(500).json({ error: error.message });
+            sendError(res, error, 'admin-hub.controller.ts');
         }
     }
 
@@ -482,7 +483,7 @@ export class AdminHubController {
             const count = await GovernanceService.getValidationAuditCount((req as any).user.school_id);
             res.json({ count });
         } catch (error: any) {
-            res.status(500).json({ error: error.message });
+            sendError(res, error, 'admin-hub.controller.ts');
         }
     }
 }

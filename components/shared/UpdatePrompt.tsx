@@ -82,30 +82,33 @@ export default function UpdatePrompt({ forced = false, targetVersion }: UpdatePr
             const reg = registrationRef.current;
 
             if (reg && !reg.waiting) {
-                await new Promise<void>((resolve) => {
-                    let settled = false;
-                    const finish = () => {
-                        if (settled) return;
-                        settled = true;
-                        resolve();
-                    };
-                    // Safety cap in case the events never fire for some reason
-                    // (e.g. no new version actually exists) — don't hang forever.
-                    const timeout = setTimeout(finish, 8000);
+                // Ask the browser to check FIRST. If that turns up nothing to
+                // install, there is no `updatefound` event coming and waiting for
+                // one just leaves the button dead. This used to sit on a blanket
+                // 8s timer (plus 5s below) in exactly that case, so "Update Now"
+                // did nothing visible for up to ~13 seconds.
+                await reg.update().catch(() => { });
 
-                    reg.addEventListener('updatefound', () => {
-                        const installing = reg.installing;
-                        if (!installing) return finish();
+                if (reg.installing) {
+                    const installing = reg.installing;
+                    await new Promise<void>((resolve) => {
+                        let settled = false;
+                        const finish = () => {
+                            if (settled) return;
+                            settled = true;
+                            resolve();
+                        };
+                        // Safety cap only for the case where a worker IS installing
+                        // but never reaches a terminal state.
+                        const timeout = setTimeout(finish, 8000);
                         installing.addEventListener('statechange', () => {
                             if (installing.state === 'installed' || installing.state === 'redundant') {
                                 clearTimeout(timeout);
                                 finish();
                             }
                         });
-                    }, { once: true });
-
-                    reg.update().catch(finish);
-                });
+                    });
+                }
             }
 
             if (registrationRef.current?.waiting) {
@@ -163,10 +166,18 @@ export default function UpdatePrompt({ forced = false, targetVersion }: UpdatePr
             style={{
                 maxWidth: '400px',
                 width: 'calc(100% - 2rem)',
+                // The wrapper is a full 400px box; anywhere it extends past the
+                // card itself was still swallowing clicks meant for the page
+                // underneath (Playwright: "subtree intercepts pointer events" on
+                // Save Student / Approve). Let the wrapper pass clicks through and
+                // re-enable them only on the card. Purely functional — nothing
+                // about the appearance changes.
+                pointerEvents: 'none',
             }}
         >
             <div
                 style={{
+                    pointerEvents: 'auto',
                     background: '#ffffff',
                     borderRadius: '16px',
                     boxShadow: '0 20px 50px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.05)',

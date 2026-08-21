@@ -53,8 +53,15 @@ router.get('/:studentId/stats', async (req: any, res) => {
         // separate "student_attendance" model) — the old snake_case names
         // never existed on the client, so this always threw and the failure
         // was masked by a fallback that fabricated a 100% attendance rate.
+        // Scope every query to the caller's school. The ownership gate above
+        // only covers student/parent — teacher/admin short-circuit it, so with a
+        // known studentId these queries would otherwise return ANOTHER school's
+        // stats (student_id alone is globally unique but not tenant-scoped).
+        const schoolId = req.user?.school_id;
+        if (!schoolId) return res.status(401).json({ message: 'Unauthorized' });
+
         const performance = await prisma.academicPerformance.findMany({
-            where: { student_id: studentId },
+            where: { student_id: studentId, school_id: schoolId },
             select: { subject: true, score: true }
         });
 
@@ -63,11 +70,11 @@ router.get('/:studentId/stats', async (req: any, res) => {
             : 0;
 
         const totalAtt = await prisma.attendance.count({
-            where: { student_id: studentId }
+            where: { student_id: studentId, school_id: schoolId }
         });
 
         const presentAtt = await prisma.attendance.count({
-            where: { student_id: studentId, status: { in: ['Present', 'Late'] } }
+            where: { student_id: studentId, school_id: schoolId, status: { in: ['Present', 'Late'] } }
         });
 
         const attendancePct = totalAtt > 0 ? Math.round((presentAtt / totalAtt) * 100) : 100;

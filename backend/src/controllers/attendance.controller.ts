@@ -3,6 +3,7 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import { AttendanceService } from '../services/attendance.service';
 import prisma from '../config/database';
 import { getEffectiveBranchId } from '../utils/branchScope';
+import { sendError } from '../utils/httpError';
 
 const ADMIN_ROLES = ['admin', 'proprietor', 'superadmin', 'super_admin'];
 
@@ -119,7 +120,7 @@ export const getAttendance = async (req: AuthRequest, res: Response) => {
         res.json(result);
     } catch (error: any) {
         console.error('[AttendanceController] Error:', error);
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'attendance.controller.ts');
     }
 };
 
@@ -167,7 +168,7 @@ export const saveAttendance = async (req: AuthRequest, res: Response) => {
         const result = await AttendanceService.saveAttendance(req.user.school_id, branchId, records);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'attendance.controller.ts');
     }
 };
 
@@ -182,7 +183,7 @@ export const getAttendanceByStudent = async (req: AuthRequest, res: Response) =>
         const result = await AttendanceService.getAttendanceByStudent(req.user.school_id, branchId, studentId as string);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'attendance.controller.ts');
     }
 };
 
@@ -200,6 +201,6 @@ export const bulkFetchAttendance = async (req: AuthRequest, res: Response) => {
         const result = await AttendanceService.getAttendanceByStudentIds(req.user.school_id, branchId, safeStudentIds, startDate, endDate);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'attendance.controller.ts');
     }
 };

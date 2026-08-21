@@ -2,6 +2,8 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { activateSubscription, calcTermAmount, PLAN_RATES, PlanType, topUpStudents, recordUserAiPurchase, USER_AI_PRICE } from '../services/subscription.service';
 import { getCurrentTerm, listAllTerms } from '../services/term.service';
+import prisma from '../config/database';
+import { sendError } from '../utils/httpError';
 
 /**
  * GET /api/subscription/current-term
@@ -16,7 +18,7 @@ export const getCurrentTermController = async (_req: AuthRequest, res: Response)
         }
         res.json({ term });
     } catch (err: any) {
-        res.status(500).json({ message: err.message });
+        sendError(res, err, 'subscription.controller.ts');
     }
 };
 
@@ -42,7 +44,7 @@ export const getQuoteController = async (req: AuthRequest, res: Response) => {
 
         res.json({ plan, rate, students, total, currency: 'NGN', term });
     } catch (err: any) {
-        res.status(500).json({ message: err.message });
+        sendError(res, err, 'subscription.controller.ts');
     }
 };
 
@@ -129,6 +131,119 @@ export const listCalendarController = async (_req: AuthRequest, res: Response) =
         const rows = await listAllTerms();
         res.json(rows);
     } catch (err: any) {
-        res.status(500).json({ message: err.message });
+        sendError(res, err, 'subscription.controller.ts');
+    }
+};
+
+/**
+ * GET /api/subscription/all
+ * SUPER_ADMIN only — the platform-wide subscription list for the SaaS
+ * SubscriptionManagement screen. This endpoint did not exist, so that screen
+ * 404'd and rendered an empty table forever.
+ *
+ * There is no separate Subscription table: a School *is* the subscription
+ * (plan_id + subscription_status + billing period). We map it to the shape the
+ * screen already expects and return null — never an invented date — for any
+ * field the school genuinely has no value for.
+ */
+export const listAllSubscriptionsController = async (_req: AuthRequest, res: Response) => {
+    try {
+        // School has no deleted_at column (verified against the schema) — it uses
+        // is_active instead, and the SaaS view intentionally lists every school
+        // including suspended ones, so there is no filter here.
+        const schools = await prisma.school.findMany({
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                plan_id: true,
+                plan_type: true,
+                subscription_status: true,
+                subscription_period_start: true,
+                subscription_period_end: true,
+                trial_ends_at: true,
+                auto_renew: true,
+                canceled_at: true,
+                plan: { select: { name: true } }
+            },
+            orderBy: { name: 'asc' }
+        });
+
+        res.json(schools.map(s => ({
+            // The screen PUTs back to /subscription/:id, and the school id is the
+            // subscription's identity here.
+            id: s.id,
+            school_id: s.id,
+            plan_id: s.plan_id,
+            status: s.subscription_status,
+            current_period_start: s.subscription_period_start,
+            current_period_end: s.subscription_period_end,
+            trial_ends_at: s.trial_ends_at,
+            auto_renew: s.auto_renew,
+            canceled_at: s.canceled_at,
+            school_name: s.name,
+            contact_email: s.email,
+            plan_name: s.plan?.name || s.plan_type || null
+        })));
+    } catch (err: any) {
+        console.error('[Subscription] listAll failed:', err);
+        res.status(500).json({ message: 'Failed to load subscriptions' });
+    }
+};
+
+/**
+ * PUT /api/subscription/:id
+ * SUPER_ADMIN only — used by the SaaS screen to cancel/adjust a school's
+ * subscription. Only the subscription fields are writable; nothing else about
+ * the school can be changed through here.
+ */
+export const updateSubscriptionController = async (req: AuthRequest, res: Response) => {
+    try {
+        const schoolId = req.params.id as string;
+        const { status, auto_renew, canceled_at, current_period_end } = req.body || {};
+
+        const ALLOWED_STATUSES = ['active', 'trial', 'past_due', 'canceled', 'expired', 'suspended', 'free'];
+        const data: any = {};
+
+        if (status !== undefined) {
+            if (!ALLOWED_STATUSES.includes(String(status))) {
+                return res.status(400).json({ message: `status must be one of: ${ALLOWED_STATUSES.join(', ')}` });
+            }
+            data.subscription_status = String(status);
+        }
+        if (auto_renew !== undefined) data.auto_renew = !!auto_renew;
+        if (canceled_at !== undefined) data.canceled_at = canceled_at ? new Date(canceled_at) : null;
+        if (current_period_end !== undefined) data.subscription_period_end = current_period_end ? new Date(current_period_end) : null;
+
+        if (Object.keys(data).length === 0) {
+            return res.status(400).json({ message: 'No subscription fields supplied' });
+        }
+
+        const existing = await prisma.school.findFirst({ where: { id: schoolId }, select: { id: true } });
+        if (!existing) return res.status(404).json({ message: 'School not found' });
+
+        const updated = await prisma.school.update({
+            where: { id: schoolId },
+            data,
+            select: {
+                id: true,
+                subscription_status: true,
+                auto_renew: true,
+                canceled_at: true,
+                subscription_period_end: true
+            }
+        });
+
+        res.json({
+            id: updated.id,
+            school_id: updated.id,
+            status: updated.subscription_status,
+            auto_renew: updated.auto_renew,
+            canceled_at: updated.canceled_at,
+            current_period_end: updated.subscription_period_end
+        });
+    } catch (err: any) {
+        console.error('[Subscription] update failed:', err);
+        res.status(500).json({ message: 'Failed to update subscription' });
     }
 };

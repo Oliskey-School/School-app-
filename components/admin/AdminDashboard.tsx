@@ -198,7 +198,14 @@ const StudentDetailReport = lazyWithRetry(() => import('./StudentDetailReport'))
 const StudentProfileDashboard = lazyWithRetry(() => import('./StudentProfileDashboard'));
 const SuperAdminDashboard = lazyWithRetry(() => import('./SuperAdminDashboard'));
 const TimetableScreen = lazyWithRetry(() => import('./TimetableScreen'));
-const UserSeeder = lazyWithRetry(() => import('./UserSeeder'));
+// UserSeeder is NOT registered as a routable view. It performs unscoped mass
+// deletes — `api.from('users').delete().not('id','is',null)` and the same for
+// students/teachers/parents with no school_id filter — which in a multi-tenant
+// app would wipe EVERY school, not just the current one. It also seeds hardcoded
+// credentials. Nothing in the nav pointed at it, so removing the route entry
+// costs no functionality and closes a destructive path. The file is kept (it is
+// a local dev utility) but is now unreachable from the running app.
+// const UserSeeder = lazyWithRetry(() => import('./UserSeeder'));
 const VisitorLog = lazyWithRetry(() => import('./VisitorLog'));
 const VersionSettings = lazyWithRetry(() => import('./VersionSettings'));
 const SubscriptionPage = lazyWithRetry(() => import('../subscription/SubscriptionPage'));
@@ -520,7 +527,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         upgrade: SubscriptionPage,
         superAdmin: SuperAdminDashboard,
         timetableScreen: TimetableScreen,
-        userSeeder: UserSeeder,
+        // userSeeder deliberately unregistered — see the note at its import above.
         visitorLog: VisitorLog,
         versionSettings: VersionSettings,
     };

@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { TransactionService } from '../services/transaction.service';
 import { getEffectiveBranchId } from '../utils/branchScope';
+import { sendError } from '../utils/httpError';
 
 export const getTransactions = async (req: AuthRequest, res: Response) => {
     try {
@@ -10,7 +11,7 @@ export const getTransactions = async (req: AuthRequest, res: Response) => {
         const result = await TransactionService.getTransactions(req.user.school_id, branchId, feeId as string);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'transaction.controller.ts');
     }
 };
 
@@ -20,7 +21,7 @@ export const createTransaction = async (req: AuthRequest, res: Response) => {
         const result = await TransactionService.createTransaction(req.user.school_id, branchId, req.body);
         res.status(201).json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'transaction.controller.ts');
     }
 };
 export const verifyPayment = async (req: AuthRequest, res: Response) => {
@@ -31,6 +32,6 @@ export const verifyPayment = async (req: AuthRequest, res: Response) => {
         const result = await TransactionService.verifyPayment(req.user.school_id as string, branchId, reference as string, gateway as string);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'transaction.controller.ts');
     }
 };

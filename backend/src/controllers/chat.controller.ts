@@ -3,6 +3,7 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import { ChatService } from '../services/chat.service';
 import { DEMO_SCHOOL_ID } from '../config/env';
 import prisma from '../config/database';
+import { sendError } from '../utils/httpError';
 
 const chatService = new ChatService();
 
@@ -27,7 +28,7 @@ export const getChatRooms = async (req: AuthRequest, res: Response) => {
         const rooms = await chatService.getChatRooms(userId);
         res.json(rooms);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'chat.controller.ts');
     }
 };
 
@@ -42,7 +43,7 @@ export const getChatMessages = async (req: AuthRequest, res: Response) => {
         const messages = await chatService.getChatMessages(roomId as string);
         res.json(messages);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'chat.controller.ts');
     }
 };
 
@@ -58,7 +59,7 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
         const message = await chatService.sendMessage(roomId as string, senderId, content, type, mediaUrl);
         res.json(message);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'chat.controller.ts');
     }
 };
 
@@ -70,7 +71,7 @@ export const markRoomAsRead = async (req: AuthRequest, res: Response) => {
         await chatService.markRoomAsRead(roomId as string, userId);
         res.json({ success: true });
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'chat.controller.ts');
     }
 };
 
@@ -81,7 +82,7 @@ export const getUnreadCount = async (req: AuthRequest, res: Response) => {
         const count = await chatService.getUnreadCount(userId);
         res.json({ count });
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'chat.controller.ts');
     }
 };
 
@@ -99,7 +100,7 @@ export const getChatContacts = async (req: AuthRequest, res: Response) => {
         const contacts = await chatService.getChatContacts(schoolId as string, studentId as string);
         res.json(contacts);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'chat.controller.ts');
     }
 };
 
@@ -115,7 +116,7 @@ export const getRoleContacts = async (req: AuthRequest, res: Response) => {
         const contacts = await chatService.getRoleBasedContacts(userId, role, schoolId, branchId);
         res.json(contacts);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'chat.controller.ts');
     }
 };
 
@@ -153,6 +154,6 @@ export const createGroupChat = async (req: AuthRequest, res: Response) => {
         const room = await chatService.createGroupChat(userId, schoolId, name.trim(), memberIds);
         res.json(room);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'chat.controller.ts');
     }
 };

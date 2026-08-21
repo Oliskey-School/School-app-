@@ -10,11 +10,11 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import CenteredLoader from '../ui/CenteredLoader';
 
-// NOTE: The backend does not yet expose a dedicated leave-balances endpoint.
-// FLAG: api.getLeaveBalances() and api.updateLeaveBalance() need to be added to
-// lib/api.ts and a matching route added in backend/src/routes/fee.routes.ts (or payroll).
-// For now the screen derives balance data from leave requests and shows a read-only view.
-// The edit action is disabled until the backend endpoint exists.
+// Reads real balances from the tenant-scoped /leave-balances endpoint.
+// This screen previously derived them from leave requests with a hardcoded
+// 30-day allocation, and the edit button only showed an error toast — the note
+// here claimed no backend existed, but the route and table were already in
+// place; only the api client methods were missing.
 
 interface TeacherBalance {
     id: string;
@@ -47,31 +47,17 @@ const LeaveBalance: React.FC<LeaveBalanceProps> = () => {
         if (!currentSchool) return;
         try {
             setLoading(true);
-            // Derive balance data from leave requests — approved requests reduce balance
-            const requests = await api.getLeaveRequests(undefined, currentSchool.id);
-            const approved = (requests || []).filter((r: any) => r.status === 'Approved');
-
-            // Aggregate per teacher + leave_type
-            const map: Record<string, TeacherBalance> = {};
-            approved.forEach((r: any) => {
-                const key = `${r.teacher_id}_${r.leave_type_id || r.leave_type}`;
-                if (!map[key]) {
-                    map[key] = {
-                        id: key,
-                        teacher_id: r.teacher_id,
-                        teacher_name: r.teachers?.full_name || r.teacher_name || 'Unknown',
-                        leave_type: r.leave_types?.name || r.leave_type || 'Unknown',
-                        leave_type_id: r.leave_type_id || '',
-                        total_days: 30, // Default allocation — update when backend provides real balances
-                        used_days: 0,
-                        remaining_days: 30,
-                    };
-                }
-                map[key].used_days += r.days_requested || 0;
-                map[key].remaining_days = map[key].total_days - map[key].used_days;
-            });
-
-            setBalances(Object.values(map));
+            const rows = await api.getLeaveBalances();
+            setBalances((rows || []).map((b: any) => ({
+                id: b.id,
+                teacher_id: b.teacher_id,
+                teacher_name: b.teachers?.full_name || b.teacher?.full_name || 'Unknown',
+                leave_type: b.leave_types?.name || b.leave_type?.name || 'Unknown',
+                leave_type_id: b.leave_type_id || '',
+                total_days: b.total_days ?? 0,
+                used_days: b.used_days ?? 0,
+                remaining_days: b.remaining_days ?? Math.max(0, (b.total_days ?? 0) - (b.used_days ?? 0)),
+            })));
         } catch (error: any) {
             console.error('Error fetching leave data:', error);
             toast.error('Failed to load leave balances');
@@ -82,11 +68,25 @@ const LeaveBalance: React.FC<LeaveBalanceProps> = () => {
 
     const handleUpdateBalance = async () => {
         if (!editingBalance) return;
-        // FLAG: This requires api.updateLeaveBalance(id, { total_days, remaining_days })
-        // which does not yet exist. Showing a toast until the backend endpoint is added.
-        toast.error('Leave balance editing requires a backend update. Please contact your developer.');
-        setEditingBalance(null);
-        setNewTotal(0);
+        const total = Number(newTotal);
+        if (!Number.isFinite(total) || total < 0) {
+            toast.error('Total days must be a positive number.');
+            return;
+        }
+        try {
+            const used = editingBalance.used_days || 0;
+            await api.updateLeaveBalance(editingBalance.id, {
+                total_days: total,
+                remaining_days: Math.max(0, total - used),
+            });
+            toast.success('Leave balance updated.');
+            setEditingBalance(null);
+            setNewTotal(0);
+            fetchData();
+        } catch (error: any) {
+            console.error('Error updating leave balance:', error);
+            toast.error(error?.message || 'Failed to update leave balance.');
+        }
     };
 
     const groupByTeacher = () => {

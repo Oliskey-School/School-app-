@@ -1,8 +1,34 @@
 import prisma from '../config/database';
 import { Role } from '../../generated/prisma-client';
 
+// Single-flight coalescing for the dashboard.
+//
+// One /dashboard/stats call fans out into ~25 parallel queries. Measured on an
+// idle box: the dashboard alone is ~720ms and /students/me is ~80ms — but with
+// 8 dashboards in flight the dashboard went to ~7.9s AND /students/me degraded
+// to ~4.0s, a 50x hit on an unrelated user's request. 8 x 25 = 200 queries
+// queueing on a 20-connection pool (4 CPUs) starves everyone else.
+//
+// Identical concurrent requests (same school + branch + teacher) now share ONE
+// computation instead of each launching its own burst. This is not a cache:
+// nothing is ever served from a completed result, so there is no staleness —
+// the promise is dropped the moment it settles. It only stops the same work
+// being done N times simultaneously.
+const inFlightStats = new Map<string, Promise<any>>();
+
 export class DashboardService {
     static async getStats(schoolId: string, teacherId?: string, branchId?: string) {
+        const key = `${schoolId}|${branchId || 'all'}|${teacherId || 'none'}`;
+        const existing = inFlightStats.get(key);
+        if (existing) return existing;
+
+        const run = DashboardService.computeStats(schoolId, teacherId, branchId)
+            .finally(() => inFlightStats.delete(key));
+        inFlightStats.set(key, run);
+        return run;
+    }
+
+    private static async computeStats(schoolId: string, teacherId?: string, branchId?: string) {
         console.log(`📊 [DashboardService] Fetching stats for schoolId: ${schoolId}, teacherId: ${teacherId}, branchId: ${branchId}`);
 
         try {

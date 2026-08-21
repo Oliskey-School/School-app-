@@ -6,6 +6,7 @@ import { ExtracurricularService } from '../services/extracurricular.service';
 import { SubjectService } from '../services/subject.service';
 import { getEffectiveBranchId } from '../utils/branchScope';
 import prisma from '../config/database';
+import { sendError } from '../utils/httpError';
 
 const ADMIN_ROLES = ['admin', 'proprietor', 'superadmin', 'super_admin'];
 function isAdmin(req: AuthRequest): boolean {
@@ -41,7 +42,7 @@ export const getNextAdmissionNumber = async (req: AuthRequest, res: Response) =>
         const admissionNumber = await IdGeneratorService.generateAdmissionNumber(schoolId);
         res.json({ admissionNumber });
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -77,7 +78,7 @@ export const approveStudent = async (req: AuthRequest, res: Response) => {
         res.status(200).json(result);
     } catch (error: any) {
         console.error('Approve student error:', error);
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -111,13 +112,11 @@ export const getAllStudents = async (req: AuthRequest, res: Response) => {
         const classId = (req.query.class_id as string) || (req.query.classId as string);
         const status = req.query.status as string;
         
-        console.log(`[DEBUG] getAllStudents (GET /): schoolId=${req.user.school_id}, branchId=${branchId}, classId=${classId}, status=${status}`);
-
         const result = await StudentService.getAllStudents(req.user.school_id, branchId, classId, status);
 
         res.json(isAdmin(req) ? result : stripStudentCredentials(result));
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -135,7 +134,7 @@ export const getStudentById = async (req: AuthRequest, res: Response) => {
         }
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -149,7 +148,7 @@ export const getStudentByStudentId = async (req: AuthRequest, res: Response) => 
         }
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -159,6 +158,9 @@ export const getStudentByStudentId = async (req: AuthRequest, res: Response) => 
 // rejected outright, not silently filtered, so this can't be widened by
 // accident.
 const SELF_UPDATABLE_STUDENT_FIELDS = ['xp', 'level'];
+// Generous upper bound — high enough that no legitimate play reaches it,
+// low enough that a forged value is obvious.
+const MAX_GAMIFICATION_VALUE = 1_000_000;
 
 export const updateStudent = async (req: AuthRequest, res: Response) => {
     try {
@@ -172,6 +174,21 @@ export const updateStudent = async (req: AuthRequest, res: Response) => {
 
             if (!isSelfGamificationUpdate || !(await assertCanViewStudent(req, req.params.id as string))) {
                 return res.status(403).json({ message: 'Only admins can update student records' });
+            }
+
+            // xp/level are pushed by the browser, which computed them locally, so
+            // they are client-authored values. Without bounds a student could post
+            // {"xp":999999999} or a negative value and both were accepted (200).
+            // Reject nonsense rather than silently clamping, so the client learns.
+            for (const field of SELF_UPDATABLE_STUDENT_FIELDS) {
+                if (req.body[field] === undefined) continue;
+                const value = Number(req.body[field]);
+                if (!Number.isInteger(value) || value < 0 || value > MAX_GAMIFICATION_VALUE) {
+                    return res.status(400).json({
+                        message: `${field} must be a whole number between 0 and ${MAX_GAMIFICATION_VALUE}`
+                    });
+                }
+                req.body[field] = value;
             }
         }
         const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
@@ -193,7 +210,7 @@ export const bulkUpdateStatus = async (req: AuthRequest, res: Response) => {
         const result = await StudentService.bulkUpdateStatus(req.user.school_id, branchId, ids, status);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -214,7 +231,7 @@ export const getMyProfile = async (req: AuthRequest, res: Response) => {
         const result = await StudentService.getStudentProfileByUserId(req.user.school_id, branchId, req.user.id);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -231,7 +248,7 @@ export const getMyPerformance = async (req: AuthRequest, res: Response) => {
         const result = await StudentService.getPerformance(req.user.school_id, branchId, student.id);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -257,7 +274,7 @@ export const getStudentPerformance = async (req: AuthRequest, res: Response) => 
         const result = await StudentService.getPerformance(req.user.school_id, branchId, req.params.id as string, subjectFilter);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -270,7 +287,7 @@ export const getStudentBehaviorNotes = async (req: AuthRequest, res: Response) =
         const result = await StudentService.getBehaviorNotes(req.user.school_id, branchId, req.params.id as string);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -283,7 +300,7 @@ export const getMyQuizResults = async (req: AuthRequest, res: Response) => {
         const result = await StudentService.getQuizResults(req.user.school_id, branchId, student.id);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -296,7 +313,7 @@ export const getMySubmissions = async (req: AuthRequest, res: Response) => {
         const result = await StudentService.getStudentSubmissions(req.user.school_id, branchId, student.id);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -308,7 +325,7 @@ export const getMyFees = async (req: AuthRequest, res: Response) => {
         const result = await StudentService.getStudentFees(req.user.school_id, req.user.branch_id, student.id);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -321,7 +338,7 @@ export const getMyReportCards = async (req: AuthRequest, res: Response) => {
         const result = await StudentService.getReportCards(req.user.school_id, branchId, student.id);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -366,7 +383,7 @@ export const linkGuardian = async (req: AuthRequest, res: Response) => {
         });
         res.status(201).json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -407,7 +424,7 @@ export const unlinkGuardian = async (req: AuthRequest, res: Response) => {
         });
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -436,7 +453,7 @@ export const assignStudentToClass = async (req: AuthRequest, res: Response) => {
         const result = await StudentService.assignStudentToClass(schoolId, branchId, studentId, classId);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -451,7 +468,7 @@ export const removeStudentFromClass = async (req: AuthRequest, res: Response) =>
         const result = await StudentService.removeStudentFromClass(req.user.school_id, branchId, req.params.id as string, classId);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -464,7 +481,7 @@ export const getMyStats = async (req: AuthRequest, res: Response) => {
         const result = await StudentService.getStudentStats(req.user.school_id, student.id);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -477,7 +494,7 @@ export const getMyAchievements = async (req: AuthRequest, res: Response) => {
         const result = await StudentService.getStudentAchievements(student.id);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 import { AttendanceService } from '../services/attendance.service';
@@ -491,7 +508,7 @@ export const getMyDashboardOverview = async (req: AuthRequest, res: Response) =>
         const result = await StudentService.getDashboardOverview(req.user.school_id, student.id, branchId);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -573,7 +590,7 @@ export const getStudentsByClass = async (req: AuthRequest, res: Response) => {
         const students = await StudentService.getStudentsByClass(schoolId, branchId, grade, section, curriculumId);
         res.json(students);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -584,7 +601,7 @@ export const getPendingApprovals = async (req: AuthRequest, res: Response) => {
         const result = await StudentService.getPendingStudentsForSchool(req.user.school_id, branchId);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -610,7 +627,7 @@ export const getStudentsByClassId = async (req: AuthRequest, res: Response) => {
         const students = await StudentService.getAllStudents(schoolId as any, branchId as any, classId as any, status as any);
         res.json(students);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 export const getStudentSubjects = async (req: AuthRequest, res: Response) => {
@@ -623,7 +640,7 @@ export const getStudentSubjects = async (req: AuthRequest, res: Response) => {
         const result = await StudentService.getStudentSubjects(schoolId, studentId);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -636,7 +653,7 @@ export const getMyDocuments = async (req: AuthRequest, res: Response) => {
         const result = await StudentService.getStudentDocuments(req.user.school_id, student.id);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -649,7 +666,7 @@ export const addMyDocument = async (req: AuthRequest, res: Response) => {
         const result = await StudentService.addStudentDocument(req.user.school_id, student.id, req.body);
         res.status(201).json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -673,7 +690,7 @@ export const getStudentsBySubject = async (req: AuthRequest, res: Response) => {
         const result = await StudentService.getStudentsBySubject(req.user.school_id, subjectId as string);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 

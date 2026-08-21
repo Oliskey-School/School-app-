@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { RoleService } from '../services/role.service';
+import { sendError } from '../utils/httpError';
 
 export class RoleController {
     static async getRolePermissions(req: AuthRequest, res: Response) {
@@ -8,7 +9,7 @@ export class RoleController {
             const data = await RoleService.getRolePermissions(req.user.school_id);
             res.json(data);
         } catch (error: any) {
-            res.status(500).json({ error: error.message });
+            sendError(res, error, 'role.controller.ts');
         }
     }
 
@@ -23,7 +24,7 @@ export class RoleController {
             );
             res.json(data);
         } catch (error: any) {
-            res.status(500).json({ error: error.message });
+            sendError(res, error, 'role.controller.ts');
         }
     }
 }

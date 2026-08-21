@@ -3,6 +3,7 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import { ClassService } from '../services/class.service';
 import prisma from '../config/database';
 import { getEffectiveBranchId } from '../utils/branchScope';
+import { sendError } from '../utils/httpError';
 
 export const getClass = async (req: AuthRequest, res: Response) => {
     try {
@@ -20,7 +21,7 @@ export const getClass = async (req: AuthRequest, res: Response) => {
         
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'class.controller.ts');
     }
 };
 
@@ -35,7 +36,7 @@ export const getClassStudents = async (req: AuthRequest, res: Response) => {
         const result = await ClassService.getClassStudents(req.user.school_id, classId, branchId, teacher?.id);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'class.controller.ts');
     }
 };
 
@@ -66,7 +67,7 @@ export const getClasses = async (req: AuthRequest, res: Response) => {
         const result = await ClassService.getClasses(req.user.school_id, includeAll ? undefined : branchId, teacherId);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'class.controller.ts');
     }
 };
 
@@ -76,7 +77,7 @@ export const createClass = async (req: AuthRequest, res: Response) => {
         const result = await ClassService.createClass(req.user.school_id, branchId, req.body);
         res.status(201).json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'class.controller.ts');
     }
 };
 
@@ -86,7 +87,7 @@ export const updateClass = async (req: AuthRequest, res: Response) => {
         const result = await ClassService.updateClass(req.user.school_id, branchId, req.params.id as string, req.body);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'class.controller.ts');
     }
 };
 
@@ -96,7 +97,7 @@ export const deleteClass = async (req: AuthRequest, res: Response) => {
         await ClassService.deleteClass(req.user.school_id, branchId, req.params.id as string);
         res.status(204).send();
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'class.controller.ts');
     }
 };
 
@@ -112,7 +113,7 @@ export const getClassSubjects = async (req: AuthRequest, res: Response) => {
         const result = await ClassService.getClassSubjects(req.user.school_id, grade, section);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'class.controller.ts');
     }
 };
 
@@ -121,7 +122,7 @@ export const getClassSubjectsById = async (req: AuthRequest, res: Response) => {
         const result = await ClassService.getClassSubjectsById(req.user.school_id, req.params.id as string);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'class.controller.ts');
     }
 };
 
@@ -132,6 +133,6 @@ export const initializeClasses = async (req: AuthRequest, res: Response) => {
         const result = await ClassService.initializeStandardClasses(req.user.school_id, classes, branchId);
         res.status(201).json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'class.controller.ts');
     }
 };

@@ -34,6 +34,20 @@ router.post('/pta-meetings/register', async (req: any, res) => {
         if (!meetingId) return res.status(400).json({ error: 'meetingId is required' });
         const parent = await (prisma as any).parent.findFirst({ where: { user_id: req.user?.id } }).catch(() => null);
         if (!parent) return res.status(400).json({ error: 'Parent not found' });
+
+        // The meeting must belong to the caller's school. Without this the row was
+        // created from a client-supplied meetingId with no ownership lookup at
+        // all, and an unknown id produced a 500 carrying the raw Prisma error —
+        // model shape, submitted values and the absolute server path.
+        // Accessor is `pTAMeeting` — the model is `PTAMeeting`, so Prisma only
+        // lowercases the first character. `ptaMeeting` is undefined and would
+        // have made every registration 404 via the .catch below.
+        const meeting = await (prisma as any).pTAMeeting.findFirst({
+            where: { id: meetingId, school_id: req.user.school_id },
+            select: { id: true }
+        }).catch(() => null);
+        if (!meeting) return res.status(404).json({ error: 'Meeting not found' });
+
         const existing = await (prisma as any).ptaMeetingAttendee.findFirst({
             where: { meeting_id: meetingId, parent_id: parent.id }
         }).catch(() => null);
@@ -43,7 +57,9 @@ router.post('/pta-meetings/register', async (req: any, res) => {
         });
         res.status(201).json({ registered: true, message: 'Registration successful' });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        // Never return e.message — it leaks Prisma internals and server paths.
+        console.error('[POST /parents/pta-meetings/register]', e);
+        res.status(500).json({ error: 'Failed to register for meeting' });
     }
 });
 router.get('/pta-meetings', getPTAMeetings);

@@ -42,15 +42,6 @@ export async function fetchStudentById(id: string | number): Promise<Student | n
     }
 }
 
-export async function fetchStudentByEmail(email: string): Promise<Student | null> {
-    try {
-        return await api.getStudentByEmail(email);
-    } catch (err) {
-        console.error('Error fetching student by email:', err);
-        return null;
-    }
-}
-
 export async function fetchStudentsByClass(grade: number | string, section: string, schoolId?: string, branchId?: string): Promise<Student[]> {
     try {
         const data = await api.getStudentsByClass(Number(grade), section, schoolId, branchId);

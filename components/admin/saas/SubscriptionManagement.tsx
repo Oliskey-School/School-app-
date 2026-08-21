@@ -183,8 +183,13 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
         }
     };
 
-    const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleDateString('en-US', {
+    const formatDate = (dateString?: string | null) => {
+        // A school with no billing period yet has null here. Without this guard
+        // `new Date(null)` renders as "Jan 1, 1970", which reads like real data.
+        if (!dateString) return '—';
+        const d = new Date(dateString);
+        if (isNaN(d.getTime())) return '—';
+        return d.toLocaleDateString('en-US', {
             year: 'numeric',
             month: 'short',
             day: 'numeric'

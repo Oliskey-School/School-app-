@@ -3,6 +3,7 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import { PayrollService } from '../services/payroll.service';
 import { getEffectiveBranchId } from '../utils/branchScope';
 import prisma from '../config/database';
+import { sendError } from '../utils/httpError';
 
 const ADMIN_ROLES = ['admin', 'proprietor', 'superadmin', 'super_admin'];
 function isAdmin(req: AuthRequest): boolean {
@@ -43,7 +44,7 @@ export const getPayslips = async (req: AuthRequest, res: Response) => {
             
         res.json(payslips || []);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'payroll.controller.ts');
     }
 };
 
@@ -54,7 +55,7 @@ export const getSalaryArrears = async (req: AuthRequest, res: Response) => {
         const arrears = await PayrollService.getSalaryArrears(schoolId, branchId as string);
         res.json(arrears);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'payroll.controller.ts');
     }
 };
 
@@ -85,7 +86,7 @@ export const getTransactions = async (req: AuthRequest, res: Response) => {
 
         res.json(transactions || []);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'payroll.controller.ts');
     }
 };
 
@@ -96,7 +97,7 @@ export const generatePayslip = async (req: AuthRequest, res: Response) => {
         const result = await PayrollService.savePayslip(req.user.school_id, branchId, req.body);
         res.status(201).json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'payroll.controller.ts');
     }
 };
 
@@ -107,7 +108,7 @@ export const approvePayslip = async (req: AuthRequest, res: Response) => {
         const result = await PayrollService.approvePayslip(req.user.school_id, id as string, req.user.id);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'payroll.controller.ts');
     }
 };
 
@@ -120,7 +121,7 @@ export const getTeacherSalary = async (req: AuthRequest, res: Response) => {
         const result = await PayrollService.getTeacherSalary(req.user.school_id, teacherId as string);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'payroll.controller.ts');
     }
 };
 
@@ -134,7 +135,7 @@ export const getSalaryProfile = async (req: AuthRequest, res: Response) => {
         const result = await PayrollService.getTeacherSalary(req.user.school_id, teacherId);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'payroll.controller.ts');
     }
 };
 
@@ -148,7 +149,7 @@ export const getPaymentHistory = async (req: AuthRequest, res: Response) => {
         const transactions = await PayrollService.getTransactions(req.user.school_id, teacherId);
         res.json(transactions || []);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'payroll.controller.ts');
     }
 };
 
@@ -167,7 +168,7 @@ export const getLeaveRequests = async (req: AuthRequest, res: Response) => {
         const requests = await PayrollService.getLeaveRequests(schoolId, teacherId, branchId);
         res.json(requests || []);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'payroll.controller.ts');
     }
 };
 
@@ -189,7 +190,7 @@ export const submitLeaveRequest = async (req: AuthRequest, res: Response) => {
         const result = await PayrollService.submitLeaveRequest(schoolId, branchId, teacherId, req.body);
         res.status(201).json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'payroll.controller.ts');
     }
 };
 
@@ -199,7 +200,7 @@ export const getLeaveTypes = async (req: AuthRequest, res: Response) => {
         const types = await PayrollService.getLeaveTypes(schoolId);
         res.json(types || []);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'payroll.controller.ts');
     }
 };
 

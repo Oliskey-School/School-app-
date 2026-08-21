@@ -3,6 +3,7 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import { LessonPlanService } from '../services/lessonPlan.service';
 import prisma from '../config/database';
 import { getEffectiveBranchId } from '../utils/branchScope';
+import { sendError } from '../utils/httpError';
 
 export const getLessonPlans = async (req: AuthRequest, res: Response) => {
     try {
@@ -24,7 +25,7 @@ export const getLessonPlans = async (req: AuthRequest, res: Response) => {
         const result = await LessonPlanService.getLessonPlans(req.user.school_id, branchId, teacherId, classId, subjectId, status);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'lessonPlan.controller.ts');
     }
 };
 

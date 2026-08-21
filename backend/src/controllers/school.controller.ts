@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { SchoolService } from '../services/school.service';
 import { isMainAdmin } from '../utils/permissions';
+import { sendError } from '../utils/httpError';
 
 export const getPilotOnboarding = async (req: AuthRequest, res: Response) => {
     try {
@@ -11,7 +12,7 @@ export const getPilotOnboarding = async (req: AuthRequest, res: Response) => {
         if (!data) return res.status(404).json({ message: 'School not found' });
         res.json(data);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'school.controller.ts');
     }
 };
 
@@ -28,7 +29,7 @@ export const savePilotProgress = async (req: AuthRequest, res: Response) => {
         });
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'school.controller.ts');
     }
 };
 
@@ -62,7 +63,7 @@ export const deleteSchool = async (req: AuthRequest, res: Response) => {
         const result = await SchoolService.deleteSchool(schoolId);
         res.json({ success: true, school: result });
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'school.controller.ts');
     }
 };
 
@@ -71,7 +72,7 @@ export const listSchools = async (req: Request, res: Response) => {
         const schools = await SchoolService.getAllSchools();
         res.json(schools);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'school.controller.ts');
     }
 };
 
@@ -81,7 +82,7 @@ export const listPublicSchools = async (req: Request, res: Response) => {
         const schools = await SchoolService.getPublicSchoolDirectory();
         res.json(schools);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'school.controller.ts');
     }
 };
 export const updateSchool = async (req: AuthRequest, res: Response) => {
@@ -95,7 +96,7 @@ export const updateSchool = async (req: AuthRequest, res: Response) => {
         const result = await SchoolService.updateSchool(req.user.school_id, req.params.id as string, req.body);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'school.controller.ts');
     }
 };
 
@@ -108,7 +109,7 @@ export const updateMySchool = async (req: AuthRequest, res: Response) => {
         const result = await SchoolService.updateSchool(schoolId, schoolId, req.body);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'school.controller.ts');
     }
 };
 
@@ -135,7 +136,7 @@ export const updateSchoolSubscription = async (req: AuthRequest, res: Response) 
         const result = await SchoolService.updateSchoolSubscription(schoolId, req.params.id as string, updates);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'school.controller.ts');
     }
 };
 
@@ -144,7 +145,7 @@ export const getSchoolById = async (req: AuthRequest, res: Response) => {
         const result = await SchoolService.getSchoolById(req.user.school_id, req.params.id as string);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'school.controller.ts');
     }
 };
 
@@ -154,7 +155,7 @@ export const updateSchoolStatusBulk = async (req: AuthRequest, res: Response) =>
         const result = await SchoolService.updateSchoolStatusBulk(req.user.school_id, ids, status);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'school.controller.ts');
     }
 };
 
@@ -164,7 +165,7 @@ export const deleteSchoolsBulk = async (req: AuthRequest, res: Response) => {
         const result = await SchoolService.deleteSchoolsBulk(req.user.school_id, ids);
         res.json({ success: result });
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'school.controller.ts');
     }
 };
 
@@ -181,7 +182,7 @@ export const getSchoolPolicies = async (req: AuthRequest, res: Response) => {
         const result = await SchoolService.getSchoolPolicies(id);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'school.controller.ts');
     }
 };
 
@@ -194,6 +195,6 @@ export const getSchoolPhotos = async (req: AuthRequest, res: Response) => {
         const result = await SchoolService.getSchoolPhotos(id);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'school.controller.ts');
     }
 };

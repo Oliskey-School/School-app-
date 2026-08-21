@@ -4,6 +4,7 @@ import { ClassroomService } from '../services/classroom.service';
 import { LessonAttendanceService } from '../services/lessonAttendance.service';
 import prisma from '../config/database';
 import { getEffectiveBranchId } from '../utils/branchScope';
+import { sendError } from '../utils/httpError';
 
 const ADMIN_ROLES = ['admin', 'proprietor', 'superadmin', 'super_admin'];
 
@@ -33,7 +34,7 @@ export const getClassrooms = async (req: AuthRequest, res: Response) => {
         const result = await ClassroomService.getClassrooms(req.user.school_id, branchId);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'classroom.controller.ts');
     }
 };
 
@@ -105,7 +106,7 @@ export const getMyLessonsToday = async (req: AuthRequest, res: Response) => {
         const result = await LessonAttendanceService.getTeacherToday(req.user.school_id, teacherId);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'classroom.controller.ts');
     }
 };
 
@@ -120,6 +121,6 @@ export const getDailyReport = async (req: AuthRequest, res: Response) => {
         );
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'classroom.controller.ts');
     }
 };

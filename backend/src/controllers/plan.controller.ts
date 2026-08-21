@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { PlanService } from '../services/plan.service';
+import { sendError } from '../utils/httpError';
 
 export const getPlanStatus = async (req: Request, res: Response) => {
     try {
@@ -13,7 +14,7 @@ export const getPlanStatus = async (req: Request, res: Response) => {
         }
         res.json(status);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'plan.controller.ts');
     }
 };
 
@@ -22,7 +23,7 @@ export const getAllPlans = async (req: Request, res: Response) => {
         const plans = await PlanService.getAllPlans();
         res.json(plans);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'plan.controller.ts');
     }
 };
 
@@ -31,7 +32,7 @@ export const createPlan = async (req: Request, res: Response) => {
         const plan = await PlanService.createPlan(req.body);
         res.status(201).json(plan);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'plan.controller.ts');
     }
 };
 
@@ -40,7 +41,7 @@ export const updatePlan = async (req: Request, res: Response) => {
         const plan = await PlanService.updatePlan(parseInt(req.params.id as string), req.body);
         res.json(plan);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'plan.controller.ts');
     }
 };
 
@@ -53,7 +54,7 @@ export const recordSubscriptionPayment = async (req: Request, res: Response) => 
         const result = await PlanService.recordSubscriptionPayment(schoolId, amount, reference, planType);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'plan.controller.ts');
     }
 };
 
@@ -62,6 +63,6 @@ export const deletePlan = async (req: Request, res: Response) => {
         await PlanService.deletePlan(parseInt(req.params.id as string));
         res.status(204).send();
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'plan.controller.ts');
     }
 };

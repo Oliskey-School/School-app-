@@ -2,9 +2,14 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import prisma from '../config/database';
 import { getEffectiveBranchId } from '../utils/branchScope';
+import { sendError } from '../utils/httpError';
 
-const resolveSchoolId = (req: AuthRequest) =>
-    req.user?.school_id || req.user?.app_metadata?.school_id || req.headers['x-school-id'] as string || '';
+// Only ever the verified token's tenant. This used to fall back to the
+// client-controlled `x-school-id` header, which is the exact "trust the client's
+// school id" pattern that caused a cross-tenant leak in an earlier round. The
+// auth middleware already rejects a mismatched header, so the fallback bought
+// nothing and was a standing footgun.
+const resolveSchoolId = (req: AuthRequest) => req.user?.school_id || '';
 
 // GET /api/admin/parent-chat-permissions
 export const listPermissions = async (req: AuthRequest, res: Response) => {
@@ -36,7 +41,7 @@ export const listPermissions = async (req: AuthRequest, res: Response) => {
 
         res.json(enriched);
     } catch (err: any) {
-        res.status(500).json({ message: err.message });
+        sendError(res, err, 'parentChatPermission.controller.ts');
     }
 };
 
@@ -131,7 +136,7 @@ export const grantPermission = async (req: AuthRequest, res: Response) => {
 
         res.status(201).json(grant);
     } catch (err: any) {
-        res.status(500).json({ message: err.message });
+        sendError(res, err, 'parentChatPermission.controller.ts');
     }
 };
 
@@ -173,7 +178,7 @@ export const revokePermission = async (req: AuthRequest, res: Response) => {
 
         res.json({ success: true });
     } catch (err: any) {
-        res.status(500).json({ message: err.message });
+        sendError(res, err, 'parentChatPermission.controller.ts');
     }
 };
 
@@ -203,7 +208,7 @@ export const listParentsForPicker = async (req: AuthRequest, res: Response) => {
             avatarUrl: p.user?.avatar_url
         })));
     } catch (err: any) {
-        res.status(500).json({ message: err.message });
+        sendError(res, err, 'parentChatPermission.controller.ts');
     }
 };
 
@@ -233,6 +238,6 @@ export const listTeachersForPicker = async (req: AuthRequest, res: Response) => 
             avatarUrl: t.user?.avatar_url
         })));
     } catch (err: any) {
-        res.status(500).json({ message: err.message });
+        sendError(res, err, 'parentChatPermission.controller.ts');
     }
 };

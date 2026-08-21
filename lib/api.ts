@@ -684,14 +684,13 @@ class ExpressApiClient {
             };
         } catch (err) {
             console.error('[API] getDashboardStats error:', err);
-            return {
-                totalStudents: 0, totalTeachers: 0, totalParents: 0, totalClasses: 0, totalAcademicLevels: 0,
-                studentTrend: 0, teacherTrend: 0, parentTrend: 0, classTrend: 0,
-                overdueFees: 0, unpublishedReports: 0, pendingApprovalsCount: 0,
-                attendancePercentage: 0, timetablePreview: [], recentActivity: [],
-                latestHealthLog: null, enrollmentData: [], performance: [],
-                fees: { paid: 0, overdue: 0, unpaid: 0, total: 0 }, workload: [], attendance: [],
-            };
+            // Rethrow rather than returning an all-zeros object. Swallowing it
+            // rendered a fully-populated dashboard reading 0 everywhere, which is
+            // indistinguishable from a genuinely empty school — an outage looked
+            // like real data. DashboardOverview already consumes this through
+            // react-query and ALREADY renders an error banner on isError; that
+            // banner simply never fired because the error never propagated.
+            throw err;
         }
     }
 
@@ -953,10 +952,6 @@ class ExpressApiClient {
         }));
     }
 
-    async getStudentByEmail(email: string): Promise<any> {
-        return this.get(`/students/email/${email}`);
-    }
-
     async getMyDashboardOverview(): Promise<any> {
         return this.get('/students/me/dashboard');
     }
@@ -1051,7 +1046,11 @@ class ExpressApiClient {
 
     async getStudentReportStats(studentId: string): Promise<any> {
         try {
-            const report = await this.get(`/academic/report-card-details?studentId=${studentId}&term=First Term&session=2024/2025`);
+            // term/session deliberately omitted — the server resolves the CURRENT
+            // term. This used to hardcode "First Term / 2024/2025", so every figure
+            // on the Teacher Reports screen was computed from a session with no
+            // data and rendered as a real 0.
+            const report = await this.get(`/academic/report-card-details?studentId=${studentId}`);
             if (!report) return { avgScore: 0, attendancePct: 100, performance: [] };
             
             const records = (report as any).academic_records || [];
@@ -3337,6 +3336,19 @@ class ExpressApiClient {
     // ============================================
     // LEAVE MANAGEMENT
     // ============================================
+    // Leave balances. The backend has had a fully implemented, tenant-scoped
+    // /leave-balances route (GET/POST/PUT/DELETE) all along — only these client
+    // methods were missing, which is why the admin screen fell back to deriving
+    // balances from leave requests with a hardcoded 30-day allocation.
+    async getLeaveBalances(teacherId?: string): Promise<any[]> {
+        const qs = teacherId ? `?teacher_id=${encodeURIComponent(teacherId)}` : '';
+        return this.get(`/leave-balances${qs}`);
+    }
+
+    async updateLeaveBalance(id: string, data: { total_days?: number; used_days?: number; remaining_days?: number }): Promise<any> {
+        return this.put(`/leave-balances/${id}`, data);
+    }
+
     async getLeaveRequests(teacherId?: string, _schoolId?: string): Promise<any[]> {
         const queryParams = new URLSearchParams();
         if (teacherId) queryParams.append('teacherId', teacherId);

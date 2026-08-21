@@ -1200,8 +1200,20 @@ export class DemoSeederService {
             }, { timeout: 120000, maxWait: 30000 });
 
             console.log(`✅ [Seeder] Sandbox for ${branchId} is populated with real-world data.`);
-        } catch (err) {
-            console.error(`❌ [Seeder] Failed to seed sandbox for branch ${branchId}:`, err);
+        } catch (err: any) {
+            // Log the fields that actually identify a Prisma failure. Passing the
+            // error object alone prints "PrismaClientKnownRequestError:" with an
+            // empty message and a stack of library internals — confirmed useless
+            // in production on 2026-08-21, where this seeder was failing and the
+            // demo school ended up with 16 classes, 1 teacher and 0 students,
+            // with no way to tell why from the logs.
+            console.error(
+                `❌ [Seeder] Failed to seed sandbox for branch ${branchId}: ` +
+                `name=${err?.name} code=${err?.code ?? 'n/a'} ` +
+                `meta=${(() => { try { return JSON.stringify(err?.meta); } catch { return 'unserialisable'; } })()} ` +
+                `message=${(err?.message || '').replace(/\s+/g, ' ').slice(0, 500)}`
+            );
+            if (err?.stack) console.error(err.stack);
             throw err;
         }
     }

@@ -3,6 +3,7 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import { AssignmentService } from '../services/assignment.service';
 import prisma from '../config/database';
 import { getEffectiveBranchId } from '../utils/branchScope';
+import { sendError } from '../utils/httpError';
 
 const ADMIN_ROLES = ['admin', 'proprietor', 'superadmin', 'super_admin'];
 function isAdminRole(req: AuthRequest): boolean {
@@ -82,7 +83,7 @@ export const getAssignments = async (req: AuthRequest, res: Response) => {
         res.json(result);
     } catch (error: any) {
         console.error('[AssignmentController] getAssignments error:', error);
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'assignment.controller.ts');
     }
 };
 
@@ -170,7 +171,7 @@ export const getAssignmentSubmission = async (req: AuthRequest, res: Response) =
         res.json(result);
     } catch (error: any) {
         console.error('[AssignmentController] getAssignmentSubmission error:', error);
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'assignment.controller.ts');
     }
 };
 
@@ -217,7 +218,7 @@ export const submitAssignment = async (req: AuthRequest, res: Response) => {
         res.status(201).json(result);
     } catch (error: any) {
         console.error('[AssignmentController] submitAssignment error:', error);
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'assignment.controller.ts');
     }
 };
 

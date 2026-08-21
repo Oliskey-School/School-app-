@@ -42,6 +42,14 @@ model School {
   paystack_auth_code         String?
   paystack_customer_code     String?
   trial_used                 Boolean                       @default(false)
+  // Billing period + renewal state. The SaaS SubscriptionManagement screen has
+  // always displayed these (period range, Auto-renew Yes/No) and its Cancel
+  // action already tried to write auto_renew/canceled_at — but no columns
+  // existed, so the screen had no endpoint to read from at all.
+  subscription_period_start  DateTime?
+  subscription_period_end    DateTime?
+  auto_renew                 Boolean                       @default(true)
+  canceled_at                DateTime?
   user_count                 Int                           @default(0)
   primary_color              String?
   secondary_color            String?
@@ -525,17 +533,21 @@ model ParentTeacherChatPermission {
 }
 
 model ParentChild {
-  id         String    @id @default(uuid())
-  parent_id  String
-  student_id String
-  school_id  String
-  branch_id  String?
-  created_at DateTime  @default(now())
-  parent     Parent    @relation(fields: [parent_id], references: [id], onDelete: Cascade)
-  student    Student   @relation(fields: [student_id], references: [id], onDelete: Cascade)
-  created_by String?
-  updated_by String?
-  deleted_at DateTime?
+  id           String    @id @default(uuid())
+  parent_id    String
+  student_id   String
+  school_id    String
+  branch_id    String?
+  // The "Link a New Child" screen has always asked for this (Father / Mother /
+  // Guardian / Other) but there was nowhere to put it, so the answer was
+  // silently discarded and the dropdown was a no-op.
+  relationship String?
+  created_at   DateTime  @default(now())
+  parent       Parent    @relation(fields: [parent_id], references: [id], onDelete: Cascade)
+  student      Student   @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  created_by   String?
+  updated_by   String?
+  deleted_at   DateTime?
 
   @@unique([parent_id, student_id])
 }
@@ -1619,18 +1631,25 @@ model AnonymousReport {
 }
 
 model MenstrualSupportRequest {
-  id           String    @id @default(uuid())
-  school_id    String
-  branch_id    String?
-  student_id   String?
-  is_anonymous Boolean   @default(true)
-  status       String    @default("pending")
-  notes        String?
-  created_at   DateTime  @default(now())
-  updated_at   DateTime  @updatedAt
-  created_by   String?
-  updated_by   String?
-  deleted_at   DateTime?
+  id              String    @id @default(uuid())
+  school_id       String
+  branch_id       String?
+  student_id      String?
+  is_anonymous    Boolean   @default(true)
+  status          String    @default("pending")
+  notes           String?
+  // The request form has always collected these three, but the columns did not
+  // exist, so every submission failed with "Unknown argument `request_type`" and
+  // no discreet support request was ever saved. pickup_location is set by the
+  // school when it fulfils the request — it is NOT supplied by the student.
+  request_type    String?
+  quantity_needed Int?
+  pickup_location String?
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+  created_by      String?
+  updated_by      String?
+  deleted_at      DateTime?
 }
 
 model HealthLog {

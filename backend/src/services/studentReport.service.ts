@@ -20,9 +20,18 @@ export class StudentReportService {
     }
 
     static async createDiscreetRequest(schoolId: string, branchId: string | undefined, requestData: any) {
+        // Whitelist the fields a requester may set. The previous unfiltered
+        // `...requestData` spread meant a student could post `status`,
+        // `student_id`, `created_by` or `pickup_location` and have them written
+        // straight through. pickup_location in particular is the SCHOOL's answer
+        // to the request, not the requester's input.
+        const quantity = Number(requestData?.quantity_needed);
         const insertData: any = {
-            ...requestData,
-            school_id: schoolId
+            school_id: schoolId,
+            request_type: requestData?.request_type ? String(requestData.request_type) : null,
+            quantity_needed: Number.isFinite(quantity) && quantity > 0 ? Math.min(Math.floor(quantity), 50) : 1,
+            notes: requestData?.notes ? String(requestData.notes) : null,
+            is_anonymous: requestData?.is_anonymous !== false
         };
         if (branchId && branchId !== 'all') {
             insertData.branch_id = branchId;

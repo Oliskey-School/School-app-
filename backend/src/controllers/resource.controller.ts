@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { ResourceService } from '../services/resource.service';
 import { getEffectiveBranchId } from '../utils/branchScope';
+import { sendError } from '../utils/httpError';
 
 const UPLOAD_ROLES = ['admin', 'proprietor', 'superadmin', 'super_admin', 'teacher'];
 function canManageResources(req: AuthRequest): boolean {
@@ -21,7 +22,7 @@ export const createResource = async (req: AuthRequest, res: Response) => {
         const result = await ResourceService.createResource(req.user.school_id, branchId, req.body);
         res.status(201).json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'resource.controller.ts');
     }
 };
 
@@ -38,7 +39,7 @@ export const getResources = async (req: AuthRequest, res: Response) => {
         const resources = await ResourceService.getResources(req.user.school_id, branchId, filters);
         res.json(resources);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'resource.controller.ts');
     }
 };
 

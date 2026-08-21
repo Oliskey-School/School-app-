@@ -3,6 +3,7 @@ import { AuthService } from '../services/auth.service';
 import { BranchIdentityService } from '../services/branchIdentity.service';
 import { generateToken } from '../middleware/csrf.middleware';
 import prisma from '../config/database';
+import { sendError } from '../utils/httpError';
 
 // Matches csrf.middleware.ts's reasoning: nginx serves the SPA and API
 // same-origin in production (see deploy/nginx.conf), so 'lax' is both
@@ -385,16 +386,22 @@ export const getMe = async (req: Request, res: Response) => {
         // Enrich with the account-saved UI language so it follows the user across
         // devices. Best-effort: demo/short-lived sessions still return the token user.
         let preferred_language: string | null = null;
+        // two_factor_enabled is a plain status flag (the SECRET is what's
+        // sensitive, and that stays stripped). The Security Settings screen needs
+        // it from the server — it previously read 2FA state from localStorage,
+        // so "enabled" was a per-browser fiction.
+        let two_factor_enabled = false;
         try {
             if (user?.id && !user?.is_demo) {
                 const row = await prisma.user.findUnique({
                     where: { id: user.id },
-                    select: { preferred_language: true },
+                    select: { preferred_language: true, two_factor_enabled: true },
                 });
                 preferred_language = (row as any)?.preferred_language ?? null;
+                two_factor_enabled = (row as any)?.two_factor_enabled ?? false;
             }
         } catch { /* column may not be migrated yet — ignore */ }
-        res.json({ ...user, preferred_language });
+        res.json({ ...user, preferred_language, two_factor_enabled });
     } catch (error: any) {
         res.status(401).json({ message: 'Unauthorized' });
     }
@@ -416,7 +423,7 @@ export const updateLanguage = async (req: Request, res: Response) => {
         });
         res.json({ success: true, preferred_language: language });
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'auth.controller.ts');
     }
 };
 
@@ -432,7 +439,7 @@ export const getActiveBranchId = async (req: Request, res: Response) => {
         // branch admin — their home branch_id is truthy either way, so the UI can't infer it.
         res.json({ school_generated_id, branch_id: branchId, is_main_admin: !!user?.is_main_admin });
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'auth.controller.ts');
     }
 };
 
@@ -498,7 +505,7 @@ export const demoRoles = async (req: Request, res: Response) => {
         const roles = AuthService.getDemoRoles();
         res.json({ roles });
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'auth.controller.ts');
     }
 };
 
@@ -525,7 +532,7 @@ export const getSessions = async (req: Request, res: Response) => {
 
         res.json(sessionsWithCurrent);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'auth.controller.ts');
     }
 };
 
@@ -554,7 +561,7 @@ export const revokeAllSessions = async (req: Request, res: Response) => {
         await AuthService.revokeAllSessions(userId, currentSid);
         res.json({ success: true, message: 'All sessions revoked' });
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'auth.controller.ts');
     }
 };
 

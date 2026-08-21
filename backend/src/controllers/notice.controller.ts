@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { NoticeService } from '../services/notice.service';
 import { getEffectiveBranchId } from '../utils/branchScope';
+import { sendError } from '../utils/httpError';
 
 export const getNotices = async (req: AuthRequest, res: Response) => {
     try {
@@ -9,7 +10,7 @@ export const getNotices = async (req: AuthRequest, res: Response) => {
         const result = await NoticeService.getNotices(req.user.school_id, branchId);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'notice.controller.ts');
     }
 };
 
