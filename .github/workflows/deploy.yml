@@ -270,15 +270,45 @@ jobs:
 
           # Prove the app is actually serving before calling this a success —
           # a green PM2 table only means the processes launched, not that they
-          # stayed up or bound the port.
+          # stayed up or bound a port.
+          #
+          # Resolve the port the same way the app does. ecosystem.config.cjs
+          # sets no port at all, so it comes from .env via env_file, and
+          # backend/src/config/env.ts resolves BACKEND_PORT || PORT || 5000.
+          # Hardcoding 3000 here (as the first version of this check did) can
+          # interrogate a port nothing is listening on and fail a healthy
+          # deploy.
+          APP_PORT=$(grep -hE '^[[:space:]]*(BACKEND_PORT|PORT)[[:space:]]*=' .env 2>/dev/null \
+                     | tail -1 | cut -d= -f2 | tr -d ' "'"'"'')
+          APP_PORT=${APP_PORT:-5000}
+          echo "App port resolved to $APP_PORT (from .env, default 5000)"
+
           echo "Verifying the API responds..."
-          for i in $(seq 1 15); do
-            if curl -sf http://127.0.0.1:3000/live > /dev/null 2>&1; then
-              echo "API is live on port 3000 after ${i}s"
-              exit 0
+          HEALTHY=0
+          for i in $(seq 1 30); do
+            if curl -sf "http://127.0.0.1:$APP_PORT/live" > /dev/null 2>&1; then
+              echo "API is live on port $APP_PORT after $((i * 2))s"
+              HEALTHY=1
+              break
             fi
             sleep 2
           done
-          echo "::error::PM2 reported the app started, but nothing answered on http://127.0.0.1:3000/live after 30s."
-          npx pm2 logs oliskey-api --lines 40 --nostream || true
-          exit 1
+
+          if [ "$HEALTHY" != "1" ]; then
+            echo "::error::PM2 started the app, but nothing answered http://127.0.0.1:$APP_PORT/live within 60s."
+            npx pm2 logs oliskey-api --lines 40 --nostream || true
+            exit 1
+          fi
+
+          # The app being up is not the same as the SITE being up: Apache
+          # proxies /api and /socket.io to 127.0.0.1:3000 (see
+          # deploy/apache-school-app.conf and the live vhost). If the app
+          # bound a different port, every request through Apache 502s while
+          # PM2 and the check above both look perfectly healthy.
+          PROXY_PORT=3000
+          if [ "$APP_PORT" != "$PROXY_PORT" ]; then
+            echo "::error::Port mismatch: the app is listening on $APP_PORT but Apache proxies to $PROXY_PORT, so the live site will return 502."
+            echo "::error::Fix by setting BACKEND_PORT=$PROXY_PORT in /var/www/School-app/.env (and the backup .env the Restore step copies from), then redeploy."
+            exit 1
+          fi
+          echo "App port matches Apache's proxy target ($PROXY_PORT) — site should be serving."
