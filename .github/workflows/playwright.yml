@@ -78,6 +78,19 @@ jobs:
       - name: Apply database migrations
         run: npx prisma migrate deploy --schema=backend/prisma/schema.prisma
 
+      - name: Seed demo data
+        # migrate deploy creates the schema but no rows. The suite signs in as
+        # the demo admin, so without seed data every test just times out
+        # waiting for a dashboard that never renders.
+        #
+        # The backend's own boot-time demo seeder cannot bootstrap this: it
+        # seeds branch 7601cbea-... directly and fails on an empty database
+        # ("Fatal error during Global Demo Seeding", run 32433878858), because
+        # the parent school row does not exist yet. prisma/seed.ts creates the
+        # school, branch and users from nothing, which is what a fresh
+        # throwaway database needs.
+        run: npm run db:seed
+
       - name: Build frontend
         run: npm run build
 
