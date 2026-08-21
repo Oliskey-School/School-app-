@@ -132,13 +132,31 @@ jobs:
           npx vite preview --port 4173 --strictPort > /tmp/e2e-preview.log 2>&1 &
           echo "Waiting for backend to become healthy..."
           for i in $(seq 1 60); do
-            if curl -sf "http://127.0.0.1:$BACKEND_PORT/live" > /dev/null 2>&1; then
-              echo "Backend healthy after $((i * 2))s"
-              exit 0
-            fi
+            curl -sf "http://127.0.0.1:$BACKEND_PORT/live" > /dev/null 2>&1 && { echo "Backend healthy after $((i * 2))s"; break; }
             if [ "$i" = "60" ]; then
               echo "::error::Backend never became healthy — log:"
               cat /tmp/e2e-backend.log
+              exit 1
+            fi
+            sleep 2
+          done
+
+          # Check the PREVIEW too. This step used to `exit 0` the moment the
+          # backend answered, so a frontend that never started still counted as
+          # success — the suite then failed 30s at a time waiting for elements
+          # on a page that was never served (run 32492835744, where
+          # /tmp/e2e-preview.log came back completely empty).
+          echo "Waiting for the frontend preview to serve..."
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:4173/ > /dev/null 2>&1; then
+              echo "Preview serving after $((i * 2))s"
+              exit 0
+            fi
+            if [ "$i" = "30" ]; then
+              echo "::error::vite preview never served on :4173 — log:"
+              cat /tmp/e2e-preview.log
+              echo "--- dist/ contents ---"
+              ls -la dist 2>&1 | head -20
               exit 1
             fi
             sleep 2
