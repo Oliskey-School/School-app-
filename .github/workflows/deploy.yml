@@ -17,7 +17,7 @@ jobs:
 
     steps:
       - name: Fix Safe Directory Permissions
-        run: git config --global --add safe.directory /var/www/School-app-
+        run: git config --global --add safe.directory /var/www/School-app
 
       - name: Checkout Code
         run: |
@@ -103,8 +103,8 @@ jobs:
       - name: Restore Environment & Binary Permissions
         run: |
           echo "Restoring production .env from persistent backup..."
-          \cp -f /var/www/School-app--backup/.env ./.env 2>/dev/null || \cp -f /var/www/School-app--backup-20260818/.env ./.env 2>/dev/null || true
-          \cp -f /var/www/School-app--backup/.env ./backend/.env 2>/dev/null || \cp -f /var/www/School-app--backup-20260818/.env ./backend/.env 2>/dev/null || true
+          \cp -f /var/www/School-app-backup/.env ./.env 2>/dev/null || \cp -f /var/www/School-app-backup-20260818/.env ./.env 2>/dev/null || true
+          \cp -f /var/www/School-app-backup/.env ./backend/.env 2>/dev/null || \cp -f /var/www/School-app-backup-20260818/.env ./backend/.env 2>/dev/null || true
           chmod -R +x node_modules/.bin 2>/dev/null || true
 
       - name: Setup Node
@@ -183,7 +183,7 @@ jobs:
 
       - name: Sync to Deploy Path
         run: |
-          DEPLOY_PATH="/var/www/School-app-"
+          DEPLOY_PATH="/var/www/School-app"
           RSYNC_ARGS=(-a --delete
             --exclude=.git
             --exclude=.env
@@ -212,7 +212,7 @@ jobs:
 
       - name: Install Dependencies at Deploy Path
         run: |
-          DEPLOY_PATH="/var/www/School-app-"
+          DEPLOY_PATH="/var/www/School-app"
           cd "$DEPLOY_PATH"
           if [ "$(cd "${{ github.workspace }}" && pwd -P)" = "$(pwd -P)" ]; then
             echo "Workspace already is the deploy path — node_modules is already current from Install Dependencies."
@@ -263,7 +263,7 @@ jobs:
         run: |
           set -e
           export RUNNER_TRACKING_ID=""
-          cd /var/www/School-app-
+          cd /var/www/School-app
           npx pm2 reload ecosystem.config.cjs --update-env || npx pm2 start ecosystem.config.cjs --env production
           # Persist the process list so a host reboot restores it.
           npx pm2 save || true
@@ -308,7 +308,7 @@ jobs:
           PROXY_PORT=3000
           if [ "$APP_PORT" != "$PROXY_PORT" ]; then
             echo "::error::Port mismatch: the app is listening on $APP_PORT but Apache proxies to $PROXY_PORT, so the live site will return 502."
-            echo "::error::Fix by setting BACKEND_PORT=$PROXY_PORT in /var/www/School-app-/.env (and the backup .env the Restore step copies from), then redeploy."
+            echo "::error::Fix by setting BACKEND_PORT=$PROXY_PORT in /var/www/School-app/.env (and the backup .env the Restore step copies from), then redeploy."
             exit 1
           fi
           echo "App port matches Apache's proxy target ($PROXY_PORT) — site should be serving."
