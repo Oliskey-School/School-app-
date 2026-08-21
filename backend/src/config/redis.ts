@@ -11,6 +11,21 @@ import IORedis from 'ioredis';
 const REDIS_LOG_THROTTLE_MS = 60_000;
 let lastErrorLogAt = 0;
 
+/** When this module was loaded — i.e. process start, for practical purposes. */
+const PROCESS_START_AT = Date.now();
+/**
+ * How long after boot waitForRedisReady() may still block. Past this, a
+ * not-yet-ready Redis is treated as a real outage and callers fail fast to
+ * their in-memory fallback. Generous enough to cover a slow boot (dev's
+ * synchronous tsx transpile can block the event loop for several seconds),
+ * short enough that a permanently unreachable Redis cannot keep taxing every
+ * request. Override with REDIS_STARTUP_GRACE_MS if a deployment needs longer.
+ */
+const STARTUP_GRACE_MS = (() => {
+    const v = parseInt(process.env.REDIS_STARTUP_GRACE_MS || '', 10);
+    return Number.isFinite(v) && v > 0 ? v : 60_000;
+})();
+
 export const redisConnection = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379', {
     maxRetriesPerRequest: null,
     enableReadyCheck: false,
@@ -74,6 +89,21 @@ export function isRedisReady(): boolean {
 export function waitForRedisReady(timeoutMs = 10_000): Promise<boolean> {
     if (isReady) return Promise.resolve(true);
     if (everBeenReady) return Promise.resolve(false);
+    // The `everBeenReady` guard above only fails fast once Redis has connected
+    // at least ONCE. If Redis is never reachable, that guard never arms and
+    // every rate-limited request pays the full timeoutMs — forever.
+    //
+    // Confirmed in production 2026-08-21: /api/auth/csrf-token took 10.6s,
+    // 14.6s and 20.2s on three consecutive calls, while /api/health and /live
+    // (both in KEEPALIVE_PATHS, so they skip the rate limiter) stayed under
+    // 0.9s. The whole app was gated behind this: the demo took ~40s to open.
+    //
+    // Bound the wait to a real startup window instead. That still covers the
+    // race this function exists for — a first Redis call issued before the
+    // async handshake completes — while guaranteeing a permanently absent
+    // Redis degrades to the in-memory fallback promptly, which is the
+    // fail-open behaviour the rest of this module is built around.
+    if (Date.now() - PROCESS_START_AT > STARTUP_GRACE_MS) return Promise.resolve(false);
     return new Promise((resolve) => {
         const onReady = () => {
             clearTimeout(timer);
