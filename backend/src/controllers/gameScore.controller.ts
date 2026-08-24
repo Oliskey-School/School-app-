@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { GameScoreService } from '../services/gameScore.service';
+import { sendError } from '../utils/httpError';
 
 export const submitScore = async (req: Request, res: Response) => {
     try {
@@ -19,7 +20,7 @@ export const submitScore = async (req: Request, res: Response) => {
         res.status(201).json(result);
     } catch (error: any) {
         console.error('Error submitting game score:', error);
-        res.status(500).json({ error: 'Failed to submit score', details: error.message });
+        sendError(res, error, 'gameScore.controller.ts');
     }
 };
 

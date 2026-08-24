@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { MaintenanceService } from '../services/maintenance.service';
 import { getEffectiveBranchId } from '../utils/branchScope';
+import { sendError } from '../utils/httpError';
 
 const ADMIN_ROLES = ['admin', 'proprietor', 'superadmin', 'super_admin'];
 
@@ -23,7 +24,7 @@ export const getTickets = async (req: AuthRequest, res: Response) => {
         const result = await MaintenanceService.getTickets(schoolId, branchId as string, reportedBy);
         res.json(Array.isArray(result) ? result : []);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'maintenance.controller.ts');
     }
 };
 

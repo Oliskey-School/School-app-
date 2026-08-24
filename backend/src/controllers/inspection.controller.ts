@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { AuthRequest } from '../middleware/auth.middleware';
+import { sendError } from '../utils/httpError';
 
 export const getTemplateByType = async (req: Request, res: Response) => {
     try {
@@ -15,7 +16,7 @@ export const getTemplateByType = async (req: Request, res: Response) => {
 
         res.json(template);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'inspection.controller.ts');
     }
 };
 
@@ -97,7 +98,7 @@ export const submitInspection = async (req: AuthRequest, res: Response) => {
         res.status(201).json(result);
     } catch (error: any) {
         console.error('[Inspection Submission Error]:', error);
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'inspection.controller.ts');
     }
 };
 
@@ -118,6 +119,6 @@ export const getSchoolInspectionHistory = async (req: AuthRequest, res: Response
         });
         res.json(history);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'inspection.controller.ts');
     }
 };

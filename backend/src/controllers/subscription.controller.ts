@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { activateSubscription, calcTermAmount, PLAN_RATES, PlanType, topUpStudents, recordUserAiPurchase, USER_AI_PRICE } from '../services/subscription.service';
 import { getCurrentTerm, listAllTerms } from '../services/term.service';
+import { sendError } from '../utils/httpError';
 
 /**
  * GET /api/subscription/current-term
@@ -16,7 +17,7 @@ export const getCurrentTermController = async (_req: AuthRequest, res: Response)
         }
         res.json({ term });
     } catch (err: any) {
-        res.status(500).json({ message: err.message });
+        sendError(res, err, 'subscription.controller.ts');
     }
 };
 
@@ -42,7 +43,7 @@ export const getQuoteController = async (req: AuthRequest, res: Response) => {
 
         res.json({ plan, rate, students, total, currency: 'NGN', term });
     } catch (err: any) {
-        res.status(500).json({ message: err.message });
+        sendError(res, err, 'subscription.controller.ts');
     }
 };
 
@@ -129,6 +130,6 @@ export const listCalendarController = async (_req: AuthRequest, res: Response) =
         const rows = await listAllTerms();
         res.json(rows);
     } catch (err: any) {
-        res.status(500).json({ message: err.message });
+        sendError(res, err, 'subscription.controller.ts');
     }
 };

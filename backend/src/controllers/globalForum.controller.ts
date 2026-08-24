@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { GlobalForumService } from '../services/globalForum.service';
+import { sendError } from '../utils/httpError';
 
 // Only teachers participate in the global community. Admins/super-admins may read
 // and moderate but the space is meant for teacher-to-teacher collaboration.
@@ -11,7 +12,7 @@ export const getGlobalTopics = async (_req: AuthRequest, res: Response) => {
     try {
         res.json(await GlobalForumService.getTopics());
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'globalForum.controller.ts');
     }
 };
 
@@ -29,7 +30,7 @@ export const getGlobalPosts = async (req: AuthRequest, res: Response) => {
     try {
         res.json(await GlobalForumService.getPosts(req.params.id as string));
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'globalForum.controller.ts');
     }
 };
 
@@ -48,7 +49,7 @@ export const deleteGlobalTopic = async (req: AuthRequest, res: Response) => {
         if (!canModerate(req)) return res.status(403).json({ message: 'Only the platform super admin can remove posts' });
         res.json(await GlobalForumService.deleteTopic(req.params.id as string));
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'globalForum.controller.ts');
     }
 };
 
@@ -57,6 +58,6 @@ export const deleteGlobalPost = async (req: AuthRequest, res: Response) => {
         if (!canModerate(req)) return res.status(403).json({ message: 'Only the platform super admin can remove posts' });
         res.json(await GlobalForumService.deletePost(req.params.id as string));
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'globalForum.controller.ts');
     }
 };

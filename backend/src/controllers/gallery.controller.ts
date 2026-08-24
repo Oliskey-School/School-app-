@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { GalleryService } from '../services/gallery.service';
 import { getEffectiveBranchId } from '../utils/branchScope';
+import { sendError } from '../utils/httpError';
 
 const STAFF_ROLES = ['admin', 'proprietor', 'superadmin', 'super_admin', 'teacher'];
 function isStaff(req: AuthRequest): boolean {
@@ -14,7 +15,7 @@ export const getPhotos = async (req: AuthRequest, res: Response) => {
         const result = await GalleryService.getPhotos(req.user.school_id, branchId);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'gallery.controller.ts');
     }
 };
 
@@ -28,7 +29,7 @@ export const addPhoto = async (req: AuthRequest, res: Response) => {
         const result = await GalleryService.addPhoto(schoolId, branchId, req.body);
         res.status(201).json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'gallery.controller.ts');
     }
 };
 

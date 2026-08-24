@@ -4,6 +4,7 @@ import { LearningHubService } from '../services/learningHub.service';
 import { StudentService } from '../services/student.service';
 import { getEffectiveBranchId } from '../utils/branchScope';
 import prisma from '../config/database';
+import { sendError } from '../utils/httpError';
 
 function isAdmin(req: AuthRequest): boolean {
     return LearningHubService.isAdmin(req.user.role);
@@ -47,7 +48,7 @@ export const getResources = async (req: AuthRequest, res: Response) => {
         const result = await LearningHubService.getResources(req.user.school_id, branchId, filters);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'learningHub.controller.ts');
     }
 };
 
@@ -58,7 +59,7 @@ export const createResource = async (req: AuthRequest, res: Response) => {
         const result = await LearningHubService.createResource(req.user.school_id, branchId, req.body);
         res.status(201).json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'learningHub.controller.ts');
     }
 };
 
@@ -68,7 +69,7 @@ export const updateResource = async (req: AuthRequest, res: Response) => {
         const result = await LearningHubService.updateResource(req.user.school_id, req.params.id as string, req.body);
         res.json(result);
     } catch (error: any) {
-        res.status(error.statusCode || 500).json({ message: error.message });
+        sendError(res, error, 'learningHub.controller.ts');
     }
 };
 
@@ -78,7 +79,7 @@ export const deleteResource = async (req: AuthRequest, res: Response) => {
         await LearningHubService.deleteResource(req.user.school_id, req.params.id as string);
         res.json({ message: 'Resource deleted successfully' });
     } catch (error: any) {
-        res.status(error.statusCode || 500).json({ message: error.message });
+        sendError(res, error, 'learningHub.controller.ts');
     }
 };
 
@@ -90,7 +91,7 @@ export const upsertMyProgress = async (req: AuthRequest, res: Response) => {
         const result = await LearningHubService.upsertProgress(req.user.school_id, branchId, studentId, req.body);
         res.json(result);
     } catch (error: any) {
-        res.status(error.statusCode || 500).json({ message: error.message });
+        sendError(res, error, 'learningHub.controller.ts');
     }
 };
 
@@ -101,7 +102,7 @@ export const getMyProgress = async (req: AuthRequest, res: Response) => {
         const result = await LearningHubService.getStudentProgress(req.user.school_id, studentId);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'learningHub.controller.ts');
     }
 };
 
@@ -114,7 +115,7 @@ export const getStudentProgress = async (req: AuthRequest, res: Response) => {
         const result = await LearningHubService.getStudentProgress(req.user.school_id, studentId);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'learningHub.controller.ts');
     }
 };
 
@@ -127,7 +128,7 @@ export const getStudentSummary = async (req: AuthRequest, res: Response) => {
         const result = await LearningHubService.getStudentSummary(req.user.school_id, studentId);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'learningHub.controller.ts');
     }
 };
 
@@ -138,7 +139,7 @@ export const getMySummary = async (req: AuthRequest, res: Response) => {
         const result = await LearningHubService.getStudentSummary(req.user.school_id, studentId);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'learningHub.controller.ts');
     }
 };
 
@@ -161,7 +162,7 @@ export const createStudyPlan = async (req: AuthRequest, res: Response) => {
         });
         res.status(201).json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'learningHub.controller.ts');
     }
 };
 
@@ -179,6 +180,6 @@ export const getStudyPlans = async (req: AuthRequest, res: Response) => {
         const result = await LearningHubService.getStudyPlans(req.user.school_id, studentId);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'learningHub.controller.ts');
     }
 };

@@ -4,6 +4,7 @@ import { AiService } from '../services/ai.service';
 import { NvidiaAIService, NVIDIA_MODELS } from '../services/nvidiaAI.service';
 import prisma from '../config/database';
 import { getEffectiveBranchId } from '../utils/branchScope';
+import { sendError } from '../utils/httpError';
 
 // Shared error shaping for the NVIDIA proxy — surfaces the upstream status and a
 // short reason without leaking the API key or full internals.
@@ -89,7 +90,7 @@ export const getGeneratedResources = async (req: AuthRequest, res: Response) => 
         const result = await AiService.getGeneratedResources(req.user.school_id, branchId, teacherId);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'ai.controller.ts');
     }
 };
 
@@ -99,6 +100,6 @@ export const saveGeneratedResource = async (req: AuthRequest, res: Response) => 
         const result = await AiService.saveGeneratedResource(req.user.school_id, branchId, req.body);
         res.status(201).json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'ai.controller.ts');
     }
 };

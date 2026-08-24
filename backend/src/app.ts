@@ -87,6 +87,14 @@ app.use((req, res, next) => {
                         path.includes('/api/auth/login') ||
                         path.includes('/api/auth/demo/login') ||
                         path.includes('/api/auth/google-login') ||
+                        // Second leg of the login handshake. /api/auth/login is already
+                        // exempt above, but a 2FA user's login is NOT complete until
+                        // this call — it carries the short-lived mfaToken in the body,
+                        // no session cookie exists yet, and the same reasoning that
+                        // exempts login applies. Without it, enabling 2FA locked the
+                        // account out entirely: the challenge was issued and the
+                        // verification was then refused with a CSRF 403.
+                        path.includes('/api/auth/verify-2fa-login') ||
                         // Pre-auth flows: user has no session/token yet
                         path.includes('/api/auth/forgot-password') ||
                         path.includes('/api/auth/reset-password') ||

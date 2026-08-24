@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { IdVerificationService } from '../services/idVerification.service';
 import { getEffectiveBranchId } from '../utils/branchScope';
+import { sendError } from '../utils/httpError';
 
 export const getVerificationRequests = async (req: AuthRequest, res: Response) => {
     try {
@@ -12,7 +13,7 @@ export const getVerificationRequests = async (req: AuthRequest, res: Response) =
         );
         res.json(data);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'idVerification.controller.ts');
     }
 };
 
@@ -28,6 +29,6 @@ export const reviewVerificationRequest = async (req: AuthRequest, res: Response)
         );
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'idVerification.controller.ts');
     }
 };

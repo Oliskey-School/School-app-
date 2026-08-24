@@ -69,8 +69,12 @@ const VolunteerSignup: React.FC = () => {
 
     const handleSignup = async (opportunityId: number) => {
         try {
+            // full_name is REQUIRED by the VolunteerSignup model. Omitting it made
+            // this screen fail with a 500 on every attempt, while the sibling
+            // VolunteeringScreen (which does send it) works.
             await api.volunteerSignup(String(opportunityId), {
                 parent_id: profile.id,
+                full_name: profile?.full_name || profile?.email || 'Parent',
                 status: 'Pending'
             });
 

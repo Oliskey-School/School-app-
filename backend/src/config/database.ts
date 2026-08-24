@@ -55,6 +55,17 @@ const prismaClientSingleton = () => {
         url: finalUrl
       }
     },
+    // RLS requires set_config and the query it protects to run on the SAME
+    // connection, so the extension below batches them into one transaction —
+    // which adds a round-trip to every model query. Multi-step interactive
+    // transactions (creating a parent writes user + parent + links) then blew
+    // past Prisma's 5s default and failed with "Transaction already closed".
+    // The work is legitimate, so give it a realistic ceiling rather than
+    // silently losing writes.
+    transactionOptions: {
+      timeout: 20000,
+      maxWait: 10000,
+    },
     log: process.env.NODE_ENV === 'production' ? ['error'] : ['info', 'warn', 'error'],
   });
 
@@ -93,9 +104,42 @@ const prismaClientSingleton = () => {
                     if (ctx.userId) {
                         setters.push(raw.$executeRaw`SELECT set_config('app.current_user_id', ${ctx.userId}, true)`);
                     }
+                    // Branch entitlement for RLS. An EMPTY string means "no branch
+                    // restriction" — correct for a school-level admin (manages every
+                    // branch) and for a parent (children may sit in different
+                    // branches). Anyone else is limited to this list, so Branch A
+                    // cannot read or write Branch B's rows even if a query forgets
+                    // its branch filter. Rows with branch_id IS NULL are school-wide
+                    // and remain visible to every branch.
+                    const branchList = (ctx.allowedBranchIds && ctx.allowedBranchIds.length)
+                        ? ctx.allowedBranchIds.join(',')
+                        : '';
+                    setters.push(raw.$executeRaw`SELECT set_config('app.current_branch_ids', ${branchList}, true)`);
                     const results = await raw.$transaction([...setters, query(args)] as any);
                     return results[results.length - 1];
                 }
+
+                // No tenant context. Under RLS every tenant table denies rows unless
+                // app.current_school_id matches, so these operations — login (which
+                // looks a user up by email before any school is known), school
+                // onboarding (which creates the tenant), platform/SUPER_ADMIN reads
+                // and the seed scripts — would silently return nothing.
+                //
+                // They run with an explicit, transaction-local bypass flag instead of
+                // being implicitly trusted. This is the SAME reach these operations
+                // already have today (they were never scoped), so it grants nothing
+                // new — but it makes the exemption explicit and greppable, and it
+                // means every *authenticated* query is now DB-enforced rather than
+                // relying on ~1,900 call sites each remembering a school_id filter.
+                if (model) {
+                    const raw = globalThis.__rawPrisma!;
+                    const results = await raw.$transaction([
+                        raw.$executeRaw`SELECT set_config('app.bypass_rls', 'on', true)`,
+                        query(args),
+                    ] as any);
+                    return results[results.length - 1];
+                }
+
                 return query(args);
             };
 
@@ -110,15 +154,41 @@ const prismaClientSingleton = () => {
 const prisma = globalThis.prisma ?? prismaClientSingleton();
 
 /**
- * Returns the raw (non-extended) Prisma client for operations that need
- * access to sensitive fields like `password_hash` that the default client
- * strips from all query results (e.g. AuthService.login, updatePassword).
+ * Returns a Prisma client for operations that need access to sensitive fields
+ * like `password_hash` / `two_factor_secret`, which the default client strips
+ * from every result (e.g. AuthService.login, verify2FALogin, updatePassword).
+ *
+ * These run BEFORE any tenant is known — login looks a user up by email — so
+ * under RLS they must carry the explicit bypass flag, exactly like the unscoped
+ * branch of the main extension. Without it every real login failed with
+ * "Invalid credentials": the row existed but the policy hid it.
+ *
+ * NOTE: this deliberately returns a SEPARATE extended client, leaving
+ * `globalThis.__rawPrisma` as the plain base client. The main extension batches
+ * `__rawPrisma.$transaction([...setters, query(args)])`, and pointing that at an
+ * extended client would recurse.
  */
+let _privilegedPrisma: any = null;
 export function getRawPrisma(): PrismaClient {
   if (!globalThis.__rawPrisma) {
     prismaClientSingleton();
   }
-  return globalThis.__rawPrisma!;
+  if (!_privilegedPrisma) {
+    const base = globalThis.__rawPrisma!;
+    _privilegedPrisma = base.$extends({
+      query: {
+        async $allOperations({ model, args, query }) {
+          if (!model) return query(args);
+          const results = await base.$transaction([
+            base.$executeRaw`SELECT set_config('app.bypass_rls', 'on', true)`,
+            query(args),
+          ] as any);
+          return results[results.length - 1];
+        },
+      },
+    });
+  }
+  return _privilegedPrisma as PrismaClient;
 }
 
 const dbUrl = process.env.DATABASE_URL || '';

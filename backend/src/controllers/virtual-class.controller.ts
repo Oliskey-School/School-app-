@@ -5,6 +5,7 @@ import prisma from '../config/database';
 import { getEffectiveBranchId } from '../utils/branchScope';
 import { SocketService } from '../services/socket.service';
 import { NotificationService } from '../services/notification.service';
+import { sendError } from '../utils/httpError';
 
 // A student must only see live/scheduled sessions for a class they're actually
 // enrolled in (or school/branch-wide sessions with no class_id at all) — not
@@ -62,7 +63,7 @@ export const deleteVirtualClassSession = async (req: AuthRequest, res: Response)
 
         res.json({ message: 'Session deleted' });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        sendError(res, error, 'virtual-class.controller.ts');
     }
 };
 
@@ -154,7 +155,7 @@ export const createVirtualClassSession = async (req: AuthRequest, res: Response)
 
         res.status(201).json(session);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        sendError(res, error, 'virtual-class.controller.ts');
     }
 };
 
@@ -181,7 +182,7 @@ export const getVirtualClassSessions = async (req: AuthRequest, res: Response) =
         const sessions = await VirtualClassService.getSessions(req.user.school_id, branchId, teacherId);
         res.json(await filterSessionsForStudent(req, sessions));
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        sendError(res, error, 'virtual-class.controller.ts');
     }
 };
 
@@ -221,7 +222,7 @@ export const getActiveVirtualClasses = async (req: AuthRequest, res: Response) =
         });
         res.json(await filterSessionsForStudent(req, sessions));
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        sendError(res, error, 'virtual-class.controller.ts');
     }
 };
 
@@ -314,7 +315,7 @@ export const endVirtualClassSession = async (req: AuthRequest, res: Response) =>
 
         res.json(updated);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        sendError(res, error, 'virtual-class.controller.ts');
     }
 };
 
@@ -344,6 +345,6 @@ export const recordVirtualAttendance = async (req: AuthRequest, res: Response) =
         const attendance = await VirtualClassService.recordAttendance(req.user.school_id, branchId, sessionId, studentId);
         res.status(200).json(attendance);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        sendError(res, error, 'virtual-class.controller.ts');
     }
 };

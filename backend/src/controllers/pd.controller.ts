@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { PDService } from '../services/pd.service';
+import { sendError } from '../utils/httpError';
 
 export const getCourses = async (req: AuthRequest, res: Response) => {
     try {
@@ -9,7 +10,7 @@ export const getCourses = async (req: AuthRequest, res: Response) => {
         const courses = await PDService.getCourses(schoolId, teacherId);
         res.json(courses || []);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'pd.controller.ts');
     }
 };
 
@@ -20,7 +21,7 @@ export const getMyEnrollments = async (req: AuthRequest, res: Response) => {
         const enrollments = await PDService.getMyEnrollments(teacherId);
         res.json(enrollments || []);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'pd.controller.ts');
     }
 };
 
@@ -33,7 +34,7 @@ export const enrollInCourse = async (req: AuthRequest, res: Response) => {
         const result = await PDService.enrollInCourse(teacherId, String(courseId), req.user.school_id);
         res.status(201).json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'pd.controller.ts');
     }
 };
 
@@ -55,6 +56,6 @@ export const updateProgress = async (req: AuthRequest, res: Response) => {
         const result = await PDService.updateProgress(enrollmentId, progress);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'pd.controller.ts');
     }
 };

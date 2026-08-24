@@ -3,6 +3,7 @@ import { ConferenceService } from '../services/conference.service';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { getEffectiveBranchId } from '../utils/branchScope';
 import prisma from '../config/database';
+import { sendError } from '../utils/httpError';
 
 const conferenceService = new ConferenceService();
 
@@ -41,7 +42,7 @@ export const getConferences = async (req: AuthRequest, res: Response) => {
     const conferences = await conferenceService.getConferences(school_id, branch_id, filters);
     res.json(conferences);
   } catch (error: any) {
-    res.status(500).json({ message: error.message });
+    sendError(res, error, 'conference.controller.ts');
   }
 };
 
@@ -69,7 +70,7 @@ export const scheduleConference = async (req: AuthRequest, res: Response) => {
     const conference = await conferenceService.scheduleConference(school_id, branch_id, payload);
     res.status(201).json(conference);
   } catch (error: any) {
-    res.status(500).json({ message: error.message });
+    sendError(res, error, 'conference.controller.ts');
   }
 };
 
@@ -130,7 +131,7 @@ export const getTeacherAvailability = async (req: AuthRequest, res: Response) =>
     const availability = await conferenceService.getTeacherAvailability(teacher_id as string, school_id, branch_id, new Date(date as string));
     res.json(availability);
   } catch (error: any) {
-    res.status(500).json({ message: error.message });
+    sendError(res, error, 'conference.controller.ts');
   }
 };
 

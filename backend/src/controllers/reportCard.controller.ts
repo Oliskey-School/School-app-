@@ -3,6 +3,7 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import { ReportCardService } from '../services/reportCard.service';
 import prisma from '../config/database';
 import { getEffectiveBranchId } from '../utils/branchScope';
+import { sendError } from '../utils/httpError';
 
 // A parent may only ever see report cards for THEIR OWN linked children, and
 // a student only their own — never trust the role alone, resolve the actual
@@ -49,7 +50,7 @@ export const getReportCards = async (req: AuthRequest, res: Response) => {
         });
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'reportCard.controller.ts');
     }
 };
 
@@ -77,7 +78,7 @@ export const getReportCard = async (req: AuthRequest, res: Response) => {
 
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'reportCard.controller.ts');
     }
 };
 
@@ -95,7 +96,7 @@ export const updateStatus = async (req: AuthRequest, res: Response) => {
         const result = await ReportCardService.updateStatus(req.user.school_id, branchId, req.params.id as string, req.body.status);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'reportCard.controller.ts');
     }
 };
 
@@ -112,6 +113,6 @@ export const publishReportCards = async (req: AuthRequest, res: Response) => {
         const result = await ReportCardService.publishReportCards(req.user.school_id, branchId, term, session);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'reportCard.controller.ts');
     }
 };

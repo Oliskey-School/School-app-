@@ -3,6 +3,7 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import { AcademicSettingsService } from '../services/academicSettings.service';
 import { getEffectiveBranchId } from '../utils/branchScope';
 import { isMainAdmin } from '../utils/permissions';
+import { sendError } from '../utils/httpError';
 
 /**
  * GET /api/academic-settings  → the effective terms/grading for the caller's branch,
@@ -24,7 +25,7 @@ export const getAcademicSettings = async (req: AuthRequest, res: Response) => {
         const raw = await AcademicSettingsService.getRaw(schoolId, requestedBranch || null);
         res.json({ ...effective, configured: !!raw, scope: requestedBranch ? 'branch' : 'school', branch_id: requestedBranch, canEditSchoolDefault: main });
     } catch (error: any) {
-        res.status(error.status || 500).json({ message: error.message });
+        sendError(res, error, 'academicSettings.controller.ts');
     }
 };
 
@@ -48,6 +49,6 @@ export const saveAcademicSettings = async (req: AuthRequest, res: Response) => {
         const saved = await AcademicSettingsService.save(schoolId, branchId, { terms, grading });
         res.json(saved);
     } catch (error: any) {
-        res.status(error.status || 500).json({ message: error.message });
+        sendError(res, error, 'academicSettings.controller.ts');
     }
 };

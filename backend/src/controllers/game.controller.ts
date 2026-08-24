@@ -5,6 +5,7 @@ import { seedClassBattleGames, getClassmates, getBattleSetup } from '../services
 import { getEffectiveBranchId } from '../utils/branchScope';
 import { generateAIQuestions } from '../services/gameQuestion.service';
 import { buildRounds } from '../services/gameContent.service';
+import { sendError } from '../utils/httpError';
 
 export const getGames = async (req: AuthRequest, res: Response) => {
     try {
@@ -25,7 +26,7 @@ export const getGames = async (req: AuthRequest, res: Response) => {
         });
         res.json(games);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'game.controller.ts');
     }
 };
 
@@ -37,7 +38,7 @@ export const seedClassBattles = async (req: AuthRequest, res: Response) => {
         const result = await seedClassBattleGames(school_id, branchId);
         res.json({ message: 'Class Battle games ready', ...result });
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'game.controller.ts');
     }
 };
 
@@ -48,7 +49,7 @@ export const listClassmates = async (req: AuthRequest, res: Response) => {
         const mates = await getClassmates(id, school_id);
         res.json(mates);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'game.controller.ts');
     }
 };
 
@@ -60,7 +61,7 @@ export const battleSetup = async (req: AuthRequest, res: Response) => {
         if (!setup) return res.status(404).json({ message: 'Game not found' });
         res.json(setup);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'game.controller.ts');
     }
 };
 
@@ -106,7 +107,7 @@ export const getAIQuestions = async (req: AuthRequest, res: Response) => {
             res.json({ questions, source: 'offline' });
         }
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'game.controller.ts');
     }
 };
 
@@ -141,7 +142,7 @@ export const createGame = async (req: AuthRequest, res: Response) => {
 
         res.status(201).json(game);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'game.controller.ts');
     }
 };
 
@@ -156,6 +157,6 @@ export const deleteGame = async (req: AuthRequest, res: Response) => {
 
         res.json({ message: 'Game deleted successfully' });
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'game.controller.ts');
     }
 };

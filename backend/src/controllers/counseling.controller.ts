@@ -3,6 +3,7 @@ import { CounselingService } from '../services/counseling.service';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { getEffectiveBranchId } from '../utils/branchScope';
 import prisma from '../config/database';
+import { sendError } from '../utils/httpError';
 
 const counselingService = new CounselingService();
 
@@ -60,7 +61,7 @@ export const getAppointments = async (req: AuthRequest, res: Response) => {
     const appointments = await counselingService.getAppointments(school_id, branch_id, filters);
     res.json(appointments);
   } catch (error: any) {
-    res.status(error.statusCode || 500).json({ message: error.message });
+    sendError(res, error, 'counseling.controller.ts');
   }
 };
 
@@ -85,7 +86,7 @@ export const bookAppointment = async (req: AuthRequest, res: Response) => {
     const appointment = await counselingService.bookAppointment(school_id, branch_id, req.body);
     res.status(201).json(appointment);
   } catch (error: any) {
-    res.status(error.statusCode || 500).json({ message: error.message });
+    sendError(res, error, 'counseling.controller.ts');
   }
 };
 
@@ -113,6 +114,6 @@ export const updateAppointmentStatus = async (req: AuthRequest, res: Response) =
     );
     res.json(appointment);
   } catch (error: any) {
-    res.status(error.statusCode || 500).json({ message: error.message });
+    sendError(res, error, 'counseling.controller.ts');
   }
 };

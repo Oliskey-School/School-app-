@@ -3,6 +3,7 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import { TimetableService } from '../services/timetable.service';
 import prisma from '../config/database';
 import { getEffectiveBranchId } from '../utils/branchScope';
+import { sendError } from '../utils/httpError';
 
 const ADMIN_ROLES = ['admin', 'proprietor', 'superadmin', 'super_admin'];
 function isAdmin(req: AuthRequest): boolean {
@@ -46,7 +47,7 @@ export const getTimetable = async (req: AuthRequest, res: Response) => {
         );
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'timetable.controller.ts');
     }
 };
 
@@ -59,7 +60,7 @@ export const createTimetable = async (req: AuthRequest, res: Response) => {
         const result = await TimetableService.createTimetable(schoolId, req.body);
         res.status(201).json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'timetable.controller.ts');
     }
 };
 
@@ -73,7 +74,7 @@ export const updateTimetable = async (req: AuthRequest, res: Response) => {
         const result = await TimetableService.updateTimetable(schoolId, id as string, req.body);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'timetable.controller.ts');
     }
 };
 
@@ -87,7 +88,7 @@ export const deleteTimetable = async (req: AuthRequest, res: Response) => {
         await TimetableService.deleteTimetable(schoolId, id as string);
         res.json({ success: true });
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'timetable.controller.ts');
     }
 };
 
@@ -102,7 +103,7 @@ export const deleteTimetableByClass = async (req: AuthRequest, res: Response) =>
         await TimetableService.deleteTimetableByClass(schoolId, classId as string, branchId as string | undefined);
         res.json({ success: true });
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'timetable.controller.ts');
     }
 };
 
@@ -113,7 +114,7 @@ export const notifyPublished = async (req: AuthRequest, res: Response) => {
         await TimetableService.notifyPublished(schoolId, class_names || []);
         res.json({ success: true });
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'timetable.controller.ts');
     }
 };
 
@@ -123,7 +124,7 @@ export const checkConflict = async (req: AuthRequest, res: Response) => {
         const result = await TimetableService.checkTeacherConflict(schoolId, req.body);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'timetable.controller.ts');
     }
 };
 

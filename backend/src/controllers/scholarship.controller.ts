@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import prisma from '../config/database';
 import { getEffectiveBranchId } from '../utils/branchScope';
+import { sendError } from '../utils/httpError';
 
 const db = prisma as any;
 
@@ -25,7 +26,7 @@ export const getScholarships = async (req: AuthRequest, res: Response) => {
 
         res.json(data);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'scholarship.controller.ts');
     }
 };
 
@@ -54,7 +55,7 @@ export const createScholarship = async (req: AuthRequest, res: Response) => {
 
         res.status(201).json(scholarship);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'scholarship.controller.ts');
     }
 };
 
@@ -80,7 +81,7 @@ export const updateScholarship = async (req: AuthRequest, res: Response) => {
 
         res.json(updated);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'scholarship.controller.ts');
     }
 };
 
@@ -90,7 +91,7 @@ export const deleteScholarship = async (req: AuthRequest, res: Response) => {
         await db.scholarship.update({ where: { id }, data: { deleted_at: new Date() } });
         res.json({ success: true });
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'scholarship.controller.ts');
     }
 };
 
@@ -122,7 +123,7 @@ export const getScholarshipApplications = async (req: AuthRequest, res: Response
 
         res.json(formatted);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'scholarship.controller.ts');
     }
 };
 
@@ -144,7 +145,7 @@ export const createScholarshipApplication = async (req: AuthRequest, res: Respon
 
         res.status(201).json(application);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'scholarship.controller.ts');
     }
 };
 
@@ -160,7 +161,7 @@ export const updateScholarshipApplication = async (req: AuthRequest, res: Respon
         });
         res.json(updated);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'scholarship.controller.ts');
     }
 };
 
@@ -191,7 +192,7 @@ export const getScholarshipRecipients = async (req: AuthRequest, res: Response) 
 
         res.json(formatted);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'scholarship.controller.ts');
     }
 };
 
@@ -213,6 +214,6 @@ export const createScholarshipRecipient = async (req: AuthRequest, res: Response
 
         res.status(201).json(recipient);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'scholarship.controller.ts');
     }
 };

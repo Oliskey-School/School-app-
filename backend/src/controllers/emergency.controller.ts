@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { EmergencyService } from '../services/emergency.service';
+import { sendError } from '../utils/httpError';
 
 export const triggerEmergencyBroadcast = async (req: AuthRequest, res: Response) => {
     try {
@@ -20,6 +21,6 @@ export const getEmergencyHistory = async (req: AuthRequest, res: Response) => {
         const history = await EmergencyService.getBroadcastHistory(req.user.school_id, limit);
         res.json(history);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'emergency.controller.ts');
     }
 };

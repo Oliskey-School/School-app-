@@ -6,6 +6,7 @@ import { ExtracurricularService } from '../services/extracurricular.service';
 import { SubjectService } from '../services/subject.service';
 import { getEffectiveBranchId } from '../utils/branchScope';
 import prisma from '../config/database';
+import { sendError } from '../utils/httpError';
 
 const ADMIN_ROLES = ['admin', 'proprietor', 'superadmin', 'super_admin'];
 function isAdmin(req: AuthRequest): boolean {
@@ -41,7 +42,7 @@ export const getNextAdmissionNumber = async (req: AuthRequest, res: Response) =>
         const admissionNumber = await IdGeneratorService.generateAdmissionNumber(schoolId);
         res.json({ admissionNumber });
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -64,7 +65,7 @@ export const enrollStudent = async (req: AuthRequest, res: Response) => {
         if (error.message.includes('User already registered') || error.message.includes('Auth creation failed')) {
             return res.status(409).json({ message: error.message });
         }
-        res.status(error.status || 500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -77,7 +78,7 @@ export const approveStudent = async (req: AuthRequest, res: Response) => {
         res.status(200).json(result);
     } catch (error: any) {
         console.error('Approve student error:', error);
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -117,7 +118,7 @@ export const getAllStudents = async (req: AuthRequest, res: Response) => {
 
         res.json(isAdmin(req) ? result : stripStudentCredentials(result));
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -135,7 +136,7 @@ export const getStudentById = async (req: AuthRequest, res: Response) => {
         }
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -149,7 +150,7 @@ export const getStudentByStudentId = async (req: AuthRequest, res: Response) => 
         }
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -178,7 +179,7 @@ export const updateStudent = async (req: AuthRequest, res: Response) => {
         const result = await StudentService.updateStudent(req.user.school_id, branchId, req.params.id as string, req.body);
         res.json(result);
     } catch (error: any) {
-        res.status(error.statusCode || 500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -193,7 +194,7 @@ export const bulkUpdateStatus = async (req: AuthRequest, res: Response) => {
         const result = await StudentService.bulkUpdateStatus(req.user.school_id, branchId, ids, status);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -204,7 +205,7 @@ export const deleteStudent = async (req: AuthRequest, res: Response) => {
         await StudentService.deleteStudent(req.user.school_id, branchId, req.params.id as string);
         res.status(204).send();
     } catch (error: any) {
-        res.status(error.statusCode || 500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -214,7 +215,7 @@ export const getMyProfile = async (req: AuthRequest, res: Response) => {
         const result = await StudentService.getStudentProfileByUserId(req.user.school_id, branchId, req.user.id);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -231,7 +232,7 @@ export const getMyPerformance = async (req: AuthRequest, res: Response) => {
         const result = await StudentService.getPerformance(req.user.school_id, branchId, student.id);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -257,7 +258,7 @@ export const getStudentPerformance = async (req: AuthRequest, res: Response) => 
         const result = await StudentService.getPerformance(req.user.school_id, branchId, req.params.id as string, subjectFilter);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -270,7 +271,7 @@ export const getStudentBehaviorNotes = async (req: AuthRequest, res: Response) =
         const result = await StudentService.getBehaviorNotes(req.user.school_id, branchId, req.params.id as string);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -283,7 +284,7 @@ export const getMyQuizResults = async (req: AuthRequest, res: Response) => {
         const result = await StudentService.getQuizResults(req.user.school_id, branchId, student.id);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -296,7 +297,7 @@ export const getMySubmissions = async (req: AuthRequest, res: Response) => {
         const result = await StudentService.getStudentSubmissions(req.user.school_id, branchId, student.id);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -308,7 +309,7 @@ export const getMyFees = async (req: AuthRequest, res: Response) => {
         const result = await StudentService.getStudentFees(req.user.school_id, req.user.branch_id, student.id);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -321,7 +322,7 @@ export const getMyReportCards = async (req: AuthRequest, res: Response) => {
         const result = await StudentService.getReportCards(req.user.school_id, branchId, student.id);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -366,7 +367,7 @@ export const linkGuardian = async (req: AuthRequest, res: Response) => {
         });
         res.status(201).json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -407,7 +408,7 @@ export const unlinkGuardian = async (req: AuthRequest, res: Response) => {
         });
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -436,7 +437,7 @@ export const assignStudentToClass = async (req: AuthRequest, res: Response) => {
         const result = await StudentService.assignStudentToClass(schoolId, branchId, studentId, classId);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -451,7 +452,7 @@ export const removeStudentFromClass = async (req: AuthRequest, res: Response) =>
         const result = await StudentService.removeStudentFromClass(req.user.school_id, branchId, req.params.id as string, classId);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -464,7 +465,7 @@ export const getMyStats = async (req: AuthRequest, res: Response) => {
         const result = await StudentService.getStudentStats(req.user.school_id, student.id);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -477,7 +478,7 @@ export const getMyAchievements = async (req: AuthRequest, res: Response) => {
         const result = await StudentService.getStudentAchievements(student.id);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 import { AttendanceService } from '../services/attendance.service';
@@ -491,7 +492,7 @@ export const getMyDashboardOverview = async (req: AuthRequest, res: Response) =>
         const result = await StudentService.getDashboardOverview(req.user.school_id, student.id, branchId);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -506,7 +507,7 @@ export const getMyAttendance = async (req: AuthRequest, res: Response) => {
     } catch (error: any) {
         // Non-students (e.g. a parent) hitting a student "me" endpoint get a
         // clean 403 from the service — honor it instead of masking as a 500.
-        res.status(error.status || 500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -519,7 +520,7 @@ export const getMySubjects = async (req: AuthRequest, res: Response) => {
         const result = await StudentService.getMySubjects(req.user.school_id, student.id);
         res.json(result);
     } catch (error: any) {
-        res.status(error.status || 500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -531,7 +532,7 @@ export const getMyActivities = async (req: AuthRequest, res: Response) => {
         const result = await StudentService.getMyActivities(req.user.school_id, student.id);
         res.json(result);
     } catch (error: any) {
-        res.status(error.status || 500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -573,7 +574,7 @@ export const getStudentsByClass = async (req: AuthRequest, res: Response) => {
         const students = await StudentService.getStudentsByClass(schoolId, branchId, grade, section, curriculumId);
         res.json(students);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -584,7 +585,7 @@ export const getPendingApprovals = async (req: AuthRequest, res: Response) => {
         const result = await StudentService.getPendingStudentsForSchool(req.user.school_id, branchId);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -598,19 +599,34 @@ export const getStudentsByClassId = async (req: AuthRequest, res: Response) => {
         // A teacher may only pull the roster of a class they are actually
         // assigned to — otherwise any teacher could pass any classId and read
         // another teacher's full class list.
-        if ((req.user.role || '').toUpperCase() === 'TEACHER') {
+        const roleUpper = (req.user.role || '').toUpperCase();
+        if (roleUpper === 'TEACHER') {
             const teacher = await prisma.teacher.findUnique({ where: { user_id: req.user.id }, select: { id: true } });
             if (!teacher) return res.json([]);
             const access = await prisma.classTeacher.findFirst({ where: { teacher_id: teacher.id, class_id: classId } });
             if (!access) return res.status(403).json({ message: 'Unauthorized access to this class' });
         }
 
-        console.log(`[DEBUG] getStudentsByClassId: schoolId=${schoolId}, branchId=${branchId}, classId=${classId}`);
+        // Only TEACHER was gated, so a STUDENT fell straight through and could
+        // read ANY class roster by passing its id — including classes in other
+        // branches — returning every classmate's address, dob, email, admission
+        // number and linked user record. That is the same directory data
+        // /api/students deliberately 403s for students. A student may only see
+        // the roster of a class they are actually enrolled in.
+        if (roleUpper === 'STUDENT') {
+            const student = await prisma.student.findUnique({ where: { user_id: req.user.id }, select: { id: true } });
+            if (!student) return res.status(403).json({ message: 'No student profile found for this account' });
+            const enrolled = await prisma.studentEnrollment.findFirst({
+                where: { student_id: student.id, class_id: classId, school_id: schoolId as string },
+                select: { id: true },
+            });
+            if (!enrolled) return res.status(403).json({ message: 'Unauthorized access to this class' });
+        }
 
         const students = await StudentService.getAllStudents(schoolId as any, branchId as any, classId as any, status as any);
         res.json(students);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 export const getStudentSubjects = async (req: AuthRequest, res: Response) => {
@@ -623,7 +639,7 @@ export const getStudentSubjects = async (req: AuthRequest, res: Response) => {
         const result = await StudentService.getStudentSubjects(schoolId, studentId);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -636,7 +652,7 @@ export const getMyDocuments = async (req: AuthRequest, res: Response) => {
         const result = await StudentService.getStudentDocuments(req.user.school_id, student.id);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -649,7 +665,7 @@ export const addMyDocument = async (req: AuthRequest, res: Response) => {
         const result = await StudentService.addStudentDocument(req.user.school_id, student.id, req.body);
         res.status(201).json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -673,7 +689,7 @@ export const getStudentsBySubject = async (req: AuthRequest, res: Response) => {
         const result = await StudentService.getStudentsBySubject(req.user.school_id, subjectId as string);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -692,7 +708,7 @@ export const withdrawStudent = async (req: AuthRequest, res: Response) => {
         );
         res.json(result);
     } catch (error: any) {
-        res.status(error.status || 500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };
 
@@ -715,6 +731,6 @@ export const promoteStudent = async (req: AuthRequest, res: Response) => {
         );
         res.json(result);
     } catch (error: any) {
-        res.status(error.status || 500).json({ message: error.message });
+        sendError(res, error, 'student.controller.ts');
     }
 };

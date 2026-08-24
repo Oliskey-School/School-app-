@@ -67,7 +67,16 @@ export function getEffectiveBranchId(user: any, requestedId?: string | null, hea
     //    EXCEPTION: a school-level admin (is_main_admin) is pinned to the Main Branch
     //    by onboarding but actually manages the whole school — they must be able to
     //    operate in the branch they have switched to, so they fall through to (3).
-    if (user.branch_id && !user.is_main_admin) {
+    // EXCEPTION 2: a PARENT is never branch-scoped. Their children may be
+    // enrolled in different branches, and the product rule is that a parent sees
+    // all of them — entitlement comes from the parent-child link, not a branch.
+    // Pinning them here made a cross-branch child 404 from every handler that
+    // calls this (getStudentById, notifications, report cards …) even though the
+    // child correctly appeared in /parents/me/children, which passes undefined.
+    // It also disagreed with the RLS layer, which already treats parents as
+    // branch-unrestricted (auth.middleware.ts entitledBranches).
+    const roleUpper = (user.role || '').toUpperCase();
+    if (user.branch_id && !user.is_main_admin && roleUpper !== 'PARENT') {
         return user.branch_id;
     }
 

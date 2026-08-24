@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { HealthService } from '../services/health.service';
 import { getEffectiveBranchId } from '../utils/branchScope';
+import { sendError } from '../utils/httpError';
 
 export const getHealthLogs = async (req: AuthRequest, res: Response) => {
     try {
@@ -9,7 +10,7 @@ export const getHealthLogs = async (req: AuthRequest, res: Response) => {
         const result = await HealthService.getHealthLogs(req.user.school_id, branchId);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'health.controller.ts');
     }
 };
 
@@ -19,6 +20,6 @@ export const createHealthLog = async (req: AuthRequest, res: Response) => {
         const result = await HealthService.createHealthLog(req.user.school_id, branchId, req.body);
         res.status(201).json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'health.controller.ts');
     }
 };

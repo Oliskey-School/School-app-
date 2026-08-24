@@ -740,7 +740,13 @@ export class ParentService {
         return await prisma.volunteeringOpportunity.findMany({
             where: {
                 school_id: schoolId,
-                branch_id: branchId && branchId !== 'all' ? branchId : undefined
+                // Include school-wide rows (branch_id NULL) alongside the active
+                // branch. Every demo opportunity is school-wide, so the strict
+                // equality filter returned an empty list while /community/volunteering
+                // showed all 9. Matches how RLS treats NULL branch rows.
+                ...(branchId && branchId !== 'all'
+                    ? { OR: [{ branch_id: branchId }, { branch_id: null }] }
+                    : {})
             },
             include: {
                 _count: {

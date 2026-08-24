@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { SubjectService } from '../services/subject.service';
 import { getEffectiveBranchId } from '../utils/branchScope';
+import { sendError } from '../utils/httpError';
 
 export const getSubjects = async (req: AuthRequest, res: Response) => {
     try {
@@ -9,7 +10,7 @@ export const getSubjects = async (req: AuthRequest, res: Response) => {
         const result = await SubjectService.getSubjects(req.user.school_id, branchId);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'subject.controller.ts');
     }
 };
 
@@ -21,7 +22,7 @@ export const getCurriculumTopics = async (req: AuthRequest, res: Response) => {
         const result = await SubjectService.getCurriculumTopics(req.user.school_id, branchId, subjectId, term);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'subject.controller.ts');
     }
 };
 export const createSubject = async (req: AuthRequest, res: Response) => {
@@ -35,7 +36,7 @@ export const createSubject = async (req: AuthRequest, res: Response) => {
         const result = await SubjectService.createSubject(req.user.school_id, branchId, name, color);
         res.status(201).json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'subject.controller.ts');
     }
 };
 

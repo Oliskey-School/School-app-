@@ -3,6 +3,7 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import { LessonPlanService } from '../services/lessonPlan.service';
 import prisma from '../config/database';
 import { getEffectiveBranchId } from '../utils/branchScope';
+import { sendError } from '../utils/httpError';
 
 export const getLessonPlans = async (req: AuthRequest, res: Response) => {
     try {
@@ -24,7 +25,7 @@ export const getLessonPlans = async (req: AuthRequest, res: Response) => {
         const result = await LessonPlanService.getLessonPlans(req.user.school_id, branchId, teacherId, classId, subjectId, status);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'lessonPlan.controller.ts');
     }
 };
 
@@ -61,7 +62,7 @@ export const createLessonPlan = async (req: AuthRequest, res: Response) => {
         const result = await LessonPlanService.createLessonPlan(req.user.school_id, branchId, body);
         res.status(201).json(result);
     } catch (error: any) {
-        res.status(error.status || 500).json({ message: error.message });
+        sendError(res, error, 'lessonPlan.controller.ts');
     }
 };
 
@@ -72,7 +73,7 @@ export const updateLessonPlan = async (req: AuthRequest, res: Response) => {
         const result = await LessonPlanService.updateLessonPlan(req.user.school_id, branchId, req.params.id as string, req.body, ownTeacherId);
         res.json(result);
     } catch (error: any) {
-        res.status(error.status || 500).json({ message: error.message });
+        sendError(res, error, 'lessonPlan.controller.ts');
     }
 };
 
@@ -83,6 +84,6 @@ export const deleteLessonPlan = async (req: AuthRequest, res: Response) => {
         await LessonPlanService.deleteLessonPlan(req.user.school_id, branchId, req.params.id as string, ownTeacherId);
         res.status(204).send();
     } catch (error: any) {
-        res.status(error.status || 500).json({ message: error.message });
+        sendError(res, error, 'lessonPlan.controller.ts');
     }
 };

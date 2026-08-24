@@ -4,6 +4,7 @@ import { SchoolService } from '../services/school.service';
 import { getEffectiveBranchId, getDemoSessionRoot } from '../utils/branchScope';
 import { isMainAdmin } from '../utils/permissions';
 import * as BranchTransfer from '../services/branchTransfer.service';
+import { sendError } from '../utils/httpError';
 
 // Creating, renaming or removing branches is a school-wide action — Main Admin only.
 const requireMainAdmin = (req: AuthRequest, res: Response): boolean => {
@@ -28,7 +29,7 @@ export const getBranches = async (req: AuthRequest, res: Response) => {
         const result = await SchoolService.getBranches(req.user.school_id, branchId);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'branch.controller.ts');
     }
 };
 
@@ -40,7 +41,7 @@ export const getBranchOptions = async (req: AuthRequest, res: Response) => {
         const result = await SchoolService.getBranchOptions(req.user.school_id, demoRoot);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'branch.controller.ts');
     }
 };
 
@@ -86,7 +87,7 @@ export const getAuthorizedBranches = async (req: AuthRequest, res: Response) => 
         const result = await BranchTransfer.getAuthorizedBranches(req.user);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'branch.controller.ts');
     }
 };
 

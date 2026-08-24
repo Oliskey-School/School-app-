@@ -3,6 +3,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { MediaService } from '../services/media.service';
 import { storeUploadedFile } from '../services/fileStorage.service';
+import { sendError } from '../utils/httpError';
 
 export const sendSMSLesson = async (req: AuthRequest, res: Response) => {
     try {
@@ -10,7 +11,7 @@ export const sendSMSLesson = async (req: AuthRequest, res: Response) => {
         res.json(result);
     } catch (error: any) {
         console.error('[POST /media/sms-lesson]', error);
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'media.controller.ts');
     }
 };
 
@@ -20,7 +21,7 @@ export const scheduleRadioBroadcast = async (req: AuthRequest, res: Response) =>
         res.json(result);
     } catch (error: any) {
         console.error('[POST /media/radio-broadcast]', error);
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'media.controller.ts');
     }
 };
 
@@ -30,7 +31,7 @@ export const recordIVRLesson = async (req: AuthRequest, res: Response) => {
         res.json(result);
     } catch (error: any) {
         console.error('[POST /media/ivr-lesson]', error);
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'media.controller.ts');
     }
 };
 export const uploadFile = async (req: AuthRequest, res: Response) => {

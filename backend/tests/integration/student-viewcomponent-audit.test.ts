@@ -95,6 +95,27 @@ describe('Student viewComponent audit', () => {
     const subj = await (prisma as any).subject.create({ data: { school_id: S, branch_id: M, name: 'Mathematics', code: 'MTH' } });
     QUIZ = (await (prisma as any).quiz.create({ data: { school_id: S, branch_id: M, teacher_id: tch.id, class_id: cls.id, subject_id: subj.id, title: 'Algebra Quiz', total_marks: 10, is_published: true, status: 'published' } })).id;
 
+    // A real answer key. The server recomputes the score from these and IGNORES
+    // any `score` in the request body (anti-cheat — otherwise a student could
+    // post their own grade). Without questions the quiz has no answer key, so
+    // every submission scores 0 no matter what is answered.
+    for (let i = 0; i < 10; i++) {
+        await (prisma as any).quizQuestion.create({
+            data: {
+                id: `sva-q${i}`,
+                quiz_id: QUIZ,
+                school_id: S,
+                branch_id: M,
+                question_text: `Question ${i}`,
+                question_type: 'multiple_choice',
+                options: ['a', 'b', 'c', 'd'],
+                correct_answer: 'a',
+                points: 1,
+                order_index: i,
+            },
+        });
+    }
+
     // Assignment (Main branch)
     ASG = (await prisma.assignment.create({ data: { school_id: S, branch_id: M, class_id: cls.id, title: 'Essay', subject: 'English', description: 'Write', due_date: new Date(Date.now() + 1e9) } as any })).id;
 
@@ -193,16 +214,27 @@ describe('Student viewComponent audit', () => {
   });
 
   it('submit-quiz button persists a graded submission scoped to the school', async () => {
+    // Answer 8 of the 10 seeded questions correctly ('a'), 2 wrong.
+    // `score` and `student_id` are deliberately sent WRONG here: the server must
+    // ignore both — it resolves the student from the session and recomputes the
+    // score from the answer key. This previously asserted that the body's
+    // score (8) was stored verbatim, i.e. that a student could post their own
+    // grade; that trust was removed as anti-cheat, so the assertion now checks
+    // the SERVER-computed value instead.
+    const answers: Record<string, string> = {};
+    for (let i = 0; i < 10; i++) answers[`sva-q${i}`] = i < 8 ? 'a' : 'z';
+
     const res = await post('/api/quizzes/submit', {
-      quiz_id: QUIZ, student_id: SID, score: 8, total_questions: 10,
-      answers: { q1: 'a', q2: 'b' }, status: 'graded',
+      quiz_id: QUIZ, student_id: 'not-my-id', score: 999, total_questions: 10,
+      answers, status: 'graded',
     });
     if (![200, 201].includes(res.status)) console.log('submit-quiz:', res.status, JSON.stringify(res.body).slice(0, 200));
     expect([200, 201]).toContain(res.status);
     const rows = await (prisma as any).quizSubmission.findMany({ where: { quiz_id: QUIZ, student_id: SID } });
     expect(rows.length).toBe(1);
     expect(rows[0].school_id).toBe(S);
-    expect(rows[0].score).toBe(8);
+    // 8 of 10 correct = 80%, computed server-side. NOT the 999 that was posted.
+    expect(rows[0].score).toBe(80);
   });
 
   // ─── 5. WRITE BUTTONS — COMMUNICATION ────────────────────────────────────

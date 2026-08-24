@@ -108,8 +108,28 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
             req.branch_id = demoActiveBranch || null;
 
             console.log(`🛡️ [Auth] Demo token validated — identity: ${req.user.role} (${req.user.email})`);
+            // Branch entitlement for RLS — the demo path MUST set this too.
+            // Omitting it meant `app.current_branch_ids` was written as '', which
+            // the policies read as "no branch restriction", so the branch half of
+            // every policy on all 177 branch-scoped tables was inert for EVERY
+            // demo session — including students. Same rule as the real-user path
+            // below: admins/proprietors and parents are unrestricted; teachers and
+            // students are limited to their own + assigned branches.
+            const demoUnrestricted =
+                ['ADMIN', 'PROPRIETOR', 'SUPER_ADMIN', 'PARENT'].includes(demoRoleUpper);
+            const demoEntitled = demoUnrestricted
+                ? null
+                : Array.from(new Set(
+                    [decoded.branch_id, ...(decoded.allowed_branch_ids || [])].filter(Boolean)
+                ));
+
             return runWithTenantContext(
-                { schoolId: DEMO_SCHOOL_ID, branchId: demoActiveBranch || null, userId: decoded.id },
+                {
+                    schoolId: DEMO_SCHOOL_ID,
+                    branchId: demoActiveBranch || null,
+                    userId: decoded.id,
+                    allowedBranchIds: demoEntitled,
+                },
                 next
             );
         }
@@ -252,8 +272,24 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
         req.school_id = user.school_id;
         req.branch_id = effectiveBranchId;
 
+        // Branch entitlement for RLS. A school-level admin (and SUPER_ADMIN)
+        // manages every branch, and a PARENT must see children across branches —
+        // both are deliberately unrestricted here. Everyone else is pinned to
+        // their own branch plus explicitly assigned ones, which mirrors the
+        // allow-list getEffectiveBranchId already enforces at the app layer.
+        const roleUpperCtx = (user.role || '').toUpperCase();
+        const branchUnrestricted = isSchoolLevelAdmin || roleUpperCtx === 'SUPER_ADMIN' || roleUpperCtx === 'PARENT';
+        const entitledBranches = branchUnrestricted
+            ? null
+            : Array.from(new Set([user.branch_id, ...(user.allowed_branch_ids || [])].filter(Boolean)));
+
         runWithTenantContext(
-            { schoolId: user.school_id, branchId: effectiveBranchId, userId: user.id },
+            {
+                schoolId: user.school_id,
+                branchId: effectiveBranchId,
+                userId: user.id,
+                allowedBranchIds: entitledBranches,
+            },
             next
         );
     } catch (error: any) {

@@ -3,6 +3,7 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import { AcademicService } from '../services/academic.service';
 import prisma from '../config/database';
 import { getEffectiveBranchId } from '../utils/branchScope';
+import { sendError } from '../utils/httpError';
 
 const ADMIN_ROLES = ['admin', 'proprietor', 'superadmin', 'super_admin'];
 function isAdmin(req: AuthRequest): boolean {
@@ -109,7 +110,7 @@ export const saveGrade = async (req: AuthRequest, res: Response) => {
         const result = await AcademicService.saveGrade(req.user.school_id, branchId, studentId, subject, term, score, session);
         res.status(201).json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'academic.controller.ts');
     }
 };
 
@@ -156,7 +157,7 @@ export const getGrades = async (req: AuthRequest, res: Response) => {
         const result = await AcademicService.getGrades(req.user.school_id, branchId, safeStudentIds, subject, term);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'academic.controller.ts');
     }
 };
 
@@ -168,7 +169,7 @@ export const getSubjects = async (req: AuthRequest, res: Response) => {
         const result = await AcademicService.getSubjects(schoolId, branchId);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'academic.controller.ts');
     }
 };
 
@@ -185,7 +186,7 @@ export const getAnalytics = async (req: AuthRequest, res: Response) => {
         const result = await AcademicService.getAnalytics(schoolId, branchId, term, classId);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'academic.controller.ts');
     }
 };
 
@@ -200,7 +201,7 @@ export const getPerformance = async (req: AuthRequest, res: Response) => {
         const result = await AcademicService.getPerformance(schoolId, branchId, term, session, classId);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'academic.controller.ts');
     }
 };
 
@@ -219,7 +220,7 @@ export const getReportCardDetails = async (req: AuthRequest, res: Response) => {
         );
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'academic.controller.ts');
     }
 };
 
@@ -229,7 +230,7 @@ export const getCurricula = async (req: AuthRequest, res: Response) => {
         const result = await AcademicService.getCurricula(schoolId);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'academic.controller.ts');
     }
 };
 
@@ -247,7 +248,7 @@ export const getAcademicTracks = async (req: AuthRequest, res: Response) => {
         });
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'academic.controller.ts');
     }
 };
 
@@ -257,7 +258,7 @@ export const getAcademicTerms = async (req: AuthRequest, res: Response) => {
         const result = await AcademicService.getAcademicTerms(schoolId);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'academic.controller.ts');
     }
 };
 
@@ -276,6 +277,13 @@ export const upsertReportCard = async (req: AuthRequest, res: Response) => {
         // (including 'Published') straight through.
         if (!STAFF_ROLES.includes(role)) {
             return res.status(403).json({ message: 'Only teachers and admins can write report cards' });
+        }
+
+        // Omitting academicRecords threw "Cannot read properties of undefined
+        // (reading 'map')" deep in the service and surfaced as a 500. A missing
+        // required field is a client error.
+        if (!Array.isArray(data.academicRecords)) {
+            return res.status(400).json({ message: 'academicRecords is required and must be an array' });
         }
 
         // Teachers submit results for admin review — only admins publish.
@@ -306,7 +314,7 @@ export const upsertReportCard = async (req: AuthRequest, res: Response) => {
         const result = await AcademicService.upsertReportCard(studentId as string, finalSchoolId, data);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'academic.controller.ts');
     }
 };
 export const promoteStudents = async (req: AuthRequest, res: Response) => {
@@ -327,7 +335,7 @@ export const promoteStudents = async (req: AuthRequest, res: Response) => {
         const result = await AcademicService.promoteStudents(req.user.school_id, branchId, toSession, req.user.id);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'academic.controller.ts');
     }
 };
 
@@ -346,7 +354,7 @@ export const getReportCardByCriteria = async (req: AuthRequest, res: Response) =
         const result = await AcademicService.getReportByCriteria(schoolId, studentId, term, session);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'academic.controller.ts');
     }
 };
 
@@ -359,7 +367,7 @@ export const getCurriculumTopics = async (req: AuthRequest, res: Response) => {
         const result = await AcademicService.getCurriculumTopics(req.user.school_id, subjectId as string, term as string);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'academic.controller.ts');
     }
 };
 
@@ -379,7 +387,7 @@ export const syncCurriculumData = async (req: AuthRequest, res: Response) => {
         const result = await AcademicService.syncCurriculumData(req.user.school_id, subjectId as string, source as string);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'academic.controller.ts');
     }
 };
 
@@ -444,6 +452,6 @@ export const calculateClassRankings = async (req: AuthRequest, res: Response) =>
 
         res.json(ranked);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'academic.controller.ts');
     }
 };

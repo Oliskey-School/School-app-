@@ -1,7 +1,15 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+// Use the APP's client, not a bare `new PrismaClient()`.
+//
+// Two reasons. First, `@prisma/client` is not the client this app uses at all —
+// the generator outputs to backend/generated/prisma-client. Second, and now
+// load-bearing: tenant tables are protected by row-level security, and a bare
+// client carries neither a tenant context nor the explicit bypass flag, so
+// every query here returned null / 0 ("expected null not to be null"). The app
+// client applies the documented bypass for unscoped operations, which is the
+// right semantics for a suite that asserts seeded rows exist irrespective of
+// tenant.
+import prisma from '../../src/config/database';
 
 const DEMO_CREDENTIALS = {
     schoolId: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1',

@@ -4,6 +4,7 @@ import { ExamService } from '../services/exam.service';
 import { TeacherAssignmentService } from '../services/teacherAssignment.service';
 import prisma from '../config/database';
 import { getEffectiveBranchId } from '../utils/branchScope';
+import { sendError } from '../utils/httpError';
 
 const ADMIN_ROLES = ['admin', 'proprietor', 'superadmin', 'super_admin'];
 
@@ -44,7 +45,7 @@ export const upsertExamResults = async (req: AuthRequest, res: Response) => {
         const saved = await ExamService.upsertExamResults(schoolId, branchId, results);
         res.status(201).json({ saved: saved.length, results: saved });
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'exam.controller.ts');
     }
 };
 
@@ -69,17 +70,31 @@ export const getExams = async (req: AuthRequest, res: Response) => {
         const result = await ExamService.getExams(req.user.school_id, branchId, teacherId);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'exam.controller.ts');
     }
 };
 
 export const createExam = async (req: AuthRequest, res: Response) => {
     try {
         const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
-        const result = await ExamService.createExam(req.user.school_id, branchId, req.body);
+
+        // getExams filters a teacher's list by teacher_id, so an exam created
+        // without one is invisible to its own author. The body was passed straight
+        // through, so any client path that omitted the field silently orphaned the
+        // exam. Derive it from the session instead of trusting the payload.
+        const payload = { ...req.body };
+        if ((req.user.role || '').toLowerCase() === 'teacher' && !payload.teacher_id) {
+            const teacher = await prisma.teacher.findUnique({
+                where: { user_id: req.user.id },
+                select: { id: true }
+            });
+            if (teacher) payload.teacher_id = teacher.id;
+        }
+
+        const result = await ExamService.createExam(req.user.school_id, branchId, payload);
         res.status(201).json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'exam.controller.ts');
     }
 };
 
@@ -89,7 +104,7 @@ export const updateExam = async (req: AuthRequest, res: Response) => {
         const result = await ExamService.updateExam(req.user.school_id, branchId, req.params.id as string, req.body);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'exam.controller.ts');
     }
 };
 
@@ -99,7 +114,7 @@ export const deleteExam = async (req: AuthRequest, res: Response) => {
         await ExamService.deleteExam(req.user.school_id, branchId, req.params.id as string);
         res.status(204).send();
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'exam.controller.ts');
     }
 };
 
@@ -138,6 +153,6 @@ export const getExamResults = async (req: AuthRequest, res: Response) => {
         const result = await ExamService.getExamResults(req.user.school_id, branchId, req.params.id as string);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'exam.controller.ts');
     }
 };

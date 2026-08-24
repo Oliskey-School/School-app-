@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import prisma from '../config/database';
 import { getEffectiveBranchId } from '../utils/branchScope';
+import { sendError } from '../utils/httpError';
 
 const ADMIN_ROLES = ['admin', 'proprietor', 'superadmin', 'super_admin'];
 function isAdmin(req: AuthRequest): boolean {
@@ -82,7 +83,7 @@ export const createPaymentPlan = async (req: AuthRequest, res: Response) => {
         res.status(201).json(plan);
     } catch (error: any) {
         console.error('Error creating payment plan:', error);
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'paymentPlan.controller.ts');
     }
 };
 
@@ -117,7 +118,7 @@ export const createInstallments = async (req: AuthRequest, res: Response) => {
         res.status(201).json(result);
     } catch (error: any) {
         console.error('Error creating installments:', error);
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'paymentPlan.controller.ts');
     }
 };
 
@@ -148,7 +149,7 @@ export const getPaymentPlanByFeeId = async (req: AuthRequest, res: Response) => 
         res.json({ plan, installments });
     } catch (error: any) {
         console.error('Error getting payment plan:', error);
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'paymentPlan.controller.ts');
     }
 };
 
@@ -191,7 +192,7 @@ export const getUpcomingInstallments = async (req: AuthRequest, res: Response) =
         res.json(installments);
     } catch (error: any) {
         console.error('Error getting upcoming installments:', error);
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'paymentPlan.controller.ts');
     }
 };
 
@@ -215,7 +216,7 @@ export const updatePaymentPlanStatus = async (req: AuthRequest, res: Response) =
         res.json(updated);
     } catch (error: any) {
         console.error('Error updating payment plan status:', error);
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'paymentPlan.controller.ts');
     }
 };
 
@@ -261,7 +262,7 @@ export const processInstallmentPayment = async (req: AuthRequest, res: Response)
         res.json(updated);
     } catch (error: any) {
         console.error('Error processing installment payment:', error);
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'paymentPlan.controller.ts');
     }
 };
 
@@ -282,6 +283,6 @@ export const deletePaymentPlan = async (req: AuthRequest, res: Response) => {
         res.status(204).send();
     } catch (error: any) {
         console.error('Error deleting payment plan:', error);
-        res.status(500).json({ message: error.message });
+        sendError(res, error, 'paymentPlan.controller.ts');
     }
 };
