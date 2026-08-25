@@ -136,3 +136,7 @@ backups/
 .claude/skills/headroom/
 .claude/skills/supabase/
 .claude/skills/supabase-postgres-best-practices/
+
+# Local Vercel CLI token, if used instead of `vercel login`. Never commit.
+.vercel-token
+.claude/skills/apple-design/
