@@ -76,9 +76,19 @@ export default defineConfig(({ mode }) => {
           './components/DashboardRouter.tsx',
         ],
       },
+      // Follow the port the backend actually binds — backend/src/config/env.ts
+      // resolves BACKEND_PORT || PORT || 5000, so this must resolve it the same
+      // way rather than hardcoding 5000.
+      //
+      // `vite preview` inherits this block (preview.proxy defaults to
+      // server.proxy), and the E2E workflow runs the backend on BACKEND_PORT
+      // 5099. With 5000 hardcoded, every proxied /api call in that suite died
+      // with "[vite] http proxy error" while the backend sat healthy on 5099 —
+      // which is what failed all 9 critical-path tests once the suite finally
+      // got far enough to run.
       proxy: {
         '/api': {
-          target: 'http://localhost:5000',
+          target: `http://localhost:${process.env.BACKEND_PORT || process.env.PORT || 5000}`,
           changeOrigin: true,
           secure: false,
         }
