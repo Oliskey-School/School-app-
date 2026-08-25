@@ -127,3 +127,12 @@ PASS.md
 
 # Generated database backup artifacts
 backups/
+
+# Third-party agent skills installed via `npx skills add`. The packages and
+# versions are recorded in skills-lock.json (committed), so they are restored
+# with `npx skills experimental_install` rather than vendored into this repo.
+# .claude/skills/graphify is a first-party project skill and stays tracked.
+.agents/
+.claude/skills/headroom/
+.claude/skills/supabase/
+.claude/skills/supabase-postgres-best-practices/

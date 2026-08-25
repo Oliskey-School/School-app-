@@ -46,9 +46,31 @@ const IS_PROD = process.env.NODE_ENV === 'production';
 //
 // Force-enable in any environment by setting ENABLE_CORS=true (e.g. if you ever run
 // the API cross-origin without a proxy).
+// When the frontend is served from a different origin than the API — the Vercel
+// deployment calling this API on its own domain — CORS is not optional and the
+// reverse-proxy assumption above no longer holds. Set ENABLE_CORS=true and list
+// the permitted origins in CORS_ALLOWED_ORIGINS (comma-separated).
+//
+// CORS_ALLOWED_ORIGINS was documented in .env.production but never read by any
+// code, so setting it had no effect. It is honoured here.
+//
+// Why an allowlist rather than reflecting the origin: `origin: true` echoes back
+// whatever Origin the caller sent and, combined with credentials: true, lets any
+// site a logged-in user visits call this API with their cookies attached. That is
+// tolerable in dev, not on a public host.
+const corsAllowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || '')
+    .split(',')
+    .map(o => o.trim())
+    .filter(Boolean);
+
 if (!IS_PROD || process.env.ENABLE_CORS === 'true') {
     app.use(cors({
-        origin: true, // reflect the request origin
+        origin: corsAllowedOrigins.length > 0
+            // Requests with no Origin header (same-origin navigations, curl,
+            // health checks) are allowed through — the header is only present
+            // on genuine cross-origin calls.
+            ? (origin, callback) => callback(null, !origin || corsAllowedOrigins.includes(origin))
+            : true, // no allowlist configured: reflect the request origin (dev default)
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
         allowedHeaders: ['Content-Type', 'Authorization', 'x-school-id', 'X-Branch-Id', 'x-branch-id', 'Accept', 'X-Requested-With', 'application-id', 'X-CSRF-Token'],
         exposedHeaders: ['X-CSRF-Token'],

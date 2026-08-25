@@ -1,7 +1,23 @@
 import { PrismaClient, Role } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
-const prisma = new PrismaClient();
+// Seeding legitimately writes across every tenant before any tenant context
+// exists, which is exactly the case the RLS policies' bypass flag is for (see
+// the header of 20260822000000_row_level_security). The app sets it per
+// transaction in backend/src/config/database.ts; the seeder issues hundreds of
+// independent queries, so it sets the flag as a libpq connection option
+// instead — that way every connection Prisma opens in its pool carries it,
+// rather than only whichever one a one-off `SET` happened to land on.
+const seedDatabaseUrl = (() => {
+  const raw = process.env.DATABASE_URL;
+  if (!raw) return undefined;
+  const separator = raw.includes('?') ? '&' : '?';
+  return `${raw}${separator}options=${encodeURIComponent('-c app.bypass_rls=on')}`;
+})();
+
+const prisma = new PrismaClient(
+  seedDatabaseUrl ? { datasources: { db: { url: seedDatabaseUrl } } } : undefined
+);
 const DEMO_SCHOOL_ID = 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
 const DEMO_BRANCH_ID = '7601cbea-e1ba-49d6-b59b-412a584cb94f';
 
@@ -44,8 +60,9 @@ export async function seedDemoSchool() {
   });
 
   // 1. Setup Admin Account
+  // Email is unique per school+branch, not globally — address the compound key.
   const admin = await prisma.user.upsert({
-    where: { email: 'admin@demo.com' },
+    where: { school_id_branch_id_email: { school_id: school.id, branch_id: branch.id, email: 'admin@demo.com' } },
     update: { 
       password_hash: hashedAdminPassword, 
       school_id: school.id, 
@@ -143,8 +160,9 @@ export async function seedDemoSchool() {
   const teachers = [];
   for (let i = 0; i < teacherData.length; i++) {
     const t = teacherData[i];
+    // Email is unique per school+branch, not globally — address the compound key.
     const u = await prisma.user.upsert({
-      where: { email: t.email },
+      where: { school_id_branch_id_email: { school_id: school.id, branch_id: branch.id, email: t.email } },
       update: { password_hash: hashedAdminPassword, school_id: school.id, branch_id: branch.id, role: Role.TEACHER, email_verified: true },
       create: {
         email: t.email,
@@ -222,7 +240,8 @@ export async function seedDemoSchool() {
       const fullName = realisticParentNames[i] || `Parent Name ${i+1}`;
 
       const u = await prisma.user.upsert({
-          where: { email },
+          // Email is unique per school+branch, not globally — address the compound key.
+          where: { school_id_branch_id_email: { school_id: school.id, branch_id: branch.id, email } },
           update: { password_hash: hashedAdminPassword, school_id: school.id, branch_id: branch.id, role: Role.PARENT, email_verified: true, full_name: fullName },
           create: {
               email,
@@ -326,7 +345,8 @@ export async function seedDemoSchool() {
       const fullName = realisticStudentNames[i] || `Student First Last ${i+1}`;
 
       const u = await prisma.user.upsert({
-          where: { email },
+          // Email is unique per school+branch, not globally — address the compound key.
+          where: { school_id_branch_id_email: { school_id: school.id, branch_id: branch.id, email } },
           update: { password_hash: hashedAdminPassword, school_id: school.id, branch_id: branch.id, role: Role.STUDENT, email_verified: true, updated_at: new Date(), full_name: fullName },
           create: {
               email,
@@ -387,9 +407,10 @@ export async function seedDemoSchool() {
               data: {
                   route_id: route.id,
                   student_id: s.id,
+                  school_id: school.id,
                   academic_year: '2025/2026',
                   status: 'active'
-              }
+              } as any
           });
       }
       await prisma.parentChild.upsert({
@@ -495,6 +516,7 @@ export async function seedDemoSchool() {
       const assignment = await prisma.assignment.create({
           data: {
               class_id: firstClass.id,
+              school_id: school.id,
               title: 'Quadratic Equations Practice',
               subject: 'Mathematics',
               due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
@@ -547,6 +569,7 @@ export async function seedDemoSchool() {
                   create: {
                       student_id: s.id,
                       class_id: firstClass.id,
+                      school_id: school.id,
                       date: date,
                       status: Math.random() > 0.1 ? 'Present' : 'Absent',
                       remark: i === 0 ? 'Regular check' : null
