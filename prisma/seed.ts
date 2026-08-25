@@ -1,4 +1,14 @@
-import { PrismaClient, Role } from '@prisma/client';
+// Import the SAME generated client the backend uses (see
+// backend/src/config/database.ts), not the default `@prisma/client`.
+//
+// `postinstall` generates two clients: `npx prisma generate` builds
+// @prisma/client from the ROOT prisma/schema.prisma, which is stale (it still
+// declares `email String @unique`), while the second generate builds this one
+// from backend/prisma/schema.prisma, where email is unique per
+// [school_id, branch_id, email]. Seeding through the stale client fails with
+// "Unknown argument `school_id_branch_id_email`" on a fresh `npm ci` — which is
+// why this passed locally on an older node_modules but broke in CI.
+import { PrismaClient, Role } from '../backend/generated/prisma-client';
 import bcrypt from 'bcryptjs';
 
 // Seeding legitimately writes across every tenant before any tenant context
