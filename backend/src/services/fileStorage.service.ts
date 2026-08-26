@@ -12,6 +12,22 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
  */
 const S3_ENABLED = process.env.S3_ENABLED === 'true';
 
+/**
+ * Supabase Storage over its REST API, authenticated with the service_role key.
+ *
+ * Preferred over the S3 branch below when running on Vercel. Supabase Storage
+ * IS S3-compatible, but its S3 access keys can only be minted from the
+ * dashboard — the Management API has no endpoint for them
+ * (/v1/projects/{ref}/storage/credentials returns 404), so the S3 route cannot
+ * be provisioned automatically. The REST API takes the service_role key, which
+ * can be, so this needs no manual step.
+ *
+ * The local-disk fallback below cannot be used on Vercel at all: the filesystem
+ * is ephemeral per invocation, so an uploaded file disappears as soon as the
+ * request that wrote it ends.
+ */
+const SUPABASE_STORAGE_ENABLED = process.env.SUPABASE_STORAGE_ENABLED === 'true';
+
 let s3Client: S3Client | null = null;
 function getS3Client(): S3Client {
     if (!s3Client) {
@@ -49,6 +65,34 @@ export async function storeUploadedFile(
     relativePath: string,
 ): Promise<StoredFile> {
     const key = `${bucket}/${relativePath}`.replace(/^\/+/, '');
+
+    if (SUPABASE_STORAGE_ENABLED) {
+        const base = (process.env.SUPABASE_URL || '').replace(/\/+$/, '');
+        const storageBucket = process.env.SUPABASE_STORAGE_BUCKET || 'uploads';
+        const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+        const res = await fetch(`${base}/storage/v1/object/${storageBucket}/${key}`, {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${serviceKey}`,
+                'Content-Type': mimetype,
+                // Re-uploading the same path (e.g. replacing a profile photo)
+                // must overwrite rather than fail with "Duplicate".
+                'x-upsert': 'true',
+            },
+            body: new Uint8Array(buffer),
+        });
+
+        if (!res.ok) {
+            // Surface the reason — a silent failure here means a photo the user
+            // believes they saved is simply gone.
+            throw new Error(
+                `Supabase Storage upload failed (${res.status}): ${await res.text()}`,
+            );
+        }
+
+        return { publicUrl: `${base}/storage/v1/object/public/${storageBucket}/${key}` };
+    }
 
     if (S3_ENABLED) {
         await getS3Client().send(new PutObjectCommand({

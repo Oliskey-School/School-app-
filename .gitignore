@@ -145,3 +145,6 @@ backups/
 # must survive the blanket `*.js` rule above (which targets compiled output and
 # legacy scripts).
 !api/**/*.js
+
+# Local Supabase personal access token, if used instead of `supabase login`.
+.supabase-token
