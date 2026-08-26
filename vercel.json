@@ -1,12 +1,13 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
   "framework": "vite",
+  "buildCommand": "npm run build && npm run build:backend",
+  "outputDirectory": "dist",
   "functions": {
-    "api/**/*.ts": {
+    "api/**/*.js": {
       "maxDuration": 60,
-      "memory": 1024
+      "memory": 1024,
+      "includeFiles": "backend/dist/**"
     }
   },
   "rewrites": [

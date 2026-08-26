@@ -140,3 +140,8 @@ backups/
 # Local Vercel CLI token, if used instead of `vercel login`. Never commit.
 .vercel-token
 .claude/skills/apple-design/
+
+# The Vercel serverless entry is hand-written source, not build output, so it
+# must survive the blanket `*.js` rule above (which targets compiled output and
+# legacy scripts).
+!api/**/*.js
