@@ -1,6 +1,83 @@
 # Premium UX Plan — Oliskey School App
 
-Status: **PLAN ONLY — no code changed.** Nothing here is implemented until approved.
+## Progress
+
+**Phase 0 (correctness) — DONE.** 11 of 14 items fixed, tested, building clean.
+**Phase 1 (foundation tokens) — DONE.** Zero visual change; accessibility and the
+timing language are now in place.
+**Phase 2 (chrome & material) — NEXT.**
+
+Verification at time of writing: `tsc --noEmit` 0 errors · `npm run build` succeeds ·
+46 unit tests passing across 15 files (21 of them new).
+
+### Phase 0 — what was fixed
+
+| # | Role | Bug | Status |
+|---|---|---|---|
+| 1 | Student | Exam timer reset to full on refresh | Fixed — deadline is now an absolute wall-clock timestamp in storage |
+| 2 | Student | Answers never persisted; no `beforeunload` | Fixed — attempt mirrored to storage on every change; unload warns |
+| 3 | Student | "Test Submitted!" shown before the network call | Fixed — success screen only after the server confirms; failure keeps the answers and offers Retry |
+| 4 | Student | Score always displayed as 0 | Fixed — the server's score is displayed (see correction below) |
+| 5 | Student | Anti-cheat listener never attached | Fixed — stale dep array |
+| 6 | Student | Result written into the demo school on context failure | Fixed — hardcoded demo id removed; sync skipped instead |
+| 7 | Teacher | Failed saves cleared `isDirty`, hiding lost grades | Fixed — only rows that reached the server are cleared |
+| 8 | Teacher | One debounce timer for the whole roster | Fixed — one timer per student |
+| 9 | Teacher | Autosave had no error path; teacher trapped on "Saving…" | Fixed — try/catch/finally + an error state |
+| 10 | Teacher | Attendance bypassed the offline queue | Fixed — falls back to the sync queue instead of losing the register |
+| 11 | Teacher | No unsaved-changes guard anywhere | Fixed — new `useUnsavedChangesGuard` hook, wired into the gradebook |
+| 12 | Parent | Fee-fetch failure read as "all fees paid" | Fixed — distinct error state with Retry |
+| 13 | Parent | Installment payment | Fixed — see correction below |
+| 14 | Parent | Paystack secret key built in the browser | **Not done** — needs a backend endpoint; see Part 5 |
+
+Plus, reported separately by the owner:
+
+| Bug | Status |
+|---|---|
+| Parent fee page rebuilt its cards 3+ times on open | Fixed — one load per open, startup refresh burst coalesced, cards animate once |
+
+### Corrections to this document's original findings
+
+Two claims in the first version of this plan were wrong, and the fixes changed accordingly.
+
+1. **"The answer key is shipped to the client and a student can post any score."**
+   Incorrect. `backend/src/controllers/quiz.controller.ts:95` already passes
+   `excludeAnswers: true` for students, and `QuizService.getQuiz` strips
+   `correct_answer` *and* the `isCorrect` flags inside the `options` JSON.
+   `QuizService.submitQuizResult` recomputes the score server-side from the real key
+   and resolves `student_id` from the session. **The backend was already correct.**
+   The real bug was the mirror image: the client graded against a key that isn't
+   there, so `userAnswer === undefined` was always false and **every student saw
+   0 / N and 0%** while the server stored the true grade.
+
+2. **"Paying installment 2 charges the full fee."**
+   Incorrect. Hidden payment triggers were only rendered for fees *without* a plan,
+   so on an installment fee `getElementById` returned null and the Pay button
+   **silently did nothing at all**. Now the triggers render for every fee and the
+   installment balance is threaded through as the amount charged.
+
+### Phase 1 — what shipped (no visual change)
+
+- `lib/motion.ts` — the whole timing language is now two springs, `springStandard`
+  (damping 1.0) and `springMomentum` (damping 0.8), plus `springExit` at ~65% of the
+  entry. Enter and exit paths mirror each other; page transitions became a crossfade
+  rather than a slide on every navigation; `inputFocus` no longer scales the field
+  under the user's cursor.
+- `App.tsx` — `<MotionConfig reducedMotion="user">` at the root. One line; every
+  framer-motion animation in all 300+ animating components now honours the OS
+  Reduce Motion setting.
+- `index.css` — `prefers-reduced-motion`, `prefers-reduced-transparency` and
+  `prefers-contrast` are handled for the first time (all three had **zero**
+  occurrences in the repo). Glass frosts to near-solid under reduced transparency
+  and goes fully solid with a defined border under increased contrast.
+- `index.css` — one base-layer `:focus-visible` ring inherited by every interactive
+  element. `focus-visible` previously appeared **zero times** across the admin,
+  teacher and parent trees.
+- `tailwind.config.js` — radius (control/card/sheet), elevation (e1–e4),
+  size-specific tracking and leading tokens, as named aliases onto existing values.
+
+---
+
+Status of the rest: **PLAN ONLY.** Phases 2–6 are not implemented.
 
 Design brief from the owner: *"I love the design — don't change it anyhow. Improve it to a premium
 design: spacing, sides, when to use an icon on mobile vs the full name on desktop, when to use the

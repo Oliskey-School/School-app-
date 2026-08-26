@@ -16,39 +16,53 @@ import { LayoutDashboard, Wallet, ShieldCheck, BookOpen, Beaker, Users, Building
 // explicit confirmation from the owner. If a new feature needs a nav-level
 // entry point, add it to that role's Quick Actions/home-screen tiles instead
 // — never to this file.
-const NavItem: React.FC<{ icon: React.ReactElement<{ className?: string }>, label: string, navId?: string, isActive: boolean, onClick: () => void, activeColor: string }> = ({ icon, label, navId, isActive, onClick, activeColor }) => {
+const NavItem: React.FC<{ icon: React.ReactElement<{ className?: string }>, label: string, navId?: string, shortNavId?: string, isActive: boolean, onClick: () => void, activeColor: string }> = ({ icon, label, navId, shortNavId, isActive, onClick, activeColor }) => {
   const { t } = useTranslation();
   // Translate by the stable nav id (falls back to the English label for any id
   // without a key yet), so the bottom nav follows the chosen language everywhere.
   const text = navId ? t(`nav.${navId}`, { defaultValue: label }) : label;
+  // A long label ("Fee Management") wraps onto a second line in the bar, which
+  // pushes that one item's icon out of line with every other item. Where a
+  // shorter form exists it is used on narrow screens and the full name appears
+  // once there is room for it on one line.
+  const shortText = shortNavId ? t(`nav.${shortNavId}`, { defaultValue: text }) : null;
   return (
   <motion.button
     whileTap={{ scale: 0.88 }}
     onClick={onClick}
     aria-current={isActive ? 'page' : undefined}
+    // Screen readers always get the full, unambiguous name.
     aria-label={text}
     className={`flex-1 flex flex-col items-center justify-center space-y-1 transition-colors duration-200 ${isActive ? activeColor : 'text-gray-500'}`}
   >
     <motion.div animate={{ scale: isActive ? 1.1 : 1 }} transition={{ type: 'spring', stiffness: 400, damping: 20 }}>
       {React.cloneElement(icon, { className: `h-6 w-6`, 'aria-hidden': true } as any)}
     </motion.div>
-    <span className="text-xs font-medium">{text}</span>
+    {shortText ? (
+      <span className="text-xs font-medium whitespace-nowrap leading-none" aria-hidden="true">
+        <span className="sm:hidden">{shortText}</span>
+        <span className="hidden sm:inline">{text}</span>
+      </span>
+    ) : (
+      <span className="text-xs font-medium whitespace-nowrap leading-none" aria-hidden="true">{text}</span>
+    )}
   </motion.button>
   );
 };
 
 export const AdminBottomNav = ({ activeScreen, setActiveScreen }: { activeScreen: string, setActiveScreen: (screen: string) => void }) => {
   const navItems = [
+    // Order set by the owner: Home, Fees, Analytics, Messages, Settings.
     { id: 'home', icon: <HomeIcon />, label: 'Home' },
-    { id: 'messages', icon: <MessagesIcon />, label: 'Messages' },
-    { id: 'feeManagement', icon: <DocumentTextIcon />, label: 'Fees' },
+    { id: 'feeManagement', shortId: 'feeManagementShort', icon: <DocumentTextIcon />, label: 'Fees' },
     { id: 'analytics', icon: <AnalyticsIcon />, label: 'Analytics' },
+    { id: 'messages', icon: <MessagesIcon />, label: 'Messages' },
     { id: 'settings', icon: <SettingsIcon />, label: 'Settings' },
   ];
   return (
     <div className="w-full bg-white/95 backdrop-blur-sm border-t border-gray-100 p-2 flex justify-around items-center print:hidden">
       {navItems.map(item => (
-        <NavItem key={item.id} icon={item.icon} label={item.label} navId={item.id} isActive={activeScreen === item.id} onClick={() => setActiveScreen(item.id)} activeColor="text-indigo-600" />
+        <NavItem key={item.id} icon={item.icon} label={item.label} navId={item.id} shortNavId={(item as any).shortId} isActive={activeScreen === item.id} onClick={() => setActiveScreen(item.id)} activeColor="text-indigo-600" />
       ))}
     </div>
   );
