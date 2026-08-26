@@ -86,7 +86,7 @@ export const setup2FA = async (req: Request, res: Response) => {
         const result = await AuthService.generate2FASecret(userId);
         res.json(result);
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        sendError(res, error, 'auth.controller.ts', undefined, 400);
     }
 };
 
@@ -101,7 +101,7 @@ export const enable2FA = async (req: Request, res: Response) => {
         const result = await AuthService.verifyAndEnable2FA(userId, code);
         res.json(result);
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        sendError(res, error, 'auth.controller.ts', undefined, 400);
     }
 };
 
@@ -116,7 +116,7 @@ export const disable2FA = async (req: Request, res: Response) => {
         const result = await AuthService.disable2FA(userId, code);
         res.json(result);
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        sendError(res, error, 'auth.controller.ts', undefined, 400);
     }
 };
 
@@ -160,7 +160,7 @@ export const signup = async (req: Request, res: Response) => {
         const user = await AuthService.signup(req.body);
         res.status(201).json(user);
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        sendError(res, error, 'auth.controller.ts', undefined, 400);
     }
 };
 
@@ -180,7 +180,7 @@ export const resendVerification = async (req: Request, res: Response) => {
         const result = await AuthService.resendVerification(email);
         res.json(result);
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        sendError(res, error, 'auth.controller.ts', undefined, 400);
     }
 };
 
@@ -192,7 +192,7 @@ export const confirmEmail = async (req: Request, res: Response) => {
         const result = await AuthService.confirmEmail(userId);
         res.json(result);
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        sendError(res, error, 'auth.controller.ts', undefined, 400);
     }
 };
 
@@ -205,7 +205,7 @@ export const verifyEmail = async (req: Request, res: Response) => {
         res.json(result);
     } catch (error: any) {
         console.error('[AuthController] Verify Email Error:', error);
-        res.status(400).json({ message: error.message });
+        sendError(res, error, 'auth.controller.ts', undefined, 400);
     }
 };
 
@@ -225,7 +225,7 @@ export const updateEmail = async (req: Request, res: Response) => {
         res.json(result);
     } catch (error: any) {
         console.error('[AuthController] Update Email Error:', error);
-        res.status(400).json({ message: error.message });
+        sendError(res, error, 'auth.controller.ts', undefined, 400);
     }
 };
 
@@ -246,7 +246,7 @@ export const verifyEmailChange = async (req: Request, res: Response) => {
         res.json(result);
     } catch (error: any) {
         console.error('[AuthController] Verify Email Change Error:', error);
-        res.status(400).json({ message: error.message });
+        sendError(res, error, 'auth.controller.ts', undefined, 400);
     }
 };
 
@@ -265,7 +265,7 @@ export const updateUsername = async (req: Request, res: Response) => {
         const result = await AuthService.updateUsername(userId, newUsername);
         res.json(result);
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        sendError(res, error, 'auth.controller.ts', undefined, 400);
     }
 };
 
@@ -289,7 +289,7 @@ export const updatePassword = async (req: Request, res: Response) => {
         const result = await AuthService.updatePassword(userId, currentPassword, newPassword);
         res.json(result);
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        sendError(res, error, 'auth.controller.ts', undefined, 400);
     }
 };
 
@@ -314,7 +314,7 @@ export const adminChangePassword = async (req: Request, res: Response) => {
         const result = await AuthService.adminChangePassword(userId, newPassword, adminId, admin.school_id, admin.role);
         res.json(result);
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        sendError(res, error, 'auth.controller.ts', undefined, 400);
     }
 };
 
@@ -345,7 +345,7 @@ export const resetUserPassword = async (req: Request, res: Response) => {
             newPassword 
         });
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        sendError(res, error, 'auth.controller.ts', undefined, 400);
     }
 };
 
@@ -357,7 +357,7 @@ export const getMemberships = async (req: Request, res: Response) => {
         const memberships = await AuthService.getMemberships(userId);
         res.json(memberships);
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        sendError(res, error, 'auth.controller.ts', undefined, 400);
     }
 };
 
@@ -376,7 +376,7 @@ export const switchSchool = async (req: Request, res: Response) => {
             user: result.user 
         });
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        sendError(res, error, 'auth.controller.ts', undefined, 400);
     }
 };
 
@@ -449,7 +449,7 @@ export const checkEmail = async (req: Request, res: Response) => {
         const result = await AuthService.checkEmail(email as string);
         res.json(result);
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        sendError(res, error, 'auth.controller.ts', undefined, 400);
     }
 };
 
@@ -460,7 +460,7 @@ export const checkUsername = async (req: Request, res: Response) => {
         const result = await AuthService.checkUsername(username as string);
         res.json(result);
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        sendError(res, error, 'auth.controller.ts', undefined, 400);
     }
 };
 
@@ -580,7 +580,7 @@ export const forgotPassword = async (req: Request, res: Response) => {
         const result = await AuthService.forgotPassword(email);
         res.json(result);
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        sendError(res, error, 'auth.controller.ts', undefined, 400);
     }
 };
 
@@ -593,7 +593,7 @@ export const resetPassword = async (req: Request, res: Response) => {
         const result = await AuthService.resetPassword(email, code, newPassword);
         res.json(result);
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        sendError(res, error, 'auth.controller.ts', undefined, 400);
     }
 };
 

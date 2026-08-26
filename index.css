@@ -140,6 +140,108 @@ html.glass .bg-white.rounded-\[2rem\]:not(.liquid-glass):not(.liquid-glass-solid
   }
 }
 
+/* ============================================================
+   SYSTEM ACCESSIBILITY PREFERENCES
+   ------------------------------------------------------------
+   The three settings a user can turn on at OS level that this
+   app previously ignored entirely. None of these change the
+   default appearance — they only take effect when the user has
+   asked for them.
+   ============================================================ */
+
+/* --- Reduce Motion ---------------------------------------------------------
+   Not "no feedback" — a gentler, non-vestibular equivalent. Travel and
+   overshoot are removed; colour and opacity changes, which carry meaning,
+   are kept. framer-motion is handled separately at the app root via
+   <MotionConfig reducedMotion="user">; this covers CSS animation. */
+@media (prefers-reduced-motion: reduce) {
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Decorative loops (pulsing dots, shimmer) stop entirely rather than
+     flickering at 0.01ms. */
+  .animate-pulse,
+  .animate-spin,
+  .animate-bounce,
+  .animate-ping,
+  .animate-slide-in-up {
+    animation: none !important;
+  }
+
+  /* A spinner still needs to read as "working", so give it a slow, steady
+     rotation instead of removing the only progress signal on screen. */
+  .animate-spin {
+    animation: spin 1.6s linear infinite !important;
+  }
+}
+
+/* --- Reduce Transparency ---------------------------------------------------
+   Blur costs legibility, and some users cannot tolerate it. Frost the glass
+   to near-solid and drop the backdrop filter; the surface keeps its shape,
+   its border and its shadow, so the design still reads as itself. */
+@media (prefers-reduced-transparency: reduce) {
+
+  html.glass .liquid-glass,
+  html.glass .liquid-glass-solid,
+  html.glass .bg-white.rounded-2xl,
+  html.glass .bg-white.rounded-3xl,
+  html.glass .bg-white.rounded-\[2rem\] {
+    background-color: rgb(var(--lg-tint) / 0.97) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+}
+
+/* --- Increased Contrast ----------------------------------------------------
+   Solid surfaces with a defined edge, so every panel boundary is unambiguous. */
+@media (prefers-contrast: more) {
+
+  html.glass .liquid-glass,
+  html.glass .liquid-glass-solid,
+  html.glass .bg-white.rounded-2xl,
+  html.glass .bg-white.rounded-3xl,
+  html.glass .bg-white.rounded-\[2rem\] {
+    background-color: #fff !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    border: 1px solid rgb(15 23 42 / 0.45) !important;
+  }
+}
+
+/* ============================================================
+   FOCUS — one ring, inherited by everything
+   ------------------------------------------------------------
+   `:focus-visible` appears zero times across the admin, teacher
+   and parent trees today, and several controls actively remove
+   the outline with `focus:outline-none` and no replacement.
+   This gives every interactive element a keyboard focus ring by
+   default, while never showing one on a mouse click. Components
+   that define their own `focus-visible:ring-*` still win.
+   ============================================================ */
+:where(a, button, input, select, textarea, summary, [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline: 2px solid rgb(var(--accent-500));
+  outline-offset: 2px;
+  border-radius: inherit;
+}
+
+/* A mouse press should not leave a ring behind. */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+@media (prefers-contrast: more) {
+  :where(a, button, input, select, textarea, summary, [tabindex]:not([tabindex="-1"])):focus-visible {
+    outline-width: 3px;
+  }
+}
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;

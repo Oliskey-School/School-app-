@@ -33,7 +33,7 @@ export const setSchoolVersion = async (req: Request, res: Response) => {
         const school = await VersionService.setSchoolVersion(schoolId, version);
         res.json({ message: `School successfully locked to version ${version}`, school });
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        sendError(res, error, 'version.controller.ts', undefined, 400);
     }
 };
 

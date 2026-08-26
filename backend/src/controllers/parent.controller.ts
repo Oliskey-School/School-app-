@@ -104,7 +104,7 @@ export const updateParent = async (req: AuthRequest, res: Response) => {
         const result = await ParentService.updateParent(req.user.school_id, branchId, req.params.id as string, req.body);
         res.json(result);
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        sendError(res, error, 'parent.controller.ts', undefined, 400);
     }
 };
 

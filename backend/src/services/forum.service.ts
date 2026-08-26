@@ -6,7 +6,11 @@ export class ForumService {
         const where: any = { school_id: schoolId };
 
         if (branchId && branchId !== 'all') {
-            where.branch_id = branchId; // strict branch isolation (untagged → All Branches only)
+            // A row with branch_id NULL is school-wide. Strict equality hid such
+            // rows from EVERY branch (they showed only under 'All Branches'),
+            // which is how a school-wide item reached nobody. Other branches'
+            // tagged rows are still excluded, so branch isolation holds.
+            where.OR = [{ branch_id: branchId }, { branch_id: null }];
         }
 
         return prisma.forumTopic.findMany({

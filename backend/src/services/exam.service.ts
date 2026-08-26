@@ -10,7 +10,9 @@ export class ExamService {
         }
 
         if (branchId && branchId !== 'all') {
-            whereClause.branch_id = branchId; // strict branch isolation (untagged → All Branches only)
+            // branch_id NULL = school-wide exam; strict equality hid it from
+            // every branch (visible only under 'All Branches').
+            whereClause.OR = [{ branch_id: branchId }, { branch_id: null }];
         }
 
         return await prisma.exam.findMany({

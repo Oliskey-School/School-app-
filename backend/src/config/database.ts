@@ -1,11 +1,24 @@
 import { PrismaClient } from '../../generated/prisma-client';
 import { getTenantContext } from '../lib/tenantContext';
 
-// Recursively deletes password_hash / two_factor_secret from a Prisma result,
-// mutating in place. Handles arrays, nested objects (e.g. an `include`d user
-// relation), and leaves everything else untouched. Bounded depth so a
-// pathological result shape can't recurse forever.
-const SENSITIVE_FIELDS = ['password_hash', 'two_factor_secret'];
+// Recursively deletes credential fields from a Prisma result, mutating in place.
+// Handles arrays, nested objects (e.g. an `include`d user relation), and leaves
+// everything else untouched. Bounded depth so a pathological result shape can't
+// recurse forever.
+//
+// initial_password is NOT a one-time onboarding artifact: auth.service rewrites
+// it with the new plaintext on EVERY password change/reset, so it mirrors the
+// user's CURRENT live password indefinitely. It was being returned in cleartext
+// by the /students, /teachers and /users LIST endpoints — a value read straight
+// off the API was used to log in successfully as that teacher, i.e. full account
+// takeover from a directory read. The detail route already stripped it; the list
+// routes did not.
+//
+// Credential hand-out is unaffected: the create/reset services return the freshly
+// generated password to the caller at the moment they issue it. What is removed
+// is the ability to read an existing user's live password back later — for that,
+// reset it.
+const SENSITIVE_FIELDS = ['password_hash', 'two_factor_secret', 'initial_password'];
 function stripSensitiveFields(value: any, depth = 0): void {
   if (!value || typeof value !== 'object' || depth > 6) return;
   if (Array.isArray(value)) {
@@ -82,10 +95,17 @@ const prismaClientSingleton = () => {
             const ctx = getTenantContext();
 
             const run = async () => {
-                // Only model operations (not $queryRaw/$executeRaw calls the app makes
-                // directly, e.g. via getRawPrisma()) get tenant-scoped — and only when
-                // an authenticated request actually set a context (see auth.middleware.ts).
-                if (ctx?.schoolId && model) {
+                // Applies to model operations AND raw $queryRaw/$executeRaw calls.
+                //
+                // Raw calls have `model === undefined`. They used to fall straight
+                // through with no GUCs set at all, which was harmless before RLS but
+                // became a silent breakage after it: under RLS a raw SELECT with no
+                // app.current_school_id matches NOTHING, so ~37 raw call sites began
+                // returning 0 rows. BranchIdentityService is the visible symptom —
+                // its `SELECT code FROM "Branch"` came back empty, so a teacher lent
+                // to another branch silently kept their home ID instead of that
+                // branch's (the failure is swallowed by a catch in teacher.service).
+                if (ctx?.schoolId) {
                     // set_config and the real query MUST run on the exact same
                     // connection, or the session var never reaches the query that
                     // needs it. prisma.$transaction(async (tx) => ...) does NOT
@@ -131,16 +151,14 @@ const prismaClientSingleton = () => {
                 // new — but it makes the exemption explicit and greppable, and it
                 // means every *authenticated* query is now DB-enforced rather than
                 // relying on ~1,900 call sites each remembering a school_id filter.
-                if (model) {
-                    const raw = globalThis.__rawPrisma!;
-                    const results = await raw.$transaction([
-                        raw.$executeRaw`SELECT set_config('app.bypass_rls', 'on', true)`,
-                        query(args),
-                    ] as any);
-                    return results[results.length - 1];
-                }
-
-                return query(args);
+                // Same reasoning for raw calls made outside a request (seeds, scripts,
+                // login lookups): without the flag they match nothing under RLS.
+                const raw = globalThis.__rawPrisma!;
+                const results = await raw.$transaction([
+                    raw.$executeRaw`SELECT set_config('app.bypass_rls', 'on', true)`,
+                    query(args),
+                ] as any);
+                return results[results.length - 1];
             };
 
             const result = await Promise.race([run(), timeoutPromise]);

@@ -38,7 +38,7 @@ export const onboardSchool = async (req: Request, res: Response) => {
         const result = await SchoolService.onboard(req.body);
         res.status(201).json(result);
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        sendError(res, error, 'school.controller.ts', undefined, 400);
     }
 };
 
@@ -47,7 +47,7 @@ export const createSchool = async (req: Request, res: Response) => {
         const school = await SchoolService.createSchool(req.body);
         res.status(201).json(school);
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        sendError(res, error, 'school.controller.ts', undefined, 400);
     }
 };
 

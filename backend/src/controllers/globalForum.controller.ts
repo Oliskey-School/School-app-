@@ -22,7 +22,7 @@ export const createGlobalTopic = async (req: AuthRequest, res: Response) => {
         const topic = await GlobalForumService.createTopic(req.user, req.body);
         res.status(201).json(topic);
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        sendError(res, error, 'globalForum.controller.ts', undefined, 400);
     }
 };
 
@@ -40,7 +40,7 @@ export const createGlobalPost = async (req: AuthRequest, res: Response) => {
         const post = await GlobalForumService.createPost(req.user, req.body);
         res.status(201).json(post);
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        sendError(res, error, 'globalForum.controller.ts', undefined, 400);
     }
 };
 

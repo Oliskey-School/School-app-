@@ -60,7 +60,7 @@ export const enrollStudent = async (req: AuthRequest, res: Response) => {
     } catch (error: any) {
         console.error('Enrollment controller error:', error);
         if (error.message.includes('required for enrollment')) {
-            return res.status(400).json({ message: error.message });
+            return sendError(res, error, 'student.controller.ts', undefined, 400);
         }
         if (error.message.includes('User already registered') || error.message.includes('Auth creation failed')) {
             return res.status(409).json({ message: error.message });

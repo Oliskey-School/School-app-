@@ -11,7 +11,7 @@ export const triggerEmergencyBroadcast = async (req: AuthRequest, res: Response)
         });
         res.json(result);
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        sendError(res, error, 'emergency.controller.ts', undefined, 400);
     }
 };
 

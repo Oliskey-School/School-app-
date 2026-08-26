@@ -8,7 +8,12 @@ export class NoticeService {
         };
 
         if (branchId && branchId !== 'all') {
-            where.branch_id = branchId; // strict branch isolation (untagged → All Branches only)
+            // A notice with branch_id NULL is school-wide. Strict equality here
+            // meant a school-wide announcement was visible ONLY under the "All
+            // Branches" view — i.e. the owner published to everyone and it
+            // reached nobody. Branch isolation still holds: another branch's
+            // tagged notices are excluded.
+            where.OR = [{ branch_id: branchId }, { branch_id: null }];
         }
 
         return await prisma.announcement.findMany({

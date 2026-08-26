@@ -7,6 +7,7 @@ import { SaveIcon, CalculatorIcon, CheckCircleIcon, ExclamationIcon } from '../.
 import CenteredLoader from '../ui/CenteredLoader';
 import { api } from '../../lib/api';
 import { useAutoSync } from '../../hooks/useAutoSync';
+import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard';
 
 
 
@@ -346,6 +347,13 @@ const ClassGradebookScreen: React.FC<{
         }
     };
 
+    // Any row still carrying unsaved edits — including rows whose save just failed.
+    const hasUnsavedGrades = students.some(s => s.isDirty);
+    const { confirmNavigation } = useUnsavedChangesGuard(
+        hasUnsavedGrades,
+        'You have unsaved grades. Leave this gradebook and lose them?'
+    );
+
     const handleSave = async (status: 'Draft' | 'Submitted' = 'Draft') => {
         const dirtyEntries = students.filter(s => s.isDirty);
         // If publishing, we save ALL students to ensure completeness, or at least dirty ones?
@@ -417,14 +425,28 @@ const ClassGradebookScreen: React.FC<{
             }));
             const successCount = results.filter(Boolean).length;
 
-            // Mark all as clean and reflect the new status on each row's chip
-            setStudents(students.map(s => ({
-                ...s,
-                isDirty: false,
-                status: status === 'Submitted' ? 'Submitted' : s.status,
-            })));
+            // Which rows actually reached the server. Rows whose save failed MUST
+            // stay dirty: clearing the flag for everyone used to hide the failures
+            // (the row stopped being highlighted and was excluded from the next
+            // save, because handleSave only targets dirty rows) so the teacher had
+            // no way to find out which grades were lost.
+            const savedStudentIds = new Set(
+                targets.filter((_, i) => results[i] !== null).map(t => t.studentId)
+            );
+
+            setStudents(students.map(s => {
+                if (!savedStudentIds.has(s.studentId)) return s; // untouched or failed — keep as-is
+                return {
+                    ...s,
+                    isDirty: false,
+                    status: status === 'Submitted' ? 'Submitted' : s.status,
+                };
+            }));
             if (successCount < targets.length) {
-                toast.error(`Saved ${successCount} of ${targets.length} students — some saves failed.`);
+                toast.error(
+                    `Saved ${successCount} of ${targets.length} students. ${targets.length - successCount} still unsaved — they stay highlighted, press Save again to retry.`,
+                    { duration: 6000 }
+                );
             } else if (status === 'Submitted') {
                 toast.success(`Successfully submitted grades for ${successCount} students!`);
             } else {
@@ -529,7 +551,7 @@ const ClassGradebookScreen: React.FC<{
                                 <span>Submit</span>
                             </motion.button>
 
-                            <motion.button whileTap={{ scale: 0.96 }} onClick={handleBack} className="px-4 py-2.5 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 text-sm font-medium whitespace-nowrap">
+                            <motion.button whileTap={{ scale: 0.96 }} onClick={() => confirmNavigation(handleBack)} className="px-4 py-2.5 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 text-sm font-medium whitespace-nowrap">
                                 Close
                             </motion.button>
                         </div>

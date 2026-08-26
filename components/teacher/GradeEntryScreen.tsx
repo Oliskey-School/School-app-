@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
 import { Exam, Student } from '../../types';
 import { CheckCircleIcon } from '../../constants';
@@ -14,12 +15,16 @@ const getScoreIndicatorStyle = (scoreStr: string): string => {
     return 'border-red-400 bg-red-100 text-red-900 font-bold';
 };
 
-const SaveStatusIndicator: React.FC<{ status: 'idle' | 'saving' | 'saved' }> = ({ status }) => {
+type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+
+const SaveStatusIndicator: React.FC<{ status: SaveStatus }> = ({ status }) => {
     switch (status) {
         case 'saving':
             return <span className="text-sm text-gray-500 animate-pulse">Saving...</span>;
         case 'saved':
             return <span className="text-sm text-green-600 flex items-center"><CheckCircleIcon className="w-4 h-4 mr-1" /> All changes saved</span>;
+        case 'error':
+            return <span className="text-sm text-red-600">Some grades could not be saved — re-enter them to retry.</span>;
         default:
             return <span className="text-sm text-gray-400">Grades will auto-save.</span>;
     }
@@ -34,10 +39,25 @@ const GradeEntryScreen: React.FC<GradeEntryScreenProps> = ({ exam, handleBack })
     const { currentSchool } = useAuth();
     const [scores, setScores] = useState<{ [studentId: string | number]: string }>({});
     const [students, setStudents] = useState<Student[]>([]);
-    const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+    const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
     const [loading, setLoading] = useState(true);
     const [currentTerm, setCurrentTerm] = useState<{ name: string; academic_year: string }>({ name: 'First Term', academic_year: '' });
-    const debounceTimeoutRef = useRef<number | null>(null);
+    // One debounce timer PER STUDENT. A single shared timer meant that typing a
+    // score for the next student cancelled the pending save for the previous one,
+    // silently discarding it.
+    const debounceTimeoutsRef = useRef<Map<string | number, number>>(new Map());
+    // Students whose most recent save attempt failed, so the indicator can stay in
+    // the error state until every outstanding save has succeeded.
+    const failedSavesRef = useRef<Set<string | number>>(new Set());
+
+    // Never leave timers running against an unmounted screen.
+    useEffect(() => {
+        const timeouts = debounceTimeoutsRef.current;
+        return () => {
+            timeouts.forEach(id => clearTimeout(id));
+            timeouts.clear();
+        };
+    }, []);
 
     // Fallback-only class name parser. exam.classId (the real class UUID) is the
     // authoritative source of the roster — see fetchData below. This regex guess
@@ -139,17 +159,30 @@ const GradeEntryScreen: React.FC<GradeEntryScreenProps> = ({ exam, handleBack })
         if (!currentSchool?.id || !exam) return;
         const numericScore = parseInt(value, 10);
 
-        await api.saveGrade({
-            studentId,
-            subject: exam.subject,
-            score: numericScore,
-            term: currentTerm.name,
-            session: currentTerm.academic_year
-        }, currentSchool.id, currentSchool.branch_id, { useBackend: true });
+        try {
+            await api.saveGrade({
+                studentId,
+                subject: exam.subject,
+                score: numericScore,
+                term: currentTerm.name,
+                session: currentTerm.academic_year
+            }, currentSchool.id, currentSchool.branch_id, { useBackend: true });
 
-        // console.log(`Saved score for student ${studentId}: ${value}`);
-        setSaveStatus('saved');
-        setTimeout(() => setSaveStatus('idle'), 2000);
+            failedSavesRef.current.delete(studentId);
+            // Only report "all changes saved" once nothing is still outstanding.
+            if (failedSavesRef.current.size === 0 && debounceTimeoutsRef.current.size === 0) {
+                setSaveStatus('saved');
+                setTimeout(() => setSaveStatus(prev => (prev === 'saved' ? 'idle' : prev)), 2000);
+            }
+        } catch (err) {
+            // Without this the status was left on 'saving' forever, which also kept
+            // the Done button disabled — the teacher was trapped on the screen and
+            // never told the grade had not been saved.
+            console.error(`Failed to auto-save grade for student ${studentId}`, err);
+            failedSavesRef.current.add(studentId);
+            setSaveStatus('error');
+            toast.error('A grade could not be saved. Re-enter it to try again.');
+        }
     };
 
     const handleScoreChange = (studentId: string | number, value: string) => {
@@ -157,16 +190,18 @@ const GradeEntryScreen: React.FC<GradeEntryScreenProps> = ({ exam, handleBack })
         if (value === '' || (numericValue >= 0 && numericValue <= 100)) {
             setScores(prev => ({ ...prev, [studentId]: value }));
 
-            if (debounceTimeoutRef.current) {
-                clearTimeout(debounceTimeoutRef.current);
-            }
+            const timeouts = debounceTimeoutsRef.current;
+            const pending = timeouts.get(studentId);
+            if (pending) clearTimeout(pending);
+
             setSaveStatus('saving');
 
-            debounceTimeoutRef.current = window.setTimeout(() => {
+            timeouts.set(studentId, window.setTimeout(() => {
+                timeouts.delete(studentId);
                 if (value !== '') {
                     saveGrade(studentId, value);
                 }
-            }, 1200);
+            }, 1200));
         }
     };
 

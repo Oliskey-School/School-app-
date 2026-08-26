@@ -4,6 +4,7 @@ import { ChatService } from '../services/chat.service';
 import { DEMO_SCHOOL_ID } from '../config/env';
 import prisma from '../config/database';
 import { sendError } from '../utils/httpError';
+import { getEffectiveBranchId } from '../utils/branchScope';
 
 const chatService = new ChatService();
 
@@ -120,6 +121,54 @@ export const getRoleContacts = async (req: AuthRequest, res: Response) => {
     }
 };
 
+
+// Chat crosses the branch boundary unless the participants are checked.
+// A Branch MAIN teacher could open a direct room with a Branch BR2 student and
+// exchange messages both ways (verified live) — the room and its participants
+// were written with branch_id NULL, which RLS treats as school-wide, so the
+// database could not catch it either. The owner's rule is that information
+// stays inside its branch.
+//
+// Carve-outs match the rest of the system: a school-level/main-branch admin and
+// a PARENT are branch-unrestricted (a parent's children may sit in different
+// branches), and a user with no branch is school-wide.
+async function assertSameBranch(req: AuthRequest, targetUserIds: string[]): Promise<{ ok: boolean; message?: string }> {
+    const roleUpper = (req.user?.role || '').toUpperCase();
+    const unrestricted =
+        req.user?.is_main_admin === true ||
+        ['ADMIN', 'PROPRIETOR', 'SUPER_ADMIN', 'PARENT'].includes(roleUpper);
+    if (unrestricted) return { ok: true };
+
+    const myBranch = req.user?.branch_id;
+    if (!myBranch) return { ok: true }; // school-wide user, nothing to confine to
+
+    const allowed = new Set<string>([myBranch, ...((req.user?.allowed_branch_ids as string[]) || [])]);
+
+    const targets = await prisma.user.findMany({
+        where: { id: { in: targetUserIds }, school_id: req.user?.school_id },
+        select: { id: true, branch_id: true, role: true },
+    });
+
+    if (targets.length !== targetUserIds.length) {
+        // Deliberately vague: RLS already hides users outside the caller's
+        // entitlement, so a missing row here means "not visible to you" —
+        // naming the branch would leak the school's structure.
+        return { ok: false, message: 'One or more participants are not available to you' };
+    }
+
+    for (const t of targets) {
+        // A parent or an admin on the other end is reachable from any branch —
+        // the same carve-out, applied to the target rather than the caller.
+        const tRole = (t.role || '').toUpperCase();
+        if (['ADMIN', 'PROPRIETOR', 'SUPER_ADMIN', 'PARENT'].includes(tRole)) continue;
+        // branch_id NULL = school-wide participant.
+        if (t.branch_id && !allowed.has(t.branch_id)) {
+            return { ok: false, message: 'You can only start a conversation within your own branch' };
+        }
+    }
+    return { ok: true };
+}
+
 export const getOrCreateDirectChat = async (req: AuthRequest, res: Response) => {
     try {
         const { targetUserId } = req.body;
@@ -127,7 +176,11 @@ export const getOrCreateDirectChat = async (req: AuthRequest, res: Response) => 
         const schoolId = resolveSchoolId(req);
         if (!userId) return res.status(401).json({ message: 'Unauthorized' });
         if (!targetUserId) return res.status(400).json({ message: 'targetUserId is required' });
-        const room = await chatService.getOrCreateDirectChat(userId, targetUserId, schoolId || '');
+
+        const branchCheck = await assertSameBranch(req, [targetUserId]);
+        if (!branchCheck.ok) return res.status(403).json({ message: branchCheck.message });
+
+        const room = await chatService.getOrCreateDirectChat(userId, targetUserId, schoolId || '', getEffectiveBranchId(req.user));
         res.json(room);
     } catch (error: any) {
         if (error?.code === 'P2003' || error?.code === 'P2025') {
@@ -151,7 +204,10 @@ export const createGroupChat = async (req: AuthRequest, res: Response) => {
         if (memberIds.length > 400)
             return res.status(400).json({ message: 'Maximum 400 members allowed' });
 
-        const room = await chatService.createGroupChat(userId, schoolId, name.trim(), memberIds);
+        const groupBranchCheck = await assertSameBranch(req, memberIds);
+        if (!groupBranchCheck.ok) return res.status(403).json({ message: groupBranchCheck.message });
+
+        const room = await chatService.createGroupChat(userId, schoolId, name.trim(), memberIds, getEffectiveBranchId(req.user));
         res.json(room);
     } catch (error: any) {
         sendError(res, error, 'chat.controller.ts');

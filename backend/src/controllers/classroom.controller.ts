@@ -95,7 +95,7 @@ export const scanClassroom = async (req: AuthRequest, res: Response) => {
         res.json(result);
     } catch (error: any) {
         // Scan rejections are expected user-facing outcomes, not server faults.
-        res.status(400).json({ message: error.message });
+        sendError(res, error, 'classroom.controller.ts', undefined, 400);
     }
 };
 

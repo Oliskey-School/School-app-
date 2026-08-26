@@ -338,8 +338,12 @@ export class ChatService {
         }
     }
 
-    async createGroupChat(creatorId: string, schoolId: string, name: string, memberIds: string[]) {
+    async createGroupChat(creatorId: string, schoolId: string, name: string, memberIds: string[], branchId?: string) {
         const allMemberIds = [...new Set([creatorId, ...memberIds])];
+
+        // Same reasoning as getOrCreateDirectChat: stamp the branch so the room
+        // and its participants are confined by RLS instead of being school-wide.
+        const roomBranch = branchId && branchId !== 'all' ? branchId : null;
 
         const room = await prisma.chatRoom.create({
             data: {
@@ -347,12 +351,14 @@ export class ChatService {
                 name,
                 is_group: true,
                 school_id: schoolId,
+                branch_id: roomBranch,
                 creator_id: creatorId,
                 participants: {
                     create: allMemberIds.map(uid => ({
                         user_id: uid,
                         role: uid === creatorId ? 'admin' : 'member',
-                        school_id: schoolId
+                        school_id: schoolId,
+                        branch_id: roomBranch
                     }))
                 }
             }
@@ -418,7 +424,7 @@ export class ChatService {
         return { teachers, classmates };
     }
 
-    async getOrCreateDirectChat(userId: string, targetUserId: string, schoolId: string) {
+    async getOrCreateDirectChat(userId: string, targetUserId: string, schoolId: string, branchId?: string) {
         const existingRoom = await prisma.chatRoom.findFirst({
             where: {
                 type: 'direct',
@@ -431,16 +437,22 @@ export class ChatService {
 
         if (existingRoom) return existingRoom;
 
+        // Stamp the branch so RLS can confine the room too. These rows used to be
+        // written with branch_id NULL, which the policies read as "school-wide" —
+        // so a cross-branch room was visible to every branch by design.
+        const roomBranch = branchId && branchId !== 'all' ? branchId : null;
+
         const newRoom = await prisma.chatRoom.create({
             data: {
                 type: 'direct',
                 is_group: false,
                 school_id: schoolId,
+                branch_id: roomBranch,
                 creator_id: userId,
                 participants: {
                     create: [
-                        { user_id: userId, role: 'member', school_id: schoolId },
-                        { user_id: targetUserId, role: 'member', school_id: schoolId }
+                        { user_id: userId, role: 'member', school_id: schoolId, branch_id: roomBranch },
+                        { user_id: targetUserId, role: 'member', school_id: schoolId, branch_id: roomBranch }
                     ]
                 }
             }

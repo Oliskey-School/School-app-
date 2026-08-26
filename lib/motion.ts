@@ -18,16 +18,61 @@ export const useReducedMotion = (): boolean => {
   return reduced;
 };
 
-const baseTransition: Transition = {
-  duration: 0.2,
+/* ============================================================================
+ * THE TIMING LANGUAGE
+ *
+ * Two springs, and nothing else. Apple expresses springs as a damping RATIO
+ * (how much it overshoots) and a RESPONSE (how quickly it reaches the target) —
+ * deliberately not as stiffness/mass/damping. Framer Motion's `bounce` +
+ * `duration` spring API maps onto those two directly, so that is what we use.
+ *
+ *   springStandard  — damping 1.0 (critically damped, no overshoot). The default
+ *                     for everything: sheets, modals, lists, cards, values.
+ *   springMomentum  — damping ~0.8 (slight overshoot). ONLY after a gesture that
+ *                     carried momentum: a flick, a swipe-dismiss, a drag release.
+ *
+ * Overshoot on a menu that merely faded in feels wrong. Overshoot on a card you
+ * threw feels right. That is the entire rule.
+ *
+ * Springs are also inherently interruptible and animate from the CURRENT on-screen
+ * value, which is what lets a user grab a moving element and reverse it without
+ * the jump a fixed-duration tween produces.
+ * ========================================================================== */
+
+export const springStandard: Transition = {
+  type: 'spring',
+  bounce: 0,
+  duration: 0.35,
+};
+
+export const springMomentum: Transition = {
+  type: 'spring',
+  bounce: 0.2,
+  duration: 0.35,
+};
+
+/**
+ * Exits run at ~65% of the entry. An interface that leaves promptly feels
+ * responsive; an exit that takes as long as the entry feels like lag.
+ */
+export const springExit: Transition = {
+  type: 'spring',
+  bounce: 0,
+  duration: 0.22,
+};
+
+/** Content swapping inside the same container — a crossfade, not a movement. */
+export const crossfade: Transition = {
+  duration: 0.15,
   ease: [0.25, 0.46, 0.45, 0.94],
 };
 
-const springTransition: Transition = {
-  type: 'spring',
-  stiffness: 300,
-  damping: 30,
-};
+/** Stagger interval for list/grid entrances. */
+export const STAGGER_INTERVAL = 0.04;
+
+const baseTransition: Transition = springStandard;
+
+const springTransition: Transition = springStandard;
 
 export const fadeIn: Variants = {
   hidden: { opacity: 0 },
@@ -74,15 +119,16 @@ export const staggerContainer: Variants = {
   visible: {
     opacity: 1,
     transition: {
-      staggerChildren: 0.05,
-      delayChildren: 0.1,
+      staggerChildren: STAGGER_INTERVAL,
+      delayChildren: 0.04,
     },
   },
 };
 
 export const staggerItem: Variants = {
-  hidden: { opacity: 0, y: 10 },
-  visible: { opacity: 1, y: 0, transition: { ...baseTransition, duration: 0.3 } },
+  hidden: { opacity: 0, y: 8 },
+  visible: { opacity: 1, y: 0, transition: springStandard },
+  exit: { opacity: 0, y: 8, transition: springExit },
 };
 
 export const pressTransition: Transition = {
@@ -97,34 +143,29 @@ export const tapTransition: Transition = {
 
 export const modalOverlay: Variants = {
   hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { duration: 0.2 } },
-  exit: { opacity: 0, transition: { duration: 0.15 } },
+  visible: { opacity: 1, transition: crossfade },
+  exit: { opacity: 0, transition: crossfade },
 };
 
+/**
+ * Enters and exits along the SAME path — same offset, same scale. An element
+ * that arrives from below and then dissolves in place reads as two unrelated
+ * events; matching them tells the user where the thing went.
+ */
 export const modalContent: Variants = {
-  hidden: { opacity: 0, scale: 0.95, y: 20 },
-  visible: {
-    opacity: 1,
-    scale: 1,
-    y: 0,
-    transition: { type: 'spring', stiffness: 300, damping: 25 },
-  },
-  exit: {
-    opacity: 0,
-    scale: 0.95,
-    y: 20,
-    transition: { duration: 0.15 },
-  },
+  hidden: { opacity: 0, scale: 0.96, y: 16 },
+  visible: { opacity: 1, scale: 1, y: 0, transition: springStandard },
+  exit: { opacity: 0, scale: 0.96, y: 16, transition: springExit },
 };
 
 export const drawerVariants: Variants = {
-  closed: { x: '-100%' },
-  open: { x: 0, transition: { type: 'spring', stiffness: 300, damping: 30 } },
+  closed: { x: '-100%', transition: springExit },
+  open: { x: 0, transition: springStandard },
 };
 
 export const bottomSheetVariants: Variants = {
-  closed: { y: '100%' },
-  open: { y: 0, transition: { type: 'spring', stiffness: 300, damping: 30 } },
+  closed: { y: '100%', transition: springExit },
+  open: { y: 0, transition: springStandard },
 };
 
 export const listVariants: Variants = {
@@ -139,30 +180,25 @@ export const listVariants: Variants = {
 };
 
 export const listItemVariants: Variants = {
-  hidden: { opacity: 0, y: 8, x: -10 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    x: 0,
-    transition: { type: 'spring', stiffness: 300, damping: 25 },
-  },
-  exit: {
-    opacity: 0,
-    y: -8,
-    x: 10,
-    transition: { duration: 0.15 },
-  },
+  hidden: { opacity: 0, y: 8 },
+  visible: { opacity: 1, y: 0, transition: springStandard },
+  exit: { opacity: 0, y: 8, transition: springExit },
 };
 
+/**
+ * Page-to-page movement is a crossfade, not a slide. A 250ms travel animation on
+ * every single navigation is a tax the user pays dozens of times a session, and
+ * it delays the content they asked for.
+ */
 export const pageTransition: Variants = {
-  hidden: { opacity: 0, y: 10 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] } },
-  exit: { opacity: 0, y: -10, transition: { duration: 0.15 } },
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: crossfade },
+  exit: { opacity: 0, transition: crossfade },
 };
 
 export const cardHover = {
   whileHover: { y: -4, boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)' },
-  transition: { type: 'spring', stiffness: 300, damping: 25 },
+  transition: springStandard,
 };
 
 export const buttonTap = {
@@ -170,9 +206,13 @@ export const buttonTap = {
   transition: tapTransition,
 };
 
+/**
+ * Focus is communicated by the focus ring, not by resizing the field. Scaling an
+ * input on focus nudges everything around it and re-triggers layout while the
+ * user is typing.
+ */
 export const inputFocus = {
-  whileFocus: { scale: 1.01 },
-  transition: { duration: 0.1 },
+  transition: crossfade,
 };
 
 export const loadingPulse: Variants = {
@@ -213,7 +253,7 @@ export const getReducedMotionVariants = <T extends Variants>(
   return reducedVariants;
 };
 
-export const createStaggerVariants = (stagger = 0.05, delay = 0.1): Variants => ({
+export const createStaggerVariants = (stagger = STAGGER_INTERVAL, delay = 0.04): Variants => ({
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
@@ -221,8 +261,10 @@ export const createStaggerVariants = (stagger = 0.05, delay = 0.1): Variants => 
   },
 });
 
-export const createItemVariants = (y = 10, x = 0, duration = 0.3): Variants => ({
+/** Item entrance/exit sharing one path. `duration` is accepted for call-site
+ *  compatibility but the spring owns the timing. */
+export const createItemVariants = (y = 8, x = 0, _duration?: number): Variants => ({
   hidden: { opacity: 0, y, x },
-  visible: { opacity: 1, y: 0, x: 0, transition: { duration, ease: [0.25, 0.46, 0.45, 0.94] } },
-  exit: { opacity: 0, y: -y, x: -x, transition: { duration: 0.15 } },
+  visible: { opacity: 1, y: 0, x: 0, transition: springStandard },
+  exit: { opacity: 0, y, x, transition: springExit },
 });

@@ -11,6 +11,7 @@ import { THEME_CONFIG } from '../../constants';
 import { DashboardType, Student, AttendanceStatus, ClassInfo } from '../../types';
 import { getFormattedClassName } from '../../constants';
 import { api } from '../../lib/api';
+import { syncEngine } from '../../lib/syncEngine';
 import { useProfile } from '../../context/ProfileContext';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { useBranch } from '../../context/BranchContext';
@@ -196,8 +197,18 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
             await api.saveAttendance(upsertData);
             toast.success(`Attendance for ${selectedDate} saved successfully!`);
         } catch (err) {
+            // A classroom is exactly where the signal is worst. Rather than losing
+            // the whole register (it previously lived only in component state and
+            // was gone on the next back-navigation), hand it to the offline sync
+            // queue, which replays the identical api.saveAttendance call later.
             console.error('Error submitting attendance:', err);
-            toast.error('Failed to save attendance.');
+            try {
+                await syncEngine.enqueueAction('ATTENDANCE', upsertData);
+                toast.success(`Attendance for ${selectedDate} saved on this device — it will sync automatically.`);
+            } catch (queueErr) {
+                console.error('Error queueing attendance for sync:', queueErr);
+                toast.error('Failed to save attendance. Please stay on this page and try again.');
+            }
         }
     };
 

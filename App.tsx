@@ -4,6 +4,7 @@ import { requestNotificationPermission } from './components/shared/notifications
 import { realtimeService } from './services/RealtimeService';
 import { OfflineIndicator } from './components/shared/OfflineIndicator';
 import { AppearanceSync } from './components/shared/LiquidGlassControl';
+import { MotionConfig } from 'framer-motion';
 import { Toaster } from 'react-hot-toast';
 import PremiumLoader from './components/ui/PremiumLoader';
 import { runMigrations, initialDataHydration, isInitialHydrationComplete } from './lib/migrationManager';
@@ -246,7 +247,11 @@ const App: React.FC = () => {
   }, []);
 
   return (
-    <>
+    // reducedMotion="user" makes EVERY framer-motion animation in the app honour
+    // the operating system's "Reduce Motion" setting — transforms are dropped and
+    // opacity changes are kept, so feedback survives but nothing travels. One
+    // switch here covers all 300+ components that animate.
+    <MotionConfig reducedMotion="user">
       <Toaster position="top-right" />
       <OfflineIndicator />
       {/* Applies each signed-in user's OWN saved appearance (per user + role). */}
@@ -268,7 +273,7 @@ const App: React.FC = () => {
           </div>
         </div>
       )}
-    </>
+    </MotionConfig>
   );
 };
 

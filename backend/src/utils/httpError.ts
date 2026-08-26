@@ -20,7 +20,11 @@ export function sendError(
     res: Response,
     error: any,
     context?: string,
-    fallbackMessage = 'An unexpected error occurred.'
+    fallbackMessage = 'An unexpected error occurred.',
+    // Status to use when the error carries no explicit one and the message
+    // cannot be classified. Call sites that previously answered 400 pass 400 so
+    // converting them does not silently turn a client error into a 500.
+    fallbackStatus = 500
 ): Response {
     const explicit = Number(error?.status || error?.statusCode);
     const message: string = error?.message || '';
@@ -36,7 +40,7 @@ export function sendError(
     // be forwarded.
     const isThrownAppError = error instanceof Error && error.name === 'Error';
 
-    let status = explicit || 500;
+    let status = explicit || fallbackStatus;
 
     // Prisma P2025 = "record required but not found". Under RLS this is also what
     // a policy denial looks like: the row exists but is invisible to this tenant,

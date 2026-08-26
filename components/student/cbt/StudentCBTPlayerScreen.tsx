@@ -14,18 +14,111 @@ interface StudentCBTPlayerScreenProps {
     handleBack: () => void;
 }
 
+// An in-progress attempt is mirrored to localStorage so that a refresh, a crash,
+// a backgrounded tab that gets evicted, or a flat battery cannot destroy it. The
+// deadline is stored as an absolute wall-clock timestamp rather than a remaining
+// count, so reloading the page cannot hand the student more time.
+interface StoredAttempt {
+    deadlineAt: number;
+    answers: { [key: string]: string };
+    currentQuestionIndex: number;
+    focusViolations: number;
+}
+
+const attemptStorageKey = (testId: string | number, studentId: string | number) =>
+    `cbt-attempt:${testId}:${studentId}`;
+
+const readStoredAttempt = (key: string): StoredAttempt | null => {
+    try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (typeof parsed?.deadlineAt !== 'number') return null;
+        return parsed as StoredAttempt;
+    } catch {
+        return null;
+    }
+};
+
+const writeStoredAttempt = (key: string, attempt: StoredAttempt) => {
+    try {
+        localStorage.setItem(key, JSON.stringify(attempt));
+    } catch {
+        /* storage full or blocked — the attempt continues in memory */
+    }
+};
+
+const clearStoredAttempt = (key: string) => {
+    try {
+        localStorage.removeItem(key);
+    } catch {
+        /* nothing to do */
+    }
+};
+
+const secondsUntil = (deadlineAt: number) =>
+    Math.max(0, Math.round((deadlineAt - Date.now()) / 1000));
+
 const StudentCBTPlayerScreen: React.FC<StudentCBTPlayerScreenProps> = ({ test, studentId, handleBack }) => {
+    const storageKey = attemptStorageKey(test?.id ?? 'unknown', studentId);
+
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
     const [answers, setAnswers] = useState<{ [key: string]: string }>({});
+    // Absolute end-of-exam timestamp. Null until the student starts the exam.
+    const [deadlineAt, setDeadlineAt] = useState<number | null>(null);
     const [timeLeft, setTimeLeft] = useState((test?.duration || 0) * 60); // in seconds
     const [isSubmitted, setIsSubmitted] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const [submitError, setSubmitError] = useState<string | null>(null);
     const [score, setScore] = useState(0);
-    const [totalMarks, setTotalMarks] = useState(0);
+    const [scorePercentage, setScorePercentage] = useState(0);
     const [questions, setQuestions] = useState<any[]>(test?.questions || []);
     const [loading, setLoading] = useState(true);
     const [showInstructions, setShowInstructions] = useState(true);
     const [focusViolations, setFocusViolations] = useState(0);
     const { currentSchool } = useAuth();
+
+    // Keep the latest answers/violations reachable from the auto-submit callbacks
+    // without making every effect depend on them (which would restart the timer).
+    const latestRef = useRef({ answers, focusViolations, questions, deadlineAt });
+    latestRef.current = { answers, focusViolations, questions, deadlineAt };
+
+    // Restore an interrupted attempt, if there is one, before the exam renders.
+    useEffect(() => {
+        if (!test?.id) return;
+        const stored = readStoredAttempt(storageKey);
+        if (!stored) return;
+
+        if (secondsUntil(stored.deadlineAt) <= 0) {
+            // The clock ran out while the student was away — nothing to resume.
+            clearStoredAttempt(storageKey);
+            return;
+        }
+
+        setAnswers(stored.answers || {});
+        setCurrentQuestionIndex(stored.currentQuestionIndex || 0);
+        setFocusViolations(stored.focusViolations || 0);
+        setDeadlineAt(stored.deadlineAt);
+        setTimeLeft(secondsUntil(stored.deadlineAt));
+        setShowInstructions(false);
+    }, [test?.id, storageKey]);
+
+    // Mirror every change of in-progress state to storage.
+    useEffect(() => {
+        if (deadlineAt === null || isSubmitted) return;
+        writeStoredAttempt(storageKey, { deadlineAt, answers, currentQuestionIndex, focusViolations });
+    }, [storageKey, deadlineAt, answers, currentQuestionIndex, focusViolations, isSubmitted]);
+
+    // Warn before the student loses an in-progress attempt to a tab close/reload.
+    useEffect(() => {
+        if (deadlineAt === null || isSubmitted) return;
+        const warn = (e: BeforeUnloadEvent) => {
+            e.preventDefault();
+            e.returnValue = '';
+        };
+        window.addEventListener('beforeunload', warn);
+        return () => window.removeEventListener('beforeunload', warn);
+    }, [deadlineAt, isSubmitted]);
 
     // Focus violation listener
     useEffect(() => {
@@ -48,7 +141,10 @@ const StudentCBTPlayerScreen: React.FC<StudentCBTPlayerScreenProps> = ({ test, s
 
         document.addEventListener("visibilitychange", handleVisibilityChange);
         return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
-    }, [isSubmitted, loading]);
+        // showInstructions must be a dependency: without it this effect never
+        // re-runs after the student dismisses the instructions, so the listener
+        // was never attached and the anti-cheat check never ran at all.
+    }, [isSubmitted, loading, showInstructions]);
 
     useEffect(() => {
         const loadQuestions = async () => {
@@ -81,94 +177,123 @@ const StudentCBTPlayerScreen: React.FC<StudentCBTPlayerScreenProps> = ({ test, s
         loadQuestions();
     }, [test?.id]);
 
-    // Timer
+    // Timer. Remaining time is derived from the stored wall-clock deadline on every
+    // tick, so it cannot drift, cannot be slowed by background-tab throttling, and
+    // cannot be reset by reloading the page. The interval is created once per
+    // attempt rather than being torn down and rebuilt on every second.
     useEffect(() => {
-        if (timeLeft > 0 && !isSubmitted && !loading) {
-            const timer = setInterval(() => {
-                setTimeLeft(prev => prev - 1);
-            }, 1000);
-            return () => clearInterval(timer);
-        } else if (timeLeft === 0 && !isSubmitted && !loading) {
-            handleSubmit();
-        }
-    }, [timeLeft, isSubmitted, loading]);
+        if (deadlineAt === null || isSubmitted || loading) return;
+
+        const tick = () => {
+            const remaining = secondsUntil(deadlineAt);
+            setTimeLeft(remaining);
+            if (remaining <= 0) handleSubmit(true);
+        };
+
+        tick();
+        const timer = setInterval(tick, 1000);
+        return () => clearInterval(timer);
+    }, [deadlineAt, isSubmitted, loading]);
+
+    const startExam = () => {
+        const durationSeconds = (test?.duration || 0) * 60;
+        const deadline = Date.now() + durationSeconds * 1000;
+        setDeadlineAt(deadline);
+        setTimeLeft(durationSeconds);
+        setShowInstructions(false);
+    };
 
     const handleAnswerSelect = (questionId: string, option: string) => {
-        if (isSubmitted) return;
+        if (isSubmitted || submitting) return;
         setAnswers(prev => ({ ...prev, [questionId]: option }));
     };
 
-    const handleSubmit = async () => {
-        if (isSubmitted) return;
+    const handleSubmit = async (auto = false) => {
+        if (isSubmitted || submitting) return;
 
-        let correctCount = 0;
-        let earnedPoints = 0;
-        let maxPoints = 0;
+        // Read through the ref: this can be called from the timer's interval, whose
+        // closure would otherwise hold the answers as they were when it was created.
+        const { answers: currentAnswers, focusViolations: currentViolations } = latestRef.current;
 
-        questions.forEach(q => {
-            maxPoints += (q.points || 1);
-            const userAnswer = answers[q.id];
-            if (userAnswer && userAnswer === q.correctAnswer) {
-                correctCount++;
-                earnedPoints += (q.points || 1);
-            }
-        });
+        setSubmitting(true);
+        setSubmitError(null);
 
-        const percentage = maxPoints > 0 ? Math.round((earnedPoints / maxPoints) * 100) : 0;
-        setScore(correctCount);
-        setTotalMarks(earnedPoints);
-        setIsSubmitted(true);
-
-        // Use Hybrid API for submission
-        const effectiveSchoolId = currentSchool?.id || (studentId as any)?.school_id || 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
-
+        // The score is NOT computed here. The server recomputes it from the real
+        // answer key (QuizService.submitQuizResult), and it strips that key before
+        // sending the questions to a student — so grading on the client would always
+        // produce zero. school_id and student_id are likewise resolved server-side
+        // from the authenticated session and are not sent from here.
         const submissionPayload = {
             quiz_id: test.id,
-            student_id: studentId,
-            school_id: effectiveSchoolId,
-            score: percentage,
-            total_questions: questions.length,
-            answers: answers,
-            status: 'graded',
-            focus_violations: focusViolations,
-            submitted_at: new Date().toISOString()
+            answers: currentAnswers,
+            focus_violations: currentViolations
         };
 
         try {
             if (window.__AUDIT_MODE__) {
                 console.log("🛡️ Audit mode: bypassing real quiz submission");
                 setIsSubmitted(true);
+                clearStoredAttempt(storageKey);
                 return;
             }
-            await api.submitQuiz(test?.id || '0', submissionPayload);
+            const submission = await api.submitQuiz(test?.id || '0', submissionPayload);
+
+            const percentage = Number(submission?.score) || 0;
+            const totalQuestions = Number(submission?.total_questions) || questions.length;
+
+            setScorePercentage(percentage);
+            // The server grades by points, which may be weighted; this is the
+            // question-count equivalent used for the "n / total" line.
+            setScore(Math.round((percentage / 100) * totalQuestions));
+
+            // Only now is the attempt genuinely recorded, so only now is it safe to
+            // show the submitted screen and discard the locally-saved attempt.
+            setIsSubmitted(true);
+            clearStoredAttempt(storageKey);
 
             toast.success('Exam submitted successfully!');
 
-            // Sync to Gradebook
+            // Sync to Gradebook. Skipped when the school context is unresolved —
+            // previously this fell back to a hardcoded demo school id, which would
+            // write a real student's result into the demo tenant.
             try {
-                console.log('📡 [StudentCBTPlayerScreen] Syncing CBT score to gradebook...');
-                const syncSuccess = await syncCBTToGradebook(
-                    studentId.toString(),
-                    test.id,
-                    percentage,
-                    effectiveSchoolId
-                );
-                if (syncSuccess) {
-                    console.log('✅ [StudentCBTPlayerScreen] Gradebook sync complete.');
+                if (!currentSchool?.id) {
+                    console.warn('⚠️ [StudentCBTPlayerScreen] No school context; skipping gradebook sync.');
                 } else {
-                    console.warn('⚠️ [StudentCBTPlayerScreen] Gradebook sync returned false.');
+                    console.log('📡 [StudentCBTPlayerScreen] Syncing CBT score to gradebook...');
+                    const syncSuccess = await syncCBTToGradebook(
+                        studentId.toString(),
+                        test.id,
+                        percentage,
+                        currentSchool.id
+                    );
+                    if (syncSuccess) {
+                        console.log('✅ [StudentCBTPlayerScreen] Gradebook sync complete.');
+                    } else {
+                        console.warn('⚠️ [StudentCBTPlayerScreen] Gradebook sync returned false.');
+                    }
                 }
             } catch (syncErr) {
                 console.error('❌ [StudentCBTPlayerScreen] Sync error:', syncErr);
             }
 
             // If it was an auto-submit from violations, exit soon
-            if (focusViolations >= 3) {
+            if (currentViolations >= 3) {
                 setTimeout(() => handleBack(), 3000);
             }
-        } catch (err) {
+        } catch (err: any) {
+            // The attempt is NOT marked submitted and the locally-saved copy is NOT
+            // cleared, so the student keeps their answers and can retry. Previously
+            // the success screen was shown before this point, which made a failed
+            // submission unrecoverable.
             console.error('CBT Submission error:', err);
-            toast.error('Submission failed. Result might not be saved.');
+            const message = auto
+                ? 'Time is up, but we could not reach the server. Your answers are saved — retrying is safe.'
+                : 'Submission failed. Your answers are saved — please try again.';
+            setSubmitError(message);
+            toast.error(message);
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -230,7 +355,7 @@ const StudentCBTPlayerScreen: React.FC<StudentCBTPlayerScreenProps> = ({ test, s
                         <motion.button
                             whileHover={{ scale: 1.01 }}
                             whileTap={{ scale: 0.97 }}
-                            onClick={() => setShowInstructions(false)}
+                            onClick={startExam}
                             className="w-full py-4 bg-indigo-600 text-white font-bold rounded-2xl hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200 text-lg"
                         >
                             I Am Ready, Start Exam
@@ -275,7 +400,7 @@ const StudentCBTPlayerScreen: React.FC<StudentCBTPlayerScreenProps> = ({ test, s
                 <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="mt-6 bg-white p-6 rounded-xl shadow-sm border w-full max-w-sm">
                     <p className="text-sm text-gray-500 uppercase tracking-wide font-bold">Your Score</p>
                     <p className="text-5xl font-bold text-indigo-600 mt-2">{score} / {questions.length}</p>
-                    <p className="text-lg font-medium text-gray-700 mt-1">{questions.length > 0 ? Math.round((score / questions.length) * 100) : 0}%</p>
+                    <p className="text-lg font-medium text-gray-700 mt-1">{scorePercentage}%</p>
                 </motion.div>
 
                 <motion.button
@@ -370,10 +495,12 @@ const StudentCBTPlayerScreen: React.FC<StudentCBTPlayerScreenProps> = ({ test, s
                     <motion.button
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.96 }}
-                        onClick={handleSubmit}
-                        className="px-6 py-2 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-colors"
+                        onClick={() => handleSubmit()}
+                        disabled={submitting}
+                        aria-busy={submitting}
+                        className="px-6 py-2 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-colors disabled:opacity-60"
                     >
-                        Submit Test
+                        {submitting ? 'Submitting…' : submitError ? 'Retry Submit' : 'Submit Test'}
                     </motion.button>
                 )}
             </div>

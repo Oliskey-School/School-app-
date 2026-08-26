@@ -20,7 +20,7 @@ export const createNotice = async (req: AuthRequest, res: Response) => {
         const result = await NoticeService.createNotice(req.user.school_id, branchId, req.body);
         res.status(201).json(result);
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        sendError(res, error, 'notice.controller.ts', undefined, 400);
     }
 };
 
@@ -30,6 +30,6 @@ export const deleteNotice = async (req: AuthRequest, res: Response) => {
         await NoticeService.deleteNotice(req.user.school_id, branchId, req.params.id as string);
         res.status(204).send();
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        sendError(res, error, 'notice.controller.ts', undefined, 400);
     }
 };

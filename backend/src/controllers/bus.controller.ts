@@ -48,7 +48,7 @@ export const createBus = async (req: AuthRequest, res: Response) => {
         const bus = await BusService.createBus(schoolId, branchId, req.body);
         res.status(201).json(bus);
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        sendError(res, error, 'bus.controller.ts', undefined, 400);
     }
 };
 
@@ -60,7 +60,7 @@ export const updateBus = async (req: AuthRequest, res: Response) => {
         const bus = await BusService.updateBus(schoolId, branchId, req.params.id as string, req.body);
         res.json(bus);
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        sendError(res, error, 'bus.controller.ts', undefined, 400);
     }
 };
 
@@ -72,7 +72,7 @@ export const deleteBus = async (req: AuthRequest, res: Response) => {
         await BusService.deleteBus(schoolId, branchId, req.params.id as string);
         res.json({ message: 'Bus deleted successfully' });
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        sendError(res, error, 'bus.controller.ts', undefined, 400);
     }
 };
 

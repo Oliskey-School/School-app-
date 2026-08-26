@@ -34,6 +34,49 @@ export default {
             screens: {
                 'xs': '480px',
             },
+
+            /* ====================================================================
+             * DESIGN TOKENS
+             *
+             * Named aliases onto values already in use, so nothing renders
+             * differently today — but new and refactored code has ONE name to
+             * reach for instead of picking from the 6 radius steps, 8 shadow
+             * steps and 10 padding steps currently live in the codebase.
+             * ================================================================== */
+
+            /* Three steps only: a control, a card, a sheet. */
+            borderRadius: {
+                'control': '0.75rem',  // rounded-xl  — buttons, inputs, chips
+                'card': '1rem',        // rounded-2xl — cards, list rows, panels
+                'sheet': '1.5rem',     // rounded-3xl — modals, sheets, drawers
+            },
+
+            /* Four elevation steps. Bigger surfaces read as thicker: a full-width
+             * sheet gets a deeper shadow than a chip. */
+            boxShadow: {
+                'e1': '0 1px 2px 0 rgb(15 23 42 / 0.05)',
+                'e2': '0 1px 3px 0 rgb(15 23 42 / 0.06), 0 1px 2px -1px rgb(15 23 42 / 0.05)',
+                'e3': '0 10px 30px -10px rgb(2 6 23 / 0.12), 0 2px 6px -2px rgb(2 6 23 / 0.08)',
+                'e4': '0 24px 48px -16px rgb(2 6 23 / 0.20), 0 8px 16px -8px rgb(2 6 23 / 0.12)',
+            },
+
+            /* Size-specific tracking. Letters read too far apart as type grows, so
+             * display sizes tighten and body sits at zero — a single global
+             * letter-spacing value is always wrong at one end of the scale. */
+            letterSpacing: {
+                'display': '-0.022em',
+                'title': '-0.014em',
+                'body': '0em',
+                'label': '0.006em',
+            },
+
+            /* Leading tracks size inversely: tight on headings, open on body. */
+            lineHeight: {
+                'display': '1.05',
+                'title': '1.2',
+                'body': '1.55',
+                'dense': '1.35',
+            },
         },
     },
     plugins: [],

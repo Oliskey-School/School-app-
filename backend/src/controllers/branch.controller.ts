@@ -54,7 +54,7 @@ export const createBranch = async (req: AuthRequest, res: Response) => {
         const result = await SchoolService.createBranch(req.user.school_id, branchData, demoRoot);
         res.status(201).json(result);
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        sendError(res, error, 'branch.controller.ts', undefined, 400);
     }
 };
 
@@ -66,7 +66,7 @@ export const updateBranch = async (req: AuthRequest, res: Response) => {
         const result = await SchoolService.updateBranch(req.user.school_id, id, updates);
         res.json(result);
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        sendError(res, error, 'branch.controller.ts', undefined, 400);
     }
 };
 
@@ -77,7 +77,7 @@ export const deleteBranch = async (req: AuthRequest, res: Response) => {
         await SchoolService.deleteBranch(req.user.school_id, id);
         res.status(204).send();
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        sendError(res, error, 'branch.controller.ts', undefined, 400);
     }
 };
 

@@ -1,5 +1,5 @@
 ﻿
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { api } from '../../lib/api';
 import { DEFAULT_AVATAR } from '../../lib/avatar';
@@ -33,11 +33,31 @@ interface FeeStatusScreenProps {
     navigateTo: (view: string, title: string, props?: any) => void;
 }
 
+// Repeat load requests for the same child inside this window are treated as the
+// same load. Startup fires several of them (mount, context resolution, the
+// realtime channel's opening refresh) and each one used to rebuild the cards.
+const DUPLICATE_LOAD_WINDOW_MS = 4000;
+
 const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, currentUserId, navigateTo, schoolId, currentBranchId }) => {
     const [students, setStudents] = useState<any[]>([]);
     const [selectedStudent, setSelectedStudent] = useState<any>(null);
     const [fees, setFees] = useState<Fee[]>([]);
     const [loading, setLoading] = useState(true);
+    // Set when the fee fetch itself failed, so "no fees" can never be shown as
+    // "all fees paid".
+    const [loadError, setLoadError] = useState<string | null>(null);
+    // A payment staged for the next render, carrying the exact amount to charge.
+    const [pendingPayment, setPendingPayment] = useState<{ feeId: string; amount: number } | null>(null);
+    // A silent refresh behind already-visible content (never a loading state).
+    const [refreshing, setRefreshing] = useState(false);
+
+    // Load bookkeeping — refs, not state, so they never themselves cause a render.
+    const inFlightRef = useRef(false);
+    const lastLoadedStudentRef = useRef<string | null>(null);
+    const lastLoadedAtRef = useRef(0);
+    const selectedStudentRef = useRef<any>(null);
+    // The card entry animation is a first-impression, not a per-refresh event.
+    const cardsHaveAnimatedRef = useRef(false);
 
     // Payment State
     const [paymentFee, setPaymentFee] = useState<Fee | null>(null);
@@ -87,19 +107,52 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, currentUser
         init();
     }, [init]);
 
+    // Keep the ref in step so the realtime callback can stay dependency-free.
+    useEffect(() => { selectedStudentRef.current = selectedStudent; }, [selectedStudent]);
+
+    // Once the cards have made their entrance, later refreshes update in place.
     useEffect(() => {
-        if (selectedStudent) {
-            loadFees(selectedStudent.id);
-        }
+        if (fees.length > 0) cardsHaveAnimatedRef.current = true;
+    }, [fees]);
+
+    useEffect(() => {
+        if (!selectedStudent) return;
+        // Switching child, or an explicit pull-to-refresh, is always a real load.
+        const force = lastLoadedStudentRef.current !== selectedStudent.id;
+        loadFees(selectedStudent.id, { force });
     }, [selectedStudent, refreshTrigger]);
 
-    // Auto-sync
-    useAutoSync(['student_fees', 'payments', 'student_fee_installments'], () => {
-        if (selectedStudent) loadFees(selectedStudent.id);
-    });
+    // Auto-sync. The callback is memoised: an inline arrow is a new function on
+    // every render, which re-subscribed the listener on every render. Refreshes
+    // triggered by a live update are BACKGROUND refreshes — they must not flash
+    // the screen back to a loading state or replay the card entry animation.
+    const handleRealtimeRefresh = useCallback(() => {
+        if (selectedStudentRef.current) {
+            loadFees(selectedStudentRef.current.id, { background: true });
+        }
+    }, []);
 
-    const loadFees = useCallback(async (studentId: string) => {
-        setLoading(true);
+    useAutoSync(['student_fees', 'payments', 'student_fee_installments'], handleRealtimeRefresh);
+
+    const loadFees = useCallback(async (
+        studentId: string,
+        opts: { background?: boolean; force?: boolean } = {}
+    ) => {
+        const { background = false, force = false } = opts;
+
+        // One load per open. Several things fire on startup — the screen mounting,
+        // the branch/profile contexts resolving, and the realtime channel emitting
+        // its initial refresh — and each one used to run a full reload, so the fee
+        // cards visibly rebuilt three or more times before settling.
+        if (inFlightRef.current && !force) return;
+
+        const sameStudent = lastLoadedStudentRef.current === studentId;
+        const sinceLastLoad = Date.now() - lastLoadedAtRef.current;
+        if (!force && sameStudent && sinceLastLoad < DUPLICATE_LOAD_WINDOW_MS) return;
+
+        inFlightRef.current = true;
+        if (background) setRefreshing(true); else setLoading(true);
+        setLoadError(null);
         try {
             const rawFees = await api.getStudentFees(studentId);
             
@@ -126,10 +179,22 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, currentUser
                 })
             );
             setFeesWithPlans(plansSet);
+
+            lastLoadedStudentRef.current = studentId;
+            lastLoadedAtRef.current = Date.now();
         } catch (error) {
+            // Without this the fee list stayed empty and the screen rendered the
+            // "Clear & Current — all obligations fulfilled" state, i.e. a network
+            // failure told a parent their fees were paid.
             console.error("Error loading fees:", error);
+            // A background refresh that fails must not wipe fees already on screen.
+            if (!background) {
+                setFees([]);
+                setLoadError("We couldn't load the fees. Please check your connection and try again.");
+            }
         } finally {
-            setLoading(false);
+            inFlightRef.current = false;
+            if (background) setRefreshing(false); else setLoading(false);
         }
     }, []);
 
@@ -177,17 +242,46 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, currentUser
         }
     };
 
-    const handlePayClick = (fee: Fee) => {
+    // Paying a fee and paying one installment of it are different amounts. The
+    // request is staged here first so the gateway wrapper for this fee re-renders
+    // with the correct amount BEFORE its hidden trigger is clicked — previously
+    // the installment argument was dropped entirely and the gateway always opened
+    // for the full fee amount.
+    // The fee as the gateway should see it: the staged amount when this fee is the
+    // one being paid (an installment balance, or the whole fee), otherwise itself.
+    const effectiveFeeFor = (fee: Fee): Fee =>
+        pendingPayment && pendingPayment.feeId === fee.id
+            ? { ...fee, amount: pendingPayment.amount }
+            : fee;
+
+    const handlePayClick = (fee: Fee, amountOverride?: number) => {
+        const amount = typeof amountOverride === 'number' && amountOverride > 0
+            ? amountOverride
+            : fee.amount;
         setPaymentFee(fee);
-        // Trigger the selected payment gateway
-        const btnId = paymentGateway === 'paystack'
-            ? `paystack-btn-${fee.id}`
-            : paymentGateway === 'flutterwave'
-                ? `flutterwave-btn-${fee.id}`
-                : `mobilemoney-btn-${fee.id}`;
-        const btn = document.getElementById(btnId);
-        if (btn) btn.click();
+        setPendingPayment({ feeId: fee.id, amount });
     };
+
+    useEffect(() => {
+        if (!pendingPayment) return;
+
+        const btnId = paymentGateway === 'paystack'
+            ? `paystack-btn-${pendingPayment.feeId}`
+            : paymentGateway === 'flutterwave'
+                ? `flutterwave-btn-${pendingPayment.feeId}`
+                : `mobilemoney-btn-${pendingPayment.feeId}`;
+
+        const btn = document.getElementById(btnId);
+        if (btn) {
+            btn.click();
+        } else {
+            // Previously this failed silently: the parent tapped Pay and nothing
+            // whatsoever happened, with no message.
+            console.error('Payment trigger not found for', btnId);
+            toast.error('We could not open the payment window. Please try again.');
+        }
+        setPendingPayment(null);
+    }, [pendingPayment, paymentGateway]);
 
     if (loading && !selectedStudent) {
         return (
@@ -334,7 +428,26 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, currentUser
                         </h2>
                     </div>
 
-                    {fees.length === 0 ? (
+                    {loadError ? (
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.97 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ duration: 0.3 }}
+                            className="flex flex-col items-center justify-center py-20 bg-white rounded-[40px] shadow-sm border border-gray-100"
+                        >
+                            <div className="w-20 h-20 bg-amber-50 rounded-full flex items-center justify-center mb-4">
+                                <AlertCircle className="w-10 h-10 text-amber-500" />
+                            </div>
+                            <h3 className="text-xl font-bold text-gray-800">We couldn't load the fees</h3>
+                            <p className="text-gray-500 mt-2 font-medium text-center max-w-sm">{loadError}</p>
+                            <button
+                                onClick={() => selectedStudent && loadFees(selectedStudent.id)}
+                                className="mt-6 px-6 py-3 bg-indigo-600 text-white font-bold rounded-2xl hover:bg-indigo-700 transition-colors"
+                            >
+                                Try Again
+                            </button>
+                        </motion.div>
+                    ) : fees.length === 0 ? (
                         <motion.div
                             initial={{ opacity: 0, scale: 0.97 }}
                             animate={{ opacity: 1, scale: 1 }}
@@ -352,7 +465,11 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, currentUser
                             {fees.map((fee, i) => (
                                 <motion.div
                                     key={fee.id}
-                                    initial={{ opacity: 0, y: 12 }}
+                                    // Cards introduce themselves once. A background
+                                    // refresh re-renders them in place rather than
+                                    // replaying the entrance, which is what made the
+                                    // page look like it was reloading repeatedly.
+                                    initial={cardsHaveAnimatedRef.current ? false : { opacity: 0, y: 12 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ duration: 0.25, delay: Math.min(i, 10) * 0.05 }}
                                     className="relative group"
@@ -365,24 +482,30 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, currentUser
                                             </div>
                                             <InstallmentSchedule
                                                 feeId={fee.id}
-                                                onPayInstallment={(installment) => handlePayClick(fee)}
+                                                onPayInstallment={(installment) => handlePayClick(
+                                                    fee,
+                                                    Math.max(0, (installment.amount || 0) - (installment.paidAmount || 0))
+                                                )}
                                             />
                                         </div>
                                     ) : (
-                                        <>
-                                            <FeeCard
-                                                fee={fee}
-                                                onPay={handlePayClick}
-                                                onDownloadReceipt={handleDownloadReceipt}
-                                            />
-                                            {/* Hidden Payment Triggers - Maintained for Logic */}
-                                            <div className="hidden">
-                                                <PaystackButton fee={fee} email={userEmail} schoolId={schoolId} branchId={currentBranchId} onSuccess={() => { toast.success('Payment Successful!'); loadFees(selectedStudent.id); }} />
-                                                <FlutterwaveWrapper fee={fee} email={userEmail} phone={parentPhone} name={parentName} schoolId={schoolId} branchId={currentBranchId} onSuccess={() => { toast.success('Payment Successful!'); loadFees(selectedStudent.id); }} />
-                                                <MobileMoneyWrapper fee={fee} email={userEmail} name={parentName} schoolId={schoolId} branchId={currentBranchId} onSuccess={() => { toast.success('Payment Successful!'); loadFees(selectedStudent.id); }} />
-                                            </div>
-                                        </>
+                                        <FeeCard
+                                            fee={fee}
+                                            onPay={handlePayClick}
+                                            onDownloadReceipt={handleDownloadReceipt}
+                                        />
                                     )}
+
+                                    {/* Hidden payment triggers. These are rendered for EVERY fee,
+                                        including fees on an installment plan — previously they
+                                        existed only for plain fees, so tapping "Pay Now" on an
+                                        installment found no trigger and silently did nothing.
+                                        The amount charged is the staged amount for this fee. */}
+                                    <div className="hidden">
+                                        <PaystackButton fee={effectiveFeeFor(fee)} email={userEmail} schoolId={schoolId} branchId={currentBranchId} onSuccess={() => { toast.success('Payment Successful!'); loadFees(selectedStudent.id); }} />
+                                        <FlutterwaveWrapper fee={effectiveFeeFor(fee)} email={userEmail} phone={parentPhone} name={parentName} schoolId={schoolId} branchId={currentBranchId} onSuccess={() => { toast.success('Payment Successful!'); loadFees(selectedStudent.id); }} />
+                                        <MobileMoneyWrapper fee={effectiveFeeFor(fee)} email={userEmail} name={parentName} schoolId={schoolId} branchId={currentBranchId} onSuccess={() => { toast.success('Payment Successful!'); loadFees(selectedStudent.id); }} />
+                                    </div>
                                 </motion.div>
                             ))}
                         </div>
@@ -423,15 +546,13 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, currentUser
                                     color="orange"
                                     onClick={() => setPaymentGateway('flutterwave')}
                                 />
-                                <GatewayCard 
-                                    id="mobilemoney" 
-                                    label="Mobile Money" 
-                                    description="Instant MoMo" 
-                                    icon={Smartphone} 
-                                    active={paymentGateway === 'mobilemoney'} 
-                                    color="green"
-                                    onClick={() => setPaymentGateway('mobilemoney')}
-                                />
+                                {/* Mobile Money is hidden until it is routed through the
+                                    backend. MobileMoneyWrapper initialises the charge
+                                    directly from the browser using a key derived from the
+                                    PUBLIC key (`publicKey.replace('pk_','sk_')`), which is
+                                    not a valid secret — so every attempt failed with a
+                                    generic error. Offering a payment method that can never
+                                    succeed is worse than not offering it. */}
                             </div>
                         </div>
 

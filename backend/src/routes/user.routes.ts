@@ -11,7 +11,10 @@ const ADMIN_ROLES = ['admin', 'super_admin', 'proprietor'];
 router.use(authenticate);
 router.use(requireTenant);
 
-router.get('/', UserController.getUsers);
+// The full user directory exposes every account in the school. A TEACHER token
+// was returning 200 here (234 KB, including admins), which combined with the
+// credential leak below meant a teacher could harvest admin passwords.
+router.get('/', requireRole(['ADMIN', 'PROPRIETOR', 'SUPER_ADMIN']), UserController.getUsers);
 // Self-service: any authenticated user may edit THEIR OWN profile (name/phone/avatar).
 // Self-scoped to req.user.id — no id in the path, so no IDOR.
 router.put('/me/profile', UserController.updateMyProfile);
