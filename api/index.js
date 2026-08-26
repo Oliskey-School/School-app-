@@ -28,10 +28,21 @@
  * so the output nests at backend/dist/backend/src/ rather than backend/dist/src/.
  * scripts/link-prisma-dist.js exists for the same reason.
  *
- * A catch-all `[...path]` rather than `index.js` plus a rewrite: the catch-all
- * preserves the original request path in req.url, so /api/auth/demo/login still
- * matches the routes mounted at /api in backend/src/app.ts. Rewriting to a bare
- * /api collapses the path and 404s every route.
+ * WHY A REWRITE AND NOT A CATCH-ALL FILENAME
+ * ------------------------------------------
+ * This was first written as `api/[...path].js`, expecting Vercel to route every
+ * /api/* depth to it. It does not, outside Next.js — it behaved as a SINGLE
+ * dynamic segment. Measured on the deployment:
+ *
+ *   /api/health            200  (Express answered)
+ *   /api/auth              401  (Express answered: "Authentication token missing")
+ *   /api/auth/demo         404  (Vercel NOT_FOUND — never reached the function)
+ *   /api/auth/demo/login   404  (Vercel NOT_FOUND)
+ *
+ * One segment after /api matched; three did not. So routing is done explicitly
+ * in vercel.json instead: `/api/(.*)` -> `/api`. Vercel rewrites are internal,
+ * so req.url still carries the original path and the routes mounted at /api in
+ * backend/src/app.ts match as normal.
  *
  * WHAT DOES NOT WORK HERE
  * -----------------------
