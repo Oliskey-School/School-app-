@@ -201,7 +201,16 @@ export default defineConfig(({ mode }) => {
             // QR + crypto
             if (id.includes('qrcode') || id.includes('html5-qrcode')) return 'qr';
             // --- Split the heaviest remaining libs out of the generic vendor chunk ---
-            if (id.includes('lucide-react')) return 'icons';
+            if (id.includes('lucide-react')) return 'lucide';
+            // UI primitives and notification libraries are shared by dashboards.
+            if (
+              id.includes('@radix-ui') ||
+              id.includes('@headlessui') ||
+              id.includes('react-hot-toast') ||
+              id.includes('sonner') ||
+              id.includes('cmdk') ||
+              id.includes('vaul')
+            ) return 'ui';
             if (id.includes('socket.io')) return 'realtime';
             if (id.includes('react-markdown') || id.includes('remark') || id.includes('micromark') || id.includes('mdast') || id.includes('hast') || id.includes('unist')) return 'markdown';
             if (id.includes('read-excel-file') || id.includes('xlsx')) return 'xlsx';

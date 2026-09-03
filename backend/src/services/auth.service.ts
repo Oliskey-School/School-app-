@@ -255,7 +255,7 @@ export class AuthService {
         // happen to share a school/branch code.
         //
         // Plain `equals` (not `mode: 'insensitive'`) on purpose: Postgres can't use
-        // the @@index([email]) / @@unique(school_generated_id) indexes for a
+        // the @@index([school_id, email]) / @@unique(school_generated_id) indexes for a
         // case-insensitive comparison, so every login did a full table scan —
         // 50 concurrent logins took 34s in testing. Both columns are always written
         // in a fixed case (email lowercased, school_generated_id uppercased at
@@ -263,14 +263,26 @@ export class AuthService {
         // hits the index.
         const candidates = await (getRawPrisma().user.findMany as any)({
             where: {
+                is_active: true,
                 OR: [
                     { email: normalizedIdentifier },
                     { school_generated_id: identifier.trim().toUpperCase() }
                 ]
             },
-            include: {
-                school: true,
-                branch: true
+            // Keep the first round-trip limited to fields needed to authenticate,
+            // enforce tenant membership, and decide whether MFA/verification applies.
+            // The full profile is loaded only after these checks succeed.
+            select: {
+                id: true,
+                email: true,
+                password_hash: true,
+                role: true,
+                school_id: true,
+                branch_id: true,
+                email_verified: true,
+                two_factor_enabled: true,
+                school: { select: { is_active: true } },
+                branch: { select: { school_id: true } }
             }
         });
 
@@ -279,13 +291,21 @@ export class AuthService {
             throw new Error('Invalid credentials');
         }
 
-        let user: any = null;
-        for (const c of candidates) {
-            if (c.password_hash && await bcrypt.compare(password, c.password_hash)) {
-                user = c;
-                break;
-            }
-        }
+        const checks = await Promise.all(
+            candidates.map(async (candidate: any) => {
+                const [passwordMatches, tenantMatches] = await Promise.all([
+                    candidate.password_hash
+                        ? bcrypt.compare(password, candidate.password_hash)
+                        : Promise.resolve(false),
+                    Promise.resolve(
+                        candidate.school?.is_active === true &&
+                        (!candidate.branch_id || candidate.branch?.school_id === candidate.school_id)
+                    )
+                ]);
+                return passwordMatches && tenantMatches;
+            })
+        );
+        const user: any = candidates[checks.findIndex(Boolean)] || null;
         if (!user) {
             console.warn(`❌ [Auth] Login failed: Password mismatch across ${candidates.length} account(s) for identifier: ${identifier}`);
             throw new Error('Invalid credentials');
@@ -319,12 +339,37 @@ export class AuthService {
             };
         }
 
-        const { token, refreshToken } = await this.generateTokens(user);
-        // `user` here came from getRawPrisma() (needed above for the bcrypt.compare
-        // against password_hash) — unlike every other query in the app, it was never
-        // auto-stripped of password_hash/two_factor_secret. Strip them before they
-        // go out over the wire; the client never has any use for either.
-        const { password_hash, two_factor_secret, ...safeUser } = user;
+        const profile = await (getRawPrisma().user.findUnique as any)({
+            where: { id: user.id },
+            select: {
+                id: true,
+                email: true,
+                full_name: true,
+                role: true,
+                school_id: true,
+                branch_id: true,
+                allowed_branch_ids: true,
+                email_verified: true,
+                is_active: true,
+                school_generated_id: true,
+                avatar_url: true,
+                phone: true,
+                two_factor_enabled: true,
+                preferred_language: true,
+                created_at: true,
+                updated_at: true,
+                initial_password: true,
+                created_by: true,
+                updated_by: true,
+                deleted_at: true,
+                is_demo: true,
+                school: { select: { id: true, name: true, code: true, is_active: true } },
+                branch: { select: { id: true, name: true, code: true, school_id: true } }
+            }
+        });
+        if (!profile) throw new Error('Invalid credentials');
+        const { token, refreshToken } = await this.generateTokens(profile);
+        const safeUser = profile;
         return { user: safeUser, token, refreshToken };
     }
 
@@ -554,8 +599,12 @@ export class AuthService {
         let user = await prisma.user.findFirst({
             where: { email: normalizedEmail },
             include: {
-                school: true,
-                branch: true
+                school: {
+                    select: { id: true, name: true, code: true }
+                },
+                branch: {
+                    select: { id: true, name: true, code: true }
+                }
             }
         });
 

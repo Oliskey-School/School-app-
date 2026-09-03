@@ -4,6 +4,8 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
+  // DATABASE_URL must use the pooled connection (port 6543); migrations use
+  // DIRECT_URL on the direct PostgreSQL connection (port 5432).
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
@@ -204,6 +206,11 @@ model User {
   school                 School?                @relation(fields: [school_id], references: [id])
   sessions               UserSession[]
   verification_codes     VerificationCode[]
+
+  @@index([school_id, branch_id])
+  @@index([school_id, is_active])
+  @@index([school_id, email])
+  @@index([school_id, role, id])
 }
 
 model Student {
