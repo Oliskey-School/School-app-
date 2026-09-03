@@ -11,6 +11,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { AuthService } from '../../src/services/auth.service';
 import { DemoSeederService } from '../../src/services/demoSeeder.service';
+import { TeacherService } from '../../src/services/teacher.service';
 
 describe('Demo login funnel', () => {
   beforeAll(async () => {
@@ -31,5 +32,16 @@ describe('Demo login funnel', () => {
       const res: any = await AuthService.generateDemoToken(role, '204.4.4.4');
       expect(res?.token).toBeTruthy();
     }
+  }, 120000);
+
+  it('demo teacher login resolves a teacher profile for the dashboard', async () => {
+    const login: any = await AuthService.generateDemoToken('teacher', '205.5.5.5');
+    const profile = await TeacherService.getTeacherProfileByUserId(
+      login.user.school_id,
+      login.user.id,
+    );
+
+    expect(profile).toBeTruthy();
+    expect(profile.user_id).toBe(login.user.id);
   }, 120000);
 });

@@ -29,7 +29,7 @@ export class TeacherService {
         const hashedPassword = await bcrypt.hash(generatedPassword, 10);
 
         return await prisma.$transaction(async (tx) => {
-            // 1. Generate standard school ID. Must happen inside this transaction —
+            // 1. Generate standard school ID. Must happen inside this transaction Ã¢â‚¬â€
             //    the advisory lock inside generateSchoolId is scoped to it (see
             //    idGenerator.service.ts) and only protects the insert below if both
             //    share the same transaction.
@@ -50,7 +50,7 @@ export class TeacherService {
 
             // An email belongs to exactly ONE person IN THIS BRANCH. If it already exists we do NOT
             // hijack/convert that account (the old behaviour silently flipped a parent
-            // into a teacher and replaced their ID — making the original person vanish
+            // into a teacher and replaced their ID Ã¢â‚¬â€ making the original person vanish
             // from their list). Reject with a clear message so each user keeps their own
             // account + unique ID, and the shown credentials always belong to this new user.
             if (user) {
@@ -135,7 +135,7 @@ export class TeacherService {
                         const section = parts[2];
 
                         if (isNaN(grade)) {
-                            console.error(`❌ [TeacherService] Invalid grade parsed from classId: ${classId}`);
+                            console.error(`Ã¢ÂÅ’ [TeacherService] Invalid grade parsed from classId: ${classId}`);
                             continue; // Skip this invalid class assignment
                         }
 
@@ -144,7 +144,7 @@ export class TeacherService {
                         });
 
                         if (!cls) {
-                            console.log(`📝 [TeacherService] Creating missing class: Grade ${grade}, Section ${section}`);
+                            console.log(`Ã°Å¸â€œÂ [TeacherService] Creating missing class: Grade ${grade}, Section ${section}`);
                             cls = await tx.class.create({
                                 data: {
                                     school_id: schoolId,
@@ -221,7 +221,7 @@ export class TeacherService {
         // Show each teacher's Global ID FOR THE ACTIVE BRANCH. A teacher whose
         // PRIMARY branch is this branch keeps their stored id; one who is merely
         // ASSIGNED here (allowed_branch_ids) is shown with THIS branch's id (e.g.
-        // OLISKEY_LEKKI_TCH_xxxx in Lekki) instead of their home/Main id — so a
+        // OLISKEY_LEKKI_TCH_xxxx in Lekki) instead of their home/Main id Ã¢â‚¬â€ so a
         // Main teacher assigned to Lekki never appears as "MAIN_TCH" in Lekki.
         const scoped = branchId && branchId !== 'all';
         // SEQUENTIAL: allocate per-branch ids one-by-one so each teacher gets a
@@ -350,7 +350,7 @@ export class TeacherService {
             // Branch governance: the teacher RECORD (identity + qualifications + photo +
             // login + allowed branches) is owned by the teacher's HOME branch and the
             // Main Admin. A branch admin the teacher is merely assigned to manages their
-            // classes/subjects (ClassTeacher) and scheduling (Timetable) instead — they
+            // classes/subjects (ClassTeacher) and scheduling (Timetable) instead Ã¢â‚¬â€ they
             // cannot edit the teacher record here.
             if (requester && !canEditTeacherIdentity(requester, teacher)) {
                 throw forbidden("This teacher's profile is managed by their home branch or the main admin. You can assign their classes, subjects and timetable, but not edit their details.");
@@ -396,7 +396,7 @@ export class TeacherService {
                 });
             }
 
-            // Update classes if provided — only for the ACTIVE branch.
+            // Update classes if provided Ã¢â‚¬â€ only for the ACTIVE branch.
             // Without a branch filter this would wipe assignments in every other
             // branch whenever the admin saves ANY field on the teacher form.
             if (classes && Array.isArray(classes) && branchId) {
@@ -473,7 +473,7 @@ export class TeacherService {
     }
 
     /**
-     * Assign a teacher to classes/subjects WITHIN one branch — without touching their
+     * Assign a teacher to classes/subjects WITHIN one branch Ã¢â‚¬â€ without touching their
      * identity or their assignments in any OTHER branch. A branch admin uses this to give
      * a lent teacher branch-specific classes; the teacher then sees them when working in
      * that branch. `classes` is [{ classId, subjectId? }] (or plain class id strings).
@@ -648,44 +648,34 @@ export class TeacherService {
     }
 
     static async getTeacherProfileByUserId(schoolId: string, userId: string) {
-        console.log(`🔍 [TeacherService] Fetching profile for user ${userId} in school ${schoolId}`);
+        console.log(`Ã°Å¸â€Â [TeacherService] Fetching profile for user ${userId} in school ${schoolId}`);
         // Use findUnique by user_id to ensure we always find the record if it exists
         // This is more robust as user_id is the global unique identifier for a teacher
-        let teacher = await prisma.teacher.findUnique({
-            where: { user_id: userId },
+        let teacher = await prisma.teacher.findFirst({
+            where: {
+                school_id: schoolId,
+                OR: [
+                    { user_id: userId },
+                    { school_generated_id: userId },
+                    { user: { school_generated_id: userId } },
+                ],
+            },
             include: { 
                 user: {
                     include: {
                         school: true,
                         branch: true
                     }
-                },
-                classes: {
-                    include: {
-                        class: {
-                            include: {
-                                _count: {
-                                    select: { enrollments: true }
-                                },
-                                // Needed so a class-teacher (form teacher) row with no
-                                // specific subject attached can still resolve to the
-                                // class's own subject list on the frontend, instead of
-                                // vanishing from every subject-scoped picker.
-                                subjects: {
-                                    select: { id: true, name: true, code: true }
-                                }
-                            }
-                        },
-                        subject: true
-                    }
+
                 }
+
             }
         });
 
         // Migration/Self-Healing: If teacher exists but school_id doesn't match current request,
         // it means the teacher might have moved schools or the school context in JWT is slightly outdated.
         if (teacher && teacher.school_id !== schoolId && schoolId) {
-            console.warn(`🔄 [TeacherService] School mismatch for teacher ${teacher.id} (DB: ${teacher.school_id}, Req: ${schoolId}). Updating...`);
+            console.warn(`Ã°Å¸â€â€ž [TeacherService] School mismatch for teacher ${teacher.id} (DB: ${teacher.school_id}, Req: ${schoolId}). Updating...`);
             teacher = await prisma.teacher.update({
                 where: { id: teacher.id },
                 data: { school_id: schoolId },
@@ -695,22 +685,9 @@ export class TeacherService {
                             school: true,
                             branch: true
                         }
-                    },
-                    classes: {
-                        include: {
-                            class: {
-                                include: {
-                                    _count: {
-                                        select: { enrollments: true }
-                                    },
-                                    subjects: {
-                                        select: { id: true, name: true, code: true }
-                                    }
-                                }
-                            },
-                            subject: true
-                        }
+
                     }
+
                 }
             });
         }
@@ -723,7 +700,7 @@ export class TeacherService {
                 (teacher.school_generated_id && teacher.user.school_generated_id !== teacher.school_generated_id);
 
             if (mismatch) {
-                console.log(`🔄 [TeacherService] Syncing teacher profile for ${userId} with User data...`);
+                console.log(`Ã°Å¸â€â€ž [TeacherService] Syncing teacher profile for ${userId} with User data...`);
                 teacher = await prisma.teacher.update({
                     where: { id: teacher.id },
                     data: {
@@ -738,19 +715,9 @@ export class TeacherService {
                                 school: true,
                                 branch: true
                             }
-                        },
-                        classes: {
-                            include: {
-                                class: {
-                                    include: {
-                                        _count: {
-                                            select: { enrollments: true }
-                                        }
-                                    }
-                                },
-                                subject: true
-                            }
+
                         }
+
                     }
                 });
 
@@ -763,14 +730,17 @@ export class TeacherService {
                 }
             }
         }
-
-        // Self-Healing: If user is a TEACHER or ADMIN but has no Teacher record, create one
         if (!teacher) {
-            console.log(`⚠️ [TeacherService] No teacher record found for user ${userId}. Attempting self-healing...`);
-            const user = await prisma.user.findUnique({ where: { id: userId } });
+            console.log(`[TeacherService] No teacher record found for user ${userId}. Attempting self-healing...`);
+            const user = await prisma.user.findFirst({
+                where: {
+                    OR: [{ id: userId }, { school_generated_id: userId }],
+                    school_id: schoolId,
+                },
+            });
             
             if (!user) {
-                console.error(`❌ [TeacherService] User ${userId} not found even for self-healing.`);
+                console.error(`Ã¢ÂÅ’ [TeacherService] User ${userId} not found even for self-healing.`);
                 return null;
             }
 
@@ -778,10 +748,10 @@ export class TeacherService {
             const userRole = (user.role as string).toUpperCase();
             const allowedRoles = ['TEACHER', 'ADMIN', 'SUPER_ADMIN', 'PROPRIETOR', 'BURSAR', 'COMPLIANCE_OFFICER'];
             
-            console.log(`👤 [TeacherService] User role: ${userRole}, School ID: ${user.school_id}, Role allowed: ${allowedRoles.includes(userRole)}`);
+            console.log(`Ã°Å¸â€˜Â¤ [TeacherService] User role: ${userRole}, School ID: ${user.school_id}, Role allowed: ${allowedRoles.includes(userRole)}`);
 
             if (allowedRoles.includes(userRole)) {
-                console.log(`🛠️ [TeacherService] Self-healing: Creating missing teacher record for user ${userId} (${userRole})`);
+                console.log(`Ã°Å¸â€ºÂ Ã¯Â¸Â [TeacherService] Self-healing: Creating missing teacher record for user ${userId} (${userRole})`);
                 
                 // Fallback to arguments if user record is missing IDs (common in some migration states)
                 const effectiveSchoolId = user.school_id || schoolId;
@@ -789,7 +759,7 @@ export class TeacherService {
                     || (config.demoSchoolId && effectiveSchoolId === config.demoSchoolId ? config.demoBranchId : undefined);
 
                 // Try to generate a standard school ID if missing. ID generation + the
-                // insert that consumes it must share one transaction — see idGenerator.service.ts.
+                // insert that consumes it must share one transaction Ã¢â‚¬â€ see idGenerator.service.ts.
                 teacher = await prisma.$transaction(async (tx) => {
                     let schoolGeneratedId = user.school_generated_id;
                     if (!schoolGeneratedId && effectiveSchoolId && effectiveBranchId) {
@@ -822,23 +792,82 @@ export class TeacherService {
                         }
                     });
                 });
-                console.log(`✅ [TeacherService] Self-healing successful for ${userId}`);
+                console.log(`Ã¢Å“â€¦ [TeacherService] Self-healing successful for ${userId}`);
             } else {
-                console.warn(`⚠️ [TeacherService] Self-healing skipped: Role ${userRole} not in allowed list.`);
+                console.warn(`Ã¢Å¡Â Ã¯Â¸Â [TeacherService] Self-healing skipped: Role ${userRole} not in allowed list.`);
             }
         }
-        if (teacher && teacher.classes) {
+        if (teacher) {
+            const assignmentRows = await prisma.classTeacher.findMany({
+                where: {
+                    teacher_id: teacher.id,
+                    school_id: teacher.school_id || schoolId,
+                    status: 'active',
+                    deleted_at: null,
+                } as any,
+                select: {
+                    id: true,
+                    class_id: true,
+                    teacher_id: true,
+                    subject_id: true,
+                    is_primary: true,
+                    school_id: true,
+                    branch_id: true,
+                    created_at: true,
+                    created_by: true,
+                    updated_by: true,
+                    deleted_at: true,
+                    role: true,
+                    session: true,
+                    term: true,
+                    effective_date: true,
+                    periods_per_week: true,
+                    status: true,
+                    ended_at: true,
+                    ended_by: true,
+                    subject: true,
+                } as any,
+            });
+
+            const classIds = Array.from(new Set(assignmentRows.map((row: any) => row.class_id).filter(Boolean)));
+            const classRows = classIds.length
+                ? await prisma.class.findMany({
+                    where: {
+                        id: { in: classIds },
+                        school_id: teacher.school_id || schoolId,
+                        deleted_at: null,
+                    } as any,
+                    include: {
+                        _count: { select: { enrollments: true } },
+                        subjects: { select: { id: true, name: true, code: true } },
+                    },
+                })
+                : [];
+            const classById = new Map(classRows.map((row: any) => [row.id, row]));
+            let orphanedAssignments = 0;
+
             // Map subject_specialty to subjects for frontend
             (teacher as any).subjects = teacher.subject_specialty;
             
             // Map student count to a flat field for frontend consumption
-            const mappedClasses = teacher.classes.map(c => ({
-                ...c,
-                class: {
-                    ...c.class,
-                    student_count: (c.class as any)._count?.enrollments || 0
+            const mappedClasses = assignmentRows.flatMap((c: any) => {
+                const classRecord = classById.get(c.class_id);
+                if (!classRecord) {
+                    orphanedAssignments++;
+                    return [];
                 }
-            }));
+                return [{
+                    ...c,
+                    class: {
+                        ...classRecord,
+                        student_count: (classRecord as any)._count?.enrollments || 0
+                    }
+                }];
+            });
+
+            if (orphanedAssignments > 0) {
+                console.warn(`[TeacherService] Ignored ${orphanedAssignments} orphaned class assignment(s) for teacher ${teacher.id}`);
+            }
 
             // Deduplicate classes based on class_id and subject_id
             const seen = new Set();
@@ -848,7 +877,7 @@ export class TeacherService {
                 seen.add(key);
                 return true;
             });
-            teacher.classes = uniqueClasses as any;
+            (teacher as any).classes = uniqueClasses as any;
         }
         return teacher;
     }
@@ -884,11 +913,11 @@ export class TeacherService {
             results.push(result);
 
             // Absence marked for TODAY specifically triggers substitute-coverage
-            // notifications — a backdated/future "Absent" record doesn't need an
+            // notifications Ã¢â‚¬â€ a backdated/future "Absent" record doesn't need an
             // immediate admin ping.
             if (record.status === 'Absent' && record.date === todayStr()) {
                 await SubstituteService.notifyAdminsOfAbsence(schoolId, record.branch_id || branchId, record.teacher_id, record.date)
-                    .catch(err => console.warn('⚠️ [Substitute] absence notification failed:', err.message));
+                    .catch(err => console.warn('Ã¢Å¡Â Ã¯Â¸Â [Substitute] absence notification failed:', err.message));
             }
         }
         SocketService.emitToSchool(schoolId, 'teacher:updated', { action: 'attendance_bulk_save' });
@@ -961,7 +990,7 @@ export class TeacherService {
                     section: student.section,
                     class_name: classTeacher.class.name,
                     class_id: classTeacher.class_id,
-                    // Never send the actual password to a teacher — initial_password
+                    // Never send the actual password to a teacher Ã¢â‚¬â€ initial_password
                     // mirrors the student's current real login password (it's rewritten
                     // on every change/reset, not a one-time value), so exposing it here
                     // let any teacher read and copy a live password for any student they
@@ -1013,7 +1042,7 @@ export class TeacherService {
      */
     static async updateAppointmentStatus(schoolId: string, teacherId: string, appointmentId: string, status: string) {
         // teacher_id in the where clause means a teacher can only ever update the
-        // status of THEIR OWN appointment — a mismatched id updates zero rows and
+        // status of THEIR OWN appointment Ã¢â‚¬â€ a mismatched id updates zero rows and
         // Prisma throws (record not found) rather than silently touching someone else's.
         const result = await prisma.appointment.update({
             where: {
@@ -1111,7 +1140,7 @@ export class TeacherService {
         const teacher = await prisma.teacher.findFirst({ where: { user_id: userId } });
         if (!teacher) throw new Error('Teacher not found');
 
-        // The mentor must be a real teacher in the same school — otherwise a
+        // The mentor must be a real teacher in the same school Ã¢â‚¬â€ otherwise a
         // mentee could link themselves to an arbitrary/cross-school teacher id.
         const mentor = await prisma.teacher.findFirst({ where: { id: data.mentor_id, school_id: teacher.school_id }, select: { id: true } });
         if (!mentor) throw new Error('Mentor not found in your school');

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createTeacher, getAllTeachers, getTeacherById, updateTeacher, deleteTeacher, submitMyAttendance, getMyHistory, getTeacherAttendance, getMyProfile, saveTeacherAttendance, approveTeacherAttendance, getMyStudentsWithCredentials, getPendingStudents, getMyAppointments, updateMyAppointmentStatus, getMyBadges, getMyRecognitions, getMyMentoring, createMyMentoring, getTeacherCertificates, getSubstituteRequests, createSubstituteRequest, getTeacherEvaluation, submitTeacherEvaluation, getTeacherPerformance, assignTeacherBranchClasses } from '../controllers/teacher.controller';
+import { createTeacher, getAllTeachers, getTeacherById, updateTeacher, deleteTeacher, submitMyAttendance, getMyHistory, getTeacherAttendance, getMyProfile, saveTeacherAttendance, approveTeacherAttendance, getMyStudentsWithCredentials, getPendingStudents, getMyAppointments, createMyAppointment, updateMyAppointmentStatus, getMyBadges, getMyRecognitions, getMyMentoring, createMyMentoring, getTeacherCertificates, getSubstituteRequests, createSubstituteRequest, getTeacherEvaluation, submitTeacherEvaluation, getTeacherPerformance, assignTeacherBranchClasses } from '../controllers/teacher.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { requirePlanCapacity } from '../middleware/plan.middleware';
 
@@ -7,6 +7,7 @@ const router = Router();
 
 router.get('/me', authenticate, getMyProfile);
 router.get('/me/appointments', authenticate, getMyAppointments);
+router.post('/appointments', authenticate, createMyAppointment);
 router.put('/appointments/:id/status', authenticate, updateMyAppointmentStatus);
 router.get('/attendance', authenticate, getTeacherAttendance);
 router.get('/attendance-approvals', authenticate, getTeacherAttendance);
@@ -17,7 +18,7 @@ router.get('/me/attendance', authenticate, getMyHistory);
 router.get('/me/students', authenticate, getMyStudentsWithCredentials);
 router.get('/pending-students', authenticate, getPendingStudents);
 
-// PD / Engagement "me" routes — inline handlers using prisma
+// PD / Engagement "me" routes â€” inline handlers using prisma
 router.get('/me/badges', authenticate, getMyBadges);
 router.get('/me/recognitions', authenticate, getMyRecognitions);
 router.get('/me/mentoring', authenticate, getMyMentoring);
@@ -34,7 +35,7 @@ router.get('/me/pd-courses', authenticate, async (req: any, res) => {
         // The generated client property is pDEnrollment (Prisma only
         // lowercases the leading letter of the model name "PDEnrollment"),
         // and the enrollment's relation field is named `course`, not
-        // `pd_course` — the old `(prisma as any).pdEnrollment...
+        // `pd_course` â€” the old `(prisma as any).pdEnrollment...
         // include:{pd_course:true}` never matched either and was silently
         // caught into an empty list on every request.
         const enrollments = await prisma.pDEnrollment.findMany({
@@ -51,7 +52,7 @@ router.get('/me/pd-courses', authenticate, async (req: any, res) => {
 router.get('/substitutes', authenticate, async (req: any, res) => {
     try {
         const { default: prisma } = await import('../config/database');
-        // The Teacher model's field is subject_specialty (a string array) —
+        // The Teacher model's field is subject_specialty (a string array) â€”
         // there is no `subject` column. The old select crashed on every
         // request and the swallowed catch made it look like "no substitute
         // teachers" instead of a broken query.
@@ -101,7 +102,7 @@ router.get('/:id/badges', authenticate, async (req: any, res) => {
 });
 // Teacher-facing workload snapshot. Computed live from the same real
 // class/duty/club assignment data the admin "view workload" screen uses
-// (TeacherAssignmentService.getWorkload) — there is no persisted
+// (TeacherAssignmentService.getWorkload) â€” there is no persisted
 // teacher_workload table populated anywhere in the app, so a previous
 // version of this route queried a non-existent `prisma.teacher_workload`
 // accessor (the real Prisma model is `TeacherWorkload`, client property

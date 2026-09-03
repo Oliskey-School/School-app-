@@ -14,8 +14,8 @@ export const createTeacher = async (req: AuthRequest, res: Response) => {
     try {
         if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can create teachers' });
         // Pass the RAW X-Branch-Id header explicitly (top priority) so a new teacher
-        // is ALWAYS created in the branch the admin is actively viewing — never the
-        // home/Main branch — regardless of any branch value the form posts.
+        // is ALWAYS created in the branch the admin is actively viewing â€” never the
+        // home/Main branch â€” regardless of any branch value the form posts.
         const headerBranch = (req.headers['x-branch-id'] as string) || undefined;
         const branchId = getEffectiveBranchId(req.user, req.body?.branch_id, headerBranch);
         console.log(`[createTeacher] header=${headerBranch} body.branch_id=${req.body?.branch_id} active=${req.user?.active_branch_id} -> resolved=${branchId}`);
@@ -35,7 +35,7 @@ export const getMyProfile = async (req: AuthRequest, res: Response) => {
         // Show only classes assigned for the teacher's ACTIVE branch.
         // Classes with null branch_id are school-wide and always visible.
         // Strictly excluding other branches' classes is what gives each branch
-        // its own isolated class environment — a Lekki admin assigns Lekki classes
+        // its own isolated class environment â€” a Lekki admin assigns Lekki classes
         // to the teacher and only those appear when the teacher switches to Lekki.
         if (Array.isArray(result.classes)) {
             const branchId = getEffectiveBranchId(req.user, undefined);
@@ -59,10 +59,10 @@ export const getAllTeachers = async (req: AuthRequest, res: Response) => {
             return res.json(result ? [result] : []);
         }
 
-        // Full staff directory (every teacher's linked user record — email,
+        // Full staff directory (every teacher's linked user record â€” email,
         // certificates, compliance documents) is admin/proprietor territory.
         // PARENT is allowed too: AppointmentScreen needs it to populate the
-        // "book with" teacher picker. No other role has a legitimate caller —
+        // "book with" teacher picker. No other role has a legitimate caller â€”
         // in particular a STUDENT has no reason to list every teacher's full
         // record, so this was previously an open read for any authenticated role.
         const roleLower = (req.user.role || '').toLowerCase();
@@ -84,7 +84,7 @@ export const getTeacherById = async (req: AuthRequest, res: Response) => {
         const branchId = getEffectiveBranchId(req.user, req.query.branchId as string);
         const result = await TeacherService.getTeacherById(req.user.school_id, branchId, req.params.id as string);
         if (!result) return res.status(404).json({ message: 'Teacher not found' });
-        // Only an admin, or the teacher viewing their own record, may see this —
+        // Only an admin, or the teacher viewing their own record, may see this â€”
         // it includes the full linked user record (initial_password among it),
         // so any other teacher requesting another teacher's id must be blocked.
         if (!isAdmin(req) && result.user_id !== req.user.id) {
@@ -228,6 +228,44 @@ export const getMyAppointments = async (req: AuthRequest, res: Response) => {
     }
 };
 
+export const createMyAppointment = async (req: AuthRequest, res: Response) => {
+    try {
+        const teacher = await TeacherService.getTeacherProfileByUserId(req.user.school_id, req.user.id);
+        if (!teacher) return res.status(404).json({ message: 'Teacher profile not found' });
+
+        const requestedTeacherId = req.body?.teacher_id || req.body?.teacherId;
+        if (requestedTeacherId && requestedTeacherId !== teacher.id) {
+            return res.status(403).json({ message: 'You can only create appointments for your own teacher profile' });
+        }
+
+        const rawDate = req.body?.starts_at || req.body?.date;
+        if (!rawDate) return res.status(400).json({ message: 'Appointment date is required' });
+
+        const appointmentDate = new Date(rawDate);
+        if (isNaN(appointmentDate.getTime())) {
+            return res.status(400).json({ message: 'Invalid appointment date' });
+        }
+
+        const branchId = getEffectiveBranchId(req.user, req.body?.branch_id || req.body?.branchId);
+        const result = await (prisma as any).appointment.create({
+            data: {
+                school_id: req.user.school_id,
+                branch_id: branchId && branchId !== 'all' ? branchId : null,
+                teacher_id: teacher.id,
+                parent_id: req.body?.parent_id || null,
+                student_id: req.body?.student_id || req.body?.student_user_id || null,
+                title: req.body?.title || 'Teacher appointment',
+                description: req.body?.description || req.body?.reason || null,
+                date: appointmentDate,
+                status: req.body?.status || 'Pending',
+                created_by: req.user.id,
+            },
+        });
+        res.status(201).json(result);
+    } catch (error: any) {
+        sendError(res, error, 'teacher.controller.ts');
+    }
+};
 export const updateMyAppointmentStatus = async (req: AuthRequest, res: Response) => {
     try {
         const { status } = req.body;

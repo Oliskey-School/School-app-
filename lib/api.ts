@@ -4,6 +4,7 @@ import { API_BASE_URL } from './config';
 import { getJwtExpiryMs, getJwtSubject } from './tokenUtils';
 import { networkManager } from './networkManager';
 import { offlineDB } from './dexie-db';
+import { optimizeImage } from './mediaOptimizer';
 
 // Real-money endpoints must never be silently queued offline — the user has
 // no way to know if a queued charge actually succeeded once replayed later,
@@ -3605,7 +3606,16 @@ class ExpressApiClient {
     }
 
     async uploadAvatar(file: File): Promise<{ url: string }> {
-        return this.uploadFileWithCategory(file, 'avatar');
+        const optimizedFile = await optimizeImage(file, {
+            maxWidth: 512,
+            maxHeight: 512,
+            quality: 0.82,
+            format: 'image/webp',
+        });
+        if (optimizedFile.size > 2 * 1024 * 1024) {
+            throw new Error('Profile image must be less than 2MB after compression');
+        }
+        return this.uploadFileWithCategory(optimizedFile, 'avatar');
     }
 
     // ============================================

@@ -12,8 +12,7 @@ export interface UploadOptions {
     path?: string;
     onProgress?: (progress: number) => void;
 }
-
-export interface UploadResult {
+import { autoOptimize } from './mediaOptimizer';
     success: boolean;
     url?: string;
     path?: string;

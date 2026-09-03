@@ -5,7 +5,7 @@ import multer from 'multer';
 // object storage (S3-compatible) when configured, local disk as a fallback
 // otherwise. A single storage engine can't serve both, and the destination
 // is a deploy-time config choice, not something multer itself should decide.
-// 50MB cap below keeps the in-memory buffer bounded.
+// The cap below keeps the in-memory buffer bounded.
 const storage = multer.memoryStorage();
 
 // Whitelist of accepted upload types. Blocks executables, HTML/SVG (stored-XSS
@@ -33,8 +33,16 @@ const fileFilter: multer.Options['fileFilter'] = (_req, file, cb) => {
     }
 };
 
+// 20MB, matching the Supabase Storage bucket's own file_size_limit so a file
+// that clears multer cannot then be rejected by Storage — an upload that fails
+// AFTER being accepted and buffered is the worst of both.
+//
+// Overridable so the VPS (no request-body ceiling of its own) can raise it
+// without a code change.
+export const UPLOAD_MAX_BYTES = Number(process.env.UPLOAD_MAX_BYTES) || 20 * 1024 * 1024;
+
 export const upload = multer({
     storage: storage,
     fileFilter,
-    limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit
+    limits: { fileSize: UPLOAD_MAX_BYTES },
 });

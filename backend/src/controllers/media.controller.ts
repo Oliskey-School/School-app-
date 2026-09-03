@@ -1,4 +1,5 @@
 import path from 'path';
+import sharp from 'sharp';
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { MediaService } from '../services/media.service';
@@ -39,14 +40,38 @@ export const uploadFile = async (req: AuthRequest, res: Response) => {
         if (!req.file) {
             return res.status(400).json({ message: 'No file uploaded' });
         }
+        const isAvatar = req.body.category === 'avatar';
+        let uploadBuffer = req.file.buffer;
+        let uploadMime = req.file.mimetype;
 
-        const bucket = req.body.bucket || 'general';
+        if (isAvatar) {
+            if (!req.file.mimetype.startsWith('image/')) {
+                return res.status(415).json({ message: 'Profile images must be JPEG, PNG, WebP, GIF, or BMP.' });
+                }
+
+            uploadBuffer = await sharp(req.file.buffer, { failOn: 'none' })
+                .rotate()
+                .resize({ width: 512, height: 512, fit: 'inside', withoutEnlargement: true })
+                .webp({ quality: 82, effort: 4 })
+                .toBuffer();
+            uploadMime = 'image/webp';
+
+            if (uploadBuffer.length > 1024 * 1024) {
+                return res.status(413).json({ message: 'Profile image is still too large after compression. Please choose a smaller image.' });
+                }
+            }
+        const bucket = isAvatar ? 'avatars' : (req.body.bucket || 'general');
 
         // Same naming rule multer's old diskStorage callback used: an
         // explicit path from the client (sanitized against traversal) or a
         // generated unique name.
         let relativePath: string;
-        if (req.body.path) {
+        if (isAvatar) {
+            const schoolId = String(req.user.school_id).replace(/[^a-zA-Z0-9_-]/g, '');
+            const branchId = String(req.user.active_branch_id || req.user.branch_id || 'all').replace(/[^a-zA-Z0-9_-]/g, '');
+            const userId = String(req.user.id).replace(/[^a-zA-Z0-9_-]/g, '');
+            relativePath = `${schoolId}/${branchId}/${userId}.webp`;
+        } else if (req.body.path) {
             const safePath = String(req.body.path).replace(/\.\./g, '');
             relativePath = safePath;
         } else {
@@ -54,7 +79,7 @@ export const uploadFile = async (req: AuthRequest, res: Response) => {
             relativePath = `file-${uniqueSuffix}${path.extname(req.file.originalname)}`;
         }
 
-        const { publicUrl } = await storeUploadedFile(req.file.buffer, req.file.mimetype, bucket, relativePath);
+        const { publicUrl } = await storeUploadedFile(uploadBuffer, uploadMime, bucket, relativePath);
         res.json({ publicUrl });
     } catch (error: any) {
         console.error('[POST /media/upload] File upload failed:', error);

@@ -146,7 +146,12 @@ export class UserService {
 
         const userData: any = {};
         if (full_name !== undefined) userData.full_name = full_name;
-        if (avatar_url !== undefined) userData.avatar_url = avatar_url;
+        if (avatar_url !== undefined) {
+            if (avatar_url !== null && !UserService.isOwnedAvatarUrl(avatar_url, schoolId, userId)) {
+                throw Object.assign(new Error('Profile image does not belong to this account'), { status: 400 });
+            }
+            userData.avatar_url = avatar_url;
+        }
         if (phone !== undefined) userData.phone = phone;
 
         if (Object.keys(userData).length > 0) {
@@ -184,6 +189,14 @@ export class UserService {
         }
 
         return await prisma.user.findUnique({ where: { id: userId } });
+    }
+
+    private static isOwnedAvatarUrl(value: string, schoolId: string, userId: string): boolean {
+        const normalized = String(value);
+        const safeSchoolId = schoolId.replace(/[^a-zA-Z0-9_-]/g, '');
+        const safeUserId = userId.replace(/[^a-zA-Z0-9_-]/g, '');
+        return normalized.includes(`/avatars/${safeSchoolId}/`) &&
+            normalized.includes(`/${safeUserId}.webp`);
     }
 
     static async getUserByEmail(schoolId: string, email: string) {
