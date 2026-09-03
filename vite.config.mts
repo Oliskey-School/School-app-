@@ -121,8 +121,22 @@ export default defineConfig(({ mode }) => {
           type: 'module',
         },
         workbox: {
-          globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,json}'],
+          // Do not download every lazy route and heavy library during service
+          // worker installation. They are cached on first visit below, so a
+          // slow connection only transfers the shell and the page being used.
+          globPatterns: ['**/*.{css,html,ico,png,svg,webp,json}'],
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+          runtimeCaching: [
+            {
+              urlPattern: /\.(?:js|css)$/,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'app-assets',
+                cacheableResponse: { statuses: [0, 200] },
+                expiration: { maxEntries: 400, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              },
+            },
+          ],
         },
         // A valid, installable manifest. Chrome requires a 192px AND a 512px PNG
         // icon (the previous config shipped only vite.svg, which failed install

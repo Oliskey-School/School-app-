@@ -226,20 +226,15 @@ const App: React.FC = () => {
     PushNotificationManager.initialize();
 
     const initializeOfflineFirst = async () => {
+      // The app shell and cached auth state can render while IndexedDB cleanup
+      // runs. API calls still retain their own offline fallback if the database
+      // is not ready yet.
+      setIsInitializing(false);
       try {
-        // Set timeout to prevent infinite loading - show UI after 3 seconds even if not ready
-        const timeout = setTimeout(() => {
-          console.warn('⚠️ Initialization timeout - showing UI anyway');
-          setIsInitializing(false);
-        }, 3000);
-
         await runMigrations();
         cacheCleanupScheduler.start();
-        clearTimeout(timeout);
-        setIsInitializing(false);
       } catch (error) {
         console.error('❌ Initialization failed:', error);
-        setIsInitializing(false);
       }
     };
 

@@ -38,7 +38,10 @@ const getAuthToken = async (): Promise<string | null> => {
  * Express API Client
  * Pure Express/Prisma backend client.
  */
-type ApiRequestInit = RequestInit & { _retryWithoutBranch?: boolean };
+type ApiRequestInit = RequestInit & {
+    _retryWithoutBranch?: boolean;
+    _revalidate?: boolean;
+};
 
 class ExpressApiClient {
     private baseUrl: string = API_BASE_URL;
@@ -134,10 +137,28 @@ class ExpressApiClient {
 
         // Lead DevSecOps: Deduplicate concurrent identical GET requests
         const isGet = method === 'GET';
-        const requestKey = `${userScope}:${method}:${url}${options._retryWithoutBranch ? ':retry' : ''}`;
+        const selectedBranchIdForCache = localStorage.getItem('selected_branch_id') || '';
+        const requestKey = `${userScope}:${selectedBranchIdForCache}:${method}:${url}${options._retryWithoutBranch ? ':retry' : ''}`;
 
         if (isGet && this.inFlightRequests.has(requestKey)) {
             return this.inFlightRequests.get(requestKey) as Promise<T>;
+        }
+
+        // Serve recently loaded data synchronously on revisited pages. Stale
+        // entries remain useful on slow networks while one background request
+        // refreshes them for the next visit.
+        if (isGet && !options._revalidate) {
+            const cached = this.cache.get(requestKey);
+            if (cached) {
+                if (Date.now() - cached.timestamp < this.CACHE_TTL) {
+                    return cached.data as T;
+                }
+                void this.fetch<T>(endpoint, { ...options, _revalidate: true }).catch(() => {
+                    // Stale data is already being returned to the page. A failed
+                    // background refresh must not create an unhandled rejection.
+                });
+                return cached.data as T;
+            }
         }
 
         // Offline handling. This is the single chokepoint nearly every screen's
@@ -148,6 +169,7 @@ class ExpressApiClient {
             if (isGet) {
                 const cached = await offlineDB.roster_cache.get(requestKey);
                 if (cached) {
+                    this.cache.set(requestKey, { data: cached.data, timestamp: Date.now() });
                     console.log(`ðŸ“¦ [API-OFFLINE] Serving cached response for ${endpoint}`);
                     return cached.data as T;
                 }
@@ -296,6 +318,7 @@ class ExpressApiClient {
                     if (isGet) {
                         const cached = await offlineDB.roster_cache.get(requestKey);
                         if (cached) {
+                            this.cache.set(requestKey, { data: cached.data, timestamp: Date.now() });
                             console.warn(`[API-OFFLINE] Network request failed, serving stale cache for ${endpoint}:`, fetchErr.message);
                             return cached.data as T;
                         }
@@ -387,6 +410,7 @@ class ExpressApiClient {
                 const parsed = await response.json();
 
                 if (isGet) {
+                    this.cache.set(requestKey, { data: parsed, timestamp: Date.now() });
                     // Best-effort persistent cache so this data stays visible offline
                     // and other pages relying on the same endpoint benefit too. Never
                     // let a caching failure break the actual request.
@@ -395,6 +419,11 @@ class ExpressApiClient {
                         data: parsed,
                         updated_at: new Date().toISOString(),
                     }).catch((err) => console.warn('[API] Failed to cache response for offline use:', err));
+                } else {
+                    // Mutations can affect several list/detail endpoints. Clearing
+                    // the short-lived memory cache avoids showing a pre-mutation
+                    // response while keeping GET deduplication intact.
+                    this.cache.clear();
                 }
 
                 return parsed;

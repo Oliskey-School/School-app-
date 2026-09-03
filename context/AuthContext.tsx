@@ -141,6 +141,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 if (isCachedDemo === currentIsDemo && (!hasMockName || currentIsDemo)) {
                     React.startTransition(() => {
                         setUser(userData);
+                        setIsDemo(currentIsDemo);
+                        setSession({ access_token: token, user: userData });
+                        setLoading(false);
 
                         // Priority: Session (tab-specific) > Default role. In demo mode the
                         // visitor's underlying account role (usually ADMIN — the demo

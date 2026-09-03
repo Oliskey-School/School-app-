@@ -13,21 +13,22 @@ import { lazyWithRetry } from '../../lib/lazyRetry';
 // Lazy load only the Global Search Screen as it's an overlay
 const GlobalSearchScreen = lazyWithRetry(() => import('../shared/GlobalSearchScreen'));
 
-// Import all other view components directly
+// Keep the overview in the initial teacher chunk for immediate first paint.
+// Other screens are fetched when opened, preserving the existing view registry.
 import TeacherOverview from './TeacherOverview';
-import ClassDetailScreen from './ClassDetailScreen';
-import StudentProfileScreen from './StudentProfileScreen';
-import TeacherExamManagement from './TeacherExamManagement';
-import LibraryScreen from '../shared/LibraryScreen';
-import PhotoGalleryScreen from './PhotoGalleryScreen';
-import AddExamScreen from '../admin/AddExamScreen';
-import CreateAssignmentScreen from './CreateAssignmentScreen';
-import TeacherAssignmentsListScreen from './TeacherAssignmentsListScreen';
-import ClassAssignmentsScreen from './ClassAssignmentsScreen';
-import AssignmentSubmissionsScreen from './AssignmentSubmissionsScreen';
-import GradeSubmissionScreen from './GradeSubmissionScreen';
-import CurriculumScreen from '../shared/CurriculumScreen';
-import TeacherCurriculumSelectionScreen from './TeacherCurriculumSelectionScreen';
+const ClassDetailScreen = lazyWithRetry(() => import('./ClassDetailScreen'));
+const StudentProfileScreen = lazyWithRetry(() => import('./StudentProfileScreen'));
+const TeacherExamManagement = lazyWithRetry(() => import('./TeacherExamManagement'));
+const LibraryScreen = lazyWithRetry(() => import('../shared/LibraryScreen'));
+const PhotoGalleryScreen = lazyWithRetry(() => import('./PhotoGalleryScreen'));
+const AddExamScreen = lazyWithRetry(() => import('../admin/AddExamScreen'));
+const CreateAssignmentScreen = lazyWithRetry(() => import('./CreateAssignmentScreen'));
+const TeacherAssignmentsListScreen = lazyWithRetry(() => import('./TeacherAssignmentsListScreen'));
+const ClassAssignmentsScreen = lazyWithRetry(() => import('./ClassAssignmentsScreen'));
+const AssignmentSubmissionsScreen = lazyWithRetry(() => import('./AssignmentSubmissionsScreen'));
+const GradeSubmissionScreen = lazyWithRetry(() => import('./GradeSubmissionScreen'));
+const CurriculumScreen = lazyWithRetry(() => import('../shared/CurriculumScreen'));
+const TeacherCurriculumSelectionScreen = lazyWithRetry(() => import('./TeacherCurriculumSelectionScreen'));
 import GradeEntryScreen from './GradeEntryScreen';
 import TeacherMessagesScreen from './TeacherMessagesScreen';
 import TeacherCommunicationScreen from './TeacherCommunicationScreen';
@@ -136,23 +137,11 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
 
   const effectiveSchoolId = schoolId || user?.user_metadata?.school_id || user?.app_metadata?.school_id || (user?.email?.includes('demo') ? 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' : undefined);
 
-  // Fetch Integer User ID for Chat
+  // The auth context already has the current user. Reusing its ID avoids a
+  // duplicate /auth/me request on every teacher dashboard mount.
   useEffect(() => {
-    const getUserData = async () => {
-      try {
-        const userData = await api.getMe();
-        if (userData) {
-          setCurrentUserId(userData.id);
-        } else {
-          setCurrentUserId((currentUser as any)?.id || '');
-        }
-      } catch (err) {
-        console.error("Error fetching user data:", err);
-        setCurrentUserId((currentUser as any)?.id || '');
-      }
-    };
-    getUserData();
-  }, [currentUser]);
+    setCurrentUserId(user?.id || (currentUser as any)?.id || '');
+  }, [user?.id, currentUser]);
 
   // Profile State
 

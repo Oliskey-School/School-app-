@@ -494,22 +494,29 @@ export class DashboardService {
                 });
             }
 
-            // Process Attendance Trend
-            // For real attendance trend, we need counts of 'Present' per day
+            // Fetch the seven-day trend in one query instead of two sequential
+            // count queries per day. The response shape remains unchanged.
+            const trendStart = new Date();
+            trendStart.setDate(trendStart.getDate() - 6);
+            trendStart.setHours(0, 0, 0, 0);
+            const trendRows = await prisma.attendance.findMany({
+                where: { date: { gte: trendStart }, student: baseWhere },
+                select: { date: true, status: true }
+            });
+            const trendCounts = new Map<string, { total: number; present: number }>();
+            for (const row of trendRows) {
+                const key = new Date(row.date).toISOString().slice(0, 10);
+                const counts = trendCounts.get(key) || { total: 0, present: 0 };
+                counts.total += 1;
+                if (row.status === 'Present') counts.present += 1;
+                trendCounts.set(key, counts);
+            }
             const attendanceTrend = [];
             for (let i = 6; i >= 0; i--) {
                 const d = new Date();
                 d.setDate(d.getDate() - i);
-                d.setHours(0, 0, 0, 0);
-                
-                const dayCount = await prisma.attendance.count({
-                    where: { date: d, student: baseWhere }
-                });
-                const presentCount = await prisma.attendance.count({
-                    where: { date: d, status: 'Present', student: baseWhere }
-                });
-                
-                attendanceTrend.push(dayCount > 0 ? Math.round((presentCount / dayCount) * 100) : 0);
+                const counts = trendCounts.get(d.toISOString().slice(0, 10));
+                attendanceTrend.push(counts?.total ? Math.round((counts.present / counts.total) * 100) : 0);
             }
 
             const attendanceRate = attendanceTodayTotal > 0 
