@@ -86,6 +86,11 @@ export const globalApiLimiter = rateLimit({
         if (req.method === 'OPTIONS') return true;
         const path = req.originalUrl || req.path || '';
         if (KEEPALIVE_PATHS.some(p => path === p || path.startsWith(p + '?'))) return true;
+        // Demo auth endpoints already have their own dedicated limiter
+        // (demoLoginLimiter, mounted in auth.routes). Running BOTH here would mean
+        // every "Try Demo" click pays two Redis round trips for the same decision —
+        // keep the single, purpose-built limiter for this path.
+        if (path.startsWith('/api/auth/demo/')) return true;
         const ip = req.ip || req.connection?.remoteAddress;
         if (ip === '::1' || ip === '127.0.0.1' || ip === '::ffff:127.0.0.1') return true;
         return false;

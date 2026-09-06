@@ -72,6 +72,31 @@ export class DemoSeederService {
 
             // 1. Seed the main global branch (shared fallback)
             await this.seedBranchData(demoSchoolId, demoBranchId, 'global');
+
+            // 1b. Seed the shared MAIN sandbox the demo login actually signs users
+            // in with. Demo data must exist BEFORE the first login — previously the
+            // login request itself ran seedBranchData synchronously, so the first
+            // visitor (and every visitor after a reset wipe) paid the full seed cost
+            // inside the request. Seeding it here, at startup, makes the login path
+            // a handful of indexed reads only.
+            try {
+                const main = await (prisma.branch as any).findFirst({
+                    where: { school_id: demoSchoolId, code: 'MAIN' },
+                    select: { id: true }
+                });
+                let sharedBranchId = main?.id;
+                if (!sharedBranchId) {
+                    await (prisma as any).$executeRaw`
+                        INSERT INTO "Branch" (id, name, code, school_id, is_demo_virtual, is_main, last_active_at, updated_at)
+                        VALUES ('demo-v-shared', 'MAIN', 'MAIN', ${demoSchoolId}, true, true, NOW(), NOW())
+                        ON CONFLICT (id) DO UPDATE SET name = 'MAIN', is_main = true, last_active_at = NOW(), updated_at = NOW()
+                    `;
+                    sharedBranchId = 'demo-v-shared';
+                }
+                await this.seedBranchData(demoSchoolId, sharedBranchId, 'shared');
+            } catch (sandboxErr) {
+                console.error('⚠️ [Seeder] Shared MAIN demo sandbox seed failed (login will retry it in the background):', sandboxErr);
+            }
             
             // 2. Ensure App Version records are up to date for the dashboard
             try {
@@ -97,6 +122,28 @@ export class DemoSeederService {
     }
 
     private static cachedPasswordHash: string | null = null;
+
+    /**
+     * In-flight guard for background sandbox seeds. Multiple concurrent demo
+     * logins arriving while the sandbox is empty must trigger exactly ONE seed,
+     * not one per request — the seed is idempotent but expensive (~600 statements).
+     */
+    private static inFlightSeeds = new Map<string, Promise<void>>();
+
+    /**
+     * Fire-and-forget sandbox seed for the login path. The request that triggers
+     * this NEVER waits on it — it returns a "warming up" response and the client
+     * retries into a fully seeded sandbox. Deduped per (school, branch).
+     */
+    static seedSandboxInBackground(schoolId: string, branchId: string, ipHash: string) {
+        const key = `${schoolId}:${branchId}`;
+        if (this.inFlightSeeds.has(key)) return;
+        console.log(`🏗️ [Seeder] Background seeding demo sandbox ${branchId} (login-requested).`);
+        const run = this.seedBranchData(schoolId, branchId, ipHash)
+            .catch((err) => console.error(`❌ [Seeder] Background demo sandbox seed failed for ${branchId}:`, err))
+            .finally(() => this.inFlightSeeds.delete(key));
+        this.inFlightSeeds.set(key, run);
+    }
 
     /**
      * Seeds a specific branch with the standard 4-user demo dataset.

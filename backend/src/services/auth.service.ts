@@ -479,7 +479,11 @@ export class AuthService {
 
         // Log successful login/token generation
         if (user.school_id) {
-            await AuditService.createLog(user.school_id, user.branch_id, {
+            // These two writes are independent — run them in parallel so login only
+            // waits for the SLOWEST of them instead of the SUM (each is its own
+            // multi-statement RLS transaction, so serial execution doubles the
+            // round-trip count on every login).
+            const auditWrite = AuditService.createLog(user.school_id, user.branch_id, {
                 user_id: user.id,
                 action: 'Token Generation',
                 entity_type: 'User',
@@ -487,24 +491,28 @@ export class AuthService {
             });
 
             // Create persistent session
-            try {
-                await (prisma as any).userSession.upsert({
-                    where: { token_id: tokenId },
-                    update: { last_active: new Date(), is_active: true },
-                    create: {
-                        user_id: user.id,
-                        token_id: tokenId,
-                        is_active: true,
-                        // school_id is required on UserSession; without it the upsert
-                        // failed (swallowed by the catch) so sessions never persisted
-                        // and token refresh always failed. We're inside if(user.school_id).
-                        school_id: user.school_id,
-                        branch_id: user.branch_id ?? null
-                    }
-                });
-            } catch (err) {
-                console.warn('Could not upsert session record:', err);
-            }
+            const sessionWrite = (async () => {
+                try {
+                    await (prisma as any).userSession.upsert({
+                        where: { token_id: tokenId },
+                        update: { last_active: new Date(), is_active: true },
+                        create: {
+                            user_id: user.id,
+                            token_id: tokenId,
+                            is_active: true,
+                            // school_id is required on UserSession; without it the upsert
+                            // failed (swallowed by the catch) so sessions never persisted
+                            // and token refresh always failed. We're inside if(user.school_id).
+                            school_id: user.school_id,
+                            branch_id: user.branch_id ?? null
+                        }
+                    });
+                } catch (err) {
+                    console.warn('Could not upsert session record:', err);
+                }
+            })();
+
+            await Promise.all([auditWrite, sessionWrite]);
         }
 
         return { token, refreshToken };
@@ -1201,8 +1209,12 @@ export class AuthService {
 
             // If not found, it might be the global one or we need to seed
             if (!demoUser) {
-                console.log(`[AUTH] 🏗️ Sandbox user not found, initializing virtual branch and seeding...`);
-
+                // The demo login path NEVER seeds synchronously: seedBranchData is a
+                // ~600-statement transaction that used to run inside this request,
+                // making a cold demo login take seconds and letting concurrent
+                // first-time visitors stampede the DB. Demo data is seeded at server
+                // startup (ensureDemoData) instead; this branch is only a safety net
+                // for the window before that completes (or after a 24h reset wipe).
                 if (!existingMain) {
                     await prisma.$executeRaw`
                         INSERT INTO "Branch" (id, name, code, school_id, is_demo_virtual, is_main, last_active_at, updated_at)
@@ -1216,16 +1228,15 @@ export class AuthService {
                     `;
                 }
 
-                await DemoSeederService.seedBranchData(this.DEMO_SCHOOL_ID, effectiveBranchId, ipHash);
+                // Kick the seed off in the BACKGROUND (deduped per sandbox inside the
+                // seeder) and ask the client to retry, so no request ever pays the
+                // seed cost. 'shared' keeps all sandbox row ids stable across
+                // visitors instead of keying them to the first requester's IP.
+                DemoSeederService.seedSandboxInBackground(this.DEMO_SCHOOL_ID, effectiveBranchId, 'shared');
 
-                demoUser = await (prisma.user.findUnique as any)({
-                    where: { id: persistenceId },
-                    include: { school: true, branch: true }
-                });
-            }
-
-            if (!demoUser) {
-                throw new Error(`Failed to initialize or find scoped demo user for ${role} in sandbox ${virtualBranchId}`);
+                const warming: any = new Error('Demo environment is warming up. Please try again in a few seconds.');
+                warming.status = 503;
+                throw warming;
             }
 
             console.log(`[AUTH] ✅ Demo user verified: ${demoUser.full_name} (${demoUser.id})`);

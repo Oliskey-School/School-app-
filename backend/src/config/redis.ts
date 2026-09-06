@@ -38,9 +38,17 @@ export const redisConnection = new IORedis(process.env.REDIS_URL || 'redis://loc
 
 let isReady = false;
 let everBeenReady = false;
+/**
+ * Set the first time a connection attempt FAILS before ever reaching 'ready'.
+ * Once a refused/unreachable Redis has proven itself, later requests must not
+ * re-enter waitForRedisReady's timer — on serverless cold starts that timer
+ * is the ~10s per-request stall this module exists to eliminate.
+ */
+let connectAttemptFailed = false;
 
 redisConnection.on('error', (err) => {
     isReady = false;
+    if (!everBeenReady) connectAttemptFailed = true;
     const now = Date.now();
     if (now - lastErrorLogAt < REDIS_LOG_THROTTLE_MS) return;
     lastErrorLogAt = now;
@@ -89,6 +97,10 @@ export function isRedisReady(): boolean {
 export function waitForRedisReady(timeoutMs = 10_000): Promise<boolean> {
     if (isReady) return Promise.resolve(true);
     if (everBeenReady) return Promise.resolve(false);
+    // A first connect attempt already failed — Redis is absent, not merely slow.
+    // Fail fast now and on every later call; do NOT wait out timeoutMs (that's the
+    // ~10s per-request stall seen on /api/auth/csrf-token and demo login).
+    if (connectAttemptFailed) return Promise.resolve(false);
     // The `everBeenReady` guard above only fails fast once Redis has connected
     // at least ONCE. If Redis is never reachable, that guard never arms and
     // every rate-limited request pays the full timeoutMs — forever.
@@ -105,15 +117,22 @@ export function waitForRedisReady(timeoutMs = 10_000): Promise<boolean> {
     // fail-open behaviour the rest of this module is built around.
     if (Date.now() - PROCESS_START_AT > STARTUP_GRACE_MS) return Promise.resolve(false);
     return new Promise((resolve) => {
-        const onReady = () => {
+        let settled = false;
+        const finish = (ok: boolean) => {
+            if (settled) return;
+            settled = true;
             clearTimeout(timer);
-            resolve(true);
-        };
-        const timer = setTimeout(() => {
             redisConnection.off('ready', onReady);
-            resolve(false);
-        }, timeoutMs);
+            redisConnection.off('error', onError);
+            resolve(ok);
+        };
+        const onReady = () => finish(true);
+        // An 'error' before 'ready' means the connect attempt just failed — stop
+        // waiting instead of holding this request for the remaining timeoutMs.
+        const onError = () => finish(false);
+        const timer = setTimeout(() => finish(false), timeoutMs);
         redisConnection.once('ready', onReady);
+        redisConnection.once('error', onError);
     });
 }
 
