@@ -111,7 +111,18 @@ const AuthenticatedApp: React.FC = () => {
     return <DashboardRouter onLogout={handleLogout} setIsHomePage={setIsHomePage} currentUser={user} />;
   }, [user?.id, role]);
 
-  if (loading) return <LoadingScreen />;
+  // A brand-new visitor must see the login shell immediately. Authentication
+  // bootstrap is allowed to continue in the background, but it must never make
+  // an unauthenticated user wait behind an initialization spinner. Once a token
+  // or user exists, the loading gate protects the authenticated transition.
+  let hasStoredSession = false;
+  try {
+    hasStoredSession = !!sessionStorage.getItem('auth_token');
+  } catch {
+    // Storage can be unavailable in hardened/private browser contexts; treat it
+    // as unauthenticated and keep the critical login shell usable.
+  }
+  if (loading && (hasStoredSession || !!user)) return <LoadingScreen />;
   if (isInviteAccept) return <InviteAcceptScreen />;
   if (showAuthConfirm) return <AuthCallback />;
   if (!user || !role) return <>
