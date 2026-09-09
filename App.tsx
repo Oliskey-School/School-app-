@@ -112,7 +112,7 @@ const AuthenticatedApp: React.FC = () => {
   if (isInviteAccept) return <InviteAcceptScreen />;
   if (showAuthConfirm) return <AuthCallback />;
   if (!user || !role) return <Suspense fallback={<LoadingScreen />}>
-    {authView === 'signup' ? <Signup onNavigateToLogin={() => React.startTransition(() => setAuthView('login'))} /> : authView === 'create-school' ? <CreateSchoolSignup onNavigateToLogin={() => React.startTransition(() => setAuthView('login'))} /> : <Login onNavigateToSignup={() => React.startTransition(() => setAuthView('signup')} onNavigateToCreateSchool={() => React.startTransition(() => setAuthView('create-school'))} />}
+    {authView === 'signup' ? <Signup onNavigateToLogin={() => React.startTransition(() => setAuthView('login'))} /> : authView === 'create-school' ? <CreateSchoolSignup onNavigateToLogin={() => React.startTransition(() => setAuthView('login'))} /> : <Login onNavigateToSignup={() => React.startTransition(() => setAuthView('signup'))} onNavigateToCreateSchool={() => React.startTransition(() => setAuthView('create-school'))} />}
   </Suspense>;
   if (isChatOpen) return <AIChatScreen onBack={() => setIsChatOpen(false)} dashboardType={role} />;
 
