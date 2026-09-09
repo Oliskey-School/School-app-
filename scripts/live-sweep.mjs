@@ -33,9 +33,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   const page = await ctx.newPage();
 
-  // Enable audit mode so dashboards expose their nav registry.
+  // Enable audit mode and force English so the login selector is deterministic
+  // regardless of the GitHub runner's browser locale.
   await page.addInitScript(() => {
-    try { localStorage.setItem('audit_mode', 'true'); } catch {}
+    try {
+      localStorage.setItem('audit_mode', 'true');
+      localStorage.setItem('app_language', 'en');
+    } catch {}
     window.__AUDIT_MODE__ = true;
   });
 
@@ -46,12 +50,18 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await page.goto(BASE, { waitUntil: 'domcontentloaded' });
   await page.waitForLoadState('networkidle').catch(() => {});
 
-  // Go to the demo portal if we're on the main login view.
+  // Go to the demo portal if we're on the main login view. Prefer the exact
+  // English label, then fall back to any button containing "demo" so the sweep
+  // remains resilient if a future locale change slips through.
   const tryDemo = page.getByText(/Try Demo School/i).first();
   if (await tryDemo.isVisible().catch(() => false)) {
-    await tryDemo.click().catch(() => {});
-    await sleep(500);
+    await tryDemo.click();
+  } else {
+    const demoButton = page.locator('button').filter({ hasText: /demo/i }).first();
+    await demoButton.waitFor({ state: 'visible', timeout: 20000 });
+    await demoButton.click();
   }
+  await sleep(500);
 
   // Click the role tile.
   const tile = page.getByRole('button', { name: new RegExp(REG.tile, 'i') }).first();

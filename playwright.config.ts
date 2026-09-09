@@ -22,13 +22,16 @@ export default defineConfig({
   /* Opt out of parallel tests on CI. */
   workers: process.env.CI ? 1 : undefined,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: [['html', { outputFolder: '.playwright-report' }]],
+  reporter: [['html', { outputFolder: '.playwright-report' }],],
   /* Directory for artifacts like screenshots, videos, traces, etc. */
   outputDir: './.playwright-results',
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('')`. */
     baseURL: process.env.BASE_URL || 'http://localhost:3000',
+
+    /* Keep i18next's navigator-language detection deterministic in CI. */
+    locale: 'en-US',
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
