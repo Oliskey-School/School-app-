@@ -112,7 +112,7 @@ const AuthenticatedApp: React.FC = () => {
   if (isInviteAccept) return <InviteAcceptScreen />;
   if (showAuthConfirm) return <AuthCallback />;
   if (!user || !role) return <Suspense fallback={<LoadingScreen />}>
-    {authView === 'signup' ? <Signup onNavigateToLogin={() => React.startTransition(() => setAuthView('login'))} /> : authView === 'create-school' ? <CreateSchoolSignup onNavigateToLogin={() => React.startTransition(() => setAuthView('login'))} /> : <Login onNavigateToSignup={() => React.startTransition(() => setAuthView('signup'))} onNavigateToCreateSchool={() => React.startTransition(() => setAuthView('create-school'))} />}
+    {authView === 'signup' ? <Signup onNavigateToLogin={() => React.startTransition(() => setAuthView('login'))} /> : authView === 'create-school' ? <CreateSchoolSignup onNavigateToLogin={() => React.startTransition(() => setAuthView('login'))} /> : <Login onNavigateToSignup={() => React.startTransition(() => setAuthView('signup')} onNavigateToCreateSchool={() => React.startTransition(() => setAuthView('create-school'))} />}
   </Suspense>;
   if (isChatOpen) return <AIChatScreen onBack={() => setIsChatOpen(false)} dashboardType={role} />;
 
@@ -149,7 +149,7 @@ const App: React.FC = () => {
     <Toaster position="top-right" />
     <OfflineIndicator />
     <AppearanceSync />
-    {isInitializing ? <PremiumLoader message={initMessage} fullScreen={true} /> : <div className="font-sans w-full min-h-screen bg-[#F0F2F5] flex flex-col overflow-x-hidden"><div className="relative w-full flex-1 flex flex-col overflow-x-hidden"><ErrorBoundary><Suspense fallback={<LoadingScreen />}><AuthenticatedApp /><UpdatePrompt /></Suspense></ErrorBoundary></div></div>}
+    {isInitializing ? <PremiumLoader message={initMessage} fullScreen={true} /> : <div className="font-sans w-full min-h-screen bg-[#F0F2F5] flex flex-col overflow-x-hidden"><div className="relative w-full flex-1 flex flex-col overflow-x-hidden"><ErrorBoundary><Suspense fallback={<LoadingScreen />}><AuthenticatedApp /></Suspense></ErrorBoundary></div></div>}
   </MotionConfig>;
 };
 
