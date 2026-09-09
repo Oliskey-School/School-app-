@@ -1,13 +1,10 @@
 import { useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useBranch } from '../context/BranchContext';
-import { realtimeService } from '../services/RealtimeService';
 
 /**
- * useRealtimeSync Hook
- * 
- * Ensures the global realtime subscription is active for the current school and branch.
- * This hook should be called at the top level of the authenticated app.
+ * Starts realtime synchronization after the authenticated page is interactive.
+ * Realtime is enhancement work, not a requirement for first paint.
  */
 export function useRealtimeSync() {
     const { user } = useAuth();
@@ -17,17 +14,45 @@ export function useRealtimeSync() {
     const branchId = currentBranch?.id;
 
     useEffect(() => {
-        if (userId && schoolId) {
-            console.log(`🔌 [useRealtimeSync] Initializing for School: ${schoolId}, Branch: ${branchId || 'All'}`);
-            (realtimeService as any).initialize(userId, schoolId, branchId);
+        if (!userId || !schoolId) return;
+
+        let cancelled = false;
+        let idleId: number | undefined;
+        let timeoutId: number | undefined;
+
+        const initialize = async () => {
+            try {
+                const { realtimeService } = await import('../services/RealtimeService');
+                if (!cancelled) {
+                    console.log(`🔌 [useRealtimeSync] Initializing for School: ${schoolId}, Branch: ${branchId || 'All'}`);
+                    realtimeService.initialize(userId, schoolId, branchId);
+                }
+            } catch (error) {
+                if (!cancelled) console.warn('Realtime initialization deferred/failed:', error);
+            }
+        };
+
+        if ('requestIdleCallback' in window) {
+            idleId = (window as any).requestIdleCallback(initialize, { timeout: 4000 });
+        } else {
+            timeoutId = window.setTimeout(initialize, 1500);
         }
+
+        return () => {
+            cancelled = true;
+            if (idleId !== undefined && 'cancelIdleCallback' in window) {
+                (window as any).cancelIdleCallback(idleId);
+            }
+            if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+        };
     }, [userId, schoolId, branchId]);
 
     return {
         isActive: !!userId && !!schoolId,
-        refresh: () => {
-            if (userId && schoolId) (realtimeService as any).initialize(userId, schoolId, branchId);
+        refresh: async () => {
+            if (!userId || !schoolId) return;
+            const { realtimeService } = await import('../services/RealtimeService');
+            realtimeService.initialize(userId, schoolId, branchId);
         }
     };
 }
-
