@@ -23,7 +23,6 @@ import { APP_VERSION } from './lib/config';
 import { api } from './lib/api';
 import { maxVersion, isOutdated } from './lib/version';
 
-// Unified lazy load with shared retry logic
 const DashboardRouter = lazyWithRetry(() => import('./components/DashboardRouter'));
 const Login = lazyWithRetry(() => import('./components/auth/Login'));
 const Signup = lazyWithRetry(() => import('./components/auth/Signup'));
@@ -42,19 +41,10 @@ const UpdatePrompt = lazyWithRetry(() => import('./components/shared/UpdatePromp
 const PremiumErrorPage = lazyWithRetry(() => import('./components/ui/PremiumErrorPage'));
 const SubscriptionLockScreen = lazyWithRetry(() => import('./components/shared/SubscriptionLockScreen'));
 
-/**
- * GLOBAL FAILSFE: Unhandled Promise Rejections
- */
 window.addEventListener('unhandledrejection', (event) => {
   const error = event.reason;
-  const isFetchError = error?.name === 'ChunkLoadError' || 
-                      error?.message?.includes('Failed to fetch') ||
-                      error?.message?.includes('dynamic import');
-
-  const pageHasBeenForceRefreshed = JSON.parse(
-    window.sessionStorage.getItem('page-has-been-force-refreshed') || 'false'
-  );
-
+  const isFetchError = error?.name === 'ChunkLoadError' || error?.message?.includes('Failed to fetch') || error?.message?.includes('dynamic import');
+  const pageHasBeenForceRefreshed = JSON.parse(window.sessionStorage.getItem('page-has-been-force-refreshed') || 'false');
   if (isFetchError && !pageHasBeenForceRefreshed) {
     console.warn('⚠️ Global Fetch Error detected. Recovering app...');
     window.sessionStorage.setItem('page-has-been-force-refreshed', 'true');
@@ -62,75 +52,39 @@ window.addEventListener('unhandledrejection', (event) => {
   }
 });
 
-// Basic Error Boundary
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: any }> {
   state = { hasError: false, error: null };
-
-  static getDerivedStateFromError(error: any) {
-    return { hasError: true, error };
-  }
-  componentDidCatch(error: any, errorInfo: any) {
-    console.error("Dashboard Crash Caught:", error, errorInfo);
-  }
-  handleReset = () => {
-    window.location.reload();
-  };
+  static getDerivedStateFromError(error: any) { return { hasError: true, error }; }
+  componentDidCatch(error: any, errorInfo: any) { console.error('Dashboard Crash Caught:', error, errorInfo); }
+  handleReset = () => window.location.reload();
   render() {
-    if (this.state.hasError) {
-      return (
-        <PremiumErrorPage 
-          title="Dashboard Error"
-          message="We encountered a critical error while loading the dashboard."
-          error={this.state.error}
-          resetErrorBoundary={this.handleReset}
-        />
-      );
-    }
+    if (this.state.hasError) return <PremiumErrorPage title="Dashboard Error" message="We encountered a critical error while loading the dashboard." error={this.state.error} resetErrorBoundary={this.handleReset} />;
     return this.props.children;
   }
 }
 
-const LoadingScreen: React.FC = () => (
-    <PremiumLoader message="Initializing School Workspace..." />
-);
+const LoadingScreen: React.FC = () => <PremiumLoader message="Initializing School Workspace..." />;
 
 const AuthenticatedApp: React.FC = () => {
   const { user, role, signOut, loading, isDemo, currentSchool } = useAuth();
   const { currentBranch } = useBranch();
   useRealtimeSync();
   const subscriptionGate = useSubscriptionGate();
-
-  // Keep an idle (but open) session alive so users aren't silently logged out.
   useIdleKeepAlive(!!user && !!role && !isDemo);
-
-  // Gate every AI call to the Advanced plan: the AI client refuses to run unless this
-  // is set. Demo + active-Advanced schools get AI; Free/Basic do not.
   useEffect(() => { setAIAllowed(subscriptionGate.isAIAllowed); }, [subscriptionGate.isAIAllowed]);
 
-  // Version check: only ask the user to update when their running build is
-  // genuinely OLDER than the latest known version — and always show the REAL
-  // latest version number. We take the highest of the published registry version,
-  // the school's platform_version and the running build, so we never tell anyone
-  // to "update" to a version older than what they already have.
   const [latestRegistryVersion, setLatestRegistryVersion] = useState<string | null>(null);
   useEffect(() => {
-    // Guard against firing before the auth token has landed in sessionStorage
-    // (e.g. right after a demo role switch remounts this component) — an
-    // unauthenticated call here trips the API client's missing-token
-    // force-logout and silently kicks the user back to the sign-in screen.
     if (!user) return;
     let active = true;
-    api.getAppVersions()
-      .then((list: any[]) => {
-        if (active && Array.isArray(list) && list[0]?.version) setLatestRegistryVersion(list[0].version);
-      })
-      .catch(() => { /* non-blocking — fall back to platform_version / APP_VERSION */ });
+    api.getAppVersions().then((list: any[]) => {
+      if (active && Array.isArray(list) && list[0]?.version) setLatestRegistryVersion(list[0].version);
+    }).catch(() => {});
     return () => { active = false; };
   }, [user]);
 
   const latestVersion = maxVersion(latestRegistryVersion, currentSchool?.platform_version, APP_VERSION);
   const isVersionMismatch = isOutdated(APP_VERSION, latestVersion);
-
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isHomePage, setIsHomePage] = useState(true);
   const [authView, setAuthView] = useState<'login' | 'signup' | 'create-school'>('login');
@@ -138,11 +92,8 @@ const AuthenticatedApp: React.FC = () => {
 
   useEffect(() => {
     const hash = window.location.hash;
-    if (hash.includes('access_token') || hash.includes('type=recovery') || hash.includes('type=signup') || hash.includes('/auth/callback')) {
-      setShowAuthConfirm(true);
-    }
+    if (hash.includes('access_token') || hash.includes('type=recovery') || hash.includes('type=signup') || hash.includes('/auth/callback')) setShowAuthConfirm(true);
   }, []);
-
   const isInviteAccept = window.location.hash.includes('/invite/accept');
 
   useEffect(() => {
@@ -152,68 +103,25 @@ const AuthenticatedApp: React.FC = () => {
     }
   }, [user, role]);
 
-  const handleLogout = async () => {
-    await signOut();
-    setIsHomePage(true);
-    setIsChatOpen(false);
-  };
-
+  const handleLogout = async () => { await signOut(); setIsHomePage(true); setIsChatOpen(false); };
   const renderDashboard = useMemo(() => {
     if (!user || !role) return null;
-    const props = { onLogout: handleLogout, setIsHomePage, currentUser: user };
-    return <DashboardRouter {...props} />;
+    return <DashboardRouter onLogout={handleLogout} setIsHomePage={setIsHomePage} currentUser={user} />;
   }, [user?.id, role]);
 
   if (loading) return <LoadingScreen />;
   if (isInviteAccept) return <InviteAcceptScreen />;
   if (showAuthConfirm) return <AuthCallback />;
-
   if (!user || !role) {
-    return (
-      <Suspense fallback={<LoadingScreen />}>
-        {authView === 'signup' ? (
-          <Signup onNavigateToLogin={() => React.startTransition(() => setAuthView('login'))} />
-        ) : authView === 'create-school' ? (
-          <CreateSchoolSignup onNavigateToLogin={() => React.startTransition(() => setAuthView('login'))} />
-        ) : (
-          <Login 
-            onNavigateToSignup={() => React.startTransition(() => setAuthView('signup'))} 
-            onNavigateToCreateSchool={() => React.startTransition(() => setAuthView('create-school'))} 
-          />
-        )}
-      </Suspense>
-    );
+    return <Suspense fallback={<LoadingScreen />}>
+      {authView === 'signup' ? <Signup onNavigateToLogin={() => React.startTransition(() => setAuthView('login'))} /> : authView === 'create-school' ? <CreateSchoolSignup onNavigateToLogin={() => React.startTransition(() => setAuthView('login'))} /> : <Login onNavigateToSignup={() => React.startTransition(() => setAuthView('signup'))} onNavigateToCreateSchool={() => React.startTransition(() => setAuthView('create-school'))} />}
+    </Suspense>;
   }
-
-  if (isChatOpen) {
-    return <AIChatScreen onBack={() => setIsChatOpen(false)} dashboardType={role} />;
-  }
-
-  return (
-    <ErrorBoundary>
-      <Suspense fallback={<LoadingScreen />}>
-        <MobileNavigationHandler />
-        <ContextualMarquee />
-        <VerificationGuard>
-          {/* Version Lock Overlay */}
-          {isVersionMismatch && (
-            <UpdatePrompt forced={true} targetVersion={latestVersion} />
-          )}
-
-          {/* Subscription Lock — replaces dashboard entirely when expired/suspended.
-              Exception: keep the /subscription route reachable so admins can renew. */}
-          {subscriptionGate.isLocked && !window.location.pathname.startsWith('/subscription') ? (
-            <SubscriptionLockScreen />
-          ) : (
-            <>
-              {renderDashboard}
-              {isHomePage && <AIChatWidget dashboardType={role} onClick={() => setIsChatOpen(true)} />}
-            </>
-          )}
-        </VerificationGuard>
-      </Suspense>
-    </ErrorBoundary>
-  );
+  if (isChatOpen) return <AIChatScreen onBack={() => setIsChatOpen(false)} dashboardType={role} />;
+  return <ErrorBoundary><Suspense fallback={<LoadingScreen />}><MobileNavigationHandler /><ContextualMarquee /><VerificationGuard>
+    {isVersionMismatch && <UpdatePrompt forced={true} targetVersion={latestVersion} />}
+    {subscriptionGate.isLocked && !window.location.pathname.startsWith('/subscription') ? <SubscriptionLockScreen /> : <><div>{renderDashboard}</div>{isHomePage && <AIChatWidget dashboardType={role} onClick={() => setIsChatOpen(true)} />}</>}
+  </VerificationGuard></Suspense></ErrorBoundary>;
 };
 
 const App: React.FC = () => {
@@ -224,52 +132,38 @@ const App: React.FC = () => {
     mobileSyncManager.initialize();
     PushNotificationManager.initialize();
 
-    const initializeOfflineFirst = async () => {
-      try {
-        // Set timeout to prevent infinite loading - show UI after 3 seconds even if not ready
-        const timeout = setTimeout(() => {
-          console.warn('⚠️ Initialization timeout - showing UI anyway');
-          setIsInitializing(false);
-        }, 3000);
-
-        await runMigrations();
-        cacheCleanupScheduler.start();
-        clearTimeout(timeout);
-        setIsInitializing(false);
-      } catch (error) {
-        console.error('❌ Initialization failed:', error);
-        setIsInitializing(false);
-      }
+    // Non-critical maintenance must never hold the first screen hostage.
+    // Render after the app shell is visible, then run migrations/sync work.
+    const startBackgroundInitialization = () => {
+      void (async () => {
+        try {
+          await runMigrations();
+          cacheCleanupScheduler.start();
+        } catch (error) {
+          console.error('❌ Background initialization failed:', error);
+        }
+      })();
     };
 
-    initializeOfflineFirst();
+    // Give React one paint before maintenance work starts.
+    const idle = 'requestIdleCallback' in window
+      ? window.requestIdleCallback(startBackgroundInitialization, { timeout: 1500 })
+      : window.setTimeout(startBackgroundInitialization, 250);
+
+    setIsInitializing(false);
+
+    return () => {
+      if ('cancelIdleCallback' in window && typeof idle === 'number') window.cancelIdleCallback(idle);
+      else window.clearTimeout(idle as number);
+    };
   }, []);
 
-  return (
-    <>
-      <Toaster position="top-right" />
-      <OfflineIndicator />
-      {/* Applies each signed-in user's OWN saved appearance (per user + role). */}
-      <AppearanceSync />
-      {isInitializing ? (
-        <PremiumLoader message={initMessage} fullScreen={true} />
-      ) : (
-        <div className="font-sans w-full min-h-screen bg-[#F0F2F5] flex flex-col overflow-x-hidden">
-          <div className="relative w-full flex-1 flex flex-col overflow-x-hidden">
-            <ErrorBoundary>
-              <Suspense fallback={<LoadingScreen />}>
-                <AuthenticatedApp />
-                {/* Install entry point is the persistent InstallAppButton (in DashboardLayout),
-                    always visible on the web version until installed. The one-time PWAInstallPrompt
-                    card was removed so there is exactly one install banner. */}
-                <UpdatePrompt />
-              </Suspense>
-            </ErrorBoundary>
-          </div>
-        </div>
-      )}
-    </>
-  );
+  return <>
+    <Toaster position="top-right" />
+    <OfflineIndicator />
+    <AppearanceSync />
+    {isInitializing ? <PremiumLoader message={initMessage} fullScreen={true} /> : <div className="font-sans w-full min-h-screen bg-[#F0F2F5] flex flex-col overflow-x-hidden"><div className="relative w-full flex-1 flex flex-col overflow-x-hidden"><ErrorBoundary><Suspense fallback={<LoadingScreen />}><AuthenticatedApp /><UpdatePrompt /></Suspense></ErrorBoundary></div></div>}
+  </>;
 };
 
 export default App;
