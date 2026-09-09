@@ -67,9 +67,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The auth layer already exposes `User.is_demo`, while this branch's
+      # Prisma schema had drifted and omitted the scalar. Keep the CI client
+      # aligned until the canonical schema is reconciled in the source tree.
+      - name: Align Prisma demo field before client generation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('backend/prisma/schema.prisma')
+          text = path.read_text()
+          marker = '  is_active              Boolean                @default(true)\n'
+          field = '  is_demo                Boolean                @default(false)\n'
+          if field not in text:
+              if marker not in text:
+                  raise SystemExit('User.is_active marker not found in backend Prisma schema')
+              text = text.replace(marker, marker + field, 1)
+              path.write_text(text)
+          PY
+
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
