@@ -14,9 +14,13 @@ import { useIdleKeepAlive } from './lib/hooks/useIdleKeepAlive';
 import { lazyWithRetry } from './lib/lazyRetry';
 import { APP_VERSION } from './lib/config';
 import { maxVersion, isOutdated } from './lib/version';
+import Login from './components/auth/Login';
+import PremiumErrorPage from './components/ui/PremiumErrorPage';
 
 const DashboardRouter = lazyWithRetry(() => import('./components/DashboardRouter'));
-const Login = lazyWithRetry(() => import('./components/auth/Login'));
+// Login is the unauthenticated critical shell. It must not depend on a lazy
+// chunk: if the chunk loader/PWA cache/CDN is unhealthy, users and CI must
+// still be able to reach authentication and recover from the problem.
 const Signup = lazyWithRetry(() => import('./components/auth/Signup'));
 const CreateSchoolSignup = lazyWithRetry(() => import('./components/auth/CreateSchoolSignup'));
 const AuthCallback = lazyWithRetry(() => import('./components/auth/AuthCallback'));
@@ -27,7 +31,6 @@ const AIChatWidget = lazyWithRetry(() => import('./components/shared/AIChatWidge
 const MobileNavigationHandler = lazyWithRetry(() => import('./components/shared/MobileNavigationHandler'));
 const ContextualMarquee = lazyWithRetry(() => import('./components/shared/ContextualMarquee'));
 const UpdatePrompt = lazyWithRetry(() => import('./components/shared/UpdatePrompt'));
-const PremiumErrorPage = lazyWithRetry(() => import('./components/ui/PremiumErrorPage'));
 const SubscriptionLockScreen = lazyWithRetry(() => import('./components/shared/SubscriptionLockScreen'));
 
 window.addEventListener('unhandledrejection', (event) => {
@@ -111,9 +114,9 @@ const AuthenticatedApp: React.FC = () => {
   if (loading) return <LoadingScreen />;
   if (isInviteAccept) return <InviteAcceptScreen />;
   if (showAuthConfirm) return <AuthCallback />;
-  if (!user || !role) return <Suspense fallback={<LoadingScreen />}>
-    {authView === 'signup' ? <Signup onNavigateToLogin={() => React.startTransition(() => setAuthView('login'))} /> : authView === 'create-school' ? <CreateSchoolSignup onNavigateToLogin={() => React.startTransition(() => setAuthView('login'))} /> : <Login onNavigateToSignup={() => React.startTransition(() => setAuthView('signup'))} onNavigateToCreateSchool={() => React.startTransition(() => setAuthView('create-school'))} />}
-  </Suspense>;
+  if (!user || !role) return <>
+    {authView === 'signup' ? <Suspense fallback={<LoadingScreen />}><Signup onNavigateToLogin={() => React.startTransition(() => setAuthView('login'))} /></Suspense> : authView === 'create-school' ? <Suspense fallback={<LoadingScreen />}><CreateSchoolSignup onNavigateToLogin={() => React.startTransition(() => setAuthView('login'))} /></Suspense> : <Login onNavigateToSignup={() => React.startTransition(() => setAuthView('signup'))} onNavigateToCreateSchool={() => React.startTransition(() => setAuthView('create-school'))} />}
+  </>;
   if (isChatOpen) return <AIChatScreen onBack={() => setIsChatOpen(false)} dashboardType={role} />;
 
   return <ErrorBoundary><Suspense fallback={<LoadingScreen />}>
