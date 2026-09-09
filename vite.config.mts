@@ -136,40 +136,6 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         output: {
           ...(isLowResourceBuild ? { maxParallelFileOps: 2 } : {}),
-          manualChunks(id) {
-            if (!id.includes('node_modules')) return;
-            if (id.includes('html2canvas')) return 'html2canvas';
-            if (id.includes('jspdf-autotable')) return 'pdf-tables';
-            if (id.includes('jspdf') || id.includes('html2pdf')) return 'pdf';
-            if (id.includes('recharts') || id.includes('d3-')) return 'charts';
-            if (id.includes('framer-motion')) return 'motion';
-            if (id.includes('date-fns')) return 'date-utils';
-            if (id.includes('react-dom') || id.includes('react/') || id.includes('scheduler')) return 'react-vendor';
-            if (id.includes('qrcode') || id.includes('html5-qrcode')) return 'qr';
-            if (id.includes('lucide-react')) return 'lucide';
-            if (
-              id.includes('@radix-ui') ||
-              id.includes('@headlessui') ||
-              id.includes('react-hot-toast') ||
-              id.includes('sonner') ||
-              id.includes('cmdk') ||
-              id.includes('vaul')
-            ) return 'ui';
-            // Do NOT isolate socket.io into its own manual chunk. socket.io-client
-            // has shared dependencies with the generic vendor graph; forcing it
-            // into a separate `realtime` chunk created a Rollup cycle:
-            // realtime -> vendor -> realtime. The browser then evaluated the
-            // generated realtime module in the wrong order and crashed with:
-            // "ReferenceError: Cannot access 'C' before initialization".
-            // Keeping socket.io in vendor removes the circular chunk boundary.
-            if (id.includes('react-markdown') || id.includes('remark') || id.includes('micromark') || id.includes('mdast') || id.includes('hast') || id.includes('unist')) return 'markdown';
-            if (id.includes('read-excel-file') || id.includes('xlsx')) return 'xlsx';
-            if (id.includes('formik') || id.includes('yup') || id.includes('zod')) return 'forms';
-            if (id.includes('react-router') || id.includes('@remix-run')) return 'router';
-            if (id.includes('dompurify')) return 'sanitize';
-            if (id.includes('canvas-confetti') || id.includes('pako')) return 'fx';
-            return 'vendor';
-          },
         },
       },
     },
