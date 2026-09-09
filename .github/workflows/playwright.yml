@@ -38,15 +38,17 @@ jobs:
       REFRESH_TOKEN_SECRET: ci-only-refresh-signing-key-not-used-for-real
       NODE_ENV: development
       BACKEND_PORT: 5099
-      # The browser serves the built frontend on :4173 while the API server
-      # runs on :5099. Without this explicit build-time URL, lib/config.ts
-      # detects localhost and falls back to :5000, so demo login and every
-      # authenticated API call are sent to the wrong port.
       VITE_API_URL: http://127.0.0.1:5099/api
       VITE_SOCKET_URL: http://127.0.0.1:5099
 
     steps:
+      # PR merge refs can become stale relative to the PR head. The critical
+      # path is explicitly a branch-head test, so checkout the exact PR head
+      # when this workflow is triggered by a PR. Manual/scheduled runs retain
+      # their normal GitHub SHA.
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
 
       - name: Align Prisma demo field before client generation
         run: |
@@ -112,10 +114,6 @@ jobs:
           echo "Frontend API path:"
           curl -fsSI "http://127.0.0.1:4173/api/health" || true
 
-      # Diagnostic only: never replaces or weakens the real critical-path gate.
-      # Persist the first-load browser state so a future auth-shell regression
-      # can be diagnosed from the artifact even when GitHub's live job-log API
-      # does not expose the browser output.
       - name: Diagnose browser boot
         continue-on-error: true
         run: |
