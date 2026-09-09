@@ -112,6 +112,48 @@ jobs:
           echo "Frontend API path:"
           curl -fsSI "http://127.0.0.1:4173/api/health" || true
 
+      # Diagnostic only: never replaces or weakens the real critical-path gate.
+      # This captures the browser's first-load state so a future auth-shell
+      # regression tells us whether it is a JS exception, failed chunk,
+      # failed request, wrong URL, or simply the wrong rendered state.
+      - name: Diagnose browser boot
+        continue-on-error: true
+        run: |
+          node <<'NODE'
+          const { chromium } = require('@playwright/test');
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            const page = await browser.newPage();
+            const events = [];
+            page.on('console', m => events.push(`[console:${m.type()}] ${m.text()}`));
+            page.on('pageerror', e => events.push(`[pageerror] ${e?.stack || e}`));
+            page.on('requestfailed', r => events.push(`[requestfailed] ${r.method()} ${r.url()} :: ${r.failure()?.errorText || 'unknown'}`));
+            page.on('response', r => {
+              if (r.status() >= 400) events.push(`[response:${r.status()}] ${r.request().method()} ${r.url()}`);
+            });
+            try {
+              await page.goto('http://localhost:4173/', { waitUntil: 'domcontentloaded', timeout: 30000 });
+              await page.waitForTimeout(5000);
+              const state = await page.evaluate(() => ({
+                url: location.href,
+                title: document.title,
+                body: document.body?.innerText?.slice(0, 5000) || '',
+                rootHtml: document.getElementById('root')?.innerHTML?.slice(0, 5000) || '',
+                demoButtons: [...document.querySelectorAll('button')].map(b => b.innerText).filter(Boolean).filter(t => /demo/i.test(t)),
+                sessionStorage: Object.fromEntries(Object.entries(sessionStorage)),
+                localStorage: Object.fromEntries(Object.entries(localStorage)),
+              }));
+              console.log('BOOT_STATE=' + JSON.stringify(state, null, 2));
+            } catch (e) {
+              console.log('BOOT_GOTO_ERROR=' + (e?.stack || e));
+            }
+            console.log('BOOT_EVENTS_BEGIN');
+            for (const e of events) console.log(e);
+            console.log('BOOT_EVENTS_END');
+            await browser.close();
+          })();
+          NODE
+
       - name: Run critical path suite
         run: BASE_URL=http://localhost:4173 npx playwright test tests/e2e/production-critical-path.spec.ts --project=chromium --workers=1
 
