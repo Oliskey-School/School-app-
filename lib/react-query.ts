@@ -3,62 +3,30 @@ import { get, set, del } from 'idb-keyval';
 import { Persister } from '@tanstack/react-query-persist-client';
 import { networkManager } from './networkManager';
 
-// ============================================================================
-// Query Client Configuration
-// ============================================================================
-
+// Fast, offline-first defaults: serve cached data immediately and avoid
+// unnecessary network work. Individual critical queries can override these.
 export const queryClient = new QueryClient({
     defaultOptions: {
         queries: {
-            // Aggressive caching for offline-first
-            staleTime: 1000 * 60 * 10, // 10 minutes
-            gcTime: 1000 * 60 * 60 * 24, // 24 hours (formerly cacheTime)
-
-            // Network-aware retry logic
-            retry: (failureCount, error) => {
-                // Don't retry if offline
-                if (networkManager.isOffline()) {
-                    return false;
-                }
-
-                // Retry up to 3 times for network errors
-                if (failureCount < 3) {
-                    return true;
-                }
-
-                return false;
-            },
-
-            // Retry delay with exponential backoff
-            retryDelay: (attemptIndex) => {
-                return Math.min(1000 * 2 ** attemptIndex, 30000);
-            },
-
-            // Refetch settings for optimal offline-first behavior
-            refetchOnWindowFocus: false, // Reduced background fetching
-            refetchOnReconnect: true,   // Refetch when network reconnects
-            refetchOnMount: true,       // Refetch on component mount
-
-            // Network mode
-            networkMode: 'offlineFirst', // Use cached data when offline
+            staleTime: 1000 * 60 * 15,
+            gcTime: 1000 * 60 * 60 * 24,
+            retry: (failureCount) => !networkManager.isOffline() && failureCount < 2,
+            retryDelay: (attemptIndex) => Math.min(750 * 2 ** attemptIndex, 10000),
+            refetchOnWindowFocus: false,
+            refetchOnReconnect: true,
+            // Avoid refetching every time a dashboard component remounts.
+            refetchOnMount: false,
+            networkMode: 'offlineFirst',
         },
         mutations: {
-            // Network-aware mutations
-            retry: (failureCount, error) => {
-                if (networkManager.isOffline()) {
-                    return false; // Don't retry mutations when offline
-                }
-                return failureCount < 2; // Retry mutations twice
-            },
-
+            // Mutations are deliberately conservative: never retry while offline.
+            // Individual idempotent mutations may opt into retries locally.
+            retry: (failureCount) => !networkManager.isOffline() && failureCount < 1,
+            retryDelay: 1000,
             networkMode: 'offlineFirst',
         },
     },
 });
-
-// ============================================================================
-// IndexedDB Persister
-// ============================================================================
 
 export const idbPersister: Persister = {
     persistClient: async (client) => {
@@ -70,8 +38,7 @@ export const idbPersister: Persister = {
     },
     restoreClient: async () => {
         try {
-            const cached = await get('reactQueryClient');
-            return cached;
+            return await get('reactQueryClient');
         } catch (error) {
             console.error('Error restoring React Query cache:', error);
             return undefined;
@@ -86,38 +53,20 @@ export const idbPersister: Persister = {
     },
 };
 
-// ============================================================================
-// Cache Management
-// ============================================================================
-
-/**
- * Clear all React Query caches
- */
 export async function clearQueryCache(): Promise<void> {
     queryClient.clear();
     await idbPersister.removeClient();
 }
 
-/**
- * Invalidate all queries
- */
 export async function invalidateAllQueries(): Promise<void> {
     await queryClient.invalidateQueries();
 }
 
-/**
- * Prefetch data for offline use
- */
-export async function prefetchData<T>(
-    queryKey: any[],
-    queryFn: () => Promise<T>
-): Promise<void> {
-    if (networkManager.isOnline()) {
-        await queryClient.prefetchQuery({
-            queryKey,
-            queryFn,
-            staleTime: 1000 * 60 * 60, // 1 hour
-        });
-    }
+export async function prefetchData<T>(queryKey: readonly unknown[], queryFn: () => Promise<T>): Promise<void> {
+    if (!networkManager.isOnline()) return;
+    await queryClient.prefetchQuery({
+        queryKey,
+        queryFn,
+        staleTime: 1000 * 60 * 60,
+    });
 }
-
