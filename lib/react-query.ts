@@ -10,47 +10,32 @@ import { networkManager } from './networkManager';
 export const queryClient = new QueryClient({
     defaultOptions: {
         queries: {
-            // Aggressive caching for offline-first
-            staleTime: 1000 * 60 * 10, // 10 minutes
-            gcTime: 1000 * 60 * 60 * 24, // 24 hours (formerly cacheTime)
+            // Serve persisted/cached data immediately and revalidate in the background.
+            staleTime: 1000 * 60 * 15,
+            gcTime: 1000 * 60 * 60 * 24,
 
-            // Network-aware retry logic
-            retry: (failureCount, error) => {
-                // Don't retry if offline
-                if (networkManager.isOffline()) {
-                    return false;
-                }
-
-                // Retry up to 3 times for network errors
-                if (failureCount < 3) {
-                    return true;
-                }
-
-                return false;
+            // Keep retries short so a failed request cannot hold a page in a
+            // loading state for many seconds. Individual critical queries can
+            // opt into a larger retry budget when appropriate.
+            retry: (failureCount) => {
+                if (networkManager.isOffline()) return false;
+                return failureCount < 2;
             },
+            retryDelay: (attemptIndex) => Math.min(750 * 2 ** attemptIndex, 10000),
 
-            // Retry delay with exponential backoff
-            retryDelay: (attemptIndex) => {
-                return Math.min(1000 * 2 ** attemptIndex, 30000);
-            },
+            refetchOnWindowFocus: false,
+            refetchOnReconnect: true,
+            // Cached data should remain usable when a dashboard/component remounts.
+            // Explicit invalidation and reconnect still trigger revalidation.
+            refetchOnMount: false,
 
-            // Refetch settings for optimal offline-first behavior
-            refetchOnWindowFocus: false, // Reduced background fetching
-            refetchOnReconnect: true,   // Refetch when network reconnects
-            refetchOnMount: true,       // Refetch on component mount
-
-            // Network mode
-            networkMode: 'offlineFirst', // Use cached data when offline
+            networkMode: 'offlineFirst',
         },
         mutations: {
-            // Network-aware mutations
-            retry: (failureCount, error) => {
-                if (networkManager.isOffline()) {
-                    return false; // Don't retry mutations when offline
-                }
-                return failureCount < 2; // Retry mutations twice
-            },
-
+            // Never automatically repeat a mutation: retrying POST/payment/write
+            // operations can duplicate side effects unless the individual operation
+            // is explicitly designed to be idempotent.
+            retry: false,
             networkMode: 'offlineFirst',
         },
     },
@@ -90,34 +75,25 @@ export const idbPersister: Persister = {
 // Cache Management
 // ============================================================================
 
-/**
- * Clear all React Query caches
- */
 export async function clearQueryCache(): Promise<void> {
     queryClient.clear();
     await idbPersister.removeClient();
 }
 
-/**
- * Invalidate all queries
- */
 export async function invalidateAllQueries(): Promise<void> {
     await queryClient.invalidateQueries();
 }
 
-/**
- * Prefetch data for offline use
- */
+/** Prefetch only while online; cached queries are reused by React Query. */
 export async function prefetchData<T>(
-    queryKey: any[],
+    queryKey: readonly unknown[],
     queryFn: () => Promise<T>
 ): Promise<void> {
-    if (networkManager.isOnline()) {
-        await queryClient.prefetchQuery({
-            queryKey,
-            queryFn,
-            staleTime: 1000 * 60 * 60, // 1 hour
-        });
-    }
-}
+    if (!networkManager.isOnline()) return;
 
+    await queryClient.prefetchQuery({
+        queryKey,
+        queryFn,
+        staleTime: 1000 * 60 * 60,
+    });
+}
