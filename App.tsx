@@ -1,6 +1,5 @@
 import React, { useState, useMemo, lazy, Suspense, useEffect } from 'react';
 import { DashboardType } from './types';
-import { requestNotificationPermission } from './components/shared/notifications';
 import { OfflineIndicator } from './components/shared/OfflineIndicator';
 import { AppearanceSync } from './components/shared/LiquidGlassControl';
 import { MotionConfig } from 'framer-motion';
@@ -9,7 +8,6 @@ import PremiumLoader from './components/ui/PremiumLoader';
 import { runMigrations } from './lib/migrationManager';
 import { cacheCleanupScheduler } from './lib/cacheManager';
 import { useRealtimeSync } from './hooks/useRealtimeSync';
-import { useBranch } from './context/BranchContext';
 import { useAuth } from './context/AuthContext';
 import { useSubscriptionGate } from './hooks/useSubscriptionGate';
 import { setAIAllowed } from './lib/ai';
@@ -19,22 +17,27 @@ import { APP_VERSION } from './lib/config';
 import { api } from './lib/api';
 import { maxVersion, isOutdated } from './lib/version';
 
+// Login and PremiumErrorPage are deliberately STATIC imports. They are the two
+// screens that have to render when the lazy-chunk pipeline itself is broken
+// (stale PWA cache, CDN failure, ChunkLoadError) — routing them through the same
+// chunk loader that just failed leaves the user on a blank page with no way out.
+// PremiumErrorPage additionally renders from ErrorBoundary, which sits OUTSIDE
+// any Suspense boundary, where a lazy component would suspend with no parent to
+// catch it.
+import Login from './components/auth/Login';
+import PremiumErrorPage from './components/ui/PremiumErrorPage';
+
 const DashboardRouter = lazyWithRetry(() => import('./components/DashboardRouter'));
-const Login = lazyWithRetry(() => import('./components/auth/Login'));
 const Signup = lazyWithRetry(() => import('./components/auth/Signup'));
 const CreateSchoolSignup = lazyWithRetry(() => import('./components/auth/CreateSchoolSignup'));
 const AuthCallback = lazyWithRetry(() => import('./components/auth/AuthCallback'));
-const VerifyEmail = lazyWithRetry(() => import('./components/auth/VerifyEmail'));
-const VerifyEmailScreen = lazyWithRetry(() => import('./components/auth/VerifyEmailScreen'));
 const InviteAcceptScreen = lazyWithRetry(() => import('./components/auth/InviteAcceptScreen'));
 const VerificationGuard = lazyWithRetry(() => import('./components/auth/VerificationGuard'));
 const AIChatScreen = lazyWithRetry(() => import('./components/shared/AIChatScreen'));
 const AIChatWidget = lazyWithRetry(() => import('./components/shared/AIChatWidget'));
 const MobileNavigationHandler = lazyWithRetry(() => import('./components/shared/MobileNavigationHandler'));
 const ContextualMarquee = lazyWithRetry(() => import('./components/shared/ContextualMarquee'));
-const PWAInstallPrompt = lazyWithRetry(() => import('./components/shared/PWAInstallPrompt'));
 const UpdatePrompt = lazyWithRetry(() => import('./components/shared/UpdatePrompt'));
-const PremiumErrorPage = lazyWithRetry(() => import('./components/ui/PremiumErrorPage'));
 const SubscriptionLockScreen = lazyWithRetry(() => import('./components/shared/SubscriptionLockScreen'));
 
 window.addEventListener('unhandledrejection', (event) => {
@@ -87,7 +90,6 @@ const LoadingScreen: React.FC = () => (
 
 const AuthenticatedApp: React.FC = () => {
   const { user, role, signOut, loading, isDemo, currentSchool } = useAuth();
-  const { currentBranch } = useBranch();
   useRealtimeSync();
   const subscriptionGate = useSubscriptionGate();
 
@@ -127,10 +129,17 @@ const AuthenticatedApp: React.FC = () => {
   useEffect(() => {
     if (user && role) {
       console.log(`👤 User Authenticated: ${user.email} as ${role}`);
-      // Permission prompting is secondary work; do not make it part of dashboard boot.
+      // Permission prompting is secondary work; do not make it part of dashboard
+      // boot. The module is imported here rather than at the top of the file so
+      // it stays out of the eager login graph entirely.
+      const promptForNotifications = () => {
+        void import('./components/shared/notifications')
+          .then(({ requestNotificationPermission }) => requestNotificationPermission())
+          .catch(() => { });
+      };
       const idle = 'requestIdleCallback' in window
-        ? window.requestIdleCallback(() => { void requestNotificationPermission(); }, { timeout: 3000 })
-        : window.setTimeout(() => { void requestNotificationPermission(); }, 1000);
+        ? window.requestIdleCallback(promptForNotifications, { timeout: 3000 })
+        : window.setTimeout(promptForNotifications, 1000);
       return () => {
         if ('cancelIdleCallback' in window && typeof idle === 'number') window.cancelIdleCallback(idle);
         else window.clearTimeout(idle as number);
@@ -150,7 +159,19 @@ const AuthenticatedApp: React.FC = () => {
     return <DashboardRouter {...props} />;
   }, [user?.id, role]);
 
-  if (loading) return <LoadingScreen />;
+  // A first-time visitor has no session to restore, so holding them behind the
+  // auth-bootstrap spinner is pure dead time — the login shell can paint at once
+  // while bootstrap finishes in the background. Once a stored token or user
+  // exists the gate still applies: that transition IS authenticated work and
+  // must not flash the login screen on the way through.
+  let hasStoredSession = false;
+  try {
+    hasStoredSession = !!sessionStorage.getItem('auth_token');
+  } catch {
+    // sessionStorage throws in hardened/private browser contexts. Treat that as
+    // unauthenticated so the critical login shell stays reachable.
+  }
+  if (loading && (hasStoredSession || !!user)) return <LoadingScreen />;
   if (isInviteAccept) return <InviteAcceptScreen />;
   if (showAuthConfirm) return <AuthCallback />;
 
@@ -259,6 +280,13 @@ const App: React.FC = () => {
             <ErrorBoundary>
               <Suspense fallback={<LoadingScreen />}>
                 <AuthenticatedApp />
+              </Suspense>
+              {/* UpdatePrompt owns the ONLY service-worker registration
+                  (useRegisterSW), so it stays mounted at the root, where it
+                  renders before any login and survives logout. It gets its own
+                  Suspense with a null fallback because sharing AuthenticatedApp's
+                  boundary made the login shell wait on the PWA chunk. */}
+              <Suspense fallback={null}>
                 <UpdatePrompt />
               </Suspense>
             </ErrorBoundary>

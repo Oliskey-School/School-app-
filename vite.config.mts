@@ -183,44 +183,14 @@ export default defineConfig(({ mode }) => {
           // output buffers in memory at once — only meaningfully matters on
           // a RAM-constrained host, so it's scoped to the low-resource build.
           ...(isLowResourceBuild ? { maxParallelFileOps: 2 } : {}),
-          manualChunks(id) {
-            if (!id.includes('node_modules')) return;
-            // --- Heavy PDF / canvas libs (lazy, report-card screens only) ---
-            // html2canvas is the largest piece — keep it separate from jspdf so
-            // neither chunk crosses the size budget and each caches independently.
-            if (id.includes('html2canvas')) return 'html2canvas';
-            if (id.includes('jspdf-autotable')) return 'pdf-tables';
-            if (id.includes('jspdf') || id.includes('html2pdf')) return 'pdf';
-            // Charting
-            if (id.includes('recharts') || id.includes('d3-')) return 'charts';
-            // Animation
-            if (id.includes('framer-motion')) return 'motion';
-            if (id.includes('date-fns')) return 'date-utils';
-            // React core stays in its own chunk to maximize cache hits
-            if (id.includes('react-dom') || id.includes('react/') || id.includes('scheduler')) return 'react-vendor';
-            // QR + crypto
-            if (id.includes('qrcode') || id.includes('html5-qrcode')) return 'qr';
-            // --- Split the heaviest remaining libs out of the generic vendor chunk ---
-            if (id.includes('lucide-react')) return 'lucide';
-            // UI primitives and notification libraries are shared by dashboards.
-            if (
-              id.includes('@radix-ui') ||
-              id.includes('@headlessui') ||
-              id.includes('react-hot-toast') ||
-              id.includes('sonner') ||
-              id.includes('cmdk') ||
-              id.includes('vaul')
-            ) return 'ui';
-            if (id.includes('socket.io')) return 'realtime';
-            if (id.includes('react-markdown') || id.includes('remark') || id.includes('micromark') || id.includes('mdast') || id.includes('hast') || id.includes('unist')) return 'markdown';
-            if (id.includes('read-excel-file') || id.includes('xlsx')) return 'xlsx';
-            if (id.includes('formik') || id.includes('yup') || id.includes('zod')) return 'forms';
-            if (id.includes('react-router') || id.includes('@remix-run')) return 'router';
-            if (id.includes('dompurify')) return 'sanitize';
-            if (id.includes('canvas-confetti') || id.includes('pako')) return 'fx';
-            // Default: all other node_modules into a single 'vendor' chunk
-            return 'vendor';
-          },
+          // No manualChunks on purpose. Bucketing node_modules by id.includes()
+          // ignores the real import graph: a bucket becomes EAGER as soon as any
+          // eagerly-reachable module touches one file in it. That is how the
+          // login path ended up preloading `markdown` (react-markdown/remark,
+          // AI-chat only) and `realtime` (socket.io) — 1.7 MB of eager JS — and
+          // how the realtime bucket formed an import cycle with vendor.
+          // Rollup's default splitting follows actual reachability, so lazy
+          // routes keep their own chunks and the login shell stays small.
         },
       },
     },
