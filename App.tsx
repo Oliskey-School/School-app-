@@ -1,30 +1,24 @@
 import React, { useState, useMemo, lazy, Suspense, useEffect } from 'react';
 import { DashboardType } from './types';
 import { requestNotificationPermission } from './components/shared/notifications';
-import { realtimeService } from './services/RealtimeService';
 import { OfflineIndicator } from './components/shared/OfflineIndicator';
 import { AppearanceSync } from './components/shared/LiquidGlassControl';
 import { MotionConfig } from 'framer-motion';
 import { Toaster } from 'react-hot-toast';
 import PremiumLoader from './components/ui/PremiumLoader';
-import { runMigrations, initialDataHydration, isInitialHydrationComplete } from './lib/migrationManager';
+import { runMigrations } from './lib/migrationManager';
 import { cacheCleanupScheduler } from './lib/cacheManager';
-import { mobileSyncManager } from './lib/mobile/MobileSync';
-import { PushNotificationManager } from './lib/mobile/PushConfig';
 import { useRealtimeSync } from './hooks/useRealtimeSync';
 import { useBranch } from './context/BranchContext';
 import { useAuth } from './context/AuthContext';
 import { useSubscriptionGate } from './hooks/useSubscriptionGate';
 import { setAIAllowed } from './lib/ai';
 import { useIdleKeepAlive } from './lib/hooks/useIdleKeepAlive';
-import { requestBackgroundSync } from './lib/serviceWorkerRegistration';
-import { syncEngine } from './lib/syncEngine';
 import { lazyWithRetry } from './lib/lazyRetry';
 import { APP_VERSION } from './lib/config';
 import { api } from './lib/api';
 import { maxVersion, isOutdated } from './lib/version';
 
-// Unified lazy load with shared retry logic
 const DashboardRouter = lazyWithRetry(() => import('./components/DashboardRouter'));
 const Login = lazyWithRetry(() => import('./components/auth/Login'));
 const Signup = lazyWithRetry(() => import('./components/auth/Signup'));
@@ -43,12 +37,9 @@ const UpdatePrompt = lazyWithRetry(() => import('./components/shared/UpdatePromp
 const PremiumErrorPage = lazyWithRetry(() => import('./components/ui/PremiumErrorPage'));
 const SubscriptionLockScreen = lazyWithRetry(() => import('./components/shared/SubscriptionLockScreen'));
 
-/**
- * GLOBAL FAILSFE: Unhandled Promise Rejections
- */
 window.addEventListener('unhandledrejection', (event) => {
   const error = event.reason;
-  const isFetchError = error?.name === 'ChunkLoadError' || 
+  const isFetchError = error?.name === 'ChunkLoadError' ||
                       error?.message?.includes('Failed to fetch') ||
                       error?.message?.includes('dynamic import');
 
@@ -63,7 +54,6 @@ window.addEventListener('unhandledrejection', (event) => {
   }
 });
 
-// Basic Error Boundary
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: any }> {
   state = { hasError: false, error: null };
 
@@ -79,7 +69,7 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
   render() {
     if (this.state.hasError) {
       return (
-        <PremiumErrorPage 
+        <PremiumErrorPage
           title="Dashboard Error"
           message="We encountered a critical error while loading the dashboard."
           error={this.state.error}
@@ -101,31 +91,19 @@ const AuthenticatedApp: React.FC = () => {
   useRealtimeSync();
   const subscriptionGate = useSubscriptionGate();
 
-  // Keep an idle (but open) session alive so users aren't silently logged out.
   useIdleKeepAlive(!!user && !!role && !isDemo);
 
-  // Gate every AI call to the Advanced plan: the AI client refuses to run unless this
-  // is set. Demo + active-Advanced schools get AI; Free/Basic do not.
   useEffect(() => { setAIAllowed(subscriptionGate.isAIAllowed); }, [subscriptionGate.isAIAllowed]);
 
-  // Version check: only ask the user to update when their running build is
-  // genuinely OLDER than the latest known version — and always show the REAL
-  // latest version number. We take the highest of the published registry version,
-  // the school's platform_version and the running build, so we never tell anyone
-  // to "update" to a version older than what they already have.
   const [latestRegistryVersion, setLatestRegistryVersion] = useState<string | null>(null);
   useEffect(() => {
-    // Guard against firing before the auth token has landed in sessionStorage
-    // (e.g. right after a demo role switch remounts this component) — an
-    // unauthenticated call here trips the API client's missing-token
-    // force-logout and silently kicks the user back to the sign-in screen.
     if (!user) return;
     let active = true;
     api.getAppVersions()
       .then((list: any[]) => {
         if (active && Array.isArray(list) && list[0]?.version) setLatestRegistryVersion(list[0].version);
       })
-      .catch(() => { /* non-blocking — fall back to platform_version / APP_VERSION */ });
+      .catch(() => { });
     return () => { active = false; };
   }, [user]);
 
@@ -149,7 +127,14 @@ const AuthenticatedApp: React.FC = () => {
   useEffect(() => {
     if (user && role) {
       console.log(`👤 User Authenticated: ${user.email} as ${role}`);
-      requestNotificationPermission();
+      // Permission prompting is secondary work; do not make it part of dashboard boot.
+      const idle = 'requestIdleCallback' in window
+        ? window.requestIdleCallback(() => { void requestNotificationPermission(); }, { timeout: 3000 })
+        : window.setTimeout(() => { void requestNotificationPermission(); }, 1000);
+      return () => {
+        if ('cancelIdleCallback' in window && typeof idle === 'number') window.cancelIdleCallback(idle);
+        else window.clearTimeout(idle as number);
+      };
     }
   }, [user, role]);
 
@@ -177,9 +162,9 @@ const AuthenticatedApp: React.FC = () => {
         ) : authView === 'create-school' ? (
           <CreateSchoolSignup onNavigateToLogin={() => React.startTransition(() => setAuthView('login'))} />
         ) : (
-          <Login 
-            onNavigateToSignup={() => React.startTransition(() => setAuthView('signup'))} 
-            onNavigateToCreateSchool={() => React.startTransition(() => setAuthView('create-school'))} 
+          <Login
+            onNavigateToSignup={() => React.startTransition(() => setAuthView('signup'))}
+            onNavigateToCreateSchool={() => React.startTransition(() => setAuthView('create-school'))}
           />
         )}
       </Suspense>
@@ -196,13 +181,9 @@ const AuthenticatedApp: React.FC = () => {
         <MobileNavigationHandler />
         <ContextualMarquee />
         <VerificationGuard>
-          {/* Version Lock Overlay */}
           {isVersionMismatch && (
             <UpdatePrompt forced={true} targetVersion={latestVersion} />
           )}
-
-          {/* Subscription Lock — replaces dashboard entirely when expired/suspended.
-              Exception: keep the /subscription route reachable so admins can renew. */}
           {subscriptionGate.isLocked && !window.location.pathname.startsWith('/subscription') ? (
             <SubscriptionLockScreen />
           ) : (
@@ -219,37 +200,56 @@ const AuthenticatedApp: React.FC = () => {
 
 const App: React.FC = () => {
   const [isInitializing, setIsInitializing] = useState(true);
-  const [initMessage, setInitMessage] = useState('Initializing...');
+  const [initMessage] = useState('Initializing...');
 
   useEffect(() => {
-    mobileSyncManager.initialize();
-    PushNotificationManager.initialize();
-
-    const initializeOfflineFirst = async () => {
-      // The app shell and cached auth state can render while IndexedDB cleanup
-      // runs. API calls still retain their own offline fallback if the database
-      // is not ready yet.
-      setIsInitializing(false);
+    // These modules are not needed to paint the shell. Load them only after the
+    // first interactive frame so mobile/offline infrastructure cannot block login.
+    let cancelled = false;
+    const initializeBackgroundServices = async () => {
       try {
-        await runMigrations();
-        cacheCleanupScheduler.start();
+        const [{ mobileSyncManager }, { PushNotificationManager }] = await Promise.all([
+          import('./lib/mobile/MobileSync'),
+          import('./lib/mobile/PushConfig'),
+        ]);
+        if (cancelled) return;
+        mobileSyncManager.initialize();
+        PushNotificationManager.initialize();
       } catch (error) {
-        console.error('❌ Initialization failed:', error);
+        console.warn('⚠️ Background mobile initialization failed:', error);
       }
     };
 
-    initializeOfflineFirst();
+    const startBackgroundInitialization = () => {
+      void (async () => {
+        try {
+          await runMigrations();
+          if (!cancelled) cacheCleanupScheduler.start();
+        } catch (error) {
+          console.error('❌ Background initialization failed:', error);
+        }
+      })();
+      void initializeBackgroundServices();
+    };
+
+    const idle = 'requestIdleCallback' in window
+      ? window.requestIdleCallback(startBackgroundInitialization, { timeout: 1500 })
+      : window.setTimeout(startBackgroundInitialization, 250);
+
+    // First paint is independent of migrations/mobile setup.
+    setIsInitializing(false);
+
+    return () => {
+      cancelled = true;
+      if ('cancelIdleCallback' in window && typeof idle === 'number') window.cancelIdleCallback(idle);
+      else window.clearTimeout(idle as number);
+    };
   }, []);
 
   return (
-    // reducedMotion="user" makes EVERY framer-motion animation in the app honour
-    // the operating system's "Reduce Motion" setting — transforms are dropped and
-    // opacity changes are kept, so feedback survives but nothing travels. One
-    // switch here covers all 300+ components that animate.
     <MotionConfig reducedMotion="user">
       <Toaster position="top-right" />
       <OfflineIndicator />
-      {/* Applies each signed-in user's OWN saved appearance (per user + role). */}
       <AppearanceSync />
       {isInitializing ? (
         <PremiumLoader message={initMessage} fullScreen={true} />
@@ -259,9 +259,6 @@ const App: React.FC = () => {
             <ErrorBoundary>
               <Suspense fallback={<LoadingScreen />}>
                 <AuthenticatedApp />
-                {/* Install entry point is the persistent InstallAppButton (in DashboardLayout),
-                    always visible on the web version until installed. The one-time PWAInstallPrompt
-                    card was removed so there is exactly one install banner. */}
                 <UpdatePrompt />
               </Suspense>
             </ErrorBoundary>
