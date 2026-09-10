@@ -1,13 +1,11 @@
 import { useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useBranch } from '../context/BranchContext';
-import { realtimeService } from '../services/RealtimeService';
 
 /**
- * useRealtimeSync Hook
- * 
- * Ensures the global realtime subscription is active for the current school and branch.
- * This hook should be called at the top level of the authenticated app.
+ * Start realtime only after the authenticated UI has become interactive.
+ * This keeps WebSocket setup out of the critical dashboard render path while
+ * preserving the same school/branch scoping and reconnect behavior.
  */
 export function useRealtimeSync() {
     const { user } = useAuth();
@@ -17,17 +15,51 @@ export function useRealtimeSync() {
     const branchId = currentBranch?.id;
 
     useEffect(() => {
-        if (userId && schoolId) {
-            console.log(`🔌 [useRealtimeSync] Initializing for School: ${schoolId}, Branch: ${branchId || 'All'}`);
-            (realtimeService as any).initialize(userId, schoolId, branchId);
-        }
+        if (!userId || !schoolId) return;
+
+        let cancelled = false;
+        let realtime: any = null;
+
+        const initialize = async () => {
+            if (cancelled) return;
+            try {
+                // Keep the realtime implementation out of the initial JS path.
+                const module = await import('../services/RealtimeService');
+                if (cancelled) return;
+                realtime = module.realtimeService;
+                console.log(`🔌 [useRealtimeSync] Initializing for School: ${schoolId}, Branch: ${branchId || 'All'}`);
+                realtime.initialize(userId, schoolId, branchId);
+            } catch (error) {
+                // Realtime is enhancement/background work. A failed socket must
+                // never turn a usable cached dashboard into an error state.
+                console.warn('[useRealtimeSync] Background realtime initialization failed', error);
+            }
+        };
+
+        const idleHandle = 'requestIdleCallback' in window
+            ? window.requestIdleCallback(initialize, { timeout: 2000 })
+            : window.setTimeout(initialize, 500);
+
+        return () => {
+            cancelled = true;
+            if ('cancelIdleCallback' in window && typeof idleHandle === 'number') {
+                window.cancelIdleCallback(idleHandle);
+            } else {
+                window.clearTimeout(idleHandle as number);
+            }
+        };
     }, [userId, schoolId, branchId]);
 
     return {
         isActive: !!userId && !!schoolId,
-        refresh: () => {
-            if (userId && schoolId) (realtimeService as any).initialize(userId, schoolId, branchId);
+        refresh: async () => {
+            if (!userId || !schoolId) return;
+            try {
+                const module = await import('../services/RealtimeService');
+                module.realtimeService.initialize(userId, schoolId, branchId);
+            } catch (error) {
+                console.warn('[useRealtimeSync] Background realtime refresh failed', error);
+            }
         }
     };
 }
-
