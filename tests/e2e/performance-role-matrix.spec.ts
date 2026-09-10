@@ -10,12 +10,14 @@ const ROLES = [
 async function login(page: Page, baseURL: string, role: typeof ROLES[number]) {
     await page.goto(baseURL, { waitUntil: 'domcontentloaded' });
     await page.getByRole('button', { name: /Try Demo School/i }).click();
+    const start = Date.now();
     await page.getByRole('button', { name: new RegExp(role.tile, 'i') }).first().click();
     await page.waitForFunction(
         ({ nav, list }) => typeof (window as any)[nav] === 'function' && Array.isArray((window as any)[list]),
         { nav: role.nav, list: role.list },
         { timeout: 45_000 },
     );
+    return Date.now() - start;
 }
 
 function installMutationClock(page: Page) {
@@ -30,10 +32,10 @@ function installMutationClock(page: Page) {
 
 async function measureNavigation(page: Page, role: typeof ROLES[number], view: string) {
     const before = await page.evaluate(() => (window as any).__PERF_MUTATION__ || 0);
-    const start = performance.now();
+    const start = Date.now();
     await page.evaluate(({ nav, view }) => (window as any)[nav]?.(view, view, {}), { nav: role.nav, view });
     await page.waitForFunction((previous) => ((window as any).__PERF_MUTATION__ || 0) > previous, before, { timeout: 10_000 });
-    return Math.round(performance.now() - start);
+    return Date.now() - start;
 }
 
 test.describe('production role performance matrix', () => {
@@ -42,7 +44,7 @@ test.describe('production role performance matrix', () => {
 
     for (const role of ROLES) {
         test(`${role.key}: registered views cold/warm matrix`, async ({ page, baseURL }) => {
-            await login(page, baseURL!, role);
+            const dashboardFirstRenderMs = await login(page, baseURL!, role);
             await installMutationClock(page);
 
             const views: string[] = await page.evaluate((list) => (window as any)[list] || [], role.list);
@@ -74,12 +76,19 @@ test.describe('production role performance matrix', () => {
                 page.on('response', onResponse);
                 page.on('pageerror', onPageError);
 
-                // Cold: first navigation to the target view in this browser session.
-                const firstLoadMs = await measureNavigation(page, role, view);
+                let firstLoadMs: number;
+                if (view === role.home) {
+                    firstLoadMs = dashboardFirstRenderMs;
+                } else {
+                    await measureNavigation(page, role, role.home);
+                    firstLoadMs = await measureNavigation(page, role, view);
+                }
+
                 const buttons = await page.locator('main button:visible:not([disabled]), main [role="button"]:visible:not([aria-disabled="true"])').count();
 
-                // Warm: leave the target, then navigate back after its module/data are cached.
-                await measureNavigation(page, role, role.home);
+                // Force a real route transition before measuring the warm return.
+                const intermediate = view === role.home ? (views.find((v) => v !== role.home) || role.home) : role.home;
+                if (intermediate !== view) await measureNavigation(page, role, intermediate);
                 const warmLoadMs = await measureNavigation(page, role, view);
 
                 const prefetch = await page.evaluate(() => {
@@ -88,13 +97,12 @@ test.describe('production role performance matrix', () => {
                     return state.completed >= state.total ? 'complete' : `in-progress:${state.completed}/${state.total}`;
                 });
 
-                const apiTimeMs = apiTimes.length ? Math.max(...apiTimes) : null;
                 rows.push({
                     role: role.key,
                     view,
                     firstLoadMs,
                     warmLoadMs,
-                    apiTimeMs,
+                    apiTimeMs: apiTimes.length ? Math.max(...apiTimes) : null,
                     prefetch,
                     buttons,
                     fiveXX: serverErrors.length,
