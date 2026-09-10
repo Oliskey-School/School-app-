@@ -1,15 +1,14 @@
 import React, { useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { DashboardType } from '../types';
-import { useNavigate, useLocation, Routes, Route, Navigate } from 'react-router';
+import { useNavigate, useLocation, Routes, Route } from 'react-router';
 import VerifiedAdminRoute from './auth/VerifiedAdminRoute';
-
 import { lazyWithRetry } from '../lib/lazyRetry';
+import { prefetchRoleChunks } from '../lib/rolePrefetch';
 
 const PremiumErrorPage = lazyWithRetry(() => import('./ui/PremiumErrorPage'));
 const NotFoundPage = lazyWithRetry(() => import('./ui/NotFoundPage'));
 
-// Import Dashboards (Using resilient paths)
 const AdminDashboard = lazyWithRetry(() => import('./admin/AdminDashboard'));
 const SuperAdminDashboard = lazyWithRetry(() => import('./admin/SuperAdminDashboard'));
 const TeacherDashboard = lazyWithRetry(() => import('./teacher/TeacherDashboard'));
@@ -23,14 +22,12 @@ const CounselorDashboard = lazyWithRetry(() => import('./admin/CounselorDashboar
 const SubscriptionPage = lazyWithRetry(() => import('./subscription/SubscriptionPage'));
 const ExternalExamsPage = lazyWithRetry(() => import('./admin/ExternalExamsPage'));
 
-// Simple Loading Component
 const LoadingScreen = () => (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
     </div>
 );
 
-// Define props interface
 interface DashboardRouterProps {
     onLogout?: () => void;
     setIsHomePage?: (value: boolean) => void;
@@ -43,56 +40,39 @@ const DashboardRouter: React.FC<DashboardRouterProps> = (props) => {
     const navigate = useNavigate();
     const location = useLocation();
 
-    // 1. Dynamic Branding
     useEffect(() => {
         if (currentSchool?.primaryColor) {
-            // Check if we can use CSS variables for global theming
             document.documentElement.style.setProperty('--primary-color', currentSchool.primaryColor);
-
-            // Or if strict adherence to user request "Provide a CSS/Tailwind utility":
-            // We can inject a style tag or class. 
-            // Setting a CSS variable is the most robust way to "Apply to the dashboard theme dynamically".
         }
     }, [currentSchool]);
 
-    // 2. Security & Redirects
     useEffect(() => {
         if (!loading && !role) {
-            // Not logged in -> Redirect to login
             navigate('/login');
-            return;
         }
-
-        // 3. User manually changing URL check (simplified version)
-        // If the user tries to go to /admin but their role is 'student', we bounce them.
-        // Assuming this component sits at the root of /dashboard/* or similar.
-        // Since this router decides what to RENDER based on role, URL-based access control 
-        // is mostly handled by the fact that we ONLY render the component matching the role.
-        // However, if there are sub-routes like /dashboard/settings that only admins should see,
-        // those checks strictly belong inside the AdminDashboard or a ProtectedRoute wrapper.
-
-        // For the top-level routing requested:
-        // "Ensure that if a user manually changes the URL to /admin, the app checks their role and redirects..."
-
-        // Implementation: If we are using path-based routing (e.g. /admin, /student), verify role matches path.
-        // But the user request implies this SINGLE component handles the decision. 
-        // So `return <StudentDashboard />` effectively prevents access to Admin UI regardless of URL, 
-        // UNLESS the URL is distinct. 
-
-        // Let's assume standard app pattern: App -> DashboardRouter (at path="/") -> Specific Dashboard.
     }, [role, loading, navigate]);
+
+    // The current dashboard is already interactive by the time this router has
+    // resolved the role. Warm only a small, role-safe set of likely next screens.
+    // This runs during idle time and never blocks the current render.
+    useEffect(() => {
+        if (loading || !role) return;
+        const start = () => prefetchRoleChunks(String(role));
+        const idle = 'requestIdleCallback' in window
+            ? window.requestIdleCallback(start, { timeout: 2000 })
+            : window.setTimeout(start, 500);
+        return () => {
+            if ('cancelIdleCallback' in window && typeof idle === 'number') window.cancelIdleCallback(idle);
+            else window.clearTimeout(idle as number);
+        };
+    }, [loading, role]);
 
     if (loading) return <LoadingScreen />;
 
-    // 4. Role-based Rendering
     const renderDashboard = () => {
         switch (role) {
             case DashboardType.Admin:
-                return (
-                    <VerifiedAdminRoute>
-                        <AdminDashboard {...props} />
-                    </VerifiedAdminRoute>
-                );
+                return <VerifiedAdminRoute><AdminDashboard {...props} /></VerifiedAdminRoute>;
             case DashboardType.SuperAdmin:
                 return <SuperAdminDashboard {...props} />;
             case DashboardType.Proprietor:
@@ -111,7 +91,6 @@ const DashboardRouter: React.FC<DashboardRouterProps> = (props) => {
                 return <StudentDashboard {...props} />;
             case DashboardType.Parent:
                 return <ParentDashboard {...props} />;
-
             default:
                 return (
                     <PremiumErrorPage
@@ -125,29 +104,18 @@ const DashboardRouter: React.FC<DashboardRouterProps> = (props) => {
 
     return (
         <React.Suspense fallback={<LoadingScreen />}>
-            {/* 
-                Theme Wrapper 
-                We apply the primary color as a style attribute to a wrapper if not using global CSS vars.
-                Using CSS variables is cleaner.
-             */}
             <div
                 className="dashboard-container h-full w-full"
                 style={{
-                    // @ts-ignore custom property
-                    '--school-primary': currentSchool?.primaryColor || '#4F46E5', // Default Indigo-600
+                    '--school-primary': currentSchool?.primaryColor || '#4F46E5',
                     '--school-secondary': currentSchool?.secondaryColor || '#ffffff',
                 } as React.CSSProperties}
             >
                 <Routes>
-                    {/* The root dashboard based on role */}
                     <Route path="/" element={renderDashboard()} />
                     <Route path="/subscription" element={<SubscriptionPage {...(props as any)} />} />
                     <Route path="/upgrade" element={<SubscriptionPage {...(props as any)} />} />
-
-                    {/* The specific External Exams page requested by the user */}
                     <Route path="/external-exams" element={<ExternalExamsPage {...(props as any)} />} />
-
-                    {/* Fallback to 404 Error Page if path is not matched */}
                     <Route path="*" element={<NotFoundPage />} />
                 </Routes>
             </div>
