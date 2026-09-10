@@ -42,7 +42,12 @@ jobs:
       BACKEND_PORT: 5099
 
     steps:
+      # A PR's merge ref can lag behind the PR head. This suite is explicitly a
+      # branch-head gate, so test the exact head commit on pull_request; manual
+      # and scheduled runs keep the normal GitHub SHA.
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
 
       - uses: actions/setup-node@v4
         with:
@@ -81,6 +86,20 @@ jobs:
             fi
             sleep 2
           done
+
+      # Fail loudly here rather than as nine confusing test failures. The preview
+      # server proxies /api to BACKEND_PORT (see vite.config.mts); if that proxy
+      # is misresolved, every API call in the suite dies with a proxy error while
+      # the backend itself looks perfectly healthy.
+      - name: Verify frontend/API wiring
+        run: |
+          echo "Backend /live:"
+          curl -fsS "http://127.0.0.1:$BACKEND_PORT/live"
+          echo
+          echo "Frontend shell:"
+          curl -fsSI "http://127.0.0.1:4173/" | head -1
+          echo "Proxied API path:"
+          curl -fsSI "http://127.0.0.1:4173/api/health" | head -1
 
       - name: Run critical path suite
         run: BASE_URL=http://localhost:4173 npx playwright test tests/e2e/production-critical-path.spec.ts --project=chromium --workers=1
