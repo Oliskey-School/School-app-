@@ -21,13 +21,19 @@ async function login(page: Page, baseURL: string, role: typeof ROLES[number]) {
 function installMutationClock(page: Page) {
     return page.evaluate(() => {
         const w = window as any;
-        w.__PERF_LAST_MUTATION__ = performance.now();
+        w.__PERF_MUTATION__ = 0;
         w.__PERF_OBSERVER__?.disconnect?.();
-        w.__PERF_OBSERVER__ = new MutationObserver(() => {
-            w.__PERF_LAST_MUTATION__ = performance.now();
-        });
-        w.__PERF_OBSERVER__.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: false });
+        w.__PERF_OBSERVER__ = new MutationObserver(() => { w.__PERF_MUTATION__ += 1; });
+        w.__PERF_OBSERVER__.observe(document.body, { childList: true, subtree: true, characterData: true });
     });
+}
+
+async function measureNavigation(page: Page, role: typeof ROLES[number], view: string) {
+    const before = await page.evaluate(() => (window as any).__PERF_MUTATION__ || 0);
+    const start = performance.now();
+    await page.evaluate(({ nav, view }) => (window as any)[nav]?.(view, view, {}), { nav: role.nav, view });
+    await page.waitForFunction((previous) => ((window as any).__PERF_MUTATION__ || 0) > previous, before, { timeout: 10_000 });
+    return Math.round(performance.now() - start);
 }
 
 test.describe('production role performance matrix', () => {
@@ -36,28 +42,6 @@ test.describe('production role performance matrix', () => {
 
     for (const role of ROLES) {
         test(`${role.key}: registered views cold/warm matrix`, async ({ page, baseURL }) => {
-            const apiStarts = new Map<string, number>();
-            const apiTimes = new Map<string, number[]>();
-            const pageErrors: string[] = [];
-            const serverErrors: string[] = [];
-
-            page.on('request', (request) => {
-                if (/\/api\//.test(request.url())) apiStarts.set(request.url() + request.method(), Date.now());
-            });
-            page.on('response', (response) => {
-                if (!/\/api\//.test(response.url())) return;
-                const key = response.url() + response.request().method();
-                const started = apiStarts.get(key);
-                if (started !== undefined) {
-                    const times = apiTimes.get(role.key) || [];
-                    times.push(Date.now() - started);
-                    apiTimes.set(role.key, times);
-                    apiStarts.delete(key);
-                }
-                if (response.status() >= 500) serverErrors.push(`${response.request().method()} ${response.url()} -> ${response.status()}`);
-            });
-            page.on('pageerror', (error) => pageErrors.push(error.message));
-
             await login(page, baseURL!, role);
             await installMutationClock(page);
 
@@ -65,42 +49,62 @@ test.describe('production role performance matrix', () => {
             expect(views.length, `${role.key} exposed no registered views`).toBeGreaterThan(0);
 
             const rows: Array<Record<string, unknown>> = [];
-            let previousSignature = '';
 
             for (const view of views) {
-                const nav = role.nav;
-                const coldStart = Date.now();
-                await page.evaluate(({ nav, view }) => (window as any)[nav]?.(view, view, {}), { nav, view });
-                await page.waitForFunction(() => {
-                    const w = window as any;
-                    return typeof w.__PERF_LAST_MUTATION__ === 'number' && w.__PERF_LAST_MUTATION__ >= 0;
-                }, null, { timeout: 10_000 });
-                const coldRender = await page.evaluate((start) => performance.now() - start, coldStart);
+                const pageErrors: string[] = [];
+                const serverErrors: string[] = [];
+                const apiStarts = new Map<string, number>();
+                const apiTimes: number[] = [];
 
-                const signature = await page.locator('main').innerText().catch(() => '');
-                const warmStart = Date.now();
-                await page.evaluate(({ nav, view }) => (window as any)[nav]?.(view, view, {}), { nav, view });
-                await page.waitForTimeout(0);
-                const warmRender = Date.now() - warmStart;
-                const api = apiTimes.get(role.key) || [];
-                const apiTime = api.length ? Math.max(...api) : null;
+                const onRequest = (request: any) => {
+                    if (/\/api\//.test(request.url())) apiStarts.set(request.url() + request.method(), Date.now());
+                };
+                const onResponse = (response: any) => {
+                    if (!/\/api\//.test(response.url())) return;
+                    const key = response.url() + response.request().method();
+                    const started = apiStarts.get(key);
+                    if (started !== undefined) {
+                        apiTimes.push(Date.now() - started);
+                        apiStarts.delete(key);
+                    }
+                    if (response.status() >= 500) serverErrors.push(`${response.request().method()} ${response.url()} -> ${response.status()}`);
+                };
+                const onPageError = (error: Error) => pageErrors.push(error.message);
+                page.on('request', onRequest);
+                page.on('response', onResponse);
+                page.on('pageerror', onPageError);
 
-                const resources = await page.evaluate(() => performance.getEntriesByType('resource').map((e: any) => e.name));
-                const prefetchedBeforeNavigation = resources.some((name) => /\.js(?:\?|$)/.test(name) && name !== location.href);
+                // Cold: first navigation to the target view in this browser session.
+                const firstLoadMs = await measureNavigation(page, role, view);
+                const buttons = await page.locator('main button:visible:not([disabled]), main [role="button"]:visible:not([aria-disabled="true"])').count();
 
+                // Warm: leave the target, then navigate back after its module/data are cached.
+                await measureNavigation(page, role, role.home);
+                const warmLoadMs = await measureNavigation(page, role, view);
+
+                const prefetch = await page.evaluate(() => {
+                    const state = (window as any).__ROLE_PREFETCH__;
+                    if (!state?.started) return 'not-started';
+                    return state.completed >= state.total ? 'complete' : `in-progress:${state.completed}/${state.total}`;
+                });
+
+                const apiTimeMs = apiTimes.length ? Math.max(...apiTimes) : null;
                 rows.push({
                     role: role.key,
                     view,
-                    firstLoadMs: Math.round(coldRender),
-                    warmLoadMs: warmRender,
-                    apiTimeMs: apiTime,
-                    prefetch: prefetchedBeforeNavigation ? 'observed' : 'not-observed',
-                    buttons: await page.locator('main button:visible:not([disabled]), main [role="button"]:visible:not([aria-disabled="true"])').count(),
-                    pageErrors: pageErrors.length,
+                    firstLoadMs,
+                    warmLoadMs,
+                    apiTimeMs,
+                    prefetch,
+                    buttons,
                     fiveXX: serverErrors.length,
-                    signatureChanged: signature !== previousSignature || view === views[0],
+                    pageErrors: pageErrors.length,
+                    result: serverErrors.length === 0 && pageErrors.length === 0 ? 'PASS' : 'FAIL',
                 });
-                previousSignature = signature;
+
+                page.off('request', onRequest);
+                page.off('response', onResponse);
+                page.off('pageerror', onPageError);
 
                 expect(pageErrors, `${role.key}/${view} pageerror: ${pageErrors.join('; ')}`).toEqual([]);
                 expect(serverErrors, `${role.key}/${view} API 5xx: ${serverErrors.join('; ')}`).toEqual([]);
