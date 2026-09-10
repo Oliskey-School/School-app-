@@ -221,6 +221,10 @@ model User {
   allowed_branch_ids     String[]               @default([])
   email_verified         Boolean                @default(false)
   is_active              Boolean                @default(true)
+  // Demo sandbox sessions are flagged here so generateTokens() can stamp the
+  // is_demo claim onto the JWT (auth.service.ts). The auth middleware trusts
+  // that claim to route demo traffic through the sandbox branch path.
+  is_demo                Boolean                @default(false)
   school_generated_id    String?                @unique
   avatar_url             String?
   phone                  String?
