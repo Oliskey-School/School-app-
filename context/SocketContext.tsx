@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useRef } from 'react';
-import { io, Socket } from 'socket.io-client';
+// Type-only: erased at compile time, so it adds nothing to the bundle.
+import type { Socket } from 'socket.io-client';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './AuthContext';
 
@@ -22,280 +23,298 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // No identity yet (still loading / logged out) — nothing to connect for.
     if (!user?.id) return;
 
-    // Same per-tab token used for every REST call. The server verifies it in
-    // its io.use() handshake middleware and derives the socket's own
-    // school/user id from it directly — join-school/register-user no longer
-    // trust whatever id a client happens to send, so this token is required
-    // for the connection to be accepted at all.
-    const authToken = sessionStorage.getItem('auth_token');
-    const socket = io(SOCKET_URL, {
-      auth: { token: authToken },
-      transports: ['websocket', 'polling'],
-      withCredentials: true
-    });
+    let cancelled = false;
+    let socket: Socket | null = null;
 
-    socketRef.current = socket;
+    // socket.io-client is pulled in on demand rather than at module scope.
+    // This provider mounts at the app root, so a static import put the whole
+    // WebSocket client in the eager login chunk — bytes an unauthenticated
+    // visitor can never use, since the guard above already means no socket is
+    // opened without a session.
+    void (async () => {
+      const { io } = await import('socket.io-client');
+      // The user may have logged out while the chunk was in flight.
+      if (cancelled) return;
 
-    socket.on('connect', () => {
-      console.log('🔌 Connected to real-time server');
-      socket.emit('join-school');
-      socket.emit('register-user');
-    });
+      // Same per-tab token used for every REST call. The server verifies it in
+      // its io.use() handshake middleware and derives the socket's own
+      // school/user id from it directly — join-school/register-user no longer
+      // trust whatever id a client happens to send, so this token is required
+      // for the connection to be accepted at all.
+      const authToken = sessionStorage.getItem('auth_token');
+      // Assign to the effect-scoped `socket`, never a new binding: the cleanup
+      // below closes over it, and shadowing here would leak the connection.
+      socket = io(SOCKET_URL, {
+        auth: { token: authToken },
+        transports: ['websocket', 'polling'],
+        withCredentials: true
+      });
 
-    // Helper to dispatch custom events for legacy useAutoSync hook
-    const dispatchLegacyUpdate = (entity: string) => {
-        window.dispatchEvent(new CustomEvent('realtime-update', { 
-            detail: { table: entity } 
-        }));
-    };
+      socketRef.current = socket;
 
-    // Handle generic data invalidation
-    socket.on('data-updated', (data: { entity: string, id?: string }) => {
-      console.log(`🔄 Data updated: ${data.entity}`, data.id || '');
-      // Invalidate relevant queries in React Query
-      queryClient.invalidateQueries({ queryKey: [data.entity] });
-      // Dispatch legacy event
-      dispatchLegacyUpdate(data.entity);
-    });
+      socket.on('connect', () => {
+        console.log('🔌 Connected to real-time server');
+        socket.emit('join-school');
+        socket.emit('register-user');
+      });
 
-    // Chat message — real-time message pushed to the room
-    socket.on('chat:message', (data: any) => {
-        queryClient.invalidateQueries({ queryKey: ['chat', data.room_id] });
-        queryClient.invalidateQueries({ queryKey: ['chat-rooms'] });
-        queryClient.invalidateQueries({ queryKey: ['unread-count'] });
-        dispatchLegacyUpdate('messages');
-        dispatchLegacyUpdate('chat_rooms');
-    });
+      // Helper to dispatch custom events for legacy useAutoSync hook
+      const dispatchLegacyUpdate = (entity: string) => {
+          window.dispatchEvent(new CustomEvent('realtime-update', {
+              detail: { table: entity }
+          }));
+      };
 
-    // User-specific personal channel events
-    socket.on('user:chat_update', (data: any) => {
-        queryClient.invalidateQueries({ queryKey: ['chat-rooms'] });
-        queryClient.invalidateQueries({ queryKey: ['unread-count'] });
-        dispatchLegacyUpdate('chat_rooms');
-        dispatchLegacyUpdate('messages');
-    });
+      // Handle generic data invalidation
+      socket.on('data-updated', (data: { entity: string, id?: string }) => {
+        console.log(`🔄 Data updated: ${data.entity}`, data.id || '');
+        // Invalidate relevant queries in React Query
+        queryClient.invalidateQueries({ queryKey: [data.entity] });
+        // Dispatch legacy event
+        dispatchLegacyUpdate(data.entity);
+      });
 
-    if (user?.id) {
-        // Legacy per-user event name (kept for backward compat)
-        socket.on(`user:${user.id}:chat_update`, () => {
-            queryClient.invalidateQueries({ queryKey: ['chat-rooms'] });
-            queryClient.invalidateQueries({ queryKey: ['unread-count'] });
-            dispatchLegacyUpdate('chat_rooms');
-        });
+      // Chat message — real-time message pushed to the room
+      socket.on('chat:message', (data: any) => {
+          queryClient.invalidateQueries({ queryKey: ['chat', data.room_id] });
+          queryClient.invalidateQueries({ queryKey: ['chat-rooms'] });
+          queryClient.invalidateQueries({ queryKey: ['unread-count'] });
+          dispatchLegacyUpdate('messages');
+          dispatchLegacyUpdate('chat_rooms');
+      });
 
-        socket.on(`user:${user.id}:notification`, (notification: any) => {
-            console.log('🔔 New notification received:', notification.title);
-            // Merge the pushed payload straight into the cache instead of
-            // refetching — the socket already gave us the full record. If
-            // nothing has fetched the initial list yet, there's no cache to
-            // merge into, so fall back to a normal invalidate.
-            const existing = queryClient.getQueryData<any[]>(['notifications']);
-            if (existing) {
-                queryClient.setQueryData(['notifications'], [notification, ...existing]);
-            } else {
-                queryClient.invalidateQueries({ queryKey: ['notifications'] });
-            }
-            dispatchLegacyUpdate('notifications');
-        });
-    }
+      // User-specific personal channel events
+      socket.on('user:chat_update', (data: any) => {
+          queryClient.invalidateQueries({ queryKey: ['chat-rooms'] });
+          queryClient.invalidateQueries({ queryKey: ['unread-count'] });
+          dispatchLegacyUpdate('chat_rooms');
+          dispatchLegacyUpdate('messages');
+      });
 
-    socket.on('fee:updated', () => {
-        queryClient.invalidateQueries({ queryKey: ['fees'] });
-        queryClient.invalidateQueries({ queryKey: ['analytics'] });
-        dispatchLegacyUpdate('fees');
-        dispatchLegacyUpdate('analytics');
-    });
+      if (user?.id) {
+          // Legacy per-user event name (kept for backward compat)
+          socket.on(`user:${user.id}:chat_update`, () => {
+              queryClient.invalidateQueries({ queryKey: ['chat-rooms'] });
+              queryClient.invalidateQueries({ queryKey: ['unread-count'] });
+              dispatchLegacyUpdate('chat_rooms');
+          });
 
-    socket.on('student:updated', () => {
-        queryClient.invalidateQueries({ queryKey: ['students'] });
-        queryClient.invalidateQueries({ queryKey: ['analytics'] });
-        dispatchLegacyUpdate('students');
-        dispatchLegacyUpdate('analytics');
-    });
+          socket.on(`user:${user.id}:notification`, (notification: any) => {
+              console.log('🔔 New notification received:', notification.title);
+              // Merge the pushed payload straight into the cache instead of
+              // refetching — the socket already gave us the full record. If
+              // nothing has fetched the initial list yet, there's no cache to
+              // merge into, so fall back to a normal invalidate.
+              const existing = queryClient.getQueryData<any[]>(['notifications']);
+              if (existing) {
+                  queryClient.setQueryData(['notifications'], [notification, ...existing]);
+              } else {
+                  queryClient.invalidateQueries({ queryKey: ['notifications'] });
+              }
+              dispatchLegacyUpdate('notifications');
+          });
+      }
 
-    socket.on('attendance:updated', () => {
-        queryClient.invalidateQueries({ queryKey: ['attendance'] });
-        queryClient.invalidateQueries({ queryKey: ['analytics'] });
-        dispatchLegacyUpdate('attendance');
-        dispatchLegacyUpdate('analytics');
-    });
+      socket.on('fee:updated', () => {
+          queryClient.invalidateQueries({ queryKey: ['fees'] });
+          queryClient.invalidateQueries({ queryKey: ['analytics'] });
+          dispatchLegacyUpdate('fees');
+          dispatchLegacyUpdate('analytics');
+      });
 
-    socket.on('class:updated', () => {
-        queryClient.invalidateQueries({ queryKey: ['classes'] });
-        dispatchLegacyUpdate('classes');
-    });
+      socket.on('student:updated', () => {
+          queryClient.invalidateQueries({ queryKey: ['students'] });
+          queryClient.invalidateQueries({ queryKey: ['analytics'] });
+          dispatchLegacyUpdate('students');
+          dispatchLegacyUpdate('analytics');
+      });
 
-    socket.on('parent:updated', () => {
-        queryClient.invalidateQueries({ queryKey: ['parents'] });
-        queryClient.invalidateQueries({ queryKey: ['students'] });
-        queryClient.invalidateQueries({ queryKey: ['parent_student_links'] });
-        dispatchLegacyUpdate('parents');
-        dispatchLegacyUpdate('students');
-        dispatchLegacyUpdate('parent_student_links');
-    });
+      socket.on('attendance:updated', () => {
+          queryClient.invalidateQueries({ queryKey: ['attendance'] });
+          queryClient.invalidateQueries({ queryKey: ['analytics'] });
+          dispatchLegacyUpdate('attendance');
+          dispatchLegacyUpdate('analytics');
+      });
 
-    socket.on('teacher:updated', () => {
-        queryClient.invalidateQueries({ queryKey: ['teachers'] });
-        queryClient.invalidateQueries({ queryKey: ['analytics'] });
-        queryClient.invalidateQueries({ queryKey: ['timetables'] });
-        dispatchLegacyUpdate('teachers');
-        dispatchLegacyUpdate('analytics');
-        // Class/subject assignment changes live here — trigger useTeacherClasses
-        // re-fetch so the teacher's dashboard, class cards, and timetable update
-        // the moment an admin saves new assignments.
-        dispatchLegacyUpdate('class_teachers');
-        dispatchLegacyUpdate('teacher_classes');
-        dispatchLegacyUpdate('teacher_subjects');
-        // Also refresh timetable views — the server-side filter uses ClassTeacher
-        // records, so new assignments must cause TimetableScreen to re-query.
-        dispatchLegacyUpdate('timetables');
-        dispatchLegacyUpdate('timetable');
-    });
+      socket.on('class:updated', () => {
+          queryClient.invalidateQueries({ queryKey: ['classes'] });
+          dispatchLegacyUpdate('classes');
+      });
 
-    // Timetable publish/update — refetch for all roles in the school
-    socket.on('timetable:updated', () => {
-        queryClient.invalidateQueries({ queryKey: ['timetables'] });
-        dispatchLegacyUpdate('timetables');
-        dispatchLegacyUpdate('timetable');
-    });
+      socket.on('parent:updated', () => {
+          queryClient.invalidateQueries({ queryKey: ['parents'] });
+          queryClient.invalidateQueries({ queryKey: ['students'] });
+          queryClient.invalidateQueries({ queryKey: ['parent_student_links'] });
+          dispatchLegacyUpdate('parents');
+          dispatchLegacyUpdate('students');
+          dispatchLegacyUpdate('parent_student_links');
+      });
 
-    socket.on('timetable:published', (data: { class_name?: string; school_id?: string }) => {
-        queryClient.invalidateQueries({ queryKey: ['timetables'] });
-        dispatchLegacyUpdate('timetables');
-        dispatchLegacyUpdate('timetable');
-    });
+      socket.on('teacher:updated', () => {
+          queryClient.invalidateQueries({ queryKey: ['teachers'] });
+          queryClient.invalidateQueries({ queryKey: ['analytics'] });
+          queryClient.invalidateQueries({ queryKey: ['timetables'] });
+          dispatchLegacyUpdate('teachers');
+          dispatchLegacyUpdate('analytics');
+          // Class/subject assignment changes live here — trigger useTeacherClasses
+          // re-fetch so the teacher's dashboard, class cards, and timetable update
+          // the moment an admin saves new assignments.
+          dispatchLegacyUpdate('class_teachers');
+          dispatchLegacyUpdate('teacher_classes');
+          dispatchLegacyUpdate('teacher_subjects');
+          // Also refresh timetable views — the server-side filter uses ClassTeacher
+          // records, so new assignments must cause TimetableScreen to re-query.
+          dispatchLegacyUpdate('timetables');
+          dispatchLegacyUpdate('timetable');
+      });
 
-    socket.on('academic:updated', () => {
-        queryClient.invalidateQueries({ queryKey: ['academic'] });
-        queryClient.invalidateQueries({ queryKey: ['analytics'] });
-        queryClient.invalidateQueries({ queryKey: ['quizzes'] });
-        dispatchLegacyUpdate('academic');
-        dispatchLegacyUpdate('analytics');
-        // Quiz publish/unpublish rides on academic:updated — refresh quiz lists
-        // so students see a newly published exam/quiz appear (or disappear) live.
-        dispatchLegacyUpdate('quizzes');
-    });
+      // Timetable publish/update — refetch for all roles in the school
+      socket.on('timetable:updated', () => {
+          queryClient.invalidateQueries({ queryKey: ['timetables'] });
+          dispatchLegacyUpdate('timetables');
+          dispatchLegacyUpdate('timetable');
+      });
 
-    socket.on('exam:updated', () => {
-        queryClient.invalidateQueries({ queryKey: ['exams'] });
-        dispatchLegacyUpdate('exams');
-    });
+      socket.on('timetable:published', (data: { class_name?: string; school_id?: string }) => {
+          queryClient.invalidateQueries({ queryKey: ['timetables'] });
+          dispatchLegacyUpdate('timetables');
+          dispatchLegacyUpdate('timetable');
+      });
 
-    // School subject added/removed — every subject list (timetable palette,
-    // class form, gradebook, student My Subjects) refreshes live.
-    socket.on('subject:updated', () => {
-        queryClient.invalidateQueries({ queryKey: ['subjects'] });
-        dispatchLegacyUpdate('subjects');
-    });
+      socket.on('academic:updated', () => {
+          queryClient.invalidateQueries({ queryKey: ['academic'] });
+          queryClient.invalidateQueries({ queryKey: ['analytics'] });
+          queryClient.invalidateQueries({ queryKey: ['quizzes'] });
+          dispatchLegacyUpdate('academic');
+          dispatchLegacyUpdate('analytics');
+          // Quiz publish/unpublish rides on academic:updated — refresh quiz lists
+          // so students see a newly published exam/quiz appear (or disappear) live.
+          dispatchLegacyUpdate('quizzes');
+      });
 
-    // Report card saved/submitted/published — refresh the teacher gradebook,
-    // the admin publishing screen, and student/parent results views live.
-    socket.on('report-card:updated', () => {
-        queryClient.invalidateQueries({ queryKey: ['report_cards'] });
-        queryClient.invalidateQueries({ queryKey: ['reportCards'] });
-        dispatchLegacyUpdate('report_cards');
-        dispatchLegacyUpdate('report_card_records');
-    });
+      socket.on('exam:updated', () => {
+          queryClient.invalidateQueries({ queryKey: ['exams'] });
+          dispatchLegacyUpdate('exams');
+      });
 
-    socket.on('hostel:updated', () => {
-        queryClient.invalidateQueries({ queryKey: ['hostels'] });
-        dispatchLegacyUpdate('hostels');
-    });
+      // School subject added/removed — every subject list (timetable palette,
+      // class form, gradebook, student My Subjects) refreshes live.
+      socket.on('subject:updated', () => {
+          queryClient.invalidateQueries({ queryKey: ['subjects'] });
+          dispatchLegacyUpdate('subjects');
+      });
 
-    socket.on('transport:updated', () => {
-        queryClient.invalidateQueries({ queryKey: ['transport'] });
-        dispatchLegacyUpdate('transport');
-    });
+      // Report card saved/submitted/published — refresh the teacher gradebook,
+      // the admin publishing screen, and student/parent results views live.
+      socket.on('report-card:updated', () => {
+          queryClient.invalidateQueries({ queryKey: ['report_cards'] });
+          queryClient.invalidateQueries({ queryKey: ['reportCards'] });
+          dispatchLegacyUpdate('report_cards');
+          dispatchLegacyUpdate('report_card_records');
+      });
 
-    socket.on('payroll:updated', () => {
-        queryClient.invalidateQueries({ queryKey: ['payroll'] });
-        dispatchLegacyUpdate('payroll');
-    });
+      socket.on('hostel:updated', () => {
+          queryClient.invalidateQueries({ queryKey: ['hostels'] });
+          dispatchLegacyUpdate('hostels');
+      });
 
-    socket.on('leave:updated', () => {
-        queryClient.invalidateQueries({ queryKey: ['leave'] });
-        dispatchLegacyUpdate('leave');
-    });
+      socket.on('transport:updated', () => {
+          queryClient.invalidateQueries({ queryKey: ['transport'] });
+          dispatchLegacyUpdate('transport');
+      });
 
-    socket.on('infrastructure:updated', (data: { action?: string }) => {
-        queryClient.invalidateQueries({ queryKey: ['infrastructure'] });
-        dispatchLegacyUpdate('infrastructure');
-        // Vendor CRUD rides on this same event (see backend/src/services/vendor.service.ts).
-        // Without this, VendorManagement's useAutoSync(['vendors']) never fires across
-        // tabs/roles because no event is ever dispatched with table: 'vendors'.
-        if (data?.action?.includes('vendor')) {
-            queryClient.invalidateQueries({ queryKey: ['vendors'] });
-            dispatchLegacyUpdate('vendors');
-        }
-    });
+      socket.on('payroll:updated', () => {
+          queryClient.invalidateQueries({ queryKey: ['payroll'] });
+          dispatchLegacyUpdate('payroll');
+      });
 
-    socket.on('visitor:updated', () => {
-        queryClient.invalidateQueries({ queryKey: ['visitor'] });
-        dispatchLegacyUpdate('visitor');
-    });
+      socket.on('leave:updated', () => {
+          queryClient.invalidateQueries({ queryKey: ['leave'] });
+          dispatchLegacyUpdate('leave');
+      });
 
-    socket.on('quiz:updated', () => {
-        queryClient.invalidateQueries({ queryKey: ['quizzes'] });
-        queryClient.invalidateQueries({ queryKey: ['academic'] });
-        dispatchLegacyUpdate('quizzes');
-    });
+      socket.on('infrastructure:updated', (data: { action?: string }) => {
+          queryClient.invalidateQueries({ queryKey: ['infrastructure'] });
+          dispatchLegacyUpdate('infrastructure');
+          // Vendor CRUD rides on this same event (see backend/src/services/vendor.service.ts).
+          // Without this, VendorManagement's useAutoSync(['vendors']) never fires across
+          // tabs/roles because no event is ever dispatched with table: 'vendors'.
+          if (data?.action?.includes('vendor')) {
+              queryClient.invalidateQueries({ queryKey: ['vendors'] });
+              dispatchLegacyUpdate('vendors');
+          }
+      });
 
-    socket.on('lesson:updated', () => {
-        queryClient.invalidateQueries({ queryKey: ['lessons'] });
-        queryClient.invalidateQueries({ queryKey: ['academic'] });
-        dispatchLegacyUpdate('lessons');
-    });
+      socket.on('visitor:updated', () => {
+          queryClient.invalidateQueries({ queryKey: ['visitor'] });
+          dispatchLegacyUpdate('visitor');
+      });
 
-    socket.on('finance:updated', () => {
-        queryClient.invalidateQueries({ queryKey: ['finance'] });
-        queryClient.invalidateQueries({ queryKey: ['transactions'] });
-        queryClient.invalidateQueries({ queryKey: ['savings'] });
-        queryClient.invalidateQueries({ queryKey: ['analytics'] });
-        dispatchLegacyUpdate('finance');
-        dispatchLegacyUpdate('analytics');
-    });
+      socket.on('quiz:updated', () => {
+          queryClient.invalidateQueries({ queryKey: ['quizzes'] });
+          queryClient.invalidateQueries({ queryKey: ['academic'] });
+          dispatchLegacyUpdate('quizzes');
+      });
 
-    socket.on('ai:updated', () => {
-        queryClient.invalidateQueries({ queryKey: ['ai'] });
-        dispatchLegacyUpdate('ai');
-    });
+      socket.on('lesson:updated', () => {
+          queryClient.invalidateQueries({ queryKey: ['lessons'] });
+          queryClient.invalidateQueries({ queryKey: ['academic'] });
+          dispatchLegacyUpdate('lessons');
+      });
 
-    socket.on('notice:updated', () => {
-        queryClient.invalidateQueries({ queryKey: ['notices'] });
-        queryClient.invalidateQueries({ queryKey: ['reports'] });
-        dispatchLegacyUpdate('notices');
-    });
+      socket.on('finance:updated', () => {
+          queryClient.invalidateQueries({ queryKey: ['finance'] });
+          queryClient.invalidateQueries({ queryKey: ['transactions'] });
+          queryClient.invalidateQueries({ queryKey: ['savings'] });
+          queryClient.invalidateQueries({ queryKey: ['analytics'] });
+          dispatchLegacyUpdate('finance');
+          dispatchLegacyUpdate('analytics');
+      });
 
-    socket.on('audit:updated', () => {
-        queryClient.invalidateQueries({ queryKey: ['audit'] });
-        dispatchLegacyUpdate('audit');
-    });
+      socket.on('ai:updated', () => {
+          queryClient.invalidateQueries({ queryKey: ['ai'] });
+          dispatchLegacyUpdate('ai');
+      });
 
-    socket.on('auth:updated', () => {
-        queryClient.invalidateQueries({ queryKey: ['users'] });
-        dispatchLegacyUpdate('auth');
-    });
+      socket.on('notice:updated', () => {
+          queryClient.invalidateQueries({ queryKey: ['notices'] });
+          queryClient.invalidateQueries({ queryKey: ['reports'] });
+          dispatchLegacyUpdate('notices');
+      });
 
-    socket.on('resource:updated', () => {
-        queryClient.invalidateQueries({ queryKey: ['resources'] });
-        dispatchLegacyUpdate('resources');
-    });
+      socket.on('audit:updated', () => {
+          queryClient.invalidateQueries({ queryKey: ['audit'] });
+          dispatchLegacyUpdate('audit');
+      });
 
-    socket.on('assignment:updated', () => {
-        queryClient.invalidateQueries({ queryKey: ['assignments'] });
-        queryClient.invalidateQueries({ queryKey: ['academic'] });
-        dispatchLegacyUpdate('assignments');
-        dispatchLegacyUpdate('academic');
-    });
+      socket.on('auth:updated', () => {
+          queryClient.invalidateQueries({ queryKey: ['users'] });
+          dispatchLegacyUpdate('auth');
+      });
 
-    socket.on('submission:updated', () => {
-        queryClient.invalidateQueries({ queryKey: ['submissions'] });
-        dispatchLegacyUpdate('submissions');
-        dispatchLegacyUpdate('assignment_submissions');
-    });
+      socket.on('resource:updated', () => {
+          queryClient.invalidateQueries({ queryKey: ['resources'] });
+          dispatchLegacyUpdate('resources');
+      });
+
+      socket.on('assignment:updated', () => {
+          queryClient.invalidateQueries({ queryKey: ['assignments'] });
+          queryClient.invalidateQueries({ queryKey: ['academic'] });
+          dispatchLegacyUpdate('assignments');
+          dispatchLegacyUpdate('academic');
+      });
+
+      socket.on('submission:updated', () => {
+          queryClient.invalidateQueries({ queryKey: ['submissions'] });
+          dispatchLegacyUpdate('submissions');
+          dispatchLegacyUpdate('assignment_submissions');
+      });
+
+    })();
 
     return () => {
-      socket.disconnect();
+      cancelled = true;
+      socket?.disconnect();
       socketRef.current = null;
     };
   }, [user?.school_id, queryClient]);

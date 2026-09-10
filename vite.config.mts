@@ -183,14 +183,28 @@ export default defineConfig(({ mode }) => {
           // output buffers in memory at once — only meaningfully matters on
           // a RAM-constrained host, so it's scoped to the low-resource build.
           ...(isLowResourceBuild ? { maxParallelFileOps: 2 } : {}),
-          // No manualChunks on purpose. Bucketing node_modules by id.includes()
-          // ignores the real import graph: a bucket becomes EAGER as soon as any
-          // eagerly-reachable module touches one file in it. That is how the
-          // login path ended up preloading `markdown` (react-markdown/remark,
-          // AI-chat only) and `realtime` (socket.io) — 1.7 MB of eager JS — and
-          // how the realtime bucket formed an import cycle with vendor.
-          // Rollup's default splitting follows actual reachability, so lazy
-          // routes keep their own chunks and the login shell stays small.
+          // Split ONLY the React core, and let Rollup decide everything else.
+          //
+          // The previous config bucketed all of node_modules by id.includes().
+          // That ignores the real import graph, and a bucket turns EAGER the
+          // moment anything eagerly reachable touches a single file in it — so
+          // the login path preloaded `markdown` (react-markdown/remark, used
+          // only by AI chat) and `realtime` (socket.io), 1738 KB of eager JS
+          // across 9 chunks, and the realtime bucket formed an import cycle
+          // with vendor.
+          //
+          // React is different: it is genuinely eager on every route, so giving
+          // it its own chunk cannot drag anything onto the critical path, and it
+          // is the most stable code in the bundle — keeping it separate means an
+          // app deploy does not invalidate it in the browser cache. Every other
+          // dependency is left to Rollup, which follows actual reachability and
+          // keeps lazy routes in their own chunks.
+          manualChunks(id) {
+            if (!id.includes('node_modules')) return;
+            if (/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id)) {
+              return 'react-vendor';
+            }
+          },
         },
       },
     },
