@@ -303,5 +303,16 @@ test('every student screen — every clickable button passes (no 5xx, no pageerr
 
     console.log(`\n>>> ${totalPass}/${totalClicked} buttons PASS, ${totalFailed} FAIL, ${totalSkipped} SKIP across ${viewResults.length} views`);
     console.log(`>>> Detail: .playwright-results/student-every-button.md`);
-    expect(totalClicked).toBeGreaterThan(0);
+    expect(totalClicked, "swept no buttons at all — the sweep did not actually run").toBeGreaterThan(0);
+
+    // The suite is named for this, so it has to assert it. Previously it only
+    // checked that SOMETHING was clicked, so a view whose button threw a 5xx, a
+    // pageerror or an ErrorBoundary was written into the report and the run still
+    // went green. Destructive/auth buttons are still skipped by SKIP_PATTERNS and
+    // are counted separately, so this covers only buttons actually exercised.
+    const failureDetail = buttonResults
+        .filter(b => b.status === "FAIL")
+        .map(b => `${b.view} → "${b.button}": ${b.reason}`)
+        .join('; ');
+    expect(totalFailed, `buttons failed: ${failureDetail}`).toBe(0);
 });

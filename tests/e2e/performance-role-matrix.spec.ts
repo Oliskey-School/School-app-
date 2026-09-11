@@ -44,9 +44,39 @@ function installMutationClock(page: Page) {
 
 async function measureNavigation(page: Page, role: typeof ROLES[number], view: string) {
     const before = await page.evaluate(() => (window as any).__PERF_MUTATION__ || 0);
+
+    // Confirm the hook is actually installed. If the dashboard unmounted (a
+    // full-screen child view removes it) the optional call below is a silent
+    // no-op, nothing ever mutates, and the wait times out looking like a slow
+    // render rather than a missing navigator. This round-trip happens BEFORE the
+    // clock starts so it cannot inflate the timing it is protecting.
+    const navigatorReady = await page.evaluate(
+        (nav) => typeof (window as any)[nav] === 'function',
+        role.nav,
+    );
+    if (!navigatorReady) {
+        throw new Error(`${role.key}/${view}: window.${role.nav} is not installed — the dashboard is not mounted, so navigation cannot be measured`);
+    }
+
     const start = Date.now();
     await page.evaluate(({ nav, view }) => (window as any)[nav]?.(view, view, {}), { nav: role.nav, view });
-    await page.waitForFunction((previous) => ((window as any).__PERF_MUTATION__ || 0) > previous, before, { timeout: 10_000 });
+    try {
+        await page.waitForFunction(
+            (previous) => ((window as any).__PERF_MUTATION__ || 0) > previous,
+            before,
+            { timeout: 10_000 },
+        );
+    } catch {
+        // Keep the 10s bar — a view that paints nothing for ten seconds is a real
+        // problem — but say which view and what state it left behind, instead of
+        // failing with a bare timeout that names no screen.
+        const heading = await page.locator('h1, h2').first().innerText().catch(() => '(none)');
+        throw new Error(
+            `${role.key}/${view}: no DOM mutation within 10s of calling ${role.nav}. `
+            + `Visible heading: "${heading}". Either the view rendered nothing, or it `
+            + `rendered identically to the previous one so the observer saw no change.`,
+        );
+    }
     return Date.now() - start;
 }
 
