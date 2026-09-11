@@ -235,6 +235,37 @@ jobs:
             sleep 15
           done
 
+      - name: Apply Database Migrations
+        # Confirmed 2026-09-11: Backend Build regenerates the Prisma client
+        # from schema.prisma on every deploy, so a schema change (e.g. adding
+        # User.is_demo) ships in the built code immediately — but nothing in
+        # this pipeline had ever applied the matching migration to the actual
+        # production database. The new client demanded a column the live
+        # table didn't have, and every demo login started failing the moment
+        # PM2 picked up the new build. `prisma migrate deploy` only applies
+        # migrations not yet recorded as run, so this is a no-op on any
+        # deploy that didn't add one.
+        #
+        # Runs at the DEPLOY PATH (not the checkout workspace) so it uses the
+        # persistent production backend/.env — the same DATABASE_URL PM2 is
+        # about to reload against — and BEFORE the reload below, so the new
+        # code never comes up against a schema it doesn't match. A failure
+        # here hard-stops the job: the OLD process keeps serving traffic
+        # rather than PM2 reloading into a broken state.
+        run: |
+          DEPLOY_PATH="/var/www/School-app"
+          cd "$DEPLOY_PATH"
+          for attempt in 1 2 3; do
+            echo "prisma migrate deploy attempt $attempt/3"
+            if npx prisma migrate deploy --schema=backend/prisma/schema.prisma; then
+              echo "Migrations applied (or already up to date)"
+              exit 0
+            fi
+            echo "prisma migrate deploy attempt $attempt failed"
+            [ "$attempt" = "3" ] && { echo "::error::prisma migrate deploy failed after 3 attempts — refusing to reload PM2 against a schema the database doesn't match. Needs manual investigation: npx prisma migrate status --schema=backend/prisma/schema.prisma"; exit 1; }
+            sleep 10
+          done
+
       - name: Zero-Downtime PM2 Reload
         # RUNNER_TRACKING_ID="" is load-bearing, do not remove it.
         #
