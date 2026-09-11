@@ -108,39 +108,99 @@ test.describe('Production critical path', () => {
         await fullName.waitFor({ state: 'visible', timeout: 15_000 });
         await fullName.fill(uniqueName);
 
+        // #branchId is a REQUIRED select populated from an async branch fetch.
+        // Acting on a fixed 1s delay meant the form was often still empty, and a
+        // required-but-empty select makes the browser refuse the submit itself —
+        // no handler runs, no request, no toast, so the failure surfaced much
+        // later as "student not in the roster". Wait for a real option instead of
+        // guessing, and leave any auto-selected branch alone.
         const branch = page.locator('#branchId');
         if (await branch.count() > 0) {
-            const values = await branch.locator('option').evaluateAll(
-                (opts) => opts.map((o) => (o as HTMLOptionElement).value).filter(Boolean)
-            );
-            if (values.length > 0) await branch.selectOption(values[0]);
-            await page.waitForTimeout(1000);
+            await expect
+                .poll(
+                    () => branch.locator('option').evaluateAll(
+                        (opts) => opts.map((o) => (o as HTMLOptionElement).value).filter(Boolean).length,
+                    ),
+                    { timeout: 20_000, message: 'branch dropdown never loaded any selectable option' },
+                )
+                .toBeGreaterThan(0);
+
+            if (!(await branch.inputValue())) {
+                const values = await branch.locator('option').evaluateAll(
+                    (opts) => opts.map((o) => (o as HTMLOptionElement).value).filter(Boolean),
+                );
+                await branch.selectOption(values[0]);
+            }
+            // Classes are re-fetched for the chosen branch.
+            await page.waitForTimeout(1500);
         }
 
-        const classLabels = page.locator('div.max-h-48 label');
+        // Scope to the class group by the radio's own name. `div.max-h-48` alone
+        // also matches the parent-picker list further down the form, so the old
+        // selector could count rows that were never classes.
+        const classBox = page.locator('div.max-h-48')
+            .filter({ has: page.locator('input[name="classEnrollment"]') })
+            .first();
+        const classLabels = classBox.locator('label');
         const classCount = await classLabels.count();
         test.skip(classCount === 0, 'Demo school has no classes to enrol into');
+
+        // Click the label, as a user does, and then confirm the control actually
+        // holds the selection. The radio is CONTROLLED by React state
+        // (checked={selectedClassIds.includes(cls.id)}), so a forced .check() can
+        // report success while the component re-renders it straight back to
+        // unchecked — which is how the form reached submit with
+        // selectedClassIds empty and silently refused to save.
+        const selectClass = async (label: ReturnType<typeof classLabels.nth>) => {
+            await label.click({ timeout: 5000 }).catch(() => {});
+            return label.locator('input[type="radio"]').isChecked().catch(() => false);
+        };
 
         let picked = false;
         for (let i = 0; i < classCount; i++) {
             const label = classLabels.nth(i);
             const text = (await label.innerText().catch(() => '')) || '';
             if (/JSS|SSS|Primary|Basic|Grade|Year|Nursery/i.test(text)) {
-                picked = await label.locator('input[type="radio"]')
-                    .check({ force: true, timeout: 5000 }).then(() => true).catch(() => false);
+                picked = await selectClass(label);
                 if (picked) break;
             }
         }
-        if (!picked) {
-            picked = await classLabels.first().locator('input[type="radio"]')
-                .check({ force: true, timeout: 5000 }).then(() => true).catch(() => false);
-        }
-        test.skip(!picked, 'Could not select a class to enrol the student into');
+        if (!picked) picked = await selectClass(classLabels.first());
+
+        // A class that will not stay selected is a real defect, not a reason to
+        // skip: without it the save is refused and the assertion below would
+        // fail for a completely misleading reason.
+        expect(picked, 'class radio did not hold its selection — enrolment cannot be saved').toBe(true);
+
+        // If any required field is still empty the browser blocks the submit
+        // silently — no handler, no request. Surface that here, naming the field,
+        // instead of letting it masquerade as a missing student further down.
+        const invalidFields = await page.evaluate(() => {
+            const form = document.querySelector('form');
+            if (!form) return [] as string[];
+            return [...form.querySelectorAll(':invalid')].map(
+                (el) => `${(el as HTMLInputElement).id || (el as HTMLInputElement).name || el.tagName}: ${(el as HTMLInputElement).validationMessage}`,
+            );
+        });
+        expect(invalidFields, 'form has unfilled required fields, so the browser will refuse the submit').toEqual([]);
 
         const saveBtn = page.getByRole('button', { name: /^(Save Student|Update Student)$/i });
         await saveBtn.scrollIntoViewIfNeeded().catch(() => {});
+
+        // Wait for the write itself to land, not a fixed interval. Enrolment
+        // currently takes ~3.2s server-side, so the old 2.5s sleep let the test
+        // navigate to the list and issue its GET while the POST was still in
+        // flight — the row really was created, it just did not exist yet at the
+        // moment we looked. This is a race in the test, so fix the race rather
+        // than lengthen the sleep.
+        const enrolled = page.waitForResponse(
+            (r) => /\/api\/students(\/enroll)?$/.test(new URL(r.url()).pathname)
+                && r.request().method() === 'POST',
+            { timeout: 30_000 },
+        ).catch(() => null);
         await saveBtn.click();
-        await page.waitForTimeout(2500);
+        await enrolled;
+        await page.waitForTimeout(500);
 
         const upgrade = page.locator('text=/upgrade your plan|plan limit|limit reached/i').first();
         test.skip(await upgrade.isVisible().catch(() => false), 'Demo plan student limit reached');
@@ -156,7 +216,39 @@ test.describe('Production critical path', () => {
             await search.fill(uniqueName);
             await page.waitForTimeout(1200);
         }
-        await expect(page.locator(`text="${uniqueName}"`).first()).toBeVisible({ timeout: 10_000 });
+
+        // Two things have to happen in order here, and doing them the other way
+        // round is why this looked like a lost student.
+        //
+        // 1. The roster keeps showing the previously cached list while it
+        //    refetches, so immediately after the mutation the filtered list is
+        //    briefly empty for this search term.
+        // 2. The roster groups students into collapsible stage/class sections
+        //    rendered as `{isOpen && ...}` — a closed section puts none of its
+        //    rows in the DOM. The form enrols into the first class offered,
+        //    which is a preschool-grade class, and that section starts closed.
+        //
+        // So wait for the refreshed data to arrive FIRST, then expand. Expanding
+        // before the refetch lands just opens the old sections, and the rows that
+        // replace them arrive collapsed again.
+        await expect
+            .poll(
+                async () => page.locator('text=No students found matching your search.').count(),
+                { timeout: 30_000, message: 'roster never refreshed to include the newly enrolled student' },
+            )
+            .toBe(0);
+
+        for (let pass = 0; pass < 4; pass++) {
+            const collapsed = page.locator('button[aria-expanded="false"]');
+            const n = await collapsed.count();
+            if (n === 0) break;
+            for (let i = 0; i < n; i++) {
+                await collapsed.nth(i).click({ timeout: 2000 }).catch(() => {});
+            }
+            await page.waitForTimeout(400);
+        }
+
+        await expect(page.locator(`text="${uniqueName}"`).first()).toBeVisible({ timeout: 15_000 });
     });
 
     test('Student editing', async ({ page, baseURL }) => {
@@ -164,16 +256,30 @@ test.describe('Production critical path', () => {
         await loginAsAdminWithHook(page, baseURL!);
         await navigateAdmin(page, 'studentList');
 
-        const firstStudentRow = page.locator('[data-testid="student-row"], tr, li').filter({ hasText: /./ }).first();
-        // Fall back to clicking whatever the list renders as its first entry.
-        const anyStudentLink = page.locator('button, a, div[role="button"]').filter({ hasText: /./ });
-        const clickable = (await firstStudentRow.count()) > 0 ? firstStudentRow : anyStudentLink.first();
-        test.skip((await clickable.count()) === 0, 'No students exist to edit');
+        // Students sit inside collapsed stage/class sections which render as
+        // `{isOpen && ...}`, so nothing is clickable until those are opened.
+        // The old selector took the first `tr, li` on the page, which was a
+        // section header — clicking it merely expanded a group, no profile ever
+        // opened, and the test skipped itself on "No Edit action found". It
+        // therefore never exercised editing at all.
+        for (let pass = 0; pass < 4; pass++) {
+            const collapsed = page.locator('button[aria-expanded="false"]');
+            const n = await collapsed.count();
+            if (n === 0) break;
+            for (let i = 0; i < n; i++) {
+                await collapsed.nth(i).click({ timeout: 2000 }).catch(() => {});
+            }
+            await page.waitForTimeout(400);
+        }
 
-        await clickable.click({ timeout: 10_000 }).catch(() => {});
+        // Each roster row exposes its own button for this.
+        const studentRow = page.getByRole('button', { name: /^View profile for / }).first();
+        await expect(studentRow, 'roster rendered no student rows to edit').toBeVisible({ timeout: 15_000 });
+
+        await studentRow.click({ timeout: 10_000 });
         await page.waitForTimeout(1500);
         const editBtn = page.getByRole('button', { name: /^Edit/i }).first();
-        test.skip((await editBtn.count()) === 0, 'No Edit action found on student profile');
+        await expect(editBtn, 'student profile exposed no Edit action').toBeVisible({ timeout: 15_000 });
 
         await editBtn.click();
         await page.waitForTimeout(1000);

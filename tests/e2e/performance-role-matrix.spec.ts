@@ -8,6 +8,18 @@ const ROLES = [
 ] as const;
 
 async function login(page: Page, baseURL: string, role: typeof ROLES[number]) {
+    // ParentDashboard only publishes PARENT_NAVIGATE/PARENT_COMPONENTS when audit
+    // mode is on — deliberately, so the navigation hook is not reachable by
+    // arbitrary page script in production. Every other parent spec opts in the
+    // same way (see parent-every-button.spec.ts); this one did not, which is why
+    // the parent matrix timed out waiting for a hook that was never going to
+    // appear. Harmless for the roles that expose theirs unconditionally.
+    await page.addInitScript(() => {
+        try {
+            (window as any).__AUDIT_MODE__ = true;
+            localStorage.setItem('audit_mode', 'true');
+        } catch { /* storage unavailable — the unconditional roles still work */ }
+    });
     await page.goto(baseURL, { waitUntil: 'domcontentloaded' });
     await page.getByRole('button', { name: /Try Demo School/i }).click();
     const start = Date.now();
