@@ -39,6 +39,7 @@ jobs:
       JWT_SECRET: ci-only-jwt-signing-key-not-used-anywhere-real
       REFRESH_TOKEN_SECRET: ci-only-refresh-signing-key-not-used-for-real
       NODE_ENV: development
+      ENABLE_DEBUG_ROUTES: "true"
       BACKEND_PORT: 5099
 
     steps:

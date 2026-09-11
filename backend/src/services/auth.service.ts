@@ -902,64 +902,62 @@ export class AuthService {
      * Forgot Password Flow - Part 1: Request Reset
      */
     static async forgotPassword(email: string) {
+        // Same generic response whether or not the address is registered — an
+        // account-existence oracle here lets an attacker enumerate every real
+        // email on the platform. The code is only actually created and sent
+        // when a matching user exists; unknown addresses take the identical
+        // code path (skip straight to the same return) so the two cases are
+        // indistinguishable by response content OR by the presence/absence of
+        // an outbound email side effect an attacker can't observe anyway.
         const user = await prisma.user.findFirst({
             where: { email: email.toLowerCase() }
         });
 
-        if (!user) {
-            throw new Error('This email is not registered in our system. Please check your spelling or sign up.');
+        if (user) {
+            // Delegates to VerificationService rather than re-implementing OTP
+            // storage here: it bcrypt-hashes the code before persisting it
+            // (this method used to store it in plain text — anyone with DB
+            // read access, including a future dump or SQLi, had the live reset
+            // code), and verifyCode() enforces the same attempt cap as every
+            // other verification code in the app instead of relying solely on
+            // the route's IP rate limit.
+            await VerificationService.createVerification(
+                user.id,
+                user.email,
+                user.full_name || 'User',
+                'password_reset'
+            );
         }
 
-        const code = Math.floor(100000 + Math.random() * 900000).toString();
-        const expiresAt = new Date(Date.now() + 60 * 1000); // 60 seconds
-
-        await (prisma.verificationCode.create as any)({
-            data: {
-                user_id: user.id,
-                email: user.email,
-                code: code,
-                purpose: 'password_reset',
-                expires_at: expiresAt,
-                school_id: user.school_id
-            }
-        });
-
-        await EmailService.sendPasswordResetEmail(user.email, user.full_name || 'User', code);
-
-        return { success: true, message: 'Reset code sent to your email.' };
+        return { success: true, message: 'If an account with that email exists, a reset code has been sent.' };
     }
 
     /**
      * Forgot Password Flow - Part 2: Verify and Reset
      */
     static async resetPassword(email: string, code: string, newPassword: string) {
-        const verification = await prisma.verificationCode.findFirst({
-            where: {
-                email: email.toLowerCase(),
-                code: code,
-                purpose: 'password_reset',
-                used_at: null,
-                expires_at: { gt: new Date() }
-            }
+        // Generic failure message regardless of whether the email is
+        // registered — same enumeration concern as forgotPassword above.
+        const user = await prisma.user.findFirst({
+            where: { email: email.toLowerCase() }
         });
-
-        if (!verification) {
+        if (!user) {
             throw new Error('Invalid or expired reset code');
         }
 
+        const result = await VerificationService.verifyCode(user.id, code, 'password_reset');
+        if (!result.success) {
+            throw new Error(result.message);
+        }
+
         const hashedPassword = await bcrypt.hash(newPassword, 10);
-        
+
         await prisma.user.update({
-            where: { id: verification.user_id },
-            data: { 
+            where: { id: user.id },
+            data: {
                 password_hash: hashedPassword,
                 initial_password: newPassword // For admin visibility/recovery if needed
             }
-        });
-
-        await prisma.verificationCode.update({
-            where: { id: verification.id },
-            data: { used_at: new Date() }
         });
 
         return { success: true, message: 'Password has been reset successfully.' };

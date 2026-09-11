@@ -152,3 +152,6 @@ backups/
 # Multi-tenant security gate: runtime fixture/results, never committed
 tests/security/.fixture.json
 tests/security/.attack-results.json
+database_backup.sql
+*.sql.backup
+.kilo/

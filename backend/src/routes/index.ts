@@ -251,9 +251,15 @@ router.post('/compliance-checklists/run', authenticate, requireTenant, runCompli
 router.get('/arrears', authenticate, requireTenant, getArrears);
 router.use('/sponsorships', sponsorshipRoutes);
 router.use('/sponsorship-requests', sponsorshipRequestRoutes);
-// 🚨 DEBUG ROUTES: Only for testing — must be mounted BEFORE the offline-channel
-// catch-all at '/', otherwise its authenticate middleware blocks /debug requests.
-if (process.env.NODE_ENV !== 'production') {
+// 🚨 DEBUG ROUTES: read back OTPs/reset codes so E2E can complete signup and
+// forgot-password without a real inbox. Two independent conditions must both
+// hold, not just the absence of a production marker — NODE_ENV alone is a
+// single misconfigured value away from exposing an unauthenticated account-
+// takeover oracle. ENABLE_DEBUG_ROUTES must be explicitly opted into (CI sets
+// it; nothing sets it, and nothing should ever set it, in a deployed env).
+// Must be mounted BEFORE the offline-channel catch-all at '/', otherwise its
+// authenticate middleware blocks /debug requests.
+if (process.env.NODE_ENV !== 'production' && process.env.ENABLE_DEBUG_ROUTES === 'true') {
     router.use('/debug', debugRoutes);
 }
 
