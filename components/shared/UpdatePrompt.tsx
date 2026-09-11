@@ -22,6 +22,11 @@ export default function UpdatePrompt({ forced = false, targetVersion }: UpdatePr
     // Holds the live ServiceWorkerRegistration so "Update Now" can force an
     // immediate check for a new build instead of waiting for the hourly poll.
     const registrationRef = React.useRef<ServiceWorkerRegistration | undefined>(undefined);
+    // onRegistered fires outside React's lifecycle, so the hourly poll it starts
+    // is not tied to this component's unmount. Held here so it can be cleared —
+    // otherwise every remount of this component leaves another interval running
+    // against a stale registration for the life of the tab.
+    const updatePollRef = React.useRef<number | undefined>(undefined);
     const [updating, setUpdating] = useState(false);
     const {
         needRefresh: [needRefresh, setNeedRefresh],
@@ -31,7 +36,8 @@ export default function UpdatePrompt({ forced = false, targetVersion }: UpdatePr
             console.log('✅ Service Worker registered for update checking:', r);
             registrationRef.current = r;
             if (r) {
-                setInterval(() => {
+                if (updatePollRef.current !== undefined) window.clearInterval(updatePollRef.current);
+                updatePollRef.current = window.setInterval(() => {
                     r.update();
                 }, 60 * 60 * 1000);
             }
@@ -40,6 +46,14 @@ export default function UpdatePrompt({ forced = false, targetVersion }: UpdatePr
             console.error('❌ Service Worker registration error:', error);
         },
     });
+
+    // Stop the hourly service-worker poll when this component goes away.
+    React.useEffect(() => () => {
+        if (updatePollRef.current !== undefined) {
+            window.clearInterval(updatePollRef.current);
+            updatePollRef.current = undefined;
+        }
+    }, []);
 
     // Local dismissed flag — needed for the forced variant where setNeedRefresh(false)
     // is a no-op (needRefresh was already false). Without this useState the sessionStorage

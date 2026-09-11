@@ -10,11 +10,17 @@ class RealtimeService {
     private userId: string | null = null;
     private schoolId: string | null = null;
     private lastNotificationId: string | number | null = null;
+    private branchId: string | null = null;
     private isInitialized = false;
 
-    initialize(userId: string, schoolId: string) {
-        // Skip re-initialization if already initialized with same schoolId
-        if (this.isInitialized && this.schoolId === schoolId) {
+    initialize(userId: string, schoolId: string, branchId?: string) {
+        // useRealtimeSync re-invokes this whenever the active branch changes and
+        // has always passed a third argument, but the signature only accepted two
+        // — so the branch was dropped and the guard below then treated the call as
+        // a no-op re-init. Switching branch left this service bound to the branch
+        // the session started on.
+        const nextBranch = branchId ?? null;
+        if (this.isInitialized && this.schoolId === schoolId && this.branchId === nextBranch) {
             return;
         }
 
@@ -22,6 +28,7 @@ class RealtimeService {
 
         this.userId = userId;
         this.schoolId = schoolId;
+        this.branchId = nextBranch;
         this.isInitialized = true;
 
         console.log(`ðŸ”Œ Initializing Global Background Polling for School: ${schoolId}`);
@@ -83,6 +90,7 @@ class RealtimeService {
         }
         this.userId = null;
         this.schoolId = null;
+        this.branchId = null;
         this.isInitialized = false;
     }
 }
