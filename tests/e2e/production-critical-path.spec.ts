@@ -262,19 +262,24 @@ test.describe('Production critical path', () => {
         // section header — clicking it merely expanded a group, no profile ever
         // opened, and the test skipped itself on "No Edit action found". It
         // therefore never exercised editing at all.
-        for (let pass = 0; pass < 4; pass++) {
-            const collapsed = page.locator('button[aria-expanded="false"]');
-            const n = await collapsed.count();
-            if (n === 0) break;
-            for (let i = 0; i < n; i++) {
-                await collapsed.nth(i).click({ timeout: 2000 }).catch(() => {});
-            }
-            await page.waitForTimeout(400);
-        }
-
         // Each roster row exposes its own button for this.
         const studentRow = page.getByRole('button', { name: /^View profile for / }).first();
-        await expect(studentRow, 'roster rendered no student rows to edit').toBeVisible({ timeout: 15_000 });
+
+        // Expanding once is not enough: the roster refetches when it mounts, so
+        // sections opened before the rows land are replaced by fresh, collapsed
+        // ones. Keep expanding until a row is actually reachable.
+        await expect
+            .poll(async () => {
+                const collapsed = page.locator('button[aria-expanded="false"]');
+                const n = await collapsed.count();
+                for (let i = 0; i < n; i++) {
+                    await collapsed.nth(i).click({ timeout: 2000 }).catch(() => {});
+                }
+                return studentRow.count();
+            }, { timeout: 30_000, message: 'roster rendered no student rows to edit' })
+            .toBeGreaterThan(0);
+
+        await expect(studentRow).toBeVisible({ timeout: 15_000 });
 
         await studentRow.click({ timeout: 10_000 });
         await page.waitForTimeout(1500);
@@ -282,11 +287,18 @@ test.describe('Production critical path', () => {
         await expect(editBtn, 'student profile exposed no Edit action').toBeVisible({ timeout: 15_000 });
 
         await editBtn.click();
-        await page.waitForTimeout(1000);
+
+        // The edit form fetches the student before it renders its controls, so
+        // counting the Save button straight after a fixed 1s wait found nothing
+        // and the test skipped itself — silently not testing editing at all.
+        // Wait for the control instead, and treat its absence as a failure.
+        const saveBtn = page.getByRole('button', { name: /^(Save|Update Student)/i }).first();
+        await expect(saveBtn, 'edit form exposed no Save action').toBeVisible({ timeout: 30_000 });
+
         const field = page.locator('#address, #phone, textarea, input[type="text"]').first();
         if (await field.count() > 0) await field.fill(`CI edited ${Date.now()}`).catch(() => {});
-        const saveBtn = page.getByRole('button', { name: /^(Save|Update Student)/i }).first();
-        test.skip((await saveBtn.count()) === 0, 'No Save action found on the edit form');
+
+        await saveBtn.scrollIntoViewIfNeeded().catch(() => {});
         await saveBtn.click();
         await page.waitForTimeout(2000);
     });
