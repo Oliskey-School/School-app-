@@ -151,6 +151,17 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
             return res.status(401).json({ message: 'User no longer exists' });
         }
 
+        // The token was minted for a specific school (the claim is signed). If the
+        // row it resolves to sits in a different school, something is wrong — a
+        // switch-school that half-applied, a stale token after a move, or a lookup
+        // that returned the wrong row. Whatever the cause, the request must not
+        // proceed carrying a tenant the token was never issued for. Fail closed.
+        // (switch-school mints a fresh token, so a legitimate move never hits this.)
+        if (decoded.school_id && user.school_id && decoded.school_id !== user.school_id) {
+            console.error(`🚨 [Security] Token/row tenant mismatch: token school ${decoded.school_id}, user ${user.id} is in ${user.school_id}`);
+            return res.status(401).json({ message: 'Session no longer valid for this school. Please sign in again.' });
+        }
+
         // ========================================================================
         // HEADER VALIDATION: Strict consistency check between headers and JWT
         // ========================================================================
@@ -205,14 +216,34 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
         // Only a branch that actually EXISTS and resolves to another tenant is
         // rejected — demo sandbox branch ids ("demo-v-<id>" / "<root>__<child>") are
         // virtual and have no Branch row, so they are unaffected.
-        if (headerBranchId && isSchoolLevelAdmin && user.school_id) {
-            const branchOwner = await prisma.branch.findUnique({
-                where: { id: headerBranchId },
-                select: { school_id: true }
-            });
-            if (branchOwner && branchOwner.school_id !== user.school_id) {
-                console.error(`🚨 [Security] Cross-tenant branch assertion: ${user.id} (school ${user.school_id}) tried branch ${headerBranchId} of school ${branchOwner.school_id}`);
-                return res.status(403).json({ message: 'User not authorized to access this branch' });
+        //
+        // The header is not the only place a branch id arrives. Controllers also
+        // read it from the query string and the body (some directly, e.g. a
+        // create that stores body.branch_id on the new row). For a branch-scoped
+        // user that is harmless — RLS refuses any branch outside their entitlement
+        // list — but a school-level admin is branch-UNRESTRICTED at the RLS layer
+        // on purpose, so a foreign branch id in the body was accepted and stored:
+        // the hostile probe produced School A rows carrying School B's branch id
+        // in AcademicSettings and SchoolDocument. Every source is checked here,
+        // in one place, with one query, before any controller runs.
+        if (isSchoolLevelAdmin && user.school_id) {
+            const candidates = [
+                headerBranchId,
+                req.query?.branchId, req.query?.branch_id,
+                req.body?.branchId, req.body?.branch_id,
+            ]
+                .flat()
+                .filter((v): v is string => typeof v === 'string' && v !== '' && v !== 'all' && v !== 'undefined' && v !== 'null');
+            if (candidates.length) {
+                const owners = await prisma.branch.findMany({
+                    where: { id: { in: Array.from(new Set(candidates)) } },
+                    select: { id: true, school_id: true },
+                });
+                const foreign = owners.find(b => b.school_id !== user.school_id);
+                if (foreign) {
+                    console.error(`🚨 [Security] Cross-tenant branch assertion: ${user.id} (school ${user.school_id}) tried branch ${foreign.id} of school ${foreign.school_id}`);
+                    return res.status(403).json({ message: 'User not authorized to access this branch' });
+                }
             }
         }
 

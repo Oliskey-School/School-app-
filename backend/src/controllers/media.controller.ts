@@ -60,23 +60,37 @@ export const uploadFile = async (req: AuthRequest, res: Response) => {
                 return res.status(413).json({ message: 'Profile image is still too large after compression. Please choose a smaller image.' });
                 }
             }
-        const bucket = isAvatar ? 'avatars' : (req.body.bucket || 'general');
+        // The bucket name becomes part of the object key/URL, so it must come from
+        // a fixed list — not the request. An arbitrary bucket combined with the
+        // arbitrary path below (before this fix) meant any authenticated caller,
+        // any role, any school, could pick BOTH halves of another tenant's storage
+        // key and overwrite it.
+        const ALLOWED_BUCKETS = new Set(['avatars', 'general', 'teacher-documents', 'student-documents', 'resources']);
+        const requestedBucket = typeof req.body.bucket === 'string' ? req.body.bucket : undefined;
+        const bucket = isAvatar ? 'avatars' : (requestedBucket && ALLOWED_BUCKETS.has(requestedBucket) ? requestedBucket : 'general');
+
+        const schoolId = String(req.user.school_id).replace(/[^a-zA-Z0-9_-]/g, '');
 
         // Same naming rule multer's old diskStorage callback used: an
         // explicit path from the client (sanitized against traversal) or a
         // generated unique name.
         let relativePath: string;
         if (isAvatar) {
-            const schoolId = String(req.user.school_id).replace(/[^a-zA-Z0-9_-]/g, '');
             const branchId = String(req.user.active_branch_id || req.user.branch_id || 'all').replace(/[^a-zA-Z0-9_-]/g, '');
             const userId = String(req.user.id).replace(/[^a-zA-Z0-9_-]/g, '');
             relativePath = `${schoolId}/${branchId}/${userId}.webp`;
         } else if (req.body.path) {
-            const safePath = String(req.body.path).replace(/\.\./g, '');
-            relativePath = safePath;
+            // The caller may choose the FOLDER/FILENAME portion (existing callers
+            // pass things like "temp/<folder>/<file>.pdf"), but every key is
+            // force-prefixed with the CALLER'S OWN school id — a client-supplied
+            // path can no longer point outside its own tenant's namespace no
+            // matter what it contains. Traversal sequences and a leading slash are
+            // stripped on top of that as defense in depth, not as the boundary.
+            const cleaned = String(req.body.path).replace(/\.\./g, '').replace(/^\/+/, '');
+            relativePath = `${schoolId}/${cleaned}`;
         } else {
             const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-            relativePath = `file-${uniqueSuffix}${path.extname(req.file.originalname)}`;
+            relativePath = `${schoolId}/file-${uniqueSuffix}${path.extname(req.file.originalname)}`;
         }
 
         const { publicUrl } = await storeUploadedFile(uploadBuffer, uploadMime, bucket, relativePath);

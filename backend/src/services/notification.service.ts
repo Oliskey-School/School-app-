@@ -178,17 +178,26 @@ export class NotificationService {
         // "Failed to save preferences" 500. Resolve it (from the request, else the user).
         const sid = schoolId || owner.school_id;
 
+        // Keep only the boolean category toggles the settings screen actually
+        // sends. Persisting the body verbatim let any extra keys a caller included
+        // (school_id, branch_id, other ids…) land in the JSON column and come back
+        // on every read. The row itself is RLS-checked; the blob was not.
+        const categories: Record<string, boolean> = {};
+        for (const [key, value] of Object.entries(data || {})) {
+            if (typeof value === "boolean") categories[key] = value;
+        }
+
         return await prisma.notificationSetting.upsert({
             where: { user_id: userId },
             update: {
-                categories: data,
+                categories,
                 school_id: sid,
                 ...(branchId !== undefined ? { branch_id: branchId } : {}),
                 updated_at: new Date()
             },
             create: {
                 user_id: userId,
-                categories: data,
+                categories,
                 school_id: sid,
                 branch_id: branchId ?? null,
                 digest_time: data?.digest_time || '19:00'

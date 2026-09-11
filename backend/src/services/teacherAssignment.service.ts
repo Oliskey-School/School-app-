@@ -295,6 +295,14 @@ export class TeacherAssignmentService {
     static async addDuty(schoolId: string, branchId: string | undefined, data: any) {
         if (!data.teacher_id) throw new Error('A teacher is required');
         if (!data.name?.trim()) throw new Error('A duty name is required');
+        // TeacherDuty is only RLS-scoped by ITS OWN school_id (the caller's, always
+        // correct here) — teacher_id is a bare foreign key with no policy of its
+        // own. Nothing stopped a caller assigning a duty to another school's
+        // teacher id: the row passed RLS, and getWorkload's join then returned that
+        // teacher's name/generated-id to the wrong school's admin. Verify the
+        // teacher is actually in this school before the row can exist at all.
+        const teacher = await prisma.teacher.findFirst({ where: { id: data.teacher_id, school_id: schoolId }, select: { id: true } });
+        if (!teacher) throw new Error('Teacher not found in this school');
         return (prisma as any).teacherDuty.create({
             data: {
                 school_id: schoolId, branch_id: branchId && branchId !== 'all' ? branchId : null,

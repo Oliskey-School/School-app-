@@ -1026,6 +1026,14 @@ export class StudentService {
 
     static async linkGuardian(schoolId: string, branchId: string | undefined, data: any) {
         const { studentId, parentId } = data;
+        // The controller resolves studentId itself (school-scoped lookup by code),
+        // but an ADMIN-supplied parentId reaches here unverified — an admin could
+        // link ANY parent id, including one belonging to another school, granting
+        // that parent read access to this child. ParentChild carries this school's
+        // school_id (so the row itself passes RLS), but the parent it points at
+        // would not. Verify ownership before the link can be created at all.
+        const parent = await prisma.parent.findFirst({ where: { id: parentId, school_id: schoolId }, select: { id: true } });
+        if (!parent) throw new Error('Parent not found in this school');
         return await prisma.parentChild.upsert({
             where: {
                 parent_id_student_id: {

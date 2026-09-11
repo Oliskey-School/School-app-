@@ -24,6 +24,7 @@ router.get('/', authenticate, async (req: any, res) => {
 router.post('/send', VerificationController.sendVerificationCode);
 router.post('/verify', VerificationController.verifyCode);
 router.post('/resend', VerificationController.resendCode);
-router.get('/status/:email', VerificationController.checkStatus);
+// Self-only: see VerificationController.checkStatus for why this is authenticated.
+router.get('/status/:email', authenticate, VerificationController.checkStatus);
 
 export default router;

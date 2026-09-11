@@ -109,6 +109,15 @@ export class TimetableService {
             }
         }
 
+        // teacher_id is a bare foreign key with no RLS policy of its own — the row's
+        // own school_id keeps the TIMETABLE ENTRY in-tenant, but an unverified id
+        // could point at another school's teacher, whose name/generated-id a
+        // timetable view then joins in and displays. Same class of bug as
+        // TeacherDuty.teacher_id (confirmed exploitable via getWorkload).
+        if (data.teacher_id) {
+            const teacher = await prisma.teacher.findFirst({ where: { id: data.teacher_id, school_id: schoolId }, select: { id: true } });
+            if (!teacher) throw new Error('Teacher not found in this school');
+        }
         const entry = await prisma.timetable.create({
             data: {
                 school_id: schoolId,
@@ -155,6 +164,10 @@ export class TimetableService {
     }
 
     static async updateTimetable(schoolId: string, id: string, data: any) {
+        if (data.teacher_id) {
+            const teacher = await prisma.teacher.findFirst({ where: { id: data.teacher_id, school_id: schoolId }, select: { id: true } });
+            if (!teacher) throw new Error('Teacher not found in this school');
+        }
         const DOW: Record<string, number> = { monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sunday: 7 };
         // Resolve day_of_week if a string day name was sent
         const dow = data.day_of_week != null

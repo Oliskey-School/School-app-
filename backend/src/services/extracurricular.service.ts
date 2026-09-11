@@ -5,6 +5,14 @@ export class ExtracurricularService {
     static async createActivity(schoolId: string, branchId: string | undefined, data: any) {
         if (!data.name?.trim()) throw new Error('A club name is required');
         if (!data.category?.trim()) throw new Error('A category is required');
+        // advisor_teacher_id is a bare foreign key with no policy of its own — the
+        // row's own school_id keeps IT inside RLS, but nothing stopped it pointing
+        // at another school's teacher, which a getWorkload-style join would then
+        // hand that teacher's identity to. Same fix as TeacherDuty.teacher_id.
+        if (data.advisor_teacher_id) {
+            const advisor = await prisma.teacher.findFirst({ where: { id: data.advisor_teacher_id, school_id: schoolId }, select: { id: true } });
+            if (!advisor) throw new Error('Advisor teacher not found in this school');
+        }
         return prisma.extracurricularActivity.create({
             data: {
                 school_id: schoolId, branch_id: branchId && branchId !== 'all' ? branchId : null,
@@ -66,6 +74,10 @@ export class ExtracurricularService {
     static async setAdvisor(schoolId: string, activityId: string, teacherId: string | null) {
         const activity = await prisma.extracurricularActivity.findFirst({ where: { id: activityId, school_id: schoolId, deleted_at: null } });
         if (!activity) throw new Error('Activity not found');
+        if (teacherId) {
+            const advisor = await prisma.teacher.findFirst({ where: { id: teacherId, school_id: schoolId }, select: { id: true } });
+            if (!advisor) throw new Error('Advisor teacher not found in this school');
+        }
         return prisma.extracurricularActivity.update({ where: { id: activityId }, data: { advisor_teacher_id: teacherId } });
     }
 

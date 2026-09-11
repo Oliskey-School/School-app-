@@ -177,32 +177,27 @@ export class ParentAuthController {
      * Check parent verification status
      * GET /api/parent-auth/verify-email/status/:email
      */
+    // Self-only, authenticated, and never returns the user id. Previously an
+    // unauthenticated route that took any email and reported whether a parent
+    // account existed, its verification state and its internal user id — across
+    // every school. See VerificationController.checkStatus; same fix.
     static async checkVerificationStatus(req: Request, res: Response) {
         try {
             const { email } = req.params;
-            
+
             if (!email) {
                 return res.status(400).json({ success: false, message: 'Email is required' });
             }
 
-            const normalizedEmail = Array.isArray(email) ? email[0] : email.toLowerCase();
-            
-            const parent = await prisma.parent.findFirst({
-                where: { email: normalizedEmail }
-            });
-
-            if (!parent) {
-                return res.status(404).json({ success: false, message: 'Parent account not found' });
+            const normalizedEmail = (Array.isArray(email) ? email[0] : email).toLowerCase();
+            const caller = (req as any).user;
+            if (!caller?.id || String(caller.email || '').toLowerCase() !== normalizedEmail) {
+                return res.status(403).json({ success: false, message: 'You can only check your own verification status' });
             }
-
-            const user = await prisma.user.findFirst({
-                where: { id: parent.user_id }
-            });
 
             res.json({
                 success: true,
-                email_verified: user?.email_verified ?? false,
-                userId: user?.id
+                email_verified: caller.email_verified === true,
             });
         } catch (error: any) {
             console.error('[ParentAuthController] Status check error:', error);

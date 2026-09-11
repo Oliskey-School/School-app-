@@ -26,8 +26,19 @@ export class DepartmentService {
         }));
     }
 
+    // Department carries only ITS OWN school_id for RLS; head_teacher_id is a bare
+    // foreign key with no policy of its own. An unverified id let a department in
+    // this school point at another school's teacher — same shape as the workload
+    // leak from TeacherDuty.teacher_id, fixed the same way.
+    static async assertTeacherInSchool(schoolId: string, teacherId: string | null | undefined) {
+        if (!teacherId) return;
+        const teacher = await prisma.teacher.findFirst({ where: { id: teacherId, school_id: schoolId }, select: { id: true } });
+        if (!teacher) throw new Error('Teacher not found in this school');
+    }
+
     static async createDepartment(schoolId: string, branchId: string | undefined, data: any) {
         if (!data.name?.trim()) throw new Error('A department name is required');
+        await this.assertTeacherInSchool(schoolId, data.head_teacher_id);
         const department = await (prisma as any).department.create({
             data: {
                 school_id: schoolId, branch_id: branchId && branchId !== 'all' ? branchId : null,
@@ -41,6 +52,7 @@ export class DepartmentService {
     static async updateDepartment(schoolId: string, id: string, data: any) {
         const department = await (prisma as any).department.findFirst({ where: { id, school_id: schoolId, deleted_at: null } });
         if (!department) throw new Error('Department not found');
+        if (data.head_teacher_id !== undefined) await this.assertTeacherInSchool(schoolId, data.head_teacher_id);
         const updated = await (prisma as any).department.update({
             where: { id },
             data: { name: data.name?.trim(), head_teacher_id: data.head_teacher_id !== undefined ? data.head_teacher_id || null : undefined },

@@ -103,6 +103,9 @@ export const globalApiLimiter = rateLimit({
 // identity yet, so this is the ONLY signal available and must not be
 // bypassable by presenting an arbitrary (even garbage) bearer token.
 // ---------------------------------------------------------------------------
+const isLoopback = (ip: string | undefined) =>
+    ip === '::1' || ip === '127.0.0.1' || ip === '::ffff:127.0.0.1';
+
 const authTierLimiter = (opts: { windowMs: number; limit: number; message: string; prefix: string }) =>
     rateLimit({
         windowMs: opts.windowMs,
@@ -113,7 +116,11 @@ const authTierLimiter = (opts: { windowMs: number; limit: number; message: strin
         passOnStoreError: true,
         store: redisStore(opts.prefix),
         message: { error: opts.message },
-        skip: (req) => process.env.NODE_ENV !== 'production' && (req.ip === '::1' || req.ip === '127.0.0.1'),
+        // Loopback is exempt outside production so local tooling and the E2E
+        // suites can log in repeatedly. On a dual-stack listener an IPv4 loopback
+        // connection is reported as the IPv4-mapped form, so that spelling has to
+        // be accepted too or the exemption silently never applies.
+        skip: (req) => process.env.NODE_ENV !== 'production' && isLoopback(req.ip),
     });
 
 export const loginLimiter = authTierLimiter({

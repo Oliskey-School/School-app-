@@ -63,6 +63,18 @@ jobs:
       - name: Seed demo data
         run: npm run db:seed
 
+      # Fast RLS/tenant-boundary regression gate. No running server needed —
+      # it talks to the database directly. This is the release gate from the
+      # multi-tenant security audit: fails the build if RLS coverage regresses,
+      # a policy loses its WITH CHECK / branch clause, the tenant-mismatch
+      # guard is removed from auth.middleware, or a previously-fixed
+      # cross-tenant foreign-key write comes back. The slow, exhaustive,
+      # live-server companion (tests/security/{seed-tenants,attack}.ts) is
+      # documented in tests/security/README.md and run before a release
+      # rather than on every push.
+      - name: Multi-tenant security regression gate
+        run: npx vitest run --config backend/vitest.config.ts backend/tests/integration/multi-tenant-security.test.ts
+
       - name: Build frontend
         run: npm run build
 

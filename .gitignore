@@ -148,3 +148,7 @@ backups/
 
 # Local Supabase personal access token, if used instead of `supabase login`.
 .supabase-token
+
+# Multi-tenant security gate: runtime fixture/results, never committed
+tests/security/.fixture.json
+tests/security/.attack-results.json

@@ -236,10 +236,18 @@ export class NotificationSettingService {
     }
 
     static async updateSettings(userId: string, data: any) {
-        // Map the flat object from frontend into the categories Json field
-        const settingsData = {
-            categories: data
-        };
+        // The frontend sends a flat map of category -> on/off. Keep ONLY those
+        // boolean toggles. This used to store the request body verbatim, so any
+        // extra keys a caller included (school_id, branch_id, other users' ids…)
+        // were persisted into the JSON column and echoed back on every read.
+        // Nothing crossed tenants — the row's own school/branch columns are
+        // RLS-checked — but a settings blob is not a place to keep arbitrary
+        // caller-supplied identifiers.
+        const categories: Record<string, boolean> = {};
+        for (const [key, value] of Object.entries(data || {})) {
+            if (typeof value === 'boolean') categories[key] = value;
+        }
+        const settingsData = { categories };
 
         return (prisma.notificationSetting.upsert as any)({
             where: { user_id: userId },

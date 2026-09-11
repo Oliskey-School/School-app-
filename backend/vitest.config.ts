@@ -1,4 +1,9 @@
-import { defineConfig } from 'vitest/config';
+// defineConfig from 'vitest/config' resolves to a CJS build that require()s
+// std-env's ESM-only entry and crashes with ERR_REQUIRE_ESM before a single
+// test runs. The root vite.config.mts sidesteps this by importing
+// defineConfig from 'vite' itself (same test-config shape, different, working
+// module resolution path) — do the same here.
+import { defineConfig } from 'vite';
 
 /**
  * Dedicated config for the backend integration tests.
@@ -24,7 +29,7 @@ export default defineConfig({
     hookTimeout: 120000,
     fileParallelism: false,
     pool: 'forks',
-    // @ts-expect-error poolOptions.forks.singleFork valid at runtime but not in older type defs
-    poolOptions: { forks: { singleFork: true } },
+    // Vitest 4 moved this out of poolOptions to a top-level option.
+    isolate: false,
   },
 });

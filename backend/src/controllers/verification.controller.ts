@@ -170,30 +170,32 @@ export class VerificationController {
      * Check verification status
      * GET /api/verification/status/:email
      */
+    // Only the authenticated caller's OWN email can be checked, and the user id
+    // is never returned. This used to be an unauthenticated route that accepted
+    // any address and answered with whether an account existed, its verification
+    // state and its internal user id — across every school on the platform. That
+    // is a tenant-enumeration oracle. The route is now mounted behind
+    // `authenticate`, and a caller asking about any address other than their own
+    // gets the same 403 whether or not that address exists.
     static async checkStatus(req: Request, res: Response) {
         try {
             const { email } = req.params;
-            
+
             if (!email) {
                 return res.status(400).json({ success: false, message: 'Email is required' });
             }
 
-            const normalizedEmail = Array.isArray(email) ? email[0] : email;
-            
-            const user = await prisma.user.findFirst({
-                where: { email: normalizedEmail.toLowerCase() }
-            });
-
-            if (!user) {
-                return res.status(404).json({ success: false, message: 'User not found' });
+            const normalizedEmail = (Array.isArray(email) ? email[0] : email).toLowerCase();
+            const caller = (req as any).user;
+            if (!caller?.id || String(caller.email || '').toLowerCase() !== normalizedEmail) {
+                return res.status(403).json({ success: false, message: 'You can only check your own verification status' });
             }
 
-            const isVerified = await VerificationService.isEmailVerified(user.id);
+            const isVerified = await VerificationService.isEmailVerified(caller.id);
 
             res.json({
                 success: true,
                 email_verified: isVerified,
-                userId: user.id
             });
         } catch (error: any) {
             console.error('[VerificationController] Status check error:', error);
