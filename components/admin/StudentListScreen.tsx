@@ -186,25 +186,29 @@ const StudentRow: React.FC<{
   );
 };
 
-const StageAccordion: React.FC<{ title: string; count: number; children: React.ReactNode, defaultOpen?: boolean }> = ({ title, count, children, defaultOpen = false }) => {
+const StageAccordion: React.FC<{ title: string; count: number; children: React.ReactNode, defaultOpen?: boolean, forceOpen?: boolean }> = ({ title, count, children, defaultOpen = false, forceOpen = false }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
+  // While a search is active the section must not be able to hide a match:
+  // closed sections render no children at all, so a matching student inside one
+  // is invisible and the search looks broken.
+  const open = forceOpen || isOpen;
 
   return (
     <div className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden">
       <motion.button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => setIsOpen(!open)}
         whileTap={{ scale: 0.99 }}
         className="w-full flex justify-between items-center p-4 text-left"
-        aria-expanded={isOpen}
+        aria-expanded={open}
       >
         <h3 className="font-bold text-lg text-gray-800">{title}</h3>
         <div className="flex items-center space-x-2">
           <span className="text-sm font-semibold text-gray-700 bg-gray-100 px-2.5 py-1 rounded-full">{count} Students</span>
-          <ChevronRight className={`h-5 w-5 text-gray-500 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} />
+          <ChevronRight className={`h-5 w-5 text-gray-500 transition-transform duration-200 ${open ? 'rotate-90' : ''}`} />
         </div>
       </motion.button>
       <AnimatePresence initial={false}>
-        {isOpen && (
+        {open && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
@@ -222,24 +226,28 @@ const StageAccordion: React.FC<{ title: string; count: number; children: React.R
   );
 };
 
-const SubStageAccordion: React.FC<{ title: string; count: number; children: React.ReactNode, defaultOpen?: boolean }> = ({ title, count, children, defaultOpen = false }) => {
+const SubStageAccordion: React.FC<{ title: string; count: number; children: React.ReactNode, defaultOpen?: boolean, forceOpen?: boolean }> = ({ title, count, children, defaultOpen = false, forceOpen = false }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
+  // While a search is active the section must not be able to hide a match:
+  // closed sections render no children at all, so a matching student inside one
+  // is invisible and the search looks broken.
+  const open = forceOpen || isOpen;
   return (
     <div className="bg-gray-50 rounded-xl overflow-hidden">
       <motion.button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => setIsOpen(!open)}
         whileTap={{ scale: 0.99 }}
         className="w-full flex justify-between items-center p-3 text-left hover:bg-gray-100 transition-colors"
-        aria-expanded={isOpen}
+        aria-expanded={open}
       >
         <h4 className="font-semibold text-gray-700">{title}</h4>
         <div className="flex items-center space-x-2">
           <span className="text-xs font-medium text-gray-600 bg-gray-200 px-2 py-0.5 rounded-full">{count}</span>
-          <ChevronRight className={`h-5 w-5 text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} />
+          <ChevronRight className={`h-5 w-5 text-gray-400 transition-transform duration-200 ${open ? 'rotate-90' : ''}`} />
         </div>
       </motion.button>
       <AnimatePresence initial={false}>
-        {isOpen && (
+        {open && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
@@ -257,25 +265,29 @@ const SubStageAccordion: React.FC<{ title: string; count: number; children: Reac
   );
 };
 
-const ClassAccordion: React.FC<{ title: string; count: number; children: React.ReactNode, defaultOpen?: boolean }> = ({ title, count, children, defaultOpen = false }) => {
+const ClassAccordion: React.FC<{ title: string; count: number; children: React.ReactNode, defaultOpen?: boolean, forceOpen?: boolean }> = ({ title, count, children, defaultOpen = false, forceOpen = false }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
+  // While a search is active the section must not be able to hide a match:
+  // closed sections render no children at all, so a matching student inside one
+  // is invisible and the search looks broken.
+  const open = forceOpen || isOpen;
 
   return (
     <div className="bg-white rounded-xl overflow-hidden border">
       <motion.button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => setIsOpen(!open)}
         whileTap={{ scale: 0.99 }}
         className="w-full flex justify-between items-center p-3 text-left hover:bg-gray-100 transition-colors"
-        aria-expanded={isOpen}
+        aria-expanded={open}
       >
         <h4 className="font-semibold text-sm text-gray-600">{title}</h4>
         <div className="flex items-center space-x-2">
           <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">{count}</span>
-          <ChevronRight className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} />
+          <ChevronRight className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${open ? 'rotate-90' : ''}`} />
         </div>
       </motion.button>
       <AnimatePresence initial={false}>
-        {isOpen && (
+        {open && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
@@ -379,6 +391,12 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
       setIsChangingStatus(false);
     }
   };
+
+  // A closed section renders none of its rows, so while the roster is filtered
+  // by a search term a closed section can swallow the only match and the search
+  // reads as broken. Sections stay force-opened for as long as a term is active;
+  // clearing it restores whatever the user had expanded.
+  const isSearching = searchTerm.trim().length > 0;
 
   const filteredStudentsList = useMemo(() => {
     return students.filter(student => {
@@ -515,7 +533,7 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
       return (
         <div className="space-y-3">
           {Object.entries(studentsByClass).map(([className, classStudents]) => (
-            <ClassAccordion key={className} title={className} count={classStudents.length} defaultOpen={true}>
+            <ClassAccordion key={className} title={className} count={classStudents.length} defaultOpen={true} forceOpen={isSearching}>
               {classStudents.map(s => <StudentRow key={s.id} student={s} onSelect={handleStudentSelect} onStatusChange={handleStatusChange} />)}
             </ClassAccordion>
           ))}
@@ -526,9 +544,9 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
     return (
       <>
         {seniorCount > 0 && (
-          <StageAccordion title="Senior Secondary" count={seniorCount}>
+          <StageAccordion title="Senior Secondary" count={seniorCount} forceOpen={isSearching}>
             {Object.entries(studentsByStageAndClass.senior).map(([className, stageStudents]: [string, Student[]]) => (
-              <SubStageAccordion key={className} title={className} count={stageStudents.length}>
+              <SubStageAccordion key={className} title={className} count={stageStudents.length} forceOpen={isSearching}>
                 {stageStudents.map(s => <StudentRow key={s.id} student={s} onSelect={handleStudentSelect} onStatusChange={handleStatusChange} />)}
               </SubStageAccordion>
             ))}
@@ -536,9 +554,9 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
         )}
 
         {juniorCount > 0 && (
-          <StageAccordion title="Junior Secondary" count={juniorCount}>
+          <StageAccordion title="Junior Secondary" count={juniorCount} forceOpen={isSearching}>
             {Object.entries(studentsByStageAndClass.junior).map(([className, stageStudents]: [string, Student[]]) => (
-              <SubStageAccordion key={className} title={className} count={stageStudents.length}>
+              <SubStageAccordion key={className} title={className} count={stageStudents.length} forceOpen={isSearching}>
                 {stageStudents.map(s => <StudentRow key={s.id} student={s} onSelect={handleStudentSelect} onStatusChange={handleStatusChange} />)}
               </SubStageAccordion>
             ))}
@@ -546,20 +564,20 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
         )}
 
         {primaryCount > 0 && (
-          <StageAccordion title="Primary School" count={primaryCount}>
+          <StageAccordion title="Primary School" count={primaryCount} forceOpen={isSearching}>
             {upperPrimaryCount > 0 && (
-              <SubStageAccordion title="Upper Primary (4-6)" count={upperPrimaryCount}>
+              <SubStageAccordion title="Upper Primary (4-6)" count={upperPrimaryCount} forceOpen={isSearching}>
                 {Object.entries(studentsByStageAndClass.primary.upper).map(([className, stageStudents]: [string, Student[]]) => (
-                  <ClassAccordion key={className} title={className} count={stageStudents.length}>
+                  <ClassAccordion key={className} title={className} count={stageStudents.length} forceOpen={isSearching}>
                     {stageStudents.map(s => <StudentRow key={s.id} student={s} onSelect={handleStudentSelect} onStatusChange={handleStatusChange} />)}
                   </ClassAccordion>
                 ))}
               </SubStageAccordion>
             )}
             {lowerPrimaryCount > 0 && (
-              <SubStageAccordion title="Lower Primary (1-3)" count={lowerPrimaryCount}>
+              <SubStageAccordion title="Lower Primary (1-3)" count={lowerPrimaryCount} forceOpen={isSearching}>
                 {Object.entries(studentsByStageAndClass.primary.lower).map(([className, stageStudents]: [string, Student[]]) => (
-                  <ClassAccordion key={className} title={className} count={stageStudents.length}>
+                  <ClassAccordion key={className} title={className} count={stageStudents.length} forceOpen={isSearching}>
                     {stageStudents.map(s => <StudentRow key={s.id} student={s} onSelect={handleStudentSelect} onStatusChange={handleStatusChange} />)}
                   </ClassAccordion>
                 ))}
@@ -569,9 +587,9 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
         )}
 
         {preschoolCount > 0 && (
-          <StageAccordion title="Preschool / Nursery" count={preschoolCount}>
+          <StageAccordion title="Preschool / Nursery" count={preschoolCount} forceOpen={isSearching}>
             {Object.entries(studentsByStageAndClass.preschool).map(([className, stageStudents]: [string, Student[]]) => (
-              <ClassAccordion key={className} title={className} count={stageStudents.length}>
+              <ClassAccordion key={className} title={className} count={stageStudents.length} forceOpen={isSearching}>
                 {stageStudents.map(s => <StudentRow key={s.id} student={s} onSelect={handleStudentSelect} onStatusChange={handleStatusChange} />)}
               </ClassAccordion>
             ))}
