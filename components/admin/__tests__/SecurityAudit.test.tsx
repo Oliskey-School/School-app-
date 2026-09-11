@@ -4,7 +4,16 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import UserRolesScreen from '../UserRolesScreen';
 import AddStudentScreen from '../AddStudentScreen';
 import { BrowserRouter } from 'react-router';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
+
+// AddStudentScreen invalidates the cached rosters after a save, so it needs a
+// client in scope — in the app it always renders under the provider in index.tsx.
+const withQuery = (ui: React.ReactNode) => (
+  <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+    {ui}
+  </QueryClientProvider>
+);
 import { toast } from 'react-hot-toast';
 import { api } from '../../../lib/api';
 
@@ -178,11 +187,11 @@ describe('Admin Security Audit', () => {
         isPremium: false
       });
 
-      render(
+      render(withQuery(
         <BrowserRouter>
           <AddStudentScreen forceUpdate={() => {}} handleBack={() => {}} />
         </BrowserRouter>
-      );
+      ));
 
       // Fill form (minimal)
       fireEvent.change(screen.getByPlaceholderText('Adebayo Adewale'), { target: { value: 'Test Student' } });
@@ -211,11 +220,11 @@ describe('Admin Security Audit', () => {
       });
       mockUseTenantLimit.mockReturnValue({ isLimitReached: false, currentCount: 0, maxLimit: 100, isPremium: false });
 
-      render(
+      render(withQuery(
         <BrowserRouter>
           <AddStudentScreen forceUpdate={() => {}} handleBack={() => {}} />
         </BrowserRouter>
-      );
+      ));
 
       // Expect Error Message
       expect(screen.getByText('Tenancy Handshake Missing')).toBeInTheDocument();

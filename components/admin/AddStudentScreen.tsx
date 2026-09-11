@@ -12,6 +12,7 @@ import { SUBJECTS_LIST, DEFAULT_STANDARD_CLASSES, getFormattedClassName } from '
 import { createUserAccount, generateUsername, generatePassword, sendVerificationEmail, checkEmailExists } from '../../lib/auth';
 import CredentialsModal from '../ui/CredentialsModal';
 import { useProfile } from '../../context/ProfileContext';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../context/AuthContext';
 import { useBranch } from '../../context/BranchContext';
 import { useTenantLimit } from '../../hooks/useTenantLimit';
@@ -155,6 +156,7 @@ const MultiSelect: React.FC<{
 
 const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forceUpdate, handleBack }) => {
     const { profile, refreshProfile } = useProfile();
+    const queryClient = useQueryClient();
     const { currentSchool, currentBranchId, user, role } = useAuth(); // Added user and currentBranchId
     // GET /api/parents is admin-only on the backend (ADMIN_ROLES in
     // parent.controller.ts). This screen is also reused for the Teacher
@@ -773,6 +775,16 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                 console.log('🚀 [AddStudentScreen] Calling api.enrollStudent with data:', JSON.stringify(studentData));
                 const result = await api.enrollStudent(studentData);
                 console.log('🚀 [AddStudentScreen] Enrollment result received:', JSON.stringify(result));
+
+                // Drop the cached rosters this enrolment just invalidated. The
+                // student list caches for 5 minutes and is pre-warmed by the
+                // role prefetcher at login, so without this the admin returns to
+                // a roster that cannot show the student they just created. It
+                // did eventually refresh off the realtime student:updated event,
+                // which makes correctness depend on socket timing — the mutation
+                // should settle its own caches.
+                queryClient.invalidateQueries({ queryKey: ['students'] });
+                queryClient.invalidateQueries({ queryKey: ['users'] });
 
                 if (result.status === 'Pending') {
                     console.log('🚀 [AddStudentScreen] Status is Pending. Showing toast.');

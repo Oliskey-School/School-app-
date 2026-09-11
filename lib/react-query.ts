@@ -25,9 +25,20 @@ export const queryClient = new QueryClient({
 
             refetchOnWindowFocus: false,
             refetchOnReconnect: true,
-            // Cached data should remain usable when a dashboard/component remounts.
-            // Explicit invalidation and reconnect still trigger revalidation.
-            refetchOnMount: false,
+            // Cached data should remain usable when a dashboard/component remounts,
+            // which `true` already gives us: React Query only refetches on mount
+            // when the entry is STALE, so anything inside the 15-minute staleTime
+            // above still mounts straight from cache.
+            //
+            // This was `false`, which also suppressed the revalidation half. The
+            // comment claimed explicit invalidation still covered it, but
+            // invalidateQueries only refetches queries that are currently MOUNTED;
+            // for anything else it just marks the entry stale. So the ordinary
+            // "create a record, navigate to the list" flow — where the list is not
+            // mounted at the moment of the mutation — came back to a cached roster
+            // that could not show the row the user had just created, and stayed
+            // that way for the full 15 minutes.
+            refetchOnMount: true,
 
             networkMode: 'offlineFirst',
         },

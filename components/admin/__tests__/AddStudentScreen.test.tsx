@@ -2,8 +2,18 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { describe, it, expect, vi } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import AddStudentScreen from '../AddStudentScreen';
 import { api } from '../../../lib/api';
+
+// The screen invalidates the cached rosters after a successful save, so it needs
+// a client in scope — in the app it always renders under the provider in
+// index.tsx. Retries off so a failed query fails the test immediately.
+const withQuery = (ui: React.ReactNode) => (
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        {ui}
+    </QueryClientProvider>
+);
 
 vi.mock('../../../context/AuthContext', () => ({
     useAuth: () => ({
@@ -75,7 +85,7 @@ describe('AddStudentScreen (edit mode) persistence', () => {
     it('restores previously saved subjects instead of overwriting them with class defaults', async () => {
         (api.getStudentById as any).mockResolvedValue(mockStudent);
 
-        render(
+        render(withQuery(
             <MemoryRouter>
                 <AddStudentScreen
                     studentToEdit={mockStudent as any}
@@ -83,7 +93,7 @@ describe('AddStudentScreen (edit mode) persistence', () => {
                     handleBack={vi.fn()}
                 />
             </MemoryRouter>
-        );
+        ));
 
         await screen.findByDisplayValue('Jane Doe');
 
@@ -96,7 +106,7 @@ describe('AddStudentScreen (edit mode) persistence', () => {
     it('sends curriculum_type and school_bus_id when saving an edited student', async () => {
         (api.getStudentById as any).mockResolvedValue(mockStudent);
 
-        render(
+        render(withQuery(
             <MemoryRouter>
                 <AddStudentScreen
                     studentToEdit={mockStudent as any}
@@ -104,7 +114,7 @@ describe('AddStudentScreen (edit mode) persistence', () => {
                     handleBack={vi.fn()}
                 />
             </MemoryRouter>
-        );
+        ));
 
         await screen.findByDisplayValue('Jane Doe');
 
