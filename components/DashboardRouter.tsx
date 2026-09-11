@@ -58,7 +58,10 @@ const DashboardRouter: React.FC<DashboardRouterProps> = (props) => {
     useEffect(() => {
         if (loading || !role) return;
         const start = () => prefetchRoleChunks(String(role));
-        const idle = 'requestIdleCallback' in window
+        // typeof, not `in`: lib.dom declares requestIdleCallback as always present,
+        // so `"requestIdleCallback" in window` narrows window to never in the else
+        // branch and window.setTimeout stops type-checking there.
+        const idle = typeof window.requestIdleCallback === "function"
             ? window.requestIdleCallback(start, { timeout: 2000 })
             : window.setTimeout(start, 500);
         return () => {

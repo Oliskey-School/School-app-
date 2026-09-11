@@ -1129,6 +1129,10 @@ export interface CBTResult {
   percentage: number;
   answers?: any; // JSONB
   submittedAt: string;
+  // Derived in the UI (CBTScoresScreen) by comparing percentage against the
+  // exam's pass mark, then read back to colour the row and render the badge.
+  // It was already being set and read; it was just never declared here.
+  status?: 'Passed' | 'Failed';
 }
 
 // ============================================

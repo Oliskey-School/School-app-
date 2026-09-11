@@ -137,7 +137,10 @@ const AuthenticatedApp: React.FC = () => {
           .then(({ requestNotificationPermission }) => requestNotificationPermission())
           .catch(() => { });
       };
-      const idle = 'requestIdleCallback' in window
+      // typeof, not `in`: lib.dom declares requestIdleCallback as always present,
+      // so `"requestIdleCallback" in window` narrows window to never in the else
+      // branch and window.setTimeout stops type-checking there.
+      const idle = typeof window.requestIdleCallback === "function"
         ? window.requestIdleCallback(promptForNotifications, { timeout: 3000 })
         : window.setTimeout(promptForNotifications, 1000);
       return () => {
@@ -253,7 +256,10 @@ const App: React.FC = () => {
       void initializeBackgroundServices();
     };
 
-    const idle = 'requestIdleCallback' in window
+      // typeof, not `in`: lib.dom declares requestIdleCallback as always present,
+      // so `"requestIdleCallback" in window` narrows window to never in the else
+      // branch and window.setTimeout stops type-checking there.
+    const idle = typeof window.requestIdleCallback === "function"
       ? window.requestIdleCallback(startBackgroundInitialization, { timeout: 1500 })
       : window.setTimeout(startBackgroundInitialization, 250);
 
