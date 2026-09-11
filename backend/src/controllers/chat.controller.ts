@@ -26,7 +26,7 @@ export const getChatRooms = async (req: AuthRequest, res: Response) => {
     try {
         const userId = req.user?.id;
         if (!userId) return res.status(401).json({ message: 'Unauthorized' });
-        const rooms = await chatService.getChatRooms(userId);
+        const rooms = await chatService.getChatRooms(userId, resolveSchoolId(req));
         res.json(rooms);
     } catch (error: any) {
         sendError(res, error, 'chat.controller.ts');
@@ -41,7 +41,7 @@ export const getChatMessages = async (req: AuthRequest, res: Response) => {
         if (!(await isRoomParticipant(roomId as string, userId))) {
             return res.status(403).json({ message: 'You are not a participant in this conversation' });
         }
-        const messages = await chatService.getChatMessages(roomId as string);
+        const messages = await chatService.getChatMessages(roomId as string, resolveSchoolId(req));
         res.json(messages);
     } catch (error: any) {
         sendError(res, error, 'chat.controller.ts');

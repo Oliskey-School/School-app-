@@ -1,31 +1,73 @@
-import prisma from '../config/database';
+import prisma, { getRawPrisma } from '../config/database';
 import { SocketService } from './socket.service';
 
+// Display fields only — never credentials, never anything branch-sensitive.
+const CHAT_USER_SELECT = {
+    id: true, full_name: true, avatar_url: true, role: true,
+    student_profile: { select: { display_name: true } }
+} as const;
+
 export class ChatService {
-    async getChatRooms(userId: string) {
+    /**
+     * Resolves the display identity of everyone the caller shares a room with.
+     *
+     * Why this cannot be a nested `include`: chat rows and the users they point
+     * at are scoped differently by RLS. A ChatParticipant/ChatMessage written
+     * with branch_id NULL reads as school-wide and is always visible, while the
+     * User it references is confined to `app.current_branch_ids`. For a teacher
+     * (who has a non-empty branch list, unlike an admin or parent) the row was
+     * therefore visible while its REQUIRED `user` relation resolved to null, and
+     * Prisma aborted the whole query with "Inconsistent query result: Field user
+     * is required to return data" — a 500 on GET /api/chat/rooms.
+     *
+     * Chat is inherently cross-branch: a parent in one branch talks to a teacher
+     * in another. So the fix is not to hide the counterpart (that breaks the
+     * feature) but to look them up with an explicit school scope instead of the
+     * branch scope. School isolation — the absolute rule — is still enforced
+     * here by the school_id filter; only the intra-school branch narrowing is
+     * lifted, and only for these display fields.
+     *
+     * Without a known school we stay on the RLS-scoped client and simply return
+     * whoever is visible; callers render null rather than failing.
+     */
+    private async loadChatUserDirectory(userIds: string[], schoolId?: string) {
+        const directory = new Map<string, any>();
+        const ids = [...new Set(userIds)].filter(Boolean);
+        if (!ids.length) return directory;
+
+        const users = schoolId
+            ? await getRawPrisma().user.findMany({
+                where: { id: { in: ids }, school_id: schoolId },
+                select: CHAT_USER_SELECT,
+            })
+            : await prisma.user.findMany({ where: { id: { in: ids } }, select: CHAT_USER_SELECT });
+
+        users.forEach((u: any) => directory.set(u.id, u));
+        return directory;
+    }
+
+    async getChatRooms(userId: string, schoolId?: string) {
         const rooms = await prisma.chatRoom.findMany({
             where: {
                 participants: { some: { user_id: userId } }
             },
             include: {
-                participants: {
-                    include: {
-                        user: {
-                            select: {
-                                id: true, full_name: true, avatar_url: true, role: true,
-                                student_profile: { select: { display_name: true } }
-                            }
-                        }
-                    }
-                },
+                participants: true,
                 messages: {
                     take: 1,
                     orderBy: { created_at: 'desc' },
-                    include: { sender: { select: { id: true, full_name: true } } }
                 }
             },
             orderBy: { last_message_at: 'desc' }
         });
+
+        const directory = await this.loadChatUserDirectory(
+            rooms.flatMap(room => [
+                ...room.participants.map(p => p.user_id),
+                ...room.messages.map(m => m.sender_id),
+            ]),
+            schoolId,
+        );
 
         // Attach unread count per room
         return Promise.all(rooms.map(async (room) => {
@@ -41,49 +83,49 @@ export class ChatService {
                 }
             });
 
-            return { ...room, unread_count: unreadCount };
+            return {
+                ...room,
+                participants: room.participants.map(p => ({ ...p, user: directory.get(p.user_id) ?? null })),
+                messages: room.messages.map(m => ({ ...m, sender: directory.get(m.sender_id) ?? null })),
+                unread_count: unreadCount,
+            };
         }));
     }
 
-    async getChatMessages(roomId: string) {
-        return prisma.chatMessage.findMany({
+    async getChatMessages(roomId: string, schoolId?: string) {
+        const messages = await prisma.chatMessage.findMany({
             where: { room_id: roomId, is_deleted: false },
-            include: {
-                sender: {
-                    select: {
-                        id: true, full_name: true, avatar_url: true, role: true,
-                        student_profile: { select: { display_name: true } }
-                    }
-                }
-            },
             orderBy: { created_at: 'asc' }
         });
+        // Same required-relation hazard as getChatRooms — see loadChatUserDirectory.
+        const directory = await this.loadChatUserDirectory(messages.map(m => m.sender_id), schoolId);
+        return messages.map(m => ({ ...m, sender: directory.get(m.sender_id) ?? null }));
     }
 
     async sendMessage(roomId: string, senderId: string, content: string, type: string = 'text', mediaUrl?: string) {
         // Fetch school_id from the room so we can satisfy the required FK
-        const room = await prisma.chatRoom.findUnique({ where: { id: roomId }, select: { school_id: true } });
+        const room = await prisma.chatRoom.findUnique({ where: { id: roomId }, select: { school_id: true, branch_id: true } });
         if (!room) throw new Error('Chat room not found');
 
-        const message = await prisma.chatMessage.create({
+        const created = await prisma.chatMessage.create({
             data: {
                 room_id: roomId,
                 sender_id: senderId,
                 school_id: room.school_id,
+                // Mirror the room's branch so a message is exactly as visible as
+                // the room carrying it. Left unset, every message was written
+                // branch_id NULL — school-wide — regardless of the room's scope.
+                branch_id: room.branch_id,
                 content,
                 type,
                 is_deleted: false,
                 is_edited: false
-            },
-            include: {
-                sender: {
-                    select: {
-                        id: true, full_name: true, avatar_url: true, role: true,
-                        student_profile: { select: { display_name: true } }
-                    }
-                }
             }
         });
+
+        // Hydrated separately, not via include — see loadChatUserDirectory.
+        const directory = await this.loadChatUserDirectory([senderId], room.school_id);
+        const message: any = { ...created, sender: directory.get(senderId) ?? null };
 
         // media_url is a new column — set it via raw SQL so the running
         // Prisma client (which predates the column) doesn't reject it
