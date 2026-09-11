@@ -115,15 +115,6 @@ const prismaClientSingleton = () => {
                     // this exact case: it runs every element as one real DB
                     // transaction over one connection.
                     const raw = globalThis.__rawPrisma!;
-                    const setters = [
-                        raw.$executeRaw`SELECT set_config('app.current_school_id', ${ctx.schoolId}, true)`,
-                    ];
-                    if (ctx.branchId) {
-                        setters.push(raw.$executeRaw`SELECT set_config('app.current_branch_id', ${ctx.branchId}, true)`);
-                    }
-                    if (ctx.userId) {
-                        setters.push(raw.$executeRaw`SELECT set_config('app.current_user_id', ${ctx.userId}, true)`);
-                    }
                     // Branch entitlement for RLS. An EMPTY string means "no branch
                     // restriction" — correct for a school-level admin (manages every
                     // branch) and for a parent (children may sit in different
@@ -134,8 +125,34 @@ const prismaClientSingleton = () => {
                     const branchList = (ctx.allowedBranchIds && ctx.allowedBranchIds.length)
                         ? ctx.allowedBranchIds.join(',')
                         : '';
-                    setters.push(raw.$executeRaw`SELECT set_config('app.current_branch_ids', ${branchList}, true)`);
-                    const results = await raw.$transaction([...setters, query(args)] as any);
+
+                    // Every GUC goes in ONE statement rather than one round-trip
+                    // each. This used to be up to four separate $executeRaw calls,
+                    // so an endpoint issuing ten model queries paid up to fifty
+                    // statements across ten transactions before doing any work.
+                    //
+                    // Nothing about the scoping changes: same GUC names, same
+                    // values, same is_local=true, same single transaction as the
+                    // query they protect. Only the number of round-trips changes.
+                    // Values are still bound as parameters — the SQL text below is
+                    // assembled purely from constants.
+                    const fragments = [`set_config('app.current_school_id', $1, true)`];
+                    const values: string[] = [ctx.schoolId];
+                    if (ctx.branchId) {
+                        values.push(ctx.branchId);
+                        fragments.push(`set_config('app.current_branch_id', $${values.length}, true)`);
+                    }
+                    if (ctx.userId) {
+                        values.push(ctx.userId);
+                        fragments.push(`set_config('app.current_user_id', $${values.length}, true)`);
+                    }
+                    values.push(branchList);
+                    fragments.push(`set_config('app.current_branch_ids', $${values.length}, true)`);
+
+                    const results = await raw.$transaction([
+                        raw.$executeRawUnsafe(`SELECT ${fragments.join(', ')}`, ...values),
+                        query(args),
+                    ] as any);
                     return results[results.length - 1];
                 }
 
