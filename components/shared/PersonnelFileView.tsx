@@ -257,14 +257,16 @@ const PersonnelFileView: React.FC<PersonnelFileViewProps> = ({ teacherId, mode }
                     <p className="text-xs text-gray-400">{t.branch_name || ''}{t.status ? ` · ${t.status}` : ''}</p>
                 </div>
                 {mode === 'admin' && (
-                    <div className="flex flex-col sm:flex-row gap-2">
+                    <div className="flex flex-row gap-2">
                         <motion.button whileHover={{ y: -1 }} whileTap={{ scale: 0.96 }} onClick={() => setShowAddRecord(true)}
-                            className="flex items-center gap-1.5 px-3 py-2 bg-indigo-50 text-indigo-700 rounded-xl font-semibold text-sm hover:bg-indigo-100 transition-colors">
-                            <PlusIcon className="w-4 h-4" /> Add Record
+                            aria-label="Add Record"
+                            className="flex items-center justify-center gap-1.5 p-2.5 sm:px-3 sm:py-2 bg-indigo-50 text-indigo-700 rounded-xl font-semibold text-sm hover:bg-indigo-100 transition-colors">
+                            <PlusIcon className="w-4 h-4 flex-shrink-0" /> <span className="hidden sm:inline">Add Record</span>
                         </motion.button>
                         <motion.button whileHover={{ y: -1 }} whileTap={{ scale: 0.96 }} onClick={() => setShowIssueQuery(true)}
-                            className="flex items-center gap-1.5 px-3 py-2 bg-amber-50 text-amber-700 rounded-xl font-semibold text-sm hover:bg-amber-100 transition-colors">
-                            <Mail className="w-4 h-4" /> Issue Query Letter
+                            aria-label="Issue Query Letter"
+                            className="flex items-center justify-center gap-1.5 p-2.5 sm:px-3 sm:py-2 bg-amber-50 text-amber-700 rounded-xl font-semibold text-sm hover:bg-amber-100 transition-colors">
+                            <Mail className="w-4 h-4 flex-shrink-0" /> <span className="hidden sm:inline">Issue Query Letter</span>
                         </motion.button>
                     </div>
                 )}

@@ -12,6 +12,7 @@ import AIInsightsPanel from '../shared/AIInsightsPanel';
 import { StudentBottomNav } from '../ui/DashboardBottomNav';
 // import { mockNotifications } from '../../data'; // REMOVED
 import { } from '../../data'; // Ensure no mocks imported
+import { createPortal } from 'react-dom';
 import ErrorBoundary from '../ui/ErrorBoundary';
 import { StudentSidebar } from '../ui/DashboardSidebar';
 import DashboardLayout from '../layout/DashboardLayout';
@@ -888,61 +889,93 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
     // messages/newChat keep the nav so users can switch tabs; chat and games go fully immersive
     const hideBottomNav = isFullScreen && currentNavigation.view !== 'messages' && currentNavigation.view !== 'newChat';
 
-    return (
-        <GamificationProvider studentId={student?.id}>
+    // Portalled straight to <body>: rendered this deep in the tree, `fixed`
+    // stopped meaning "relative to the viewport" the moment ANY ancestor
+    // (DashboardLayout's animated wrapper, a motion.div higher up, etc.) had
+    // an active CSS transform — a transformed ancestor becomes the new
+    // containing block for a `fixed` descendant per the CSS spec, so on a
+    // real phone these banners rendered clipped and off-center instead of
+    // centered under the header. Same fix PremiumLoader already uses for the
+    // same reason.
+    // AnimatePresence itself must stay mounted regardless of whether the
+    // banner is currently shown — that's what lets it play the EXIT
+    // animation when the condition flips to false. Only the portal target is
+    // conditional (no document on the server / before mount).
+    const bannerPortals = typeof document !== 'undefined' ? createPortal(
+        <>
+            {/* The outer div does the CENTERING via a plain CSS transform
+                (Tailwind's -translate-x-1/2 class); the inner motion.div only
+                animates opacity/y/scale. Framer Motion fully owns the
+                `transform` style of whatever element it's animating — a
+                motion.div carrying BOTH the enter/exit animation AND the
+                Tailwind centering class silently drops the Tailwind
+                transform (motion's own inline transform wins), so the banner
+                rendered flush against `left: 50%` with no compensating shift
+                and overflowed off the right edge of the screen instead of
+                sitting centered under the header. */}
             <AnimatePresence>
                 {reminderBanner && (
-                    <motion.div
-                        initial={{ opacity: 0, y: -16, scale: 0.96 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: -12, scale: 0.97, transition: { duration: 0.2 } }}
-                        transition={{ type: 'spring', stiffness: 400, damping: 32 }}
-                        className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] w-[92%] max-w-md"
-                    >
-                        <div className="flex items-start gap-3 rounded-2xl bg-white shadow-2xl ring-1 ring-orange-200 px-4 py-3">
-                            <div className="mt-0.5 flex-shrink-0 w-9 h-9 rounded-full bg-orange-100 flex items-center justify-center">
-                                <BellIcon className="w-5 h-5 text-orange-600" />
+                    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] w-[92%] max-w-md">
+                        <motion.div
+                            key="reminder-banner"
+                            initial={{ opacity: 0, y: -16, scale: 0.96 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -12, scale: 0.97, transition: { duration: 0.2 } }}
+                            transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                        >
+                            <div className="flex items-start gap-3 rounded-2xl bg-white shadow-2xl ring-1 ring-orange-200 px-4 py-3">
+                                <div className="mt-0.5 flex-shrink-0 w-9 h-9 rounded-full bg-orange-100 flex items-center justify-center">
+                                    <BellIcon className="w-5 h-5 text-orange-600" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="font-bold text-gray-900 text-sm truncate">{reminderBanner.title}</p>
+                                    <p className="text-gray-600 text-sm break-words">{reminderBanner.message}</p>
+                                </div>
+                                <button onClick={() => setReminderBanner(null)} className="flex-shrink-0 w-8 h-8 -mr-1 -mt-1 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors text-lg leading-none" aria-label="Dismiss">×</button>
                             </div>
-                            <div className="flex-1 min-w-0">
-                                <p className="font-bold text-gray-900 text-sm truncate">{reminderBanner.title}</p>
-                                <p className="text-gray-600 text-sm">{reminderBanner.message}</p>
-                            </div>
-                            <button onClick={() => setReminderBanner(null)} className="flex-shrink-0 w-8 h-8 -mr-1 -mt-1 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors text-lg leading-none" aria-label="Dismiss">×</button>
-                        </div>
-                    </motion.div>
+                        </motion.div>
+                    </div>
                 )}
             </AnimatePresence>
             <AnimatePresence>
                 {unreadMsgCount > 0 && (
-                    <motion.div
-                        initial={{ opacity: 0, y: -16, scale: 0.96 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: -12, scale: 0.97, transition: { duration: 0.2 } }}
-                        transition={{ type: 'spring', stiffness: 400, damping: 32 }}
-                        className="fixed top-4 left-1/2 -translate-x-1/2 z-[99] w-[92%] max-w-md"
-                        style={{ top: reminderBanner ? '5rem' : '1rem' }}
-                    >
-                        <div className="flex items-center gap-3 rounded-2xl bg-white shadow-2xl ring-1 ring-blue-200 px-4 py-3">
-                            <div className="flex-shrink-0 w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center">
-                                <MegaphoneIcon className="w-5 h-5 text-blue-600" />
+                    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[99] w-[92%] max-w-md" style={{ top: reminderBanner ? '5rem' : '1rem' }}>
+                        <motion.div
+                            key="unread-msg-banner"
+                            initial={{ opacity: 0, y: -16, scale: 0.96 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -12, scale: 0.97, transition: { duration: 0.2 } }}
+                            transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                        >
+                            <div className="flex items-center gap-3 rounded-2xl bg-white shadow-2xl ring-1 ring-blue-200 px-4 py-3">
+                                <div className="flex-shrink-0 w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center">
+                                    <MegaphoneIcon className="w-5 h-5 text-blue-600" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="font-bold text-gray-900 text-sm">
+                                        {unreadMsgCount === 1 ? '1 unread message' : `${unreadMsgCount} unread messages`}
+                                    </p>
+                                    <p className="text-gray-500 text-xs">You received messages while you were away</p>
+                                </div>
+                                <button
+                                    onClick={() => { setUnreadMsgCount(0); navigateTo('messages', 'Messages'); }}
+                                    className="flex-shrink-0 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-xl transition-colors"
+                                >
+                                    View
+                                </button>
+                                <button onClick={() => setUnreadMsgCount(0)} className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors text-lg leading-none" aria-label="Dismiss">×</button>
                             </div>
-                            <div className="flex-1 min-w-0">
-                                <p className="font-bold text-gray-900 text-sm">
-                                    {unreadMsgCount === 1 ? '1 unread message' : `${unreadMsgCount} unread messages`}
-                                </p>
-                                <p className="text-gray-500 text-xs">You received messages while you were away</p>
-                            </div>
-                            <button
-                                onClick={() => { setUnreadMsgCount(0); navigateTo('messages', 'Messages'); }}
-                                className="flex-shrink-0 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-xl transition-colors"
-                            >
-                                View
-                            </button>
-                            <button onClick={() => setUnreadMsgCount(0)} className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors text-lg leading-none" aria-label="Dismiss">×</button>
-                        </div>
-                    </motion.div>
+                        </motion.div>
+                    </div>
                 )}
             </AnimatePresence>
+        </>,
+        document.body
+    ) : null;
+
+    return (
+        <GamificationProvider studentId={student?.id}>
+            {bannerPortals}
             <DashboardLayout
                 title={currentNavigation.title}
                 onBack={viewStack.length > 1 ? handleBack : undefined}

@@ -124,6 +124,17 @@ const AuthenticatedApp: React.FC = () => {
     }
   }, []);
 
+  // DashboardLayout's demo-mode "Create Your School" button lives deep under
+  // DashboardRouter, with no direct path to this component's authView state —
+  // it dispatches this event (alongside its own signOut()) instead of forcing
+  // a full page reload, which used to land back on the login screen instead
+  // of Create School.
+  useEffect(() => {
+    const handleDemoCreateSchool = () => setAuthView('create-school');
+    window.addEventListener('demo-create-school', handleDemoCreateSchool);
+    return () => window.removeEventListener('demo-create-school', handleDemoCreateSchool);
+  }, []);
+
   const isInviteAccept = window.location.hash.includes('/invite/accept');
 
   useEffect(() => {
