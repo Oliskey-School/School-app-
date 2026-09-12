@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import api from '../api';
 import { useAuth } from '../../context/AuthContext';
 
@@ -98,50 +98,37 @@ function calcTermFields(
     }
 }
 
+// Every screen that shows plan/trial/term status called this hook independently
+// with its own useEffect + useState, so DashboardLayout, TrialBanner,
+// TermBillingStatus and SubscriptionPage — several of which render on the same
+// page at once — each fired their own /subscription/current-term (and plan
+// status) request. useQuery's cache is keyed by schoolId, so every instance
+// mounted at the same time shares ONE in-flight request and ONE result.
 export function usePlanStatus() {
     const { currentSchool, isDemo } = useAuth();
     const schoolId = currentSchool?.id;
-    const [planStatus, setPlanStatus] = useState<PlanStatus>(DEFAULT_STATUS);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
-        if (!schoolId) {
-            setLoading(false);
-            return;
-        }
+    const { data, isLoading, error } = useQuery({
+        queryKey: ['planStatus', schoolId],
+        queryFn: async () => {
+            const [planData, termInfo] = await Promise.all([
+                api.getPlanStatus(schoolId!),
+                (api.get('/subscription/current-term') as Promise<any>).catch(() => null),
+            ]);
+            if (!planData || planData.error) return null;
+            const termFields = calcTermFields(currentSchool, termInfo, planData);
+            return { ...DEFAULT_STATUS, ...planData, ...termFields } as PlanStatus;
+        },
+        enabled: !!schoolId,
+        staleTime: 1000 * 60, // 60s — plan/term status doesn't change mid-session
+    });
 
-        let cancelled = false;
-
-        const fetchAll = async () => {
-            setLoading(true);
-            try {
-                const [planData, termInfo] = await Promise.all([
-                    api.getPlanStatus(schoolId),
-                    (api.get('/subscription/current-term') as Promise<any>).catch(() => null),
-                ]);
-
-                if (cancelled) return;
-
-                if (planData && !planData.error) {
-                    const termFields = calcTermFields(currentSchool, termInfo, planData);
-                    setPlanStatus(prev => ({ ...prev, ...planData, ...termFields }));
-                }
-            } catch (e: any) {
-                if (!cancelled) setError(e.message);
-            } finally {
-                if (!cancelled) setLoading(false);
-            }
-        };
-
-        fetchAll();
-        return () => { cancelled = true; };
-    }, [schoolId, currentSchool]);
+    const planStatus = data ?? DEFAULT_STATUS;
 
     return {
         planStatus,
-        loading,
-        error,
+        loading: !!schoolId && isLoading,
+        error: error ? (error as Error).message : null,
         canAddStudent: planStatus.can_add_student,
         canAddTeacher: planStatus.can_add_teacher,
         trialActive: planStatus.trial_active,

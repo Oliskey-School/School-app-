@@ -4,6 +4,7 @@ import { AnnouncementCategory, Notice } from '../../types';
 import { CameraIcon, StopIcon, XCircleIcon, VideoIcon } from '../../constants';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
+import { getMyTeacherProfileCached } from '../../lib/queryClient';
 
 import { useTeacherClasses } from '../../hooks/useTeacherClasses';
 
@@ -41,7 +42,7 @@ const TeacherCommunicationScreen: React.FC = () => {
             if (!user) return;
             // Get Teacher via backend API
             try {
-                const teacher = await api.getMyTeacherProfile();
+                const teacher = await getMyTeacherProfileCached();
                 if (teacher) {
                     setTeacherName(teacher.name || teacher.full_name || '');
                     setSchoolId(teacher.school_id || '');

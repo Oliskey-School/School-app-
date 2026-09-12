@@ -6,7 +6,7 @@ import { formatSchoolId } from '../../utils/idFormatter';
 import PremiumLoader from '../ui/PremiumLoader';
 import ErrorBoundary from '../ui/ErrorBoundary';
 import { useAuth } from '../../context/AuthContext';
-import { api } from '../../lib/api';
+import { getMyTeacherProfileCached } from '../../lib/queryClient';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { lazyWithRetry } from '../../lib/lazyRetry';
 
@@ -176,7 +176,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
           return;
       }
       
-      const data = await api.getMyTeacherProfile();
+      const data = await getMyTeacherProfileCached();
 
       if (data) {
         setTeacherId(data.id);

@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { SaveIcon, CalculatorIcon, CheckCircleIcon, ExclamationIcon } from '../../constants';
 import CenteredLoader from '../ui/CenteredLoader';
 import { api } from '../../lib/api';
+import { getMyTeacherProfileCached } from '../../lib/queryClient';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard';
 
@@ -371,7 +372,7 @@ const ClassGradebookScreen: React.FC<{
 
         const fetchClasses = async () => {
             try {
-                const teacher = await api.getMyTeacherProfile();
+                const teacher = await getMyTeacherProfileCached();
                 if (teacher && teacher.classes) {
                     const realClasses = teacher.classes.map((tc: any) => {
                         // tc.subject can be a string, a Subject object, or undefined

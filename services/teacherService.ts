@@ -1,4 +1,5 @@
 import { api } from '../lib/api';
+import { getMyTeacherProfileCached } from '../lib/queryClient';
 import { Teacher } from '../types';
 
 /**
@@ -56,7 +57,7 @@ export async function deleteTeacher(id: string): Promise<boolean> {
 
 export async function fetchMyTeacherProfile(): Promise<Teacher | null> {
     try {
-        return await api.getMyTeacherProfile();
+        return await getMyTeacherProfileCached();
     } catch (err) {
         console.error('Error fetching my teacher profile:', err);
         return null;

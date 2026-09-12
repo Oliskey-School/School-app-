@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
+import { getMyTeacherProfileCached } from '../../lib/queryClient';
 import { useProfile } from '../../context/ProfileContext';
 import {
     CertificateIcon,
@@ -32,7 +33,7 @@ const CertificateViewer: React.FC = () => {
             setLoading(true);
             setErrorOccurred(false);
             // Fetch via backend API using the Teacher profile ID, not the User ID.
-            const myProfile = await api.getMyTeacherProfile();
+            const myProfile = await getMyTeacherProfileCached();
             if (!myProfile?.id) {
                 setLoading(false);
                 return;
