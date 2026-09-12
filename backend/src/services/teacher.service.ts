@@ -213,7 +213,14 @@ export class TeacherService {
                 } : {})
             },
             include: {
-                user: true
+                user: true,
+                // Without this, every teacher's `department` relation came back
+                // undefined — not because no teacher had one, but because the
+                // query never asked for it. The admin's "Departments" stat card
+                // (TeacherListScreen) derives its count from this same list, so
+                // it always showed 0 regardless of how many departments actually
+                // existed and had teachers assigned.
+                department: { select: { id: true, name: true } },
             },
             orderBy: { full_name: 'asc' }
         });

@@ -132,7 +132,11 @@ const TeacherListScreen: React.FC<TeacherListScreenProps> = ({ navigateTo, curre
                 subjects: Array.isArray(t.subjects) ? t.subjects :
                     Array.isArray(t.subject_specialty) ? t.subject_specialty :
                     (Array.isArray(t.teacher_subjects) ? t.teacher_subjects.map((s: any) => s.subject) : []),
-                department: t.department,
+                // The backend now returns the real Department relation (an
+                // object), not a plain string — unwrap it to the name so the
+                // Departments stat card counts actual assigned departments
+                // instead of always seeing `undefined` and showing 0.
+                department: t.department?.name,
                 joinDate: t.joinDate || t.created_at,
                 classes: Array.isArray(t.classes) ? t.classes.map((c: any) => 
                     typeof c === 'string' ? c : (c?.class?.name || c?.name || 'Unknown Class')
