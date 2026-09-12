@@ -837,20 +837,24 @@ export class ParentService {
             // admin's own numbering scheme.
             let className: string | undefined;
 
-            if (!classId) {
+            // grade and section are both required (non-nullable) fields on Class,
+            // so passing either as `null` (a student with no grade/section set yet
+            // — common for a newly created profile) makes Prisma reject the query
+            // outright with a validation error instead of just finding no rows.
+            // With no grade to match on there is no sensible fallback class to find,
+            // so skip the lookup entirely rather than crash the whole overview.
+            if (!classId && student.grade != null) {
                 const fallbackClass = await prisma.class.findFirst({
                     where: {
                         school_id: schoolId,
                         grade: student.grade,
-                        // section is a required field on Class — only filter by it when the
-                        // student actually has one, otherwise Prisma rejects section: null.
                         ...(student.section ? { section: student.section } : {})
                     },
                     select: { id: true, name: true }
                 });
                 classId = fallbackClass?.id;
                 className = fallbackClass?.name;
-            } else {
+            } else if (classId) {
                 const enrolledClass = await prisma.class.findUnique({
                     where: { id: classId },
                     select: { name: true }
