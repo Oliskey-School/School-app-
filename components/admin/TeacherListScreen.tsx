@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { SearchIcon, PlusIcon, FilterIcon, UsersIcon, AcademicCapIcon, ClipboardListIcon } from '../../constants';
 import { useAuth } from '../../context/AuthContext';
@@ -26,7 +26,7 @@ interface TeacherListScreenProps {
     schoolId: string;
 }
 
-const TeacherCard: React.FC<{ teacher: Teacher; onSelect: (teacher: Teacher) => void; index: number }> = ({ teacher, onSelect, index }) => {
+const TeacherCard: React.FC<{ teacher: Teacher; onSelect: (teacher: Teacher) => void; index: number }> = React.memo(({ teacher, onSelect, index }) => {
     return (
         <motion.button
             initial={{ opacity: 0, y: 12 }}
@@ -72,7 +72,8 @@ const TeacherCard: React.FC<{ teacher: Teacher; onSelect: (teacher: Teacher) => 
             </div>
         </motion.button>
     );
-};
+});
+TeacherCard.displayName = 'TeacherCard';
 
 const TeacherListScreen: React.FC<TeacherListScreenProps> = ({ navigateTo, currentBranchId, schoolId: propSchoolId }) => {
     const { user } = useAuth();
@@ -147,9 +148,12 @@ const TeacherListScreen: React.FC<TeacherListScreenProps> = ({ navigateTo, curre
         }
     };
 
-    const subjects = ['All', ...new Set(teachers.flatMap(t => Array.isArray(t.subjects) ? t.subjects : []))];
+    const subjects = useMemo(
+        () => ['All', ...new Set(teachers.flatMap(t => Array.isArray(t.subjects) ? t.subjects : []))],
+        [teachers]
+    );
 
-    const filteredTeachers = teachers.filter(teacher => {
+    const filteredTeachers = useMemo(() => teachers.filter(teacher => {
         const safeName = (teacher.name || '').toLowerCase();
         const safeEmail = (teacher.email || '').toLowerCase();
         const safeSearch = (searchTerm || '').toLowerCase();
@@ -158,7 +162,14 @@ const TeacherListScreen: React.FC<TeacherListScreenProps> = ({ navigateTo, curre
         const matchesSubject = filterSubject === 'All' || (Array.isArray(teacher.subjects) && teacher.subjects.includes(filterSubject));
         const matchesStatus = filterStatus === 'All' || teacher.status === filterStatus;
         return matchesSearch && matchesSubject && matchesStatus;
-    });
+    }), [teachers, searchTerm, filterSubject, filterStatus]);
+
+    const activeTeacherCount = useMemo(() => teachers.filter(t => t.status === 'Active').length, [teachers]);
+    const departmentCount = useMemo(() => [...new Set(teachers.map(t => t.department).filter(Boolean))].length, [teachers]);
+
+    const handleSelectTeacher = useCallback((t: Teacher) => {
+        navigateTo('TeacherDetailAdminView', t.name, { teacher: t });
+    }, [navigateTo]);
 
     return (
         <div className="space-y-6">
@@ -213,7 +224,7 @@ const TeacherListScreen: React.FC<TeacherListScreenProps> = ({ navigateTo, curre
                     </div>
                     <div>
                         <p className="text-sm text-gray-500">Active Faculty</p>
-                        <p className="text-xl font-bold text-gray-900">{teachers.filter(t => t.status === 'Active').length}</p>
+                        <p className="text-xl font-bold text-gray-900">{activeTeacherCount}</p>
                     </div>
                 </motion.div>
                 <motion.div
@@ -228,7 +239,7 @@ const TeacherListScreen: React.FC<TeacherListScreenProps> = ({ navigateTo, curre
                     </div>
                     <div>
                         <p className="text-sm text-gray-500">Departments</p>
-                        <p className="text-xl font-bold text-gray-900">{[...new Set(teachers.map(t => t.department).filter(Boolean))].length || '0'}</p>
+                        <p className="text-xl font-bold text-gray-900">{departmentCount || '0'}</p>
                     </div>
                 </motion.div>
             </div>
@@ -287,7 +298,7 @@ const TeacherListScreen: React.FC<TeacherListScreenProps> = ({ navigateTo, curre
                             key={teacher.id}
                             teacher={teacher}
                             index={i}
-                            onSelect={(t) => navigateTo('TeacherDetailAdminView', t.name, { teacher: t })}
+                            onSelect={handleSelectTeacher}
                         />
                     ))}
                 </div>

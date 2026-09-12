@@ -4,7 +4,7 @@ import { useProfile } from '../../context/ProfileContext';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { Calendar, Clock, Video, MapPin, CheckCircle, XCircle } from 'lucide-react';
-import { buildJitsiUrl } from '../video/LiveClassRoom';
+import { buildJitsiUrl } from '../video/jitsiUrl';
 
 interface TeacherAvailability {
     id: number;

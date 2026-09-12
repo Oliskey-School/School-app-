@@ -6,6 +6,48 @@ import crypto from 'crypto';
 import { Role } from '@prisma/client';
 import { SocketService } from './socket.service';
 
+// Every scalar Student column — used by getAllStudents' `select` so it
+// returns exactly what `include: { user: true }` used to return for the
+// Student side (Prisma's default is "every scalar field" whenever a query
+// has no `select`), without ALSO implicitly pulling in every relation column
+// on `user`.
+const STUDENT_LIST_FIELDS = {
+    id: true,
+    user_id: true,
+    school_id: true,
+    branch_id: true,
+    school_generated_id: true,
+    full_name: true,
+    display_name: true,
+    email: true,
+    grade: true,
+    section: true,
+    department: true,
+    gender: true,
+    dob: true,
+    address: true,
+    admission_number: true,
+    curriculum_type: true,
+    assigned_subjects: true,
+    school_bus_id: true,
+    avatar_url: true,
+    status: true,
+    attendance_status: true,
+    verification_status: true,
+    xp: true,
+    level: true,
+    created_by: true,
+    created_at: true,
+    updated_at: true,
+    updated_by: true,
+    deleted_at: true,
+    withdrawal_reason: true,
+    withdrawal_date: true,
+    exit_year: true,
+    exit_class: true,
+    exit_date: true,
+} as const;
+
 export class StudentService {
     static async enrollStudent(schoolId: string, branchId: string | undefined, enrollmentData: any, creatorRole: string, creatorId?: string) {
         const {
@@ -618,10 +660,36 @@ export class StudentService {
 
         return await prisma.student.findMany({
             where,
-            include: {
-                user: true
+            // Only the User fields this roster actually surfaces downstream
+            // (student.controller.ts's stripStudentCredentials, the admin/
+            // teacher list screens' s.user?.* fallbacks) — `include: { user:
+            // true }` was pulling every User column, including password_hash
+            // and two_factor_secret, for every student on every list load.
+            // Those two are already stripped from every query result by
+            // database.ts's stripSensitiveFields() regardless of select, so
+            // this is a pure performance trim, not a new security boundary.
+            select: {
+                ...STUDENT_LIST_FIELDS,
+                user: {
+                    select: {
+                        id: true,
+                        full_name: true,
+                        email: true,
+                        avatar_url: true,
+                        school_generated_id: true,
+                        initial_password: true,
+                    },
+                },
             },
-            orderBy: { full_name: 'asc' }
+            orderBy: { full_name: 'asc' },
+            // Safety net, not real pagination: no school currently enrolls
+            // anywhere near this many students, so this changes nothing for
+            // any real school today — it only stops a future data error (or a
+            // school growing far beyond what this screen was built for) from
+            // turning one admin page load into an unbounded full-table fetch.
+            // A real "load more"/paginated roster is a separate, larger
+            // feature change, not part of this pass.
+            take: 5000,
         });
     }
 

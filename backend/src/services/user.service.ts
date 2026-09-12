@@ -50,7 +50,11 @@ export class UserService {
 
         const users = await prisma.user.findMany({
             where,
-            orderBy: { full_name: 'asc' }
+            orderBy: { full_name: 'asc' },
+            // Safety net, not real pagination — see the identical comment on
+            // StudentService.getAllStudents. No real school's user count comes
+            // close to this; it only bounds the worst case.
+            take: 5000,
         });
 
         // Show each account's Global ID FOR THE ACTIVE BRANCH: a user merely

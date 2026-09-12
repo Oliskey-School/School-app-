@@ -19,7 +19,7 @@
       "args": [
         "-y",
         "@modelcontextprotocol/server-postgres",
-        "postgresql://postgres:password123@127.0.0.1:5432/postgres"
+        "${LOCAL_POSTGRES_URL}"
       ]
     }
   }
