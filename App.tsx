@@ -286,7 +286,16 @@ const App: React.FC = () => {
 
   return (
     <MotionConfig reducedMotion="user">
-      <Toaster position="top-right" />
+      <Toaster
+        position="top-right"
+        // react-hot-toast's own defaults are inconsistent (2s for success, 4s
+        // for error/blank) and short enough that a message can disappear
+        // before it's read. `loading` is deliberately left out — those are
+        // meant to stay until the caller explicitly dismisses them; the real
+        // "toasts never dismiss" bug was call sites that forgot to do that,
+        // not the loading type itself.
+        toastOptions={{ duration: 5000 }}
+      />
       <OfflineIndicator />
       <AppearanceSync />
       {isInitializing ? (

@@ -201,7 +201,11 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, cbtExamId, 
     if (autoSubmit) {
       toast('Violation limit reached! Auto-submitting...', { icon: '🚫' });
     } else {
-      toast.loading('Submitting assessment...');
+      // A stable id so the error path below can dismiss THIS toast
+      // specifically — a bare toast.dismiss() only ran on the success path,
+      // so a failed submission left "Submitting assessment..." on screen
+      // forever (toast.loading has no auto-expiry) stacked under the error.
+      toast.loading('Submitting assessment...', { id: 'quiz-submit' });
     }
 
     try {
@@ -237,7 +241,7 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, cbtExamId, 
         student_id: String(studentId)
       });
 
-      toast.dismiss();
+      toast.dismiss('quiz-submit');
       toast.success(autoSubmit ? 'Assessment ended & saved.' : 'Submitted successfully!');
       setIsFinished(true);
 
@@ -248,6 +252,7 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, cbtExamId, 
 
     } catch (err: any) {
       console.error("Submission error:", err);
+      toast.dismiss('quiz-submit');
       toast.error('Submission failed. Please check your connection.');
     } finally {
       setIsSubmitting(false);
