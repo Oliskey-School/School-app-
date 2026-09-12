@@ -353,6 +353,7 @@ model Student {
 
   @@unique([school_id, admission_number])
   @@unique([school_id, school_generated_id])
+  @@index([school_id, branch_id])
 }
 
 // A formal, permanent suspension letter. Survives the student's eventual
@@ -702,6 +703,9 @@ model Attendance {
   deleted_at DateTime?
 
   @@unique([student_id, class_id, date])
+  @@index([school_id, branch_id])
+  @@index([class_id, date])
+  @@index([student_id, date])
 }
 
 model Assignment {
@@ -942,6 +946,9 @@ model Notification {
   created_by String?
   updated_by String?
   deleted_at DateTime?
+
+  @@index([school_id, user_id])
+  @@index([school_id, created_at])
 }
 
 model Appointment {
@@ -1698,6 +1705,8 @@ model AuditLog {
   created_by         String?
   updated_by         String?
   deleted_at         DateTime?
+
+  @@index([school_id, performed_at])
 }
 
 model ForumTopic {
@@ -2431,6 +2440,8 @@ model ChatMessage {
   created_by String?
   updated_by String?
   deleted_at DateTime?
+
+  @@index([room_id, created_at])
 }
 
 model LeaveType {

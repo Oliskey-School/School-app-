@@ -643,6 +643,26 @@ export const getStudentSubjects = async (req: AuthRequest, res: Response) => {
     }
 };
 
+// The frontend's StudentProfileEnhanced screen (used from the student's own
+// dashboard, and also by admin/parent views of a SPECIFIC other student) has
+// always called GET /students/:id/report-cards — a route that never existed
+// on this server (only the self-service /me/report-cards did). Every load
+// of that screen threw a 404 inside its Promise.all of profile data and
+// landed on "Unable to load profile data. Please try again," regardless of
+// which student or account was viewing it.
+export const getReportCardsByStudentId = async (req: AuthRequest, res: Response) => {
+    try {
+        if (!(await assertCanViewStudent(req, req.params.id as string))) {
+            return res.status(404).json({ message: 'Student not found' });
+        }
+        const branchId = getEffectiveBranchId(req.user, req.query.branchId as string);
+        const result = await StudentService.getReportCards(req.user.school_id, branchId, req.params.id as string);
+        res.json(result);
+    } catch (error: any) {
+        sendError(res, error, 'student.controller.ts');
+    }
+};
+
 export const getMyDocuments = async (req: AuthRequest, res: Response) => {
     try {
         const branchId = getEffectiveBranchId(req.user);

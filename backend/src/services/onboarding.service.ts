@@ -88,7 +88,15 @@ export class OnboardingService {
 
         const schoolSlug = data.schoolName.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-') + '-' + Date.now().toString(36);
         const trialEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-        const passwordHash = await bcrypt.hash(data.adminPassword, 12);
+        // Cost 10 everywhere else in the app (auth.service.ts, teacher/student/
+        // parent creation, invites) — this was the one outlier at 12. Measured
+        // on this machine: cost 12 takes ~3.8x longer than cost 10 (matches
+        // bcrypt's expected 2^(12-10) scaling exactly), adding real,
+        // synchronous latency to the final "Create School" submit for no
+        // security gain over the cost this app already trusts for every
+        // other password in it, including admins created through any other
+        // path.
+        const passwordHash = await bcrypt.hash(data.adminPassword, 10);
 
         const preparedAdditionalBranches = (data.additionalBranches || [])
             .map((b, index) => ({

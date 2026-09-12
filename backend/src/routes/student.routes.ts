@@ -14,6 +14,7 @@ import {
     getMySubmissions, 
     getMyFees, 
     getMyReportCards,
+    getReportCardsByStudentId,
     getMyStats,
     getMyAchievements,
     getMyDashboardOverview,
@@ -66,6 +67,7 @@ router.get('/:id/academic-performance', authenticate, getStudentPerformance);
 router.get('/:id/academic-records', authenticate, getStudentPerformance);
 router.get('/:id/behavior-notes', authenticate, getStudentBehaviorNotes);
 router.get('/:id/subjects', authenticate, getStudentSubjects);
+router.get('/:id/report-cards', authenticate, getReportCardsByStudentId);
 
 router.post('/enroll', authenticate, requirePlanCapacity('student'), enforceTenant(studentSchema), enrollStudent);
 router.post('/:id/approve', authenticate, approveStudent);

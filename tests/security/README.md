@@ -10,11 +10,15 @@ other school's canary in the response.
 ```bash
 # 1. Backend must be running (dev: npm run server)
 
-# 2. Seed two fresh tenants (prints nothing useful to stdout on success —
+# 2. Dump every registered route to tmp-routes.json (gitignored — regenerate
+#    whenever routes change; attack.ts reads this instead of a hand-maintained list)
+npx tsx --tsconfig backend/tsconfig.json tests/security/dump-routes.ts
+
+# 3. Seed two fresh tenants (prints nothing useful to stdout on success —
 #    redirect to the fixture file the attack script reads)
 npx tsx --tsconfig backend/tsconfig.json tests/security/seed-tenants.ts > tests/security/.fixture.json
 
-# 3. Fire the probe
+# 4. Fire the probe
 npx tsx --tsconfig backend/tsconfig.json tests/security/attack.ts
 ```
 

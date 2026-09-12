@@ -1,4 +1,5 @@
 import multer from 'multer';
+import { Request, Response, NextFunction } from 'express';
 
 // Buffered in memory instead of written straight to local disk: the
 // controller (media.controller.ts) decides where the buffer actually goes —
@@ -46,3 +47,24 @@ export const upload = multer({
     fileFilter,
     limits: { fileSize: UPLOAD_MAX_BYTES },
 });
+
+/**
+ * multer reports both an oversized file and a fileFilter rejection by
+ * calling next(err) — with no `.status` set on that error, it fell straight
+ * through to the app's generic error handler and came back as a 500, which
+ * is wrong on two counts: an oversized/disallowed upload is a client
+ * mistake (4xx), and a 500 here would trip server-error alerting for
+ * something that isn't a server problem. Placed right after upload.single()
+ * in the route so it only runs when that step actually errors (normal
+ * uploads skip straight past it to the route's real handler).
+ */
+export function handleUploadError(err: unknown, _req: Request, res: Response, next: NextFunction) {
+    if (!err) return next();
+    if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+            return res.status(413).json({ message: 'File exceeds the maximum allowed size.' });
+        }
+        return res.status(400).json({ message: `File upload error: ${err.message}` });
+    }
+    return res.status(400).json({ message: (err as Error)?.message || 'Invalid file upload.' });
+}

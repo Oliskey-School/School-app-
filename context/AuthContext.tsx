@@ -2,7 +2,8 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { DashboardType, School } from '../types';
 import { DEMO_SCHOOL_ID, DEMO_BRANCH_ID } from '../lib/mockAuth';
 import { api } from '../lib/api';
-import { queryClient } from '../lib/react-query';
+import { queryClient, idbPersister } from '../lib/react-query';
+import { offlineStorage } from '../lib/offlineStorage';
 
 interface AuthContextType {
     session: any | null;
@@ -84,6 +85,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // responses (queued offline writes are separately isolated by
         // per-action user_scope in syncEngine.ts).
         api.invalidateCache();
+
+        // queryClient.clear() below only empties the IN-MEMORY cache. It is
+        // also persisted to IndexedDB (index.tsx's PersistQueryClientProvider
+        // + idbPersister), which survives a plain clear() untouched — on a
+        // shared device, the NEXT sign-in's restoreClient() would rehydrate
+        // this account's cached queries, up to the 24h gcTime, until each one
+        // happened to be re-fetched. BranchContext's school-switch flow
+        // already does this correctly (removeClient + offlineStorage.clearAll
+        // alongside queryClient.clear()); signOut needs the exact same
+        // cleanup, not a lighter version of it.
+        try { await idbPersister.removeClient(); } catch { /* noop */ }
+        try { await offlineStorage.clearAll(); } catch { /* noop */ }
 
         React.startTransition(() => {
             setUser(null);

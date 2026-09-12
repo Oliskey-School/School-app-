@@ -254,8 +254,17 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
                         <motion.button
                             whileTap={{ scale: 0.95 }}
                             onClick={() => {
-                                sessionStorage.removeItem('is_demo_mode');
-                                window.location.href = '/';
+                                // A hard `window.location.href = '/'` reload landed on
+                                // whatever the root route defaults to (the login screen),
+                                // not the create-school signup — the visitor had to
+                                // navigate there themselves a second time. Signing out
+                                // (which already clears is_demo_mode, more thoroughly
+                                // than the old manual removeItem did) and asking
+                                // AuthenticatedApp to switch its authView, via the same
+                                // custom-window-event pattern used for force-logout,
+                                // takes them straight to Create School with no reload.
+                                window.dispatchEvent(new CustomEvent('demo-create-school'));
+                                signOut();
                             }}
                             className="bg-white text-blue-700 font-bold px-3 py-1 rounded-lg text-[10px] hover:bg-blue-50 transition flex-shrink-0"
                         >

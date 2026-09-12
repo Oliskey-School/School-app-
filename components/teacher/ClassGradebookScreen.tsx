@@ -45,6 +45,193 @@ const getRemark = (score: number, grade: string): string => {
     return 'Needs Improvement';
 };
 
+type ScoreChangeHandler = (index: number, field: 'test1' | 'test2' | 'exam', value: string) => void;
+
+// Extracted + memoized so typing a score into ONE student's row doesn't
+// re-render every other row in the class (a 30-60 student roster otherwise
+// re-renders in full on every keystroke). Only re-renders when this row's
+// OWN entry object changes — handleScoreChange's functional update in the
+// parent only replaces the touched index's object, and onScoreChange itself
+// is a stable (useCallback'd) reference, so an edit to student #5 never
+// invalidates rows #1-4 and #6+.
+const GradebookDesktopRow: React.FC<{
+    student: GradebookEntry;
+    index: number;
+    onScoreChange: ScoreChangeHandler;
+}> = React.memo(({ student, index, onScoreChange }) => (
+    <motion.tr key={student.studentId} layout className={`transition-colors ${student.isDirty ? 'bg-yellow-50' : 'hover:bg-gray-50'}`}>
+        <td className={`sticky left-0 z-[5] px-6 py-4 whitespace-nowrap shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)] ${student.isDirty ? 'bg-yellow-50' : 'bg-white'}`}>
+            <div className="flex items-center">
+                <div className="flex-shrink-0 h-10 w-10">
+                    {student.avatarUrl ? (
+                        <img className="h-10 w-10 rounded-full object-cover border border-gray-200" src={student.avatarUrl} alt="" />
+                    ) : (
+                        <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 font-bold text-lg">
+                            {student.studentName.charAt(0)}
+                        </div>
+                    )}
+                </div>
+                <div className="ml-4">
+                    <div className="text-sm font-bold text-gray-900">{student.studentName}</div>
+                    <div className="text-xs text-gray-500">ID: {student.schoolId || 'Pending'}</div>
+                </div>
+            </div>
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-center">
+            <input
+                type="text"
+                value={student.test1}
+                disabled={!student.offersSubject}
+                onChange={e => onScoreChange(index, 'test1', e.target.value)}
+                className="w-16 text-center border border-gray-300 rounded-md py-1 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
+                placeholder={student.offersSubject ? '0' : '—'}
+                aria-label={`Test 1 score for ${student.studentName}`}
+            />
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-center">
+            <input
+                type="text"
+                value={student.test2}
+                disabled={!student.offersSubject}
+                onChange={e => onScoreChange(index, 'test2', e.target.value)}
+                className="w-16 text-center border border-gray-300 rounded-md py-1 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
+                placeholder={student.offersSubject ? '0' : '—'}
+                aria-label={`Test 2 score for ${student.studentName}`}
+            />
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-center">
+            <input
+                type="text"
+                value={student.exam}
+                disabled={!student.offersSubject}
+                onChange={e => onScoreChange(index, 'exam', e.target.value)}
+                className="w-16 text-center border border-gray-300 rounded-md py-1 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
+                placeholder={student.offersSubject ? '0' : '—'}
+                aria-label={`Exam score for ${student.studentName}`}
+            />
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-center">
+            {student.offersSubject ? (
+                <motion.span
+                    key={student.total}
+                    initial={{ scale: 0.85, opacity: 0.6 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+                    className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${student.total >= 50 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}
+                >
+                    {student.total}
+                </motion.span>
+            ) : (
+                <span className="text-sm text-gray-300 font-semibold">—</span>
+            )}
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-bold text-gray-900">
+            {student.offersSubject ? student.grade : <span className="text-gray-300">—</span>}
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-center">
+            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${student.status === 'Published' ? 'bg-green-100 text-green-800' :
+                student.status === 'Submitted' ? 'bg-blue-100 text-blue-800' :
+                    'bg-gray-100 text-gray-600'
+                }`}>
+                {student.status}
+            </span>
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            {student.offersSubject
+                ? student.remark
+                : <span className="italic text-gray-400">Not offering this subject</span>}
+        </td>
+    </motion.tr>
+));
+GradebookDesktopRow.displayName = 'GradebookDesktopRow';
+
+const GradebookMobileCard: React.FC<{
+    student: GradebookEntry;
+    index: number;
+    onScoreChange: ScoreChangeHandler;
+}> = React.memo(({ student, index, onScoreChange }) => (
+    <motion.div
+        key={student.studentId}
+        layout
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.2, delay: Math.min(index, 12) * 0.03 }}
+        className={`bg-white rounded-xl shadow-sm border border-gray-200 p-4 transition-colors ${student.isDirty ? 'bg-yellow-50 border-yellow-300' : ''}`}
+    >
+        {/* Student Header */}
+        <div className="flex items-center gap-3 mb-3 pb-3 border-b border-gray-100">
+            <div className="flex-shrink-0">
+                {student.avatarUrl ? (
+                    <img className="h-10 w-10 rounded-full object-cover border border-gray-200" src={student.avatarUrl} alt="" />
+                ) : (
+                    <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 font-bold text-sm">
+                        {student.studentName.charAt(0)}
+                    </div>
+                )}
+            </div>
+            <div className="flex-1 min-w-0">
+                <div className="text-sm font-bold text-gray-900 truncate">{student.studentName}</div>
+                <div className="text-xs text-gray-500">ID: {student.schoolId || 'Pending'}</div>
+            </div>
+            <div className="flex flex-col items-end gap-1">
+                {student.offersSubject ? (
+                    <>
+                        <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${student.total >= 50 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                            {student.total}
+                        </span>
+                        <span className="text-sm font-bold text-purple-600">{student.grade}</span>
+                    </>
+                ) : (
+                    <span className="text-sm font-bold text-gray-300">—</span>
+                )}
+            </div>
+        </div>
+
+        {/* Score Inputs */}
+        <div className="grid grid-cols-3 gap-2 mb-3">
+            <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Test 1 (20)</label>
+                <input
+                    type="text"
+                    value={student.test1}
+                    disabled={!student.offersSubject}
+                    onChange={e => onScoreChange(index, 'test1', e.target.value)}
+                    className="w-full text-center border border-gray-300 rounded-lg py-1.5 text-sm font-semibold focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
+                    placeholder={student.offersSubject ? '0' : '—'}
+                />
+            </div>
+            <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Test 2 (20)</label>
+                <input
+                    type="text"
+                    value={student.test2}
+                    disabled={!student.offersSubject}
+                    onChange={e => onScoreChange(index, 'test2', e.target.value)}
+                    className="w-full text-center border border-gray-300 rounded-lg py-1.5 text-sm font-semibold focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
+                    placeholder={student.offersSubject ? '0' : '—'}
+                />
+            </div>
+            <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Exam (60)</label>
+                <input
+                    type="text"
+                    value={student.exam}
+                    disabled={!student.offersSubject}
+                    onChange={e => onScoreChange(index, 'exam', e.target.value)}
+                    className="w-full text-center border border-gray-300 rounded-lg py-1.5 text-sm font-semibold focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
+                    placeholder={student.offersSubject ? '0' : '—'}
+                />
+            </div>
+        </div>
+
+        {/* Remark */}
+        <div className="text-xs text-gray-500 text-center px-2 py-1 bg-gray-50 rounded">
+            {student.offersSubject ? student.remark : <span className="italic text-gray-400">Not offering this subject</span>}
+        </div>
+    </motion.div>
+));
+GradebookMobileCard.displayName = 'GradebookMobileCard';
+
 const ClassGradebookScreen: React.FC<{
     teacherId?: string;
     schoolId?: string;
@@ -314,21 +501,29 @@ const ClassGradebookScreen: React.FC<{
 
 
 
-    const handleScoreChange = (index: number, field: 'test1' | 'test2' | 'exam', value: string) => {
-        const newStudents = [...students];
-        const entry = { ...newStudents[index] };
-        if (!entry.offersSubject) return; // locked — student doesn't offer this subject
+    // Functional update (reads only `prev`, never the outer `students` state)
+    // so this callback can be wrapped in useCallback with an EMPTY dependency
+    // array — it stays the exact same function reference across every
+    // keystroke. That's what lets the memoized row components below actually
+    // skip re-rendering: React.memo compares this prop by reference, and a
+    // fresh closure recreated every render would defeat it just as badly as
+    // not memoizing the rows at all.
+    const handleScoreChange = React.useCallback((index: number, field: 'test1' | 'test2' | 'exam', value: string) => {
+        setStudents(prevStudents => {
+            const entry = { ...prevStudents[index] };
+            if (!entry.offersSubject) return prevStudents; // locked — student doesn't offer this subject
 
-        // Validation
-        let numVal = parseInt(value, 10);
-        if (isNaN(numVal)) numVal = 0;
+            // Validation
+            let numVal = parseInt(value, 10);
+            if (isNaN(numVal)) numVal = 0;
 
-        if (numVal < 0) return; // no negative scores
-        if (field === 'test1' && numVal > 20) return; // Max 20
-        if (field === 'test2' && numVal > 20) return; // Max 20
-        if (field === 'exam' && numVal > 60) return;  // Max 60
+            if (numVal < 0) return prevStudents; // no negative scores
+            if (field === 'test1' && numVal > 20) return prevStudents; // Max 20
+            if (field === 'test2' && numVal > 20) return prevStudents; // Max 20
+            if (field === 'exam' && numVal > 60) return prevStudents;  // Max 60
 
-        if (value === '' || !isNaN(parseInt(value))) {
+            if (value !== '' && isNaN(parseInt(value))) return prevStudents;
+
             (entry as any)[field] = value;
             entry.isDirty = true;
 
@@ -342,10 +537,14 @@ const ClassGradebookScreen: React.FC<{
             // change saves the OLD remark next to the new grade.
             entry.remark = getRemark(entry.total, entry.grade);
 
+            // Only the touched index gets a new object/array-slot reference —
+            // every other row's entry object is untouched, which is exactly
+            // what lets React.memo skip re-rendering those rows.
+            const newStudents = [...prevStudents];
             newStudents[index] = entry;
-            setStudents(newStudents);
-        }
-    };
+            return newStudents;
+        });
+    }, []);
 
     // Any row still carrying unsaved edits — including rows whose save just failed.
     const hasUnsavedGrades = students.some(s => s.isDirty);
@@ -587,89 +786,12 @@ const ClassGradebookScreen: React.FC<{
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
                                     {students.map((student, idx) => (
-                                        <motion.tr key={student.studentId} layout className={`transition-colors ${student.isDirty ? 'bg-yellow-50' : 'hover:bg-gray-50'}`}>
-                                            <td className={`sticky left-0 z-[5] px-6 py-4 whitespace-nowrap shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)] ${student.isDirty ? 'bg-yellow-50' : 'bg-white'}`}>
-                                                <div className="flex items-center">
-                                                    <div className="flex-shrink-0 h-10 w-10">
-                                                        {student.avatarUrl ? (
-                                                            <img className="h-10 w-10 rounded-full object-cover border border-gray-200" src={student.avatarUrl} alt="" />
-                                                        ) : (
-                                                            <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 font-bold text-lg">
-                                                                {student.studentName.charAt(0)}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                    <div className="ml-4">
-                                                        <div className="text-sm font-bold text-gray-900">{student.studentName}</div>
-                                                        <div className="text-xs text-gray-500">ID: {student.schoolId || 'Pending'}</div>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-center">
-                                                <input
-                                                    type="text"
-                                                    value={student.test1}
-                                                    disabled={!student.offersSubject}
-                                                    onChange={e => handleScoreChange(idx, 'test1', e.target.value)}
-                                                    className="w-16 text-center border border-gray-300 rounded-md py-1 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
-                                                    placeholder={student.offersSubject ? '0' : '—'}
-                                                    aria-label={`Test 1 score for ${student.studentName}`}
-                                                />
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-center">
-                                                <input
-                                                    type="text"
-                                                    value={student.test2}
-                                                    disabled={!student.offersSubject}
-                                                    onChange={e => handleScoreChange(idx, 'test2', e.target.value)}
-                                                    className="w-16 text-center border border-gray-300 rounded-md py-1 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
-                                                    placeholder={student.offersSubject ? '0' : '—'}
-                                                    aria-label={`Test 2 score for ${student.studentName}`}
-                                                />
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-center">
-                                                <input
-                                                    type="text"
-                                                    value={student.exam}
-                                                    disabled={!student.offersSubject}
-                                                    onChange={e => handleScoreChange(idx, 'exam', e.target.value)}
-                                                    className="w-16 text-center border border-gray-300 rounded-md py-1 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
-                                                    placeholder={student.offersSubject ? '0' : '—'}
-                                                    aria-label={`Exam score for ${student.studentName}`}
-                                                />
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-center">
-                                                {student.offersSubject ? (
-                                                    <motion.span
-                                                        key={student.total}
-                                                        initial={{ scale: 0.85, opacity: 0.6 }}
-                                                        animate={{ scale: 1, opacity: 1 }}
-                                                        transition={{ type: 'spring', stiffness: 500, damping: 25 }}
-                                                        className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${student.total >= 50 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}
-                                                    >
-                                                        {student.total}
-                                                    </motion.span>
-                                                ) : (
-                                                    <span className="text-sm text-gray-300 font-semibold">—</span>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-bold text-gray-900">
-                                                {student.offersSubject ? student.grade : <span className="text-gray-300">—</span>}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-center">
-                                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${student.status === 'Published' ? 'bg-green-100 text-green-800' :
-                                                    student.status === 'Submitted' ? 'bg-blue-100 text-blue-800' :
-                                                        'bg-gray-100 text-gray-600'
-                                                    }`}>
-                                                    {student.status}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                {student.offersSubject
-                                                    ? student.remark
-                                                    : <span className="italic text-gray-400">Not offering this subject</span>}
-                                            </td>
-                                        </motion.tr>
+                                        <GradebookDesktopRow
+                                            key={student.studentId}
+                                            student={student}
+                                            index={idx}
+                                            onScoreChange={handleScoreChange}
+                                        />
                                     ))}
                                 </tbody>
                             </table>
@@ -678,85 +800,12 @@ const ClassGradebookScreen: React.FC<{
                         {/* Mobile Cards - hidden on desktop */}
                         <div className="lg:hidden space-y-3">
                             {students.map((student, idx) => (
-                                <motion.div
+                                <GradebookMobileCard
                                     key={student.studentId}
-                                    layout
-                                    initial={{ opacity: 0, y: 8 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ duration: 0.2, delay: Math.min(idx, 12) * 0.03 }}
-                                    className={`bg-white rounded-xl shadow-sm border border-gray-200 p-4 transition-colors ${student.isDirty ? 'bg-yellow-50 border-yellow-300' : ''}`}
-                                >
-                                    {/* Student Header */}
-                                    <div className="flex items-center gap-3 mb-3 pb-3 border-b border-gray-100">
-                                        <div className="flex-shrink-0">
-                                            {student.avatarUrl ? (
-                                                <img className="h-10 w-10 rounded-full object-cover border border-gray-200" src={student.avatarUrl} alt="" />
-                                            ) : (
-                                                <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 font-bold text-sm">
-                                                    {student.studentName.charAt(0)}
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="text-sm font-bold text-gray-900 truncate">{student.studentName}</div>
-                                            <div className="text-xs text-gray-500">ID: {student.schoolId || 'Pending'}</div>
-                                        </div>
-                                        <div className="flex flex-col items-end gap-1">
-                                            {student.offersSubject ? (
-                                                <>
-                                                    <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${student.total >= 50 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                                                        {student.total}
-                                                    </span>
-                                                    <span className="text-sm font-bold text-purple-600">{student.grade}</span>
-                                                </>
-                                            ) : (
-                                                <span className="text-sm font-bold text-gray-300">—</span>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {/* Score Inputs */}
-                                    <div className="grid grid-cols-3 gap-2 mb-3">
-                                        <div>
-                                            <label className="block text-xs font-medium text-gray-500 mb-1">Test 1 (20)</label>
-                                            <input
-                                                type="text"
-                                                value={student.test1}
-                                                disabled={!student.offersSubject}
-                                                onChange={e => handleScoreChange(idx, 'test1', e.target.value)}
-                                                className="w-full text-center border border-gray-300 rounded-lg py-1.5 text-sm font-semibold focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
-                                                placeholder={student.offersSubject ? '0' : '—'}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-medium text-gray-500 mb-1">Test 2 (20)</label>
-                                            <input
-                                                type="text"
-                                                value={student.test2}
-                                                disabled={!student.offersSubject}
-                                                onChange={e => handleScoreChange(idx, 'test2', e.target.value)}
-                                                className="w-full text-center border border-gray-300 rounded-lg py-1.5 text-sm font-semibold focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
-                                                placeholder={student.offersSubject ? '0' : '—'}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-medium text-gray-500 mb-1">Exam (60)</label>
-                                            <input
-                                                type="text"
-                                                value={student.exam}
-                                                disabled={!student.offersSubject}
-                                                onChange={e => handleScoreChange(idx, 'exam', e.target.value)}
-                                                className="w-full text-center border border-gray-300 rounded-lg py-1.5 text-sm font-semibold focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
-                                                placeholder={student.offersSubject ? '0' : '—'}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* Remark */}
-                                    <div className="text-xs text-gray-500 text-center px-2 py-1 bg-gray-50 rounded">
-                                        {student.offersSubject ? student.remark : <span className="italic text-gray-400">Not offering this subject</span>}
-                                    </div>
-                                </motion.div>
+                                    student={student}
+                                    index={idx}
+                                    onScoreChange={handleScoreChange}
+                                />
                             ))}
                         </div>
                     </>

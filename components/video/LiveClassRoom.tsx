@@ -2,6 +2,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { JITSI_DOMAIN, getVideoProvider } from '../../lib/videoConfig';
 import DailyClassRoom from './DailyClassRoom';
+import { buildJitsiUrl } from './jitsiUrl';
+
+// Re-exported so existing importers of `buildJitsiUrl` from this file keep
+// working unchanged — the implementation itself now lives in jitsiUrl.ts so a
+// caller that only needs the URL builder (ConferenceScheduling) doesn't pull
+// in DailyClassRoom's @daily-co/daily-js SDK along with it.
+export { buildJitsiUrl };
 
 interface LiveClassRoomProps {
     sessionId: string;
@@ -14,30 +21,6 @@ interface LiveClassRoomProps {
 }
 
 const roomNameFor = (sessionId: string) => `OliskeyClass${sessionId.replace(/-/g, '')}`;
-
-// IMPORTANT — the free public meet.jit.si must open in a new browser tab, NOT
-// in an iframe. It detects any iframe embedding (not just External API) and
-// disconnects the call after 5 minutes ("for demonstration purposes only") —
-// a deliberate anti-embedding policy Jitsi added in 2023, confirmed against
-// their own community announcement, not something any client-side fix can
-// bypass. Opening a named window avoids it entirely; the named target means
-// repeated "Reopen" clicks reuse the same tab. Once a self-hosted (or JaaS)
-// domain is configured via VITE_JITSI_DOMAIN, this restriction doesn't apply
-// and the call embeds directly in-app instead — see the embedded branch below.
-export const buildJitsiUrl = (sessionId: string, displayName: string): string => {
-    const room = roomNameFor(sessionId);
-    const name = encodeURIComponent(`"${displayName || 'Participant'}"`);
-    return (
-        `https://${JITSI_DOMAIN}/${room}` +
-        `#userInfo.displayName=${name}` +
-        `&config.prejoinPageEnabled=false` +
-        `&config.prejoinConfig.enabled=false` +
-        `&config.startAsModerator=true` +
-        `&config.disableVirtualBackground=true` +
-        `&config.startWithAudioMuted=false` +
-        `&config.startWithVideoMuted=false`
-    );
-};
 
 // Loads https://{domain}/external_api.js once and caches the promise so
 // multiple LiveClassRoom mounts (e.g. re-joining) don't re-fetch the script.

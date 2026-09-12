@@ -962,46 +962,52 @@ export class TeacherService {
         const studentsWithCredentials: any[] = [];
         const seenStudentIds = new Set();
 
-        for (const classTeacher of classTeachers) {
-            const enrollments = await prisma.studentEnrollment.findMany({
-                where: { class_id: classTeacher.class_id },
-                include: {
-                    student: {
-                        include: {
-                            user: true
-                        }
+        // One batched query across every class instead of one round trip per
+        // class in a loop — a teacher with several classes previously paid
+        // one sequential DB round trip per class for exactly the same data.
+        const classIds = classTeachers.map(ct => ct.class_id);
+        const classById = new Map(classTeachers.map(ct => [ct.class_id, ct.class]));
+
+        const enrollments = classIds.length ? await prisma.studentEnrollment.findMany({
+            where: { class_id: { in: classIds } },
+            include: {
+                student: {
+                    include: {
+                        user: true
                     }
                 }
-            });
-
-            for (const enrollment of enrollments) {
-                const student = enrollment.student;
-                
-                if (seenStudentIds.has(student.id)) continue;
-                seenStudentIds.add(student.id);
-
-                studentsWithCredentials.push({
-                    id: student.id,
-                    full_name: student.full_name,
-                    email: student.email,
-                    school_generated_id: student.school_generated_id,
-                    status: student.status,
-                    grade: student.grade,
-                    section: student.section,
-                    class_name: classTeacher.class.name,
-                    class_id: classTeacher.class_id,
-                    // Never send the actual password to a teacher Ã¢â‚¬â€ initial_password
-                    // mirrors the student's current real login password (it's rewritten
-                    // on every change/reset, not a one-time value), so exposing it here
-                    // let any teacher read and copy a live password for any student they
-                    // teach. `has_password` alone tells the UI whether one was ever set.
-                    credentials: student.status === 'Active' ? {
-                        login_id: student.school_generated_id || student.email,
-                        has_password: !!student.user?.initial_password
-                    } : null,
-                    created_at: student.created_at
-                });
             }
+        }) : [];
+
+        for (const enrollment of enrollments) {
+            const student = enrollment.student;
+
+            if (seenStudentIds.has(student.id)) continue;
+            seenStudentIds.add(student.id);
+
+            const cls = classById.get(enrollment.class_id);
+
+            studentsWithCredentials.push({
+                id: student.id,
+                full_name: student.full_name,
+                email: student.email,
+                school_generated_id: student.school_generated_id,
+                status: student.status,
+                grade: student.grade,
+                section: student.section,
+                class_name: cls?.name,
+                class_id: enrollment.class_id,
+                // Never send the actual password to a teacher — initial_password
+                // mirrors the student's current real login password (it's rewritten
+                // on every change/reset, not a one-time value), so exposing it here
+                // let any teacher read and copy a live password for any student they
+                // teach. has_password alone tells the UI whether one was ever set.
+                credentials: student.status === 'Active' ? {
+                    login_id: student.school_generated_id || student.email,
+                    has_password: !!student.user?.initial_password
+                } : null,
+                created_at: student.created_at
+            });
         }
 
         return studentsWithCredentials;

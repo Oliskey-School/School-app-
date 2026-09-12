@@ -2,7 +2,6 @@
 import './config/env';
 import crypto from 'crypto';
 import express from 'express';
-import path from 'path';
 import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
@@ -225,10 +224,13 @@ const staticSecurity = helmet({
     referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
 });
 
-// Apply the DYNAMIC chain to everything EXCEPT /uploads (which gets the static chain
-// at its own mount below). Mint the nonce just before, only on the dynamic path.
+// Apply the DYNAMIC chain to everything EXCEPT the file-download route (which
+// gets the static, script-free chain below, applied inline since — unlike
+// the old /uploads mount — this path requires authentication and can't be a
+// separate unauthenticated express.static mount). Mint the nonce just
+// before, only on the dynamic path.
 app.use((req, res, next) => {
-    if (req.path.startsWith('/uploads')) return next();
+    if (req.path.startsWith('/api/media/file/')) return staticSecurity(req, res, next);
     res.locals.cspNonce = crypto.randomBytes(16).toString('base64');
     return dynamicSecurity(req, res, next);
 });
@@ -267,13 +269,6 @@ app.get('/ready', async (_req, res) => {
         res.status(503).json({ status: 'not-ready' });
     }
 });
-
-// Static uploads: stable (nonce-free) CSP + long cache so a CDN/browser can store them.
-app.use('/uploads', staticSecurity, express.static(path.join(process.cwd(), 'uploads'), {
-    maxAge: '7d',
-    etag: true,
-}));
-
 
 // 7. API Routes - Standardized Mount
 app.use('/api', routes);

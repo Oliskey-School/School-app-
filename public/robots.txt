@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /teacher/
+Disallow: /student/
+Disallow: /parent/
+
+Sitemap: https://app.oliskey.com/sitemap.xml

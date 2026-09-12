@@ -1,6 +1,6 @@
 {
   "name": "school-app-oliskey",
-  "version": "0.7.24",
+  "version": "0.7.25",
   "scripts": {
     "dev": "vite",
     "prebuild": "node scripts/check-env.mjs",
@@ -20,6 +20,7 @@
     "start": "npx tsx backend/src/server.ts",
     "prisma:generate": "npx prisma generate --schema=backend/prisma/schema.prisma",
     "build:backend": "npm run prisma:generate && npx tsc -p backend/tsconfig.build.json && node scripts/link-prisma-dist.js",
+    "typecheck:backend": "tsc --noEmit -p backend/tsconfig.build.json",
     "start:backend": "pm2 start ecosystem.config.cjs --env production",
     "db:migrate": "npx prisma migrate dev --schema=backend/prisma/schema.prisma",
     "db:deploy": "npx prisma migrate deploy --schema=backend/prisma/schema.prisma",
@@ -45,6 +46,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1111.0",
+    "@aws-sdk/s3-request-presigner": "^3.1131.0",
     "@capacitor/android": "8.1.0",
     "@capacitor/app": "8.0.0",
     "@capacitor/core": "8.1.0",
@@ -83,7 +85,7 @@
     "express": "5.1.0",
     "express-rate-limit": "^8.5.2",
     "formik": "2.4.9",
-    "framer-motion": "11.11.17",
+    "framer-motion": "^11.18.2",
     "glob": "13.0.3",
     "helmet": "8.1.0",
     "html2canvas": "1.4.1",
@@ -97,7 +99,7 @@
     "jspdf": "^4.2.1",
     "jspdf-autotable": "5.0.7",
     "lucide-react": "0.562.0",
-    "morgan": "1.11.0",
+    "morgan": "1.12.1",
     "multer": "^2.1.1",
     "nativewind": "4.2.1",
     "node-cron": "^4.2.1",

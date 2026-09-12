@@ -635,8 +635,44 @@ export class DashboardService {
             }
         });
 
-        // 2. Map children to summary
-        const childSummaries = await Promise.all(children.map(async child => {
+        // 2. Map children to summary — batched across ALL children instead of
+        // 3 queries PER child in a Promise.all loop (a parent with several
+        // children previously paid 3x that many round trips for this one
+        // dashboard widget).
+        const childIds = children.map(c => c.id);
+        const classIds = Array.from(new Set(
+            children.map(c => c.enrollments[0]?.class_id).filter((id): id is string => !!id)
+        ));
+
+        const [allSubmissions, upcomingAssignments, behaviorTotals] = await Promise.all([
+            childIds.length ? prisma.assignmentSubmission.findMany({
+                where: { student_id: { in: childIds } },
+                select: { student_id: true, assignment_id: true }
+            }) : Promise.resolve([]),
+            classIds.length ? prisma.assignment.findMany({
+                where: { class_id: { in: classIds }, due_date: { gte: today } },
+                select: { id: true, class_id: true }
+            }) : Promise.resolve([]),
+            childIds.length ? prisma.behaviorNote.groupBy({
+                by: ['student_id'],
+                where: { student_id: { in: childIds } },
+                _sum: { points: true }
+            }) : Promise.resolve([]),
+        ]);
+
+        const submittedIdsByStudent = new Map<string, Set<string>>();
+        for (const s of allSubmissions) {
+            if (!submittedIdsByStudent.has(s.student_id)) submittedIdsByStudent.set(s.student_id, new Set());
+            submittedIdsByStudent.get(s.student_id)!.add(s.assignment_id);
+        }
+        const assignmentsByClass = new Map<string, string[]>();
+        for (const a of upcomingAssignments) {
+            if (!assignmentsByClass.has(a.class_id)) assignmentsByClass.set(a.class_id, []);
+            assignmentsByClass.get(a.class_id)!.push(a.id);
+        }
+        const behaviorPointsByStudent = new Map(behaviorTotals.map(b => [b.student_id, b._sum.points || 0]));
+
+        const childSummaries = children.map(child => {
             const attendance = child.attendance[0];
             const feesDue = child.fees.reduce((sum, f) => sum + (f.amount - f.paid_amount), 0);
             const className = child.enrollments[0]?.class?.name || 'Unknown';
@@ -644,26 +680,12 @@ export class DashboardService {
 
             let homework_pending = 0;
             if (classId) {
-                const submissions = await prisma.assignmentSubmission.findMany({
-                    where: { student_id: child.id },
-                    select: { assignment_id: true }
-                });
-                const submittedIds = submissions.map(s => s.assignment_id);
-
-                homework_pending = await prisma.assignment.count({
-                    where: {
-                        class_id: classId,
-                        due_date: { gte: today },
-                        ...(submittedIds.length > 0 ? { id: { notIn: submittedIds } } : {})
-                    }
-                });
+                const submitted = submittedIdsByStudent.get(child.id);
+                const classAssignmentIds = assignmentsByClass.get(classId) || [];
+                homework_pending = submitted
+                    ? classAssignmentIds.filter(id => !submitted.has(id)).length
+                    : classAssignmentIds.length;
             }
-
-            // Get total behavior points
-            const behaviorNotes = await prisma.behaviorNote.aggregate({
-                where: { student_id: child.id },
-                _sum: { points: true }
-            });
 
             return {
                 id: child.id,
@@ -673,11 +695,11 @@ export class DashboardService {
                 attendance_status: (attendance?.status?.toLowerCase() || 'not_marked') as any,
                 homework_pending,
                 fee_due: feesDue,
-                bus_status: 'Scheduled', 
-                behavior_points: behaviorNotes._sum.points || 0,
-                upcoming_events: 0 
+                bus_status: 'Scheduled',
+                behavior_points: behaviorPointsByStudent.get(child.id) || 0,
+                upcoming_events: 0
             };
-        }));
+        });
 
         // 3. Get feed items (recent notifications)
         const notifications = await prisma.notification.findMany({

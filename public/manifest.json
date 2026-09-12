@@ -1,6 +1,6 @@
 {
-    "name": "School Management System",
-    "short_name": "SchoolApp",
+    "name": "Oliskey School App",
+    "short_name": "Oliskey",
     "description": "Complete school management system for students, teachers, parents and administrators",
     "start_url": "/",
     "display": "standalone",
