@@ -155,3 +155,6 @@ tests/security/.attack-results.json
 database_backup.sql
 *.sql.backup
 .kilo/
+
+# Regeneratable scratch file for tests/security/attack.ts — see tests/security/README.md
+tmp-routes.json
