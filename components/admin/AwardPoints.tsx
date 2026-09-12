@@ -241,7 +241,7 @@ const AwardPoints: React.FC<AwardPointsProps> = ({ students = [] }) => {
                                         </div>
                                         <div>
                                             <p className="font-semibold text-gray-800">{student?.name || 'Unknown'}</p>
-                                            <p className="text-xs text-gray-500">Grade {student?.grade || 'N/A'}{student?.section || ''}</p>
+                                            <p className="text-xs text-gray-500">Grade {student?.grade ?? 'N/A'}{student?.section || ''}</p>
                                         </div>
                                     </div>
                                     {selectedStudents.includes(student.id) && (

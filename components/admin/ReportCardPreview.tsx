@@ -181,7 +181,7 @@ const ReportCardPreview: React.FC<ReportCardPreviewProps> = ({ student, schoolId
                 principalComment: (report as any)?.principal_comment || "No comment yet.",
                 academicRecords: mergedRecords as any,
                 position: (report as any)?.position || '-',
-                totalStudents: (report as any)?.total_students || '-'
+                totalStudents: (report as any)?.total_students ?? '-'
             });
         } catch (err) {
             console.error('[Preview] Critical fetch error:', err);
@@ -425,17 +425,17 @@ const ReportCardPreview: React.FC<ReportCardPreviewProps> = ({ student, schoolId
                                                                 <td className="py-3 px-10 font-black text-gray-800 uppercase text-xs tracking-tight">{item.subject}</td>
                                                                 <td className="py-3 px-4 text-center">
                                                                     <div className="inline-block px-3 py-1 bg-gray-50 rounded-lg font-bold text-gray-600 text-xs">
-                                                                        {item.test1 || '-'}
+                                                                        {item.test1 ?? '-'}
                                                                     </div>
                                                                 </td>
                                                                 <td className="py-3 px-4 text-center">
                                                                     <div className="inline-block px-3 py-1 bg-gray-50 rounded-lg font-bold text-gray-600 text-xs">
-                                                                        {item.test2 || '-'}
+                                                                        {item.test2 ?? '-'}
                                                                     </div>
                                                                 </td>
                                                                 <td className="py-3 px-4 text-center">
                                                                     <div className="inline-block px-3 py-1 bg-gray-50 rounded-lg font-bold text-gray-600 text-xs">
-                                                                        {item.exam || '-'}
+                                                                        {item.exam ?? '-'}
                                                                     </div>
                                                                 </td>
                                                                 <td className="py-3 px-4 text-center">

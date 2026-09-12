@@ -94,8 +94,8 @@ export function NigerianReportCard({
                     {results.map((result, idx) => (
                         <tr key={idx} className={idx % 2 === 0 ? 'bg-gray-50' : ''}>
                             <td className="border border-gray-800 p-2">{result.subject}</td>
-                            <td className="border border-gray-800 p-2 text-center">{result.ca_score || '-'}</td>
-                            <td className="border border-gray-800 p-2 text-center">{result.exam_score || '-'}</td>
+                            <td className="border border-gray-800 p-2 text-center">{result.ca_score ?? '-'}</td>
+                            <td className="border border-gray-800 p-2 text-center">{result.exam_score ?? '-'}</td>
                             <td className="border border-gray-800 p-2 text-center font-semibold">{result.total}</td>
                             <td className="border border-gray-800 p-2 text-center font-bold">{result.grade}</td>
                             <td className="border border-gray-800 p-2 text-center">{result.remark}</td>
@@ -236,8 +236,8 @@ export function BritishReportCard({
                     {results.map((result, idx) => (
                         <tr key={idx} className={idx % 2 === 0 ? 'bg-gray-50' : ''}>
                             <td className="border border-gray-700 p-3">{result.subject}</td>
-                            <td className="border border-gray-700 p-3 text-center">{result.ca_score || '-'}</td>
-                            <td className="border border-gray-700 p-3 text-center">{result.exam_score || '-'}</td>
+                            <td className="border border-gray-700 p-3 text-center">{result.ca_score ?? '-'}</td>
+                            <td className="border border-gray-700 p-3 text-center">{result.exam_score ?? '-'}</td>
                             <td className="border border-gray-700 p-3 text-center font-bold text-lg">{result.grade}</td>
                             <td className="border border-gray-700 p-3 text-xs italic">{result.remark}</td>
                         </tr>

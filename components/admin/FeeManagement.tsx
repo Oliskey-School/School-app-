@@ -314,7 +314,7 @@ const FeeManagement: React.FC<any> = (props) => {
                               await generateInvoice({
                                 invoiceNumber: generateInvoiceNumber(fee.id, fee.studentId),
                                 studentName: student?.name || 'Student',
-                                grade: student?.grade || 'N/A',
+                                grade: student?.grade ?? 'N/A',
                                 section: student?.section,
                                 parentName: 'Parent',
                                 feeTitle: fee.title,
