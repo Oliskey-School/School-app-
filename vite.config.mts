@@ -204,6 +204,18 @@ export default defineConfig(({ mode }) => {
             if (/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id)) {
               return 'react-vendor';
             }
+            // Every lucide icon is its own ES module, so Rollup's default
+            // "follow the import graph" chunking (deliberately kept for
+            // everything else, see above) splits each one imported from 2+
+            // places into its OWN tiny chunk — dozens of ~300-400 byte
+            // requests, each a full HTTP round trip. Icons are used
+            // everywhere, so bucketing just this one package into a single
+            // shared chunk collapses that fragmentation without touching the
+            // per-route splitting for anything else (markdown, socket.io,
+            // etc. stay lazy exactly as before).
+            if (/[\\/]node_modules[\\/]lucide-react[\\/]/.test(id)) {
+              return 'icons';
+            }
           },
         },
       },
