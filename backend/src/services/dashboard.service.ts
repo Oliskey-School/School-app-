@@ -291,12 +291,52 @@ export class DashboardService {
             }
 
             // Standard School-wide queries
+            //
+            // The 4 simple single-table counts (totalStudents, totalParents,
+            // totalClasses, pendingApprovals) and the 8 trend counters below are
+            // combined into ONE query instead of 12. Each ran as its own
+            // set_config+query transaction (see database.ts's $allOperations
+            // extension), so under concurrent dashboard loads the pool of 20
+            // connections was handing out up to 25 connections per single
+            // request — this is what produced the audit's 16s+ figure under
+            // load. Only filters that are a plain school_id/branch_id/
+            // deleted_at/status/created_at AND are folded in here; counts that
+            // join through another table (totalTeachers' role join, the
+            // attendance/report-card counts that filter via their related
+            // Student) are deliberately left as separate Prisma queries below —
+            // replicating those joins by hand in raw SQL is not worth the risk
+            // of silently drifting from Prisma's own join semantics.
+            const countsRow: any[] = await prisma.$queryRaw`
+                SELECT
+                    (SELECT COUNT(*) FROM "Student" WHERE school_id = ${schoolId} AND deleted_at IS NULL AND (${effectiveBranchId ?? null}::text IS NULL OR branch_id = ${effectiveBranchId ?? null}) AND status = 'Active') AS total_students,
+                    (SELECT COUNT(*) FROM "Parent" WHERE school_id = ${schoolId} AND deleted_at IS NULL AND (${effectiveBranchId ?? null}::text IS NULL OR branch_id = ${effectiveBranchId ?? null})) AS total_parents,
+                    (SELECT COUNT(*) FROM "Class" WHERE school_id = ${schoolId} AND deleted_at IS NULL AND (${effectiveBranchId ?? null}::text IS NULL OR branch_id = ${effectiveBranchId ?? null})) AS total_classes,
+                    (SELECT COUNT(*) FROM "Student" WHERE school_id = ${schoolId} AND deleted_at IS NULL AND (${effectiveBranchId ?? null}::text IS NULL OR branch_id = ${effectiveBranchId ?? null}) AND status = 'Pending') AS pending_approvals,
+                    (SELECT COUNT(*) FROM "Student" WHERE school_id = ${schoolId} AND deleted_at IS NULL AND (${effectiveBranchId ?? null}::text IS NULL OR branch_id = ${effectiveBranchId ?? null}) AND created_at >= ${last30Days}) AS students_last30,
+                    (SELECT COUNT(*) FROM "Student" WHERE school_id = ${schoolId} AND deleted_at IS NULL AND (${effectiveBranchId ?? null}::text IS NULL OR branch_id = ${effectiveBranchId ?? null}) AND created_at >= ${prev30Days} AND created_at < ${last30Days}) AS students_prev30,
+                    (SELECT COUNT(*) FROM "Teacher" WHERE school_id = ${schoolId} AND deleted_at IS NULL AND (${effectiveBranchId ?? null}::text IS NULL OR branch_id = ${effectiveBranchId ?? null}) AND created_at >= ${last30Days}) AS teachers_last30,
+                    (SELECT COUNT(*) FROM "Teacher" WHERE school_id = ${schoolId} AND deleted_at IS NULL AND (${effectiveBranchId ?? null}::text IS NULL OR branch_id = ${effectiveBranchId ?? null}) AND created_at >= ${prev30Days} AND created_at < ${last30Days}) AS teachers_prev30,
+                    (SELECT COUNT(*) FROM "Parent" WHERE school_id = ${schoolId} AND deleted_at IS NULL AND (${effectiveBranchId ?? null}::text IS NULL OR branch_id = ${effectiveBranchId ?? null}) AND created_at >= ${last30Days}) AS parents_last30,
+                    (SELECT COUNT(*) FROM "Parent" WHERE school_id = ${schoolId} AND deleted_at IS NULL AND (${effectiveBranchId ?? null}::text IS NULL OR branch_id = ${effectiveBranchId ?? null}) AND created_at >= ${prev30Days} AND created_at < ${last30Days}) AS parents_prev30,
+                    (SELECT COUNT(*) FROM "Class" WHERE school_id = ${schoolId} AND deleted_at IS NULL AND (${effectiveBranchId ?? null}::text IS NULL OR branch_id = ${effectiveBranchId ?? null}) AND created_at >= ${last30Days}) AS classes_last30,
+                    (SELECT COUNT(*) FROM "Class" WHERE school_id = ${schoolId} AND deleted_at IS NULL AND (${effectiveBranchId ?? null}::text IS NULL OR branch_id = ${effectiveBranchId ?? null}) AND created_at >= ${prev30Days} AND created_at < ${last30Days}) AS classes_prev30
+            `;
+            const counts = countsRow[0];
+            const totalStudents = Number(counts.total_students);
+            const totalParents = Number(counts.total_parents);
+            const totalClasses = Number(counts.total_classes);
+            const pendingApprovals = Number(counts.pending_approvals);
+            const studentsLast30 = Number(counts.students_last30);
+            const studentsPrev30 = Number(counts.students_prev30);
+            const teachersLast30 = Number(counts.teachers_last30);
+            const teachersPrev30 = Number(counts.teachers_prev30);
+            const parentsLast30 = Number(counts.parents_last30);
+            const parentsPrev30 = Number(counts.parents_prev30);
+            const classesLast30 = Number(counts.classes_last30);
+            const classesPrev30 = Number(counts.classes_prev30);
+
             const [
-                totalStudents,
                 totalTeachers,
-                totalParents,
-                totalClasses,
-                pendingApprovals,
                 latestBehaviorNote,
                 attendanceTodayTotal,
                 attendanceTodayPresent,
@@ -306,21 +346,11 @@ export class DashboardService {
                 timetablePreview,
                 recentActivity,
                 academicLevelsData, // Unique grades
-                // Trend counters
-                studentsLast30,
-                studentsPrev30,
-                teachersLast30,
-                teachersPrev30,
-                parentsLast30,
-                parentsPrev30,
-                classesLast30,
-                classesPrev30,
                 enrollmentData,
                 performanceData,
                 feeData,
                 workloadData
             ] = await Promise.all([
-                prisma.student.count({ where: { ...baseWhere, status: 'Active' } }),
                 prisma.teacher.count({
                     where: {
                         school_id: schoolId,
@@ -342,11 +372,8 @@ export class DashboardService {
                         } : {})
                     }
                 }),
-                prisma.parent.count({ where: baseWhere }),
-                prisma.class.count({ where: baseWhere }),
-                prisma.student.count({ where: { ...baseWhere, status: 'Pending' } }),
-                prisma.behaviorNote.findFirst({ 
-                    where: baseWhere, 
+                prisma.behaviorNote.findFirst({
+                    where: baseWhere,
                     orderBy: { created_at: 'desc' },
                     include: { student: true }
                 }),
@@ -354,13 +381,13 @@ export class DashboardService {
                 prisma.attendance.count({ where: { date: today, status: 'Present', student: baseWhere } }),
                 prisma.academicPerformance.aggregate({ where: baseWhere, _avg: { score: true } }),
                 prisma.reportCard.count({ where: { is_published: false, student: baseWhere } }),
-                prisma.studentFee.aggregate({ 
-                    where: { ...baseWhere, status: { in: ['Overdue', 'Pending'] } }, 
-                    _sum: { amount: true, paid_amount: true } 
+                prisma.studentFee.aggregate({
+                    where: { ...baseWhere, status: { in: ['Overdue', 'Pending'] } },
+                    _sum: { amount: true, paid_amount: true }
                 }),
                 prisma.timetable.findMany({
                     where: { ...baseWhere, day_of_week: now.getDay() || 7 }, // 1-7 (Mon-Sun)
-                    include: { 
+                    include: {
                         class: true,
                         teacher: { select: { full_name: true } }
                     },
@@ -379,15 +406,6 @@ export class DashboardService {
                     distinct: ['grade'],
                     select: { grade: true }
                 }),
-                // Trend counters
-                prisma.student.count({ where: { ...baseWhere, created_at: { gte: last30Days } } }),
-                prisma.student.count({ where: { ...baseWhere, created_at: { gte: prev30Days, lt: last30Days } } }),
-                prisma.teacher.count({ where: { ...baseWhere, created_at: { gte: last30Days } } }),
-                prisma.teacher.count({ where: { ...baseWhere, created_at: { gte: prev30Days, lt: last30Days } } }),
-                prisma.parent.count({ where: { ...baseWhere, created_at: { gte: last30Days } } }),
-                prisma.parent.count({ where: { ...baseWhere, created_at: { gte: prev30Days, lt: last30Days } } }),
-                prisma.class.count({ where: { ...baseWhere, created_at: { gte: last30Days } } }),
-                prisma.class.count({ where: { ...baseWhere, created_at: { gte: prev30Days, lt: last30Days } } }),
                 // Enrollment data for chart
                 prisma.student.groupBy({
                     by: ['created_at'],
