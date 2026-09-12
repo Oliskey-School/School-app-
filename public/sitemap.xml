@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://oliskeysms.duckdns.org/</loc>
+    <loc>https://app.oliskey.com/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://oliskeysms.duckdns.org/login</loc>
+    <loc>https://app.oliskey.com/login</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://oliskeysms.duckdns.org/signup</loc>
+    <loc>https://app.oliskey.com/signup</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>

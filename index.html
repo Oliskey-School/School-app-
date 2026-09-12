@@ -6,7 +6,7 @@
   <link rel="icon" type="image/x-icon" href="/favicon.ico" />
   <link rel="apple-touch-icon" sizes="180x180" href="/icons/app-icon-180.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Smart School Management App</title>
+  <title>Oliskey School App — Smart School Management System</title>
 
   <!-- PWA Manifest -->
   <link rel="manifest" href="/manifest.json" />
@@ -27,21 +27,43 @@
     content="Complete school management system for students, teachers, parents and administrators. Works offline!" />
   <meta name="robots" content="index, follow" />
   <meta name="author" content="Oliskey" />
-  <link rel="canonical" href="https://oliskeysms.duckdns.org/" />
+  <link rel="canonical" href="https://app.oliskey.com/" />
 
   <!-- Open Graph -->
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="Oliskey — Smart School Management" />
+  <meta property="og:title" content="Oliskey School App — Smart School Management" />
   <meta property="og:description" content="Multi-tenant school management platform for students, teachers, parents and administrators. Works offline." />
-  <meta property="og:url" content="https://oliskeysms.duckdns.org/" />
-  <meta property="og:image" content="https://oliskeysms.duckdns.org/icons/app-icon-180.png" />
+  <meta property="og:url" content="https://app.oliskey.com/" />
+  <meta property="og:image" content="https://app.oliskey.com/icons/app-icon-180.png" />
   <meta property="og:site_name" content="Oliskey" />
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Oliskey — Smart School Management" />
+  <meta name="twitter:title" content="Oliskey School App — Smart School Management" />
   <meta name="twitter:description" content="Multi-tenant school management platform for students, teachers, parents and administrators." />
-  <meta name="twitter:image" content="https://oliskeysms.duckdns.org/icons/app-icon-180.png" />
+  <meta name="twitter:image" content="https://app.oliskey.com/icons/app-icon-180.png" />
+
+  <!-- Structured data: helps Google associate the "Oliskey" name with this
+       specific site (a Google Search Console brand/name search benefits
+       from this) — this makes the SIGNAL available, it doesn't guarantee
+       Google uses it or ranks the page for any given search. -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Oliskey School App",
+    "alternateName": "Oliskey",
+    "url": "https://app.oliskey.com/",
+    "applicationCategory": "EducationalApplication",
+    "operatingSystem": "Web",
+    "description": "Multi-tenant school management platform for students, teachers, parents and administrators.",
+    "publisher": {
+      "@type": "Organization",
+      "name": "Oliskey",
+      "url": "https://app.oliskey.com/"
+    }
+  }
+  </script>
 
   <!-- Force light mode to prevent dark mode color issues -->
   <script>document.documentElement.classList.remove('dark');</script>

@@ -85,6 +85,12 @@ test_output_utf8.txt
 !*.md
 !pwa.d.ts
 !public/
+# The blanket `*.txt` rule above (meant for test_output*.txt) also silently
+# swallowed this one — robots.txt was never committed, so a real git-based
+# deploy (Vercel builds from a checkout, not this working directory) may
+# never have shipped one at all, meaning the Sitemap: directive inside it
+# never reached a crawler in production.
+!public/robots.txt
 !backend/prisma/
 !backend/src/
 !backend/config/
