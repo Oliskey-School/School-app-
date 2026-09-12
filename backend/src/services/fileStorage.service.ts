@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl as presignS3 } from '@aws-sdk/s3-request-presigner';
 
 /**
  * Where uploaded files actually live. Local disk works fine on today's
@@ -51,6 +52,56 @@ function getS3Client(): S3Client {
 
 export interface StoredFile {
     publicUrl: string;
+    key: string;
+}
+
+// How long a minted URL stays usable. Short enough that a leaked/cached link
+// stops working quickly; long enough that a page load and its images don't
+// race the expiry. Re-resolve via getSignedUrl() for a fresh one rather than
+// holding onto an old one past this window.
+const SIGNED_URL_TTL_SECONDS = 3600;
+
+/**
+ * Mints a fresh, short-lived URL for an already-stored object, given the
+ * SAME `bucket`/`relativePath` (or full `key`) that storeUploadedFile used.
+ * Callers must have already checked the caller is authorized for this
+ * tenant's data before calling this — this function does no authorization
+ * of its own, it only knows how to talk to whichever backend is active.
+ */
+export async function getSignedUrl(key: string): Promise<string> {
+    if (SUPABASE_STORAGE_ENABLED) {
+        const base = (process.env.SUPABASE_URL || '').replace(/\/+$/, '');
+        const storageBucket = process.env.SUPABASE_STORAGE_BUCKET || 'uploads';
+        const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+        const res = await fetch(`${base}/storage/v1/object/sign/${storageBucket}/${key}`, {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${serviceKey}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ expiresIn: SIGNED_URL_TTL_SECONDS }),
+        });
+        if (!res.ok) {
+            throw new Error(`Supabase Storage sign failed (${res.status}): ${await res.text()}`);
+        }
+        const { signedURL } = await res.json() as { signedURL: string };
+        return `${base}${signedURL.startsWith('/') ? '' : '/'}${signedURL}`;
+    }
+
+    if (S3_ENABLED) {
+        return presignS3(
+            getS3Client(),
+            new GetObjectCommand({ Bucket: process.env.S3_BUCKET, Key: key }),
+            { expiresIn: SIGNED_URL_TTL_SECONDS },
+        );
+    }
+
+    // Local disk: there is no "signed URL" backend to ask — the authenticated
+    // retrieval route (see media.routes.ts / media.controller.ts's
+    // downloadFile) IS the access-control boundary, checked fresh on every
+    // request rather than embedded in the URL. Same key, stable path.
+    return `/api/media/file/${key}`;
 }
 
 /**
@@ -91,7 +142,17 @@ export async function storeUploadedFile(
             );
         }
 
-        return { publicUrl: `${base}/storage/v1/object/public/${storageBucket}/${key}` };
+        // A signed URL, not the permanent /object/public/... URL: the latter
+        // works forever with no authorization check at all as long as the
+        // Storage bucket is public. NOTE: this alone only isolates tenants if
+        // the SUPABASE_STORAGE_BUCKET bucket is also configured PRIVATE in
+        // the Supabase dashboard — a signed URL from a public bucket is
+        // redundant, since the unsigned /object/public/ path still serves it
+        // to anyone. Making that bucket private is a manual, one-time
+        // dashboard change outside this codebase; until it's done, this fix
+        // narrows the exposure (new URLs expire, aren't guessable/enumerable
+        // ahead of time) but does not fully close it.
+        return { publicUrl: await getSignedUrl(key), key };
     }
 
     if (S3_ENABLED) {
@@ -101,13 +162,14 @@ export async function storeUploadedFile(
             Body: buffer,
             ContentType: mimetype,
         }));
-        const base = (process.env.S3_PUBLIC_URL_BASE || '').replace(/\/+$/, '');
-        return { publicUrl: `${base}/${key}` };
+        return { publicUrl: await getSignedUrl(key), key };
     }
 
-    // Local disk fallback — served same-origin via app.ts's /uploads static mount.
+    // Local disk fallback — served via the authenticated /api/media/file
+    // route (media.controller.ts's downloadFile), never the raw filesystem
+    // path or an unauthenticated static mount.
     const destPath = path.join(process.cwd(), 'uploads', key);
     fs.mkdirSync(path.dirname(destPath), { recursive: true });
     fs.writeFileSync(destPath, buffer);
-    return { publicUrl: `/uploads/${key}` };
+    return { publicUrl: `/api/media/file/${key}`, key };
 }
