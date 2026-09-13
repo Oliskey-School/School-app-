@@ -35,6 +35,7 @@ import SchoolContextSwitcher from '../ui/SchoolContextSwitcher';
 
 import { getHomeworkStatus } from '../../utils/homeworkUtils';
 import { realtimeService } from '../../services/RealtimeService';
+import { useDashboardRouting } from '../../hooks/useDashboardRouting';
 
 const formatCurriculumLabel = (curriculumType?: string) =>
     curriculumType === 'Both' ? 'Nigerian & British Curriculum' : `${curriculumType} Curriculum`;
@@ -98,12 +99,6 @@ import MentalHealthResources from '../shared/MentalHealthResources';
 const DashboardSuspenseFallback = () => (
     <PremiumLoader message="Syncing children's data..." />
 );
-
-interface ViewStackItem {
-    view: string;
-    props?: any;
-    title: string;
-}
 
 const StatItem = ({ icon, label, value, colorClass }: { icon: React.ReactNode, label: string, value: string | React.ReactNode, colorClass: string }) => (
     <div className="flex items-center space-x-3">
@@ -467,78 +462,31 @@ import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
 
-// Helper to strip heavy props before saving to localStorage to prevent QuotaExceededError
-const pruneViewStack = (stack: ViewStackItem[]): ViewStackItem[] => {
-    // Limit stack depth to prevent overflow
-    const limitedStack = stack.length > 8 ? stack.slice(-8) : stack;
-    
-    return limitedStack.map(item => {
-        if (!item.props) return item;
-        
-        // Create a shallow copy of props
-        const prunedProps = { ...item.props };
-        
-        // Remove known heavy data objects
-        // We keep IDs so components can re-derive data from the main students array in commonProps
-        const heavyFields = ['student', 'academicPerformance', 'behaviorNotes', 'reportCards', 'students', 'allTeachers'];
-        heavyFields.forEach(field => {
-            if (prunedProps[field]) {
-                // Preserve ID if it's a student object
-                if (field === 'student' && prunedProps[field].id && !prunedProps.studentId) {
-                    prunedProps.studentId = prunedProps[field].id;
-                }
-                delete prunedProps[field];
-            }
-        });
-        
-        return { ...item, props: prunedProps };
-    });
-};
-
 const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePage, currentUser }) => {
     const { currentSchool, currentBranchId, user } = useAuth();
-    
-    // 1. Initialize viewStack from localStorage or default
-    const [viewStack, setViewStack] = useState<ViewStackItem[]>(() => {
-        const saved = localStorage.getItem(`parent_view_stack_${user?.id}`);
-        try {
-            return saved ? JSON.parse(saved) : [{ view: 'dashboard', title: 'Parent Dashboard' }];
-        } catch (e) {
-            return [{ view: 'dashboard', title: 'Parent Dashboard' }];
-        }
-    });
 
-    // 2. Initialize activeBottomNav from localStorage or default
+    const { view, title, props: routeProps, navigateTo, replaceView, handleBack, canGoBack } =
+        useDashboardRouting('dashboard', 'Parent Dashboard');
+
+    // Initialize activeBottomNav from localStorage or default. Cosmetic UI
+    // state only (which bottom-tab icon is highlighted) — the URL is now the
+    // real, persisted "which screen" state, so this no longer needs the
+    // heavy prune-and-persist viewStack machinery that used to sit here.
     const [activeBottomNav, setActiveBottomNav] = useState(() => {
         return localStorage.getItem(`parent_bottom_nav_${user?.id}`) || 'home';
     });
 
-    // 3. Persist navigation state to localStorage
     useEffect(() => {
         if (user?.id) {
             try {
-                const prunedStack = pruneViewStack(viewStack);
-                localStorage.setItem(`parent_view_stack_${user?.id}`, JSON.stringify(prunedStack));
                 localStorage.setItem(`parent_bottom_nav_${user?.id}`, activeBottomNav);
-            } catch (e) {
-                console.warn('Failed to save dashboard state to localStorage:', e);
-                // If it fails, we at least don't crash. 
-                // We could try clearing other items if it's a QuotaExceededError
-                if (e instanceof Error && e.name === 'QuotaExceededError') {
-                    // Try to save just the current view to at least have some persistence
-                    try {
-                        const minimalStack = [{ view: viewStack[viewStack.length - 1].view, title: viewStack[viewStack.length - 1].title }];
-                        localStorage.setItem(`parent_view_stack_${user?.id}`, JSON.stringify(minimalStack));
-                    } catch (innerE) {
-                        // Give up persistence for now
-                    }
-                }
-            }
+            } catch { /* best-effort */ }
         }
-    }, [viewStack, activeBottomNav, user?.id]);
+    }, [activeBottomNav, user?.id]);
+
     const handleLogout = () => {
         if (user?.id) {
-            localStorage.removeItem(`parent_view_stack_${user?.id}`);
+            localStorage.removeItem(`parent_view_stack_${user?.id}`); // old key, harmless if absent
             localStorage.removeItem(`parent_bottom_nav_${user?.id}`);
         }
         onLogout?.();
@@ -653,32 +601,21 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
         if (schoolId) initData();
     }, [schoolId, initData]);
 
-    useEffect(() => { const currentView = viewStack[viewStack.length - 1]; setIsHomePage(currentView?.view === 'dashboard' && !isSearchOpen); window.__CURRENT_PARENT_VIEW__ = currentView?.view; }, [viewStack, isSearchOpen, setIsHomePage]);
+    useEffect(() => {
+        setIsHomePage(view === 'dashboard' && !isSearchOpen);
+        window.__CURRENT_PARENT_VIEW__ = view;
+    }, [view, isSearchOpen, setIsHomePage]);
 
-    const navigateTo = (view: string, title: string, props: any = {}) => {
-        React.startTransition(() => {
-            setViewStack(stack => [...stack, { view, props, title }]);
-        });
-    };
-    const handleBack = () => {
-        if (viewStack.length > 1) {
-            React.startTransition(() => {
-                setViewStack(stack => stack.slice(0, -1));
-            });
-        }
-    };
     const handleBottomNavClick = (screen: string) => {
-        React.startTransition(() => {
-            setActiveBottomNav(screen);
-            switch (screen) {
-                case 'home': setViewStack([{ view: 'dashboard', title: 'Parent Dashboard' }]); break;
-                case 'fees': setViewStack([{ view: 'feeStatus', title: 'Fee Status' }]); break;
-                case 'reports': setViewStack([{ view: 'selectReport', title: 'Select Report Card' }]); break;
-                case 'messages': setViewStack([{ view: 'messages', title: 'Messages' }]); break;
-                case 'more': setViewStack([{ view: 'more', title: 'More Options' }]); break;
-                default: setViewStack([{ view: 'dashboard', title: 'Parent Dashboard' }]);
-            }
-        });
+        setActiveBottomNav(screen);
+        switch (screen) {
+            case 'home': replaceView('dashboard', 'Parent Dashboard'); break;
+            case 'fees': replaceView('feeStatus', 'Fee Status'); break;
+            case 'reports': replaceView('selectReport', 'Select Report Card'); break;
+            case 'messages': replaceView('messages', 'Messages'); break;
+            case 'more': replaceView('more', 'More Options'); break;
+            default: replaceView('dashboard', 'Parent Dashboard');
+        }
     };
 
     const viewComponents: { [key: string]: React.ComponentType<any> } = {
@@ -760,29 +697,26 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
         };
     }, [navigateTo, viewComponents]);
 
-    // Always resolve to a valid view — never let an empty/corrupt stack crash the dashboard.
-    const currentNavigation = viewStack[viewStack.length - 1]
-        || { view: 'dashboard', props: {}, title: 'Dashboard' };
     // Identifies THIS exact screen (view + its data) so scroll position can be
     // remembered per screen and restored on return, while a screen never visited
     // this session still opens at the top. Computed unconditionally (before any
     // early return below) to keep hook order stable across renders.
     const scrollKey = React.useMemo(() => {
-        try { return `${currentNavigation.view}::${JSON.stringify((currentNavigation as any).props)}`; }
-        catch { return currentNavigation.view; }
-    }, [currentNavigation.view, (currentNavigation as any).props]);
+        try { return `${view}::${JSON.stringify(routeProps)}`; }
+        catch { return view; }
+    }, [view, routeProps]);
 
     // Safety check for Component rendering
-    const ComponentToRender = viewComponents[currentNavigation.view] || (() => (
+    const ComponentToRender = viewComponents[view] || (() => (
         <div className="flex flex-col items-center justify-center h-[60vh] p-8 text-center bg-gray-50 rounded-3xl m-4">
             <div className="bg-white p-8 rounded-2xl shadow-lg max-w-md w-full">
                 <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <ExclamationCircleIcon className="w-8 h-8 text-amber-600" />
                 </div>
                 <h2 className="text-xl font-bold text-gray-800">Feature Coming Soon</h2>
-                <p className="text-gray-500 mt-2">The requested view "{currentNavigation.view}" is being optimized or is not available for your account yet.</p>
+                <p className="text-gray-500 mt-2">The requested view "{view}" is being optimized or is not available for your account yet.</p>
                 <button 
-                    onClick={() => setViewStack([{ view: 'dashboard', title: 'Parent Dashboard' }])}
+                    onClick={() => replaceView('dashboard', 'Parent Dashboard')}
                     className="mt-6 w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 transition-colors"
                 >
                     Back to Home
@@ -821,13 +755,13 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
         );
     }
 
-    const isFullScreen = ['messages', 'newChat', 'chat'].includes(currentNavigation.view);
-    const hideBottomNav = currentNavigation.view === 'chat';
+    const isFullScreen = ['messages', 'newChat', 'chat'].includes(view);
+    const hideBottomNav = view === 'chat';
 
     return (
         <DashboardLayout
-            title={currentNavigation.title}
-            onBack={viewStack.length > 1 ? handleBack : undefined}
+            title={title}
+            onBack={canGoBack ? handleBack : undefined}
             scrollKey={scrollKey}
             onLogout={handleLogout}
             activeScreen={activeBottomNav}
@@ -836,7 +770,7 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
             hidePadding={isFullScreen}
             hideBottomNav={hideBottomNav}
         >
-            <div key={`${viewStack.length}-${version}`} className="w-full h-full flex flex-col">
+            <div key={`${view}-${version}`} className="w-full h-full flex flex-col">
                 <div className="absolute top-0 right-0 p-4 z-30 pointer-events-none">
                     <div className="pointer-events-auto">
                         <SchoolContextSwitcher currentSchoolName={currentSchool?.name || 'My School'} />
@@ -844,13 +778,13 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
                 </div>
 
                 <ErrorBoundary
-                    key={currentNavigation.view}
-                    title={`${currentNavigation.title} Error`}
+                    key={view}
+                    title={`${title} Error`}
                     message="We encountered an issue while rendering this screen. This could be due to a data mismatch or a temporary connection issue."
                     onReset={forceUpdate}
                 >
                     <Suspense fallback={<DashboardSuspenseFallback />}>
-                        <ComponentToRender {...commonProps} {...currentNavigation.props} />
+                        <ComponentToRender {...commonProps} {...routeProps} />
                     </Suspense>
                 </ErrorBoundary>
             </div>
