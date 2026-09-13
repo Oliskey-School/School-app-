@@ -15,6 +15,7 @@ import { useDemoRealtime } from '../../hooks/useDemoRealtime';
 import EmailVerificationPrompt from '../auth/EmailVerificationPrompt';
 import DashboardSkeletonLoader from '../ui/DashboardSkeletonLoader';
 import { lazyWithRetry } from '../../lib/lazyRetry';
+import { useDashboardRouting } from '../../hooks/useDashboardRouting';
 
 // Lazy load all admin screens
 const DashboardOverview = lazyWithRetry(() => import('./DashboardOverview'));
@@ -203,12 +204,6 @@ const VisitorLog = lazyWithRetry(() => import('./VisitorLog'));
 const VersionSettings = lazyWithRetry(() => import('./VersionSettings'));
 const SubscriptionPage = lazyWithRetry(() => import('../subscription/SubscriptionPage'));
 
-type ViewStackItem = {
-    view: string;
-    props?: any;
-    title: string;
-};
-
 interface AdminDashboardProps {
     onLogout?: () => void;
     setIsHomePage?: (isHome: boolean) => void;
@@ -219,22 +214,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
     const [activeBottomNav, setActiveBottomNav] = useState(() => {
         return sessionStorage.getItem('admin_activeBottomNav') || 'home';
     });
-    const [viewStack, setViewStack] = useState<ViewStackItem[]>(() => {
-        const DEFAULT_STACK: ViewStackItem[] = [{ view: 'overview', props: {}, title: 'Admin Dashboard' }];
-        try {
-            const saved = sessionStorage.getItem('admin_viewStack');
-            if (!saved) return DEFAULT_STACK;
-            const parsed = JSON.parse(saved);
-            // Guard against an empty/corrupt persisted stack — otherwise the
-            // current view resolves to undefined and the dashboard crashes.
-            if (Array.isArray(parsed) && parsed.length > 0 && parsed.every((p) => p && typeof p.view === 'string')) {
-                return parsed;
-            }
-            return DEFAULT_STACK;
-        } catch {
-            return DEFAULT_STACK;
-        }
-    });
+    const { view, title, props: routeProps, navigateTo, replaceView, handleBack, canGoBack } =
+        useDashboardRouting('overview', 'Admin Dashboard');
     const [version, setVersion] = useState(0);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [dbStatus, setDbStatus] = useState<'checking' | 'connected' | 'error'>('checking');
@@ -266,11 +247,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
     }, [authLoading, schoolId]);
 
     useEffect(() => {
-        setIsHomePage(viewStack.length === 1 && !isSearchOpen);
-        // Persist view stack and active nav
-        sessionStorage.setItem('admin_viewStack', JSON.stringify(viewStack));
+        setIsHomePage(!canGoBack && !isSearchOpen);
+        // The URL itself is now the persisted state (a refresh keeps the
+        // browser on the same /view already, no sessionStorage needed for
+        // that) — only the bottom-nav highlight still needs it, since it's
+        // cosmetic UI state with no URL representation of its own.
         sessionStorage.setItem('admin_activeBottomNav', activeBottomNav);
-    }, [viewStack, isSearchOpen, setIsHomePage, activeBottomNav]);
+    }, [canGoBack, isSearchOpen, setIsHomePage, activeBottomNav]);
 
     useEffect(() => {
         const checkDb = async () => {
@@ -554,50 +537,31 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         }
     }, [user]);
 
-    const navigateTo = (view: string, title: string, props: any = {}) => {
-        React.startTransition(() => {
-            setViewStack(stack => [...stack, { view, props, title }]);
-        });
-    };
-
-    const handleBack = () => {
-        if (viewStack.length > 1) {
-            React.startTransition(() => {
-                setViewStack(stack => stack.slice(0, -1));
-            });
+    const handleBottomNavClick = (screen: string) => {
+        setActiveBottomNav(screen);
+        switch (screen) {
+            case 'actions': replaceView('adminActions', 'Quick Actions'); break;
+            case 'home': replaceView('overview', 'Admin Dashboard'); break;
+            case 'branches': replaceView('schoolManagement', 'Manage Branches'); break;
+            case 'studentList': replaceView('studentList', 'Students'); break;
+            case 'teacherList': replaceView('teacherList', 'Teachers'); break;
+            case 'parentList': replaceView('parentList', 'Parents'); break;
+            case 'studentApprovals': replaceView('studentApprovals', 'Student Approvals'); break;
+            case 'classList': replaceView('classList', 'Classes'); break;
+            case 'timetable': replaceView('timetable', 'Timetable'); break;
+            case 'examManagement': replaceView('examManagement', 'Exams'); break;
+            case 'messages': replaceView('adminMessages', 'Messages'); break;
+            case 'parentChatAccess': replaceView('parentChatAccess', 'Parent Chat Access'); break;
+            case 'communication': replaceView('communicationHub', 'Communication Hub'); break;
+            case 'analytics': replaceView('analytics', 'School Analytics'); break;
+            case 'settings': replaceView('profileSettings', 'Profile Settings'); break;
+            case 'feeManagement': replaceView('feeManagement', 'Fee Management'); break;
+            case 'staffManagement': replaceView('teacherList', 'Manage Teachers'); break;
+            default: replaceView('overview', 'Admin Dashboard');
         }
     };
 
-    const handleBottomNavClick = (screen: string) => {
-        React.startTransition(() => {
-            setActiveBottomNav(screen);
-            switch (screen) {
-                case 'actions': setViewStack([{ view: 'adminActions', props: {}, title: 'Quick Actions' }]); break;
-                case 'home': setViewStack([{ view: 'overview', props: {}, title: 'Admin Dashboard' }]); break;
-                case 'branches': setViewStack([{ view: 'schoolManagement', props: {}, title: 'Manage Branches' }]); break;
-                case 'studentList': setViewStack([{ view: 'studentList', props: {}, title: 'Students' }]); break;
-                case 'teacherList': setViewStack([{ view: 'teacherList', props: {}, title: 'Teachers' }]); break;
-                case 'parentList': setViewStack([{ view: 'parentList', props: {}, title: 'Parents' }]); break;
-                case 'studentApprovals': setViewStack([{ view: 'studentApprovals', props: {}, title: 'Student Approvals' }]); break;
-                case 'classList': setViewStack([{ view: 'classList', props: {}, title: 'Classes' }]); break;
-                case 'timetable': setViewStack([{ view: 'timetable', props: {}, title: 'Timetable' }]); break;
-                case 'examManagement': setViewStack([{ view: 'examManagement', props: {}, title: 'Exams' }]); break;
-                case 'messages': setViewStack([{ view: 'adminMessages', props: {}, title: 'Messages' }]); break;
-                case 'parentChatAccess': setViewStack([{ view: 'parentChatAccess', props: {}, title: 'Parent Chat Access' }]); break;
-                case 'communication': setViewStack([{ view: 'communicationHub', props: {}, title: 'Communication Hub' }]); break;
-                case 'analytics': setViewStack([{ view: 'analytics', props: {}, title: 'School Analytics' }]); break;
-                case 'settings': setViewStack([{ view: 'profileSettings', props: {}, title: 'Profile Settings' }]); break;
-                case 'feeManagement': setViewStack([{ view: 'feeManagement', props: {}, title: 'Fee Management' }]); break;
-                case 'staffManagement': setViewStack([{ view: 'teacherList', props: {}, title: 'Manage Teachers' }]); break;
-                default: setViewStack([{ view: 'overview', props: {}, title: 'Admin Dashboard' }]);
-            }
-        });
-    };
-
-    // Always resolve to a valid view — never let an empty stack crash the dashboard.
-    const currentNavigation = viewStack[viewStack.length - 1]
-        || { view: 'overview', props: {}, title: 'Admin Dashboard' };
-    const ComponentToRender = viewComponents[currentNavigation.view];
+    const ComponentToRender = viewComponents[view];
 
     const commonProps = {
         navigateTo,
@@ -614,18 +578,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
 
     const renderContent = () => {
         if (isInitializing) return <DashboardSkeletonLoader type="overview" />;
-        if (!ComponentToRender) return <div className="p-8 text-center">View Not Found: {currentNavigation.view}</div>;
+        if (!ComponentToRender) return <div className="p-8 text-center">View Not Found: {view}</div>;
 
-        if (currentNavigation.view === 'notifications') return (
+        if (view === 'notifications') return (
             <Suspense fallback={<DashboardSkeletonLoader type="list" />}>
-                <NotificationsScreen {...currentNavigation.props} {...commonProps} userType="admin" />
+                <NotificationsScreen {...routeProps} {...commonProps} userType="admin" />
             </Suspense>
         );
 
-        if (currentNavigation.view === 'adminMessages') return (
+        if (view === 'adminMessages') return (
             <Suspense fallback={<DashboardSkeletonLoader type="list" />}>
                 <AdminMessagesScreen
-                    {...currentNavigation.props}
+                    {...routeProps}
                     {...commonProps}
                     onNewChat={() => navigateTo('adminNewChat', 'New Message')}
                     onSelectChat={(convo: any) => navigateTo('chat', convo.displayName || 'Chat', {
@@ -636,31 +600,31 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
             </Suspense>
         );
 
-        if (currentNavigation.view === 'adminNewChat') return (
+        if (view === 'adminNewChat') return (
             <Suspense fallback={<DashboardSkeletonLoader type="overview" />}>
                 <AdminNewChatScreen
-                    {...currentNavigation.props}
+                    {...routeProps}
                     {...commonProps}
                 />
             </Suspense>
         );
 
-        if (currentNavigation.view === 'parentChatAccess') return (
+        if (view === 'parentChatAccess') return (
             <Suspense fallback={<DashboardSkeletonLoader type="list" />}>
                 <ParentChatAccessScreen />
             </Suspense>
         );
 
-        if (currentNavigation.view === 'chat') return (
+        if (view === 'chat') return (
             <Suspense fallback={<DashboardSkeletonLoader type="overview" />}>
                 <ChatScreen
-                    conversationId={currentNavigation.props?.conversationId}
-                    roomDetails={currentNavigation.props?.roomDetails}
-                    targetUserId={currentNavigation.props?.targetUserId}
-                    targetUserName={currentNavigation.props?.targetUserName}
-                    targetUserAvatar={currentNavigation.props?.targetUserAvatar}
-                    schoolId={currentNavigation.props?.schoolId || schoolId}
-                    isGroup={currentNavigation.props?.isGroup}
+                    conversationId={routeProps?.conversationId}
+                    roomDetails={routeProps?.roomDetails}
+                    targetUserId={routeProps?.targetUserId}
+                    targetUserName={routeProps?.targetUserName}
+                    targetUserAvatar={routeProps?.targetUserAvatar}
+                    schoolId={routeProps?.schoolId || schoolId}
+                    isGroup={routeProps?.isGroup}
                     themeColor="indigo"
                     forceChatPanel
                     onBack={handleBack}
@@ -670,52 +634,59 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
             </Suspense>
         );
 
-        if (currentNavigation.view === 'onboardingPage') return (
+        if (view === 'onboardingPage') return (
             <Suspense fallback={<DashboardSkeletonLoader type="overview" />}>
-                <PilotOnboardingPage {...currentNavigation.props} {...commonProps} onComplete={handleBack} />
+                <PilotOnboardingPage {...routeProps} {...commonProps} onComplete={handleBack} />
             </Suspense>
         );
 
         // schoolInfo excluded: branch admins need calendar access within it.
         // Backend still rejects school-wide field writes from non-main admins.
         const MAIN_ADMIN_ONLY_VIEWS = ['schoolManagement', 'curriculumManagement', 'brandingSettings', 'manageSchoolInfo', 'subscription', 'upgrade'];
-        const view = <ComponentToRender {...currentNavigation.props} {...commonProps} />;
+        // Named renderedView, not `view` — a local `const view` here previously
+        // shadowed the screen-name variable for the rest of this function, so
+        // the MAIN_ADMIN_ONLY_VIEWS check below was comparing the array against
+        // a React element instead of the view name and could never match,
+        // silently disabling the main-admin-only gate for every one of these
+        // screens. Not something this routing change set out to fix, but it
+        // was directly exposed by needing to rename the outer variable to `view`.
+        const renderedView = <ComponentToRender {...routeProps} {...commonProps} />;
         return (
             <Suspense fallback={<DashboardSkeletonLoader type="overview" />}>
-                {MAIN_ADMIN_ONLY_VIEWS.includes(currentNavigation.view)
-                    ? <MainAdminOnly title="This screen" onBack={handleBack}>{view}</MainAdminOnly>
-                    : view}
+                {MAIN_ADMIN_ONLY_VIEWS.includes(view)
+                    ? <MainAdminOnly title="This screen" onBack={handleBack}>{renderedView}</MainAdminOnly>
+                    : renderedView}
             </Suspense>
         );
     };
 
     // Hide header and sidebar for upgrade/subscription views
-    const hideLayoutNav = currentNavigation.view === 'upgrade' || currentNavigation.view === 'subscription';
+    const hideLayoutNav = view === 'upgrade' || view === 'subscription';
     // The timetable grids want the full width (no side padding / max-width), but keep
     // the header + sidebar.
     const fullWidthViews = ['timetableEditor', 'timetableBuilder', 'chat', 'adminNewChat', 'adminMessages', 'learningHubResource'];
     // upgrade/subscription have their own internal layout and need overflow-y-auto to scroll,
     // so they must NOT be included in hidePadding (which triggers overflow-hidden in DashboardLayout).
-    const hidePadding = fullWidthViews.includes(currentNavigation.view);
+    const hidePadding = fullWidthViews.includes(view);
     // Views with their own docked/sticky bottom action bar manage their own internal
     // scroll + bottom spacing, so the layout's blanket pb-24/lg:pb-12 stacks on top of
     // their bar and leaves a dead gap beneath it. Unlike fullWidthViews, this keeps the
     // normal centered/padded content width — only the vertical scroll+padding mechanics change.
     const stickyFooterViews = ['studentProfileAdminView', 'studentProfileDashboard'];
-    const stickyFooterLayout = stickyFooterViews.includes(currentNavigation.view);
-    const hideBottomNav = hideLayoutNav || currentNavigation.view === 'chat';
+    const stickyFooterLayout = stickyFooterViews.includes(view);
+    const hideBottomNav = hideLayoutNav || view === 'chat';
     // Identifies THIS exact screen (view + its data, e.g. which student) so scroll
     // position can be remembered per screen and restored on return, while a screen
     // never visited this session still opens at the top.
     const scrollKey = React.useMemo(() => {
-        try { return `${currentNavigation.view}::${JSON.stringify(currentNavigation.props)}`; }
-        catch { return currentNavigation.view; }
-    }, [currentNavigation.view, currentNavigation.props]);
+        try { return `${view}::${JSON.stringify(routeProps)}`; }
+        catch { return view; }
+    }, [view, routeProps]);
 
     return (
         <DashboardLayout
-            title={currentNavigation.title}
-            onBack={viewStack.length > 1 ? handleBack : undefined}
+            title={title}
+            onBack={canGoBack ? handleBack : undefined}
             scrollKey={scrollKey}
             activeScreen={activeBottomNav}
             setActiveScreen={handleBottomNavClick}
@@ -730,10 +701,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
 
             {/* Plan / Trial Banner */}
 
-            <div key={`${viewStack.length}-${version}`} className="w-full h-full">
+            <div key={`${view}-${version}`} className="w-full h-full">
                 <ErrorBoundary
-                    key={currentNavigation.view}
-                    title={`${currentNavigation.title} Error`}
+                    key={view}
+                    title={`${title} Error`}
                     message="We encountered an issue while rendering this screen. This could be due to a data mismatch or a temporary connection issue."
                     onReset={forceUpdate}
                 >
