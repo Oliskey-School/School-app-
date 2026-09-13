@@ -3,6 +3,7 @@ import React, { useState, useMemo, useEffect, useRef, lazy, Suspense, useCallbac
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { lazyWithRetry } from '../../lib/lazyRetry';
+import { useDashboardRouting } from '../../hooks/useDashboardRouting';
 import { api } from '../../lib/api';
 import { DashboardType, Student, StudentAssignment } from '../../types';
 import { formatSchoolId } from '../../utils/idFormatter';
@@ -104,12 +105,6 @@ const FreeLearningResourcesScreen = lazyWithRetry(() => import('./FreeLearningRe
 const DashboardSuspenseFallback = () => (
     <PremiumLoader message="Loading dashboard module..." />
 );
-
-interface ViewStackItem {
-    view: string;
-    props?: any;
-    title: string;
-}
 
 import { NextUpTask } from './NextUpTask';
 
@@ -471,19 +466,10 @@ interface StudentDashboardProps {
 
 const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHomePage, currentUser }) => {
     const [scrolled, setScrolled] = useState(false);
-    const [viewStack, setViewStack] = useState<ViewStackItem[]>(() => {
-        const HOME: ViewStackItem[] = [{ view: 'overview', title: 'Student Dashboard', props: {} }];
-        // Restore the saved stack, but never trust an empty/corrupt value â€” an empty
-        // stack leaves the dashboard with no current view and crashes on load. Always
-        // fall back to the home (overview) screen so "Home" reliably returns here.
-        try {
-            const saved = sessionStorage.getItem('student_viewStack');
-            const parsed = saved ? JSON.parse(saved) : null;
-            return Array.isArray(parsed) && parsed.length > 0 && parsed.every((v: any) => v && v.view) ? parsed : HOME;
-        } catch {
-            return HOME;
-        }
-    });
+    const {
+        view, title, props: routeProps,
+        navigateTo: pushView, replaceView, handleBack: navigateBack, canGoBack,
+    } = useDashboardRouting('overview', 'Student Dashboard');
     const [activeBottomNav, setActiveBottomNav] = useState(() => {
         return sessionStorage.getItem('student_activeBottomNav') || 'home';
     });
@@ -634,12 +620,8 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
     }, [fetchStudentAndNotifications]);
 
     useEffect(() => {
-        const currentView = viewStack[viewStack.length - 1];
-        setIsHomePage(currentView?.view === 'overview' && !isSearchOpen);
-        window.__CURRENT_STUDENT_VIEW__ = currentView?.view;
-
-        // Persist view stack and active nav
-        sessionStorage.setItem('student_viewStack', JSON.stringify(viewStack));
+        setIsHomePage(view === 'overview' && !isSearchOpen);
+        window.__CURRENT_STUDENT_VIEW__ = view;
         sessionStorage.setItem('student_activeBottomNav', activeBottomNav);
 
         // Sync bottom nav state
@@ -665,75 +647,62 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
             profile: 'profile',
         };
 
-        // Guard: an empty view stack (e.g. right after a reset/Home navigation) leaves
-        // currentView undefined â€” reading `.view` here used to crash the whole dashboard.
-        const targetNav = currentView ? viewToNavMap[currentView.view] : undefined;
+        const targetNav = viewToNavMap[view];
         if (targetNav) {
             setActiveBottomNav(targetNav);
         }
-    }, [viewStack, isSearchOpen, setIsHomePage, activeBottomNav]);
+    }, [view, isSearchOpen, setIsHomePage, activeBottomNav]);
 
     const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 
-    const navigateTo = useCallback((view: string, title: string, props: any = {}) => {
-        React.startTransition(() => {
-            setViewStack(stack => [...stack, { view, props, title }]);
-        });
-        // Scroll to top on navigation
+    // Thin wrappers over the hook's navigateTo/handleBack that additionally
+    // scroll the dashboard's own scroll container back to the top — the URL
+    // change alone doesn't do this (there's no page navigation for the
+    // browser to reset scroll on; it's all one SPA route).
+    const navigateTo = useCallback((nextView: string, nextTitle: string, nextProps: any = {}) => {
+        pushView(nextView, nextTitle, nextProps);
         if (scrollContainerRef.current) {
             scrollContainerRef.current.scrollTo(0, 0);
         }
-    }, []);
+    }, [pushView]);
 
     const handleBack = useCallback(() => {
-        React.startTransition(() => {
-            if (viewStack.length > 1) {
-                setViewStack(stack => stack.slice(0, -1));
-            } else {
-                // Fallback: If we are stuck, go to overview
-                setViewStack([{ view: 'overview', title: 'Student Dashboard' }]);
-            }
-        });
-        // Scroll to top on back navigation
+        navigateBack();
         if (scrollContainerRef.current) {
             scrollContainerRef.current.scrollTo(0, 0);
         }
-    }, [viewStack.length]);
+    }, [navigateBack]);
 
     const handleBottomNavClick = (screen: string) => {
         if (!student) return;
-        
-        React.startTransition(() => {
-            setActiveBottomNav(screen);
 
-            // Reset scroll when switching tabs via bottom nav
-            if (scrollContainerRef.current) {
-                scrollContainerRef.current.scrollTo(0, 0);
-            }
+        setActiveBottomNav(screen);
+        if (scrollContainerRef.current) {
+            scrollContainerRef.current.scrollTo(0, 0);
+        }
 
-            switch (screen) {
-                case 'home':
-                    setViewStack([{ view: 'overview', title: 'Student Dashboard' }]);
-                    break;
-                case 'quizzes':
-                    setViewStack([{ view: 'quizzes', title: 'Assessments & Quizzes' }]);
-                    break;
-                case 'results':
-                    setViewStack([{ view: 'results', title: 'Academic Performance', props: { studentId: student.id } }]);
-                    break;
-                case 'games':
-                    setViewStack([{ view: 'gamesHub', title: 'Games Hub' }]);
-                    break;
-                case 'messages':
-                    setViewStack([{ view: 'messages', title: 'Messages' }]);
-                    break;
-                case 'profile':
-                    setViewStack([{ view: 'profile', title: 'My Profile', props: {} }]);
-                    break;
-                default:
-                    setViewStack([{ view: 'overview', title: 'Student Dashboard' }]);
-            }
-        });
+        switch (screen) {
+            case 'home':
+                replaceView('overview', 'Student Dashboard');
+                break;
+            case 'quizzes':
+                replaceView('quizzes', 'Assessments & Quizzes');
+                break;
+            case 'results':
+                replaceView('results', 'Academic Performance', { studentId: student.id });
+                break;
+            case 'games':
+                replaceView('gamesHub', 'Games Hub');
+                break;
+            case 'messages':
+                replaceView('messages', 'Messages');
+                break;
+            case 'profile':
+                replaceView('profile', 'My Profile');
+                break;
+            default:
+                replaceView('overview', 'Student Dashboard');
+        }
     };
 
     const handleNotificationClick = () => {
@@ -843,11 +812,10 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
     // remembered per screen and restored on return, while a screen never visited
     // this session still opens at the top. Computed unconditionally (before any
     // early return below) to keep hook order stable across renders.
-    const scrollKeyNav = viewStack[viewStack.length - 1] || { view: 'overview', props: {} };
     const scrollKey = React.useMemo(() => {
-        try { return `${scrollKeyNav.view}::${JSON.stringify((scrollKeyNav as any).props)}`; }
-        catch { return scrollKeyNav.view; }
-    }, [scrollKeyNav.view, (scrollKeyNav as any).props]);
+        try { return `${view}::${JSON.stringify(routeProps)}`; }
+        catch { return view; }
+    }, [view, routeProps]);
 
     // Optimistic UI: Only show full loading spinner if we are loading AND have no student data
     if (loadingStudent && !student) {
@@ -882,12 +850,11 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
         );
     }
 
-    const currentNavigation = viewStack[viewStack.length - 1] || { view: 'overview', title: 'Student Dashboard' };
-    const ComponentToRender = viewComponents[currentNavigation.view as keyof typeof viewComponents];
+    const ComponentToRender = viewComponents[view as keyof typeof viewComponents];
 
-    const isFullScreen = ['messages', 'newChat', 'chat', 'classBattle', 'mathSprintGame', 'geoGuesserGame', 'codeChallengeGame', 'gamePlayer', 'peekabooLetters', 'mathBattleArena', 'cbtExamGame', 'cbtPlayer', 'countingShapesTap', 'simonSays', 'alphabetFishing', 'beanBagToss', 'redLightGreenLight', 'spellingSparkle', 'vocabularyAdventure', 'virtualScienceLab', 'debateDash', 'geometryJeopardy', 'sharkTank', 'physicsLab', 'stockMarket', 'cbtExamGame', 'vocabularyPictionary', 'simpleMachineHunt', 'historicalHotSeat', 'worksheets', 'learningHubResource'].includes(currentNavigation.view);
+    const isFullScreen = ['messages', 'newChat', 'chat', 'classBattle', 'mathSprintGame', 'geoGuesserGame', 'codeChallengeGame', 'gamePlayer', 'peekabooLetters', 'mathBattleArena', 'cbtExamGame', 'cbtPlayer', 'countingShapesTap', 'simonSays', 'alphabetFishing', 'beanBagToss', 'redLightGreenLight', 'spellingSparkle', 'vocabularyAdventure', 'virtualScienceLab', 'debateDash', 'geometryJeopardy', 'sharkTank', 'physicsLab', 'stockMarket', 'cbtExamGame', 'vocabularyPictionary', 'simpleMachineHunt', 'historicalHotSeat', 'worksheets', 'learningHubResource'].includes(view);
     // messages/newChat keep the nav so users can switch tabs; chat and games go fully immersive
-    const hideBottomNav = isFullScreen && currentNavigation.view !== 'messages' && currentNavigation.view !== 'newChat';
+    const hideBottomNav = isFullScreen && view !== 'messages' && view !== 'newChat';
 
     // Portalled straight to <body>: rendered this deep in the tree, `fixed`
     // stopped meaning "relative to the viewport" the moment ANY ancestor
@@ -977,24 +944,24 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
         <GamificationProvider studentId={student?.id}>
             {bannerPortals}
             <DashboardLayout
-                title={currentNavigation.title}
-                onBack={viewStack.length > 1 ? handleBack : undefined}
+                title={title}
+                onBack={canGoBack ? handleBack : undefined}
                 scrollKey={scrollKey}
                 activeScreen={activeBottomNav}
                 setActiveScreen={handleBottomNavClick}
-                hideHeader={hideBottomNav || currentNavigation.view === 'profile'}
+                hideHeader={hideBottomNav || view === 'profile'}
                 hidePadding={isFullScreen}
                 hideBottomNav={hideBottomNav}
             >
-                <div key={`${viewStack.length}-${currentNavigation.view}`} className="h-full w-full">
+                <div key={`${view}-${version}`} className="h-full w-full">
                     <ErrorBoundary>
                         <Suspense fallback={<DashboardSuspenseFallback />}>
                             {ComponentToRender ? (() => {
                                 // Prepare props for specific components
-                                const componentProps = { ...currentNavigation.props, ...commonProps, student, studentId: student?.id, onBack: handleBack, handleBack };
+                                const componentProps = { ...routeProps, ...commonProps, student, studentId: student?.id, onBack: handleBack, handleBack };
                                 
                                 // Additional prop injection
-                                if (currentNavigation.view === 'curriculum') {
+                                if (view === 'curriculum') {
                                     // `student.level` is the gamification XP level (Int, defaults to 1) —
                                     // not the academic class level string CurriculumScreen expects
                                     // ("Primary 4", "JSS 1", ...). Derive it from `grade` instead, using
@@ -1002,14 +969,14 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                                     componentProps.level = getFormattedClassName(student?.grade ?? 0);
                                     componentProps.department = student?.department;
                                 }
-                                if (currentNavigation.view === 'chat') {
+                                if (view === 'chat') {
                                     componentProps.currentUserId = student?.id;
-                                    componentProps.forceChatPanel = !!(currentNavigation.props?.targetUserId || currentNavigation.props?.conversationId);
+                                    componentProps.forceChatPanel = !!(routeProps?.targetUserId || routeProps?.conversationId);
                                 }
 
                                 return <ComponentToRender {...componentProps} />;
                             })() : (
-                                <div className="p-6 text-center text-gray-500">View not found: {currentNavigation.view}</div>
+                                <div className="p-6 text-center text-gray-500">View not found: {view}</div>
                             )}
                         </Suspense>
                     </ErrorBoundary>
