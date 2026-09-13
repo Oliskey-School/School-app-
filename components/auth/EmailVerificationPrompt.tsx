@@ -7,7 +7,7 @@ import { api } from '../../lib/api';
 type Step = 'idle' | 'editing' | 'awaiting_code';
 
 const EmailVerificationPrompt: React.FC = () => {
-    const { user, signIn, refreshUser } = useAuth();
+    const { user, signIn, refreshUser, isDemo } = useAuth();
     const [sending, setSending] = useState(false);
     const [sent, setSent] = useState(false);
     const [step, setStep] = useState<Step>('idle');
@@ -49,10 +49,14 @@ const EmailVerificationPrompt: React.FC = () => {
         });
     };
 
-    // Only show if user is logged in and email is not verified
+    // Only show if user is logged in and email is not verified. Demo accounts
+    // never have a real inbox to confirm — /api/auth/me already returns
+    // is_demo: true for them (AuthContext's isDemo mirrors that) — so nagging
+    // every demo visitor to "confirm their email" on every dashboard load was
+    // asking for something structurally impossible for the account to satisfy.
     const isVerified = user?.email_verified === true || user?.user_metadata?.email_verified === true;
 
-    if (isVerified || !user || isDismissed) return null;
+    if (isVerified || !user || isDismissed || isDemo) return null;
 
     const isFakeDemo = (user?.id?.startsWith('d3300') || user?.user_metadata?.is_demo) &&
         (user?.email?.endsWith('@demo.com') || user?.email?.endsWith('@school.com'));
