@@ -161,7 +161,17 @@ export default defineConfig(({ mode }) => {
         }
       })
     ],
-    envPrefix: 'VITE_', 
+    envPrefix: 'VITE_',
+    // esbuild is a TOP-LEVEL Vite option (it also drives the dev server's own
+    // transform), not a build.esbuild sub-key — nesting it under build would
+    // silently do nothing. Scoped to production so `npm run dev` keeps normal
+    // console output. `pure` (not `drop: ['console']`) so error reporting
+    // survives: it marks log/debug/info/warn calls as side-effect-free so
+    // esbuild's minifier removes them, while leaving console.error alone.
+    esbuild: mode === 'production' ? {
+      drop: ['debugger'],
+      pure: ['console.log', 'console.debug', 'console.info', 'console.warn'],
+    } : undefined,
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.VITE_GEMINI_API_KEY),
       'process.env.APP_VERSION': JSON.stringify(env.VITE_APP_VERSION || process.env.npm_package_version || packageJson.version || '0.5.38')
