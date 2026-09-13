@@ -4,9 +4,29 @@ import { toast } from 'react-hot-toast';
 
 // The backend URL - adjust if different from API base
 
+export type RealtimeStatus = 'connected' | 'connecting' | 'disconnected';
+
 class SocketService {
     private socket: Socket | null = null;
     private schoolId: string | null = null;
+    private status: RealtimeStatus = 'connecting';
+    private statusListeners = new Set<(status: RealtimeStatus) => void>();
+
+    private setStatus(status: RealtimeStatus) {
+        if (this.status === status) return;
+        this.status = status;
+        this.statusListeners.forEach(fn => fn(status));
+    }
+
+    getStatus(): RealtimeStatus {
+        return this.status;
+    }
+
+    /** Subscribe to connection status changes. Returns an unsubscribe function. */
+    onStatusChange(fn: (status: RealtimeStatus) => void): () => void {
+        this.statusListeners.add(fn);
+        return () => this.statusListeners.delete(fn);
+    }
 
     initialize(schoolId: string) {
         if (this.socket?.connected && this.schoolId === schoolId) return;
@@ -25,19 +45,49 @@ class SocketService {
         // this client happens to send.
         const authToken = sessionStorage.getItem('auth_token');
 
+        this.setStatus('connecting');
+
         this.socket = io(SOCKET_URL, {
             auth: { token: authToken },
-            transports: ['websocket'], // Force websocket to avoid HTTP polling drops behind a stateless load balancer
+            // Every WebSocket upgrade attempt was failing in production with no
+            // fallback, so real-time was 100% down there while working locally —
+            // confirmed the server (socket.service.ts) already accepts
+            // ['websocket', 'polling'] and today's deploy (deploy/nginx.conf)
+            // proxies to a single backend instance, not the load-balanced
+            // multi-node setup the websocket-only restriction was guarding
+            // against. If this app is later scaled behind a real load balancer,
+            // that balancer needs sticky sessions (IP hash / cookie affinity)
+            // for polling to keep working — this comment is the reminder.
+            transports: ['websocket', 'polling'],
             autoConnect: true,
             reconnection: true,
             reconnectionAttempts: 10,
-            reconnectionDelay: 1000
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 5000,
         });
 
         this.socket.on('connect', () => {
             console.log('🔌 [SocketService] WebSocket Connected');
+            this.setStatus('connected');
             this.socket?.emit('join-school');
             this.socket?.emit('register-user');
+        });
+
+        // reconnect_attempt/reconnect_failed are emitted by the Manager
+        // (socket.io), not the Socket itself — attaching them to `this.socket`
+        // directly is a silent no-op that never fires.
+        this.socket.io.on('reconnect_attempt', () => {
+            this.setStatus('connecting');
+        });
+
+        this.socket.io.on('reconnect_failed', () => {
+            console.warn('🔌 [SocketService] Reconnection attempts exhausted — giving up until next initialize().');
+            this.setStatus('disconnected');
+        });
+
+        this.socket.on('connect_error', (err) => {
+            console.warn('🔌 [SocketService] Connect error:', err.message);
+            this.setStatus('disconnected');
         });
 
         this.socket.on('teacher:updated', (data) => {
@@ -178,6 +228,10 @@ class SocketService {
 
         this.socket.on('disconnect', () => {
             console.log('🔌 [SocketService] WebSocket Disconnected');
+            // socket.io-client keeps retrying on its own after this (reconnection
+            // is enabled above), so this is "connecting" rather than a terminal
+            // "disconnected" — reconnect_failed is the actual give-up signal.
+            this.setStatus('connecting');
         });
 
         this.socket.on('error', (err) => {
@@ -190,6 +244,7 @@ class SocketService {
             this.socket.disconnect();
             this.socket = null;
         }
+        this.setStatus('disconnected');
     }
 
     /** Ensure a connection exists (used by features like Class Battle). */

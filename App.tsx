@@ -1,6 +1,7 @@
 import React, { useState, useMemo, lazy, Suspense, useEffect } from 'react';
 import { DashboardType } from './types';
 import { OfflineIndicator } from './components/shared/OfflineIndicator';
+import { RealtimeStatusIndicator } from './components/shared/RealtimeStatusIndicator';
 import { AppearanceSync } from './components/shared/LiquidGlassControl';
 import { MotionConfig } from 'framer-motion';
 import { Toaster } from 'react-hot-toast';
@@ -213,6 +214,11 @@ const AuthenticatedApp: React.FC = () => {
   return (
     <ErrorBoundary>
       <Suspense fallback={<LoadingScreen />}>
+        {/* Only mounted once a user/role exist (this branch runs after the
+            !user || !role early return above), so it never shows on the
+            public login screen before a socket connection has even been
+            attempted. */}
+        <RealtimeStatusIndicator />
         <MobileNavigationHandler />
         <ContextualMarquee />
         <VerificationGuard>
