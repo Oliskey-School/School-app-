@@ -28,6 +28,7 @@ import { STEMLabManager } from './STEMLabManager';
 import { PeopleOverview } from './PeopleOverview';
 import { ProprietorBottomNav } from '../ui/DashboardBottomNav';
 import EmailVerificationPrompt from '../auth/EmailVerificationPrompt';
+import { useDashboardRouting } from '../../hooks/useDashboardRouting';
 
 
 interface ProprietorDashboardProps {
@@ -36,10 +37,14 @@ interface ProprietorDashboardProps {
     currentUser?: any;
 }
 
+type ProprietorView = 'overview' | 'finance' | 'compliance' | 'academic' | 'stem' | 'people';
+
 const ProprietorDashboard: React.FC<ProprietorDashboardProps> = ({ onLogout, setIsHomePage, currentUser }) => {
     const { profile } = useProfile();
     const { user } = useAuth();
-    const [currentView, setCurrentView] = useState<'overview' | 'finance' | 'compliance' | 'academic' | 'stem' | 'people'>('overview');
+    // Pure tab-switcher (no back stack) — every tab is a real URL via replaceView.
+    const { view, replaceView } = useDashboardRouting('overview', 'Dashboard Overview');
+    const currentView = view as ProprietorView;
 
     // feesCollected/pendingFees/totalStudents/totalTeachers come from live dashboard data.
     // There is no expense-tracking feature anywhere in the app, so expenses/net profit
@@ -202,8 +207,8 @@ const ProprietorDashboard: React.FC<ProprietorDashboardProps> = ({ onLogout, set
         }
     };
 
-    const handleNavClick = (view: typeof currentView) => {
-        setCurrentView(view);
+    const handleNavClick = (nextView: ProprietorView) => {
+        replaceView(nextView);
     };
 
     return (

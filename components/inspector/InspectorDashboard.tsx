@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useDashboardRouting } from '../../hooks/useDashboardRouting';
 import DashboardLayout from '../layout/DashboardLayout';
 import { InspectorOverview } from './InspectorOverview';
 import { SchoolDirectory } from './SchoolDirectory';
@@ -16,7 +17,11 @@ type ActiveView = 'home' | 'directory' | 'profile' | 'inspecting';
 
 const InspectorDashboard: React.FC = () => {
   const { user } = useAuth();
-  const [activeView, setActiveView] = useState<ActiveView>('home');
+  // selectedSchool/activeInspectionId stay as plain state (transient selection
+  // context, not something a deep link needs to restore); only the screen
+  // itself (activeView) is backed by a real URL.
+  const { view, navigateTo } = useDashboardRouting('home', 'Inspector Dashboard');
+  const activeView = view as ActiveView;
   const [selectedSchool, setSelectedSchool] = useState<School | null>(null);
   const [activeInspectionId, setActiveInspectionId] = useState<string | null>(null);
 
@@ -31,31 +36,31 @@ const InspectorDashboard: React.FC = () => {
   };
 
   const handleStartNew = () => {
-    setActiveView('directory');
+    navigateTo('directory', 'School Directory');
   };
 
   const handleSearchSchools = () => {
-    setActiveView('directory');
+    navigateTo('directory', 'School Directory');
   };
 
   const handleSelectSchool = (school: SchoolProfile) => {
     setSelectedSchool(school);
-    setActiveView('profile');
+    navigateTo('profile', 'School Profile');
   };
 
   const handleStartInspection = () => {
     if (!selectedSchool) return;
-    setActiveView('inspecting');
+    navigateTo('inspecting', 'Inspection in Progress');
     setActiveInspectionId(null);
   };
 
   const handleInspectionClick = (id: string) => {
     setActiveInspectionId(id);
-    setActiveView('inspecting');
+    navigateTo('inspecting', 'Inspection in Progress');
   };
 
   const handleInspectionComplete = () => {
-    setActiveView('home');
+    navigateTo('home', 'Inspector Dashboard');
     setActiveInspectionId(null);
     setSelectedSchool(null);
     refetchStats();
@@ -89,7 +94,7 @@ const InspectorDashboard: React.FC = () => {
       }
       activeScreen={activeView}
       hideHeader={false}
-      onBack={activeView !== 'home' ? () => setActiveView('home') : undefined}
+      onBack={activeView !== 'home' ? () => navigateTo('home', 'Inspector Dashboard') : undefined}
     >
       <div className="pb-12">
         <AnimatePresence mode="wait">
@@ -126,7 +131,7 @@ const InspectorDashboard: React.FC = () => {
               <SchoolDirectory 
                 jurisdictionIds={profile.jurisdiction_ids || []}
                 onSelectSchool={handleSelectSchool}
-                onBack={() => setActiveView('home')}
+                onBack={() => navigateTo('home', 'Inspector Dashboard')}
               />
             </motion.div>
           )}
@@ -141,7 +146,7 @@ const InspectorDashboard: React.FC = () => {
             >
               <SchoolProfileView 
                 schoolId={selectedSchool.id}
-                onBack={() => setActiveView('directory')}
+                onBack={() => navigateTo('directory', 'School Directory')}
                 onStartInspection={handleStartInspection}
                 onViewReport={handleInspectionClick}
               />
@@ -158,8 +163,8 @@ const InspectorDashboard: React.FC = () => {
             >
               <NewInspection 
                 jurisdictionIds={profile.jurisdiction_ids || []}
-                onComplete={() => setActiveView('home')}
-                onBack={() => setActiveView('home')}
+                onComplete={() => navigateTo('home', 'Inspector Dashboard')}
+                onBack={() => navigateTo('home', 'Inspector Dashboard')}
               />
             </motion.div>
           )}
