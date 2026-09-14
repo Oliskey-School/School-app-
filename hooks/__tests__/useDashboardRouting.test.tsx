@@ -69,6 +69,28 @@ describe('useDashboardRouting', () => {
         expect(result.current.canGoBack).toBe(false);
     });
 
+    it('does not throw when props contain a function (e.g. an onSave callback)', () => {
+        // Regression: navigateTo used to put props straight into history
+        // `state`, which real browser history.pushState runs through the
+        // structured-clone algorithm — and throws on functions. Several
+        // screens (exam creation, chat, forum topics, ...) pass a callback
+        // in props, so this must survive round-trip via the hook's own
+        // props (not history.state) without ever hitting pushState with it.
+        const { result } = renderHook(() => useDashboardRouting('overview', 'Admin Dashboard'), {
+            wrapper: wrapperWithPath('/'),
+        });
+
+        const onSave = () => 'saved';
+        expect(() => {
+            act(() => {
+                result.current.navigateTo('addExam', 'Add New Exam', { onSave });
+            });
+        }).not.toThrow();
+
+        expect(result.current.view).toBe('addExam');
+        expect(result.current.props.onSave).toBe(onSave);
+    });
+
     it('replaceView swaps the current view without growing history (tab-switch semantics)', () => {
         const { result } = renderHook(() => useDashboardRouting('overview', 'Admin Dashboard'), {
             wrapper: wrapperWithPath('/'),

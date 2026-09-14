@@ -3,7 +3,10 @@ import { useLocation, useNavigate, useNavigationType, useParams } from 'react-ro
 
 export interface DashboardNavigationState {
     title?: string;
-    props?: any;
+    /** Key into the in-memory props map (see navigateTo) — never the props
+     *  themselves, since history.pushState requires structured-cloneable
+     *  data and rejects anything containing a function. */
+    navId?: string;
 }
 
 export interface DashboardRouting {
@@ -44,13 +47,16 @@ export interface DashboardRouting {
  * sub-path (none currently do, but this keeps the door open without
  * requiring every screen to be touched now).
  *
- * Complex, non-JSON-safe props (callbacks, live objects) travel via
- * history `state`, exactly as they did before — the old implementations
- * that persisted their view stack to sessionStorage were already limited to
- * JSON-serializable props in practice (JSON.stringify silently drops
- * functions), so this is not a new constraint, just a more honest one: a
+ * Props travel through an in-memory ref map, not through history `state`
+ * directly: `state` is handed to the browser's real history.pushState,
+ * which runs the structured-clone algorithm and THROWS if the value
+ * contains a function (several callers pass callbacks like `onSave` in
+ * props). Only a small, always-cloneable `navId` key goes into `state`;
+ * the actual props object is looked up from the ref map by that key. This
+ * has the same practical ceiling the old sessionStorage-persisted view
+ * stacks had (JSON.stringify silently dropped functions there too): a
  * fresh page load / cross-tab deep link restores the correct VIEW, but not
- * props from a `state` that only exists in that one browser tab's history.
+ * props from a navigation that only exists in this one tab's memory.
  */
 export function useDashboardRouting(defaultView: string, defaultTitle: string): DashboardRouting {
     const navigate = useNavigate();
@@ -61,9 +67,12 @@ export function useDashboardRouting(defaultView: string, defaultTitle: string): 
     const rawSegment = (params['*'] || '').split('/')[0];
     const view = rawSegment || defaultView;
 
+    const propsMapRef = useRef<Map<string, any>>(new Map());
+    const navIdCounterRef = useRef(0);
+
     const navState = (location.state as DashboardNavigationState | null) || null;
     const title = navState?.title ?? defaultTitle;
-    const props = navState?.props ?? {};
+    const props = (navState?.navId ? propsMapRef.current.get(navState.navId) : undefined) ?? {};
 
     // The History API exposes no "how deep is this session's stack" query —
     // only whether the transition that just happened was a PUSH, POP or
@@ -85,14 +94,18 @@ export function useDashboardRouting(defaultView: string, defaultTitle: string): 
     // screen component is exactly the kind of update React docs recommend
     // deprioritizing so the click/tap itself still feels instant.
     const navigateTo = useCallback((nextView: string, nextTitle: string = '', nextProps: any = {}) => {
+        const navId = `n${++navIdCounterRef.current}`;
+        propsMapRef.current.set(navId, nextProps);
         React.startTransition(() => {
-            navigate(`/${nextView}`, { state: { title: nextTitle, props: nextProps } });
+            navigate(`/${nextView}`, { state: { title: nextTitle, navId } });
         });
     }, [navigate]);
 
     const replaceView = useCallback((nextView: string, nextTitle: string = '', nextProps: any = {}) => {
+        const navId = `n${++navIdCounterRef.current}`;
+        propsMapRef.current.set(navId, nextProps);
         React.startTransition(() => {
-            navigate(`/${nextView}`, { state: { title: nextTitle, props: nextProps }, replace: true });
+            navigate(`/${nextView}`, { state: { title: nextTitle, navId }, replace: true });
         });
     }, [navigate]);
 
