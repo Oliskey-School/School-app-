@@ -31,11 +31,10 @@ vi.mock('../../../components/layout/DashboardLayout', () => ({
     )
 }));
 
-// Mock API
-vi.mock('../../../lib/api', () => ({
-    api: {
-        getMyTeacherProfile: vi.fn().mockResolvedValue({ id: 'teacher-123', name: 'Test Teacher' })
-    }
+// Mock API — TeacherDashboard fetches its profile via the cached queryClient
+// helper, not lib/api directly, so that's what needs mocking here.
+vi.mock('../../../lib/queryClient', () => ({
+    getMyTeacherProfileCached: vi.fn().mockResolvedValue({ id: 'teacher-123', full_name: 'Test Teacher' })
 }));
 
 // Mock ALL views imported in TeacherDashboard to prevent them from running their own effects
