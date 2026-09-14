@@ -550,6 +550,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
             case 'classList': replaceView('classList', 'Classes'); break;
             case 'timetable': replaceView('timetable', 'Timetable'); break;
             case 'examManagement': replaceView('examManagement', 'Exams'); break;
+            case 'results': replaceView('resultsEntry', 'Results'); break;
+            case 'compliance': replaceView('complianceDashboard', 'Compliance'); break;
             case 'messages': replaceView('adminMessages', 'Messages'); break;
             case 'parentChatAccess': replaceView('parentChatAccess', 'Parent Chat Access'); break;
             case 'communication': replaceView('communicationHub', 'Communication Hub'); break;

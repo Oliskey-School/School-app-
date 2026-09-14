@@ -39,12 +39,13 @@ import {
     FileTextIcon,
     AcademicCapIcon,
     UserGroupIcon,
+    SearchIcon,
 } from '../../constants';
 // Mock data removed
 import { AuditLog, RoleName } from '../../types';
 import DonutChart from '../ui/DonutChart';
 import { EmergencyBroadcastModal } from './EmergencyBroadcastModal';
-import { AlertTriangle, Activity, Flame, ShieldCheck, Shield, FileText, Rocket, Beaker, Calendar, TrendingUp, Building2, Bus, BarChart3, Database, Monitor, Star, Receipt, Clock, FileCheck, Download, BellRing, LayoutGrid, GraduationCap, QrCode, ScanLine, Archive, UsersRound, ClipboardCheck, Repeat, ShieldAlert, ClipboardEdit, LogOut, DoorOpen, Gauge, School, Landmark, Settings, Globe } from 'lucide-react';
+import { AlertTriangle, Activity, Flame, ShieldCheck, Shield, FileText, Rocket, Beaker, Calendar, TrendingUp, Building2, Bus, BarChart3, Database, Monitor, Star, Receipt, Clock, FileCheck, Download, BellRing, LayoutGrid, GraduationCap, QrCode, ScanLine, Archive, UsersRound, ClipboardCheck, Repeat, ShieldAlert, ClipboardEdit, LogOut, DoorOpen, Gauge, School, Globe } from 'lucide-react';
 import AIInsightsPanel from '../shared/AIInsightsPanel';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
@@ -368,6 +369,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
     );
 
     const [isBroadcastOpen, setIsBroadcastOpen] = useState(false);
+    const [actionSearch, setActionSearch] = useState('');
 
     // Derived stats for UI consumption
     const totalStudents = stats?.totalStudents || 0;
@@ -417,6 +419,127 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
         return val > 0 ? `+${val}` : `${val}`;
     };
 
+    // The "long tail" of Quick Actions beyond Daily Essentials — grouped by
+    // category and rendered as a searchable, collapsible list instead of one
+    // continuous wall of ~70 buttons. Every destination here is unchanged
+    // from before; only the container around them changed.
+    type QuickAction = { label: string; icon: React.ReactElement; onClick: () => void; color: string };
+    type QuickActionCategory = { id: string; name: string; items: QuickAction[] };
+    const quickActionCategories: QuickActionCategory[] = [
+        {
+            id: 'people', name: 'People & Enrollment', items: [
+                { label: 'School Status', icon: <School className="w-6 h-6" />, onClick: () => navigateTo('digitalTwin', 'School Status'), color: 'bg-slate-800' },
+                { label: 'Add User', icon: <PlusIcon />, onClick: () => navigateTo('selectUserTypeToAdd', 'Add New User', {}), color: 'bg-indigo-500' },
+                { label: 'Approvals', icon: <CheckCircleIcon />, onClick: () => navigateTo('studentApprovals', 'Student Approvals'), color: 'bg-indigo-600' },
+                { label: 'Onboarding', icon: <SchoolLogoIcon />, onClick: () => navigateTo('manageSchoolInfo', 'School Onboarding'), color: 'bg-pink-600' },
+                { label: 'Enroll Student', icon: <UserIcon />, onClick: () => navigateTo('enrollmentPage', 'New Student Enrollment'), color: 'bg-emerald-600' },
+                { label: 'Past Students', icon: <Archive className="w-6 h-6" />, onClick: () => navigateTo('pastStudents', 'Past Students'), color: 'bg-slate-600' },
+                { label: 'User Accounts', icon: <UsersIcon />, onClick: () => navigateTo('userAccounts', 'User Accounts'), color: 'bg-indigo-600' },
+                { label: 'Manage Branches', icon: <Building2 className="w-6 h-6" />, onClick: () => navigateTo('schoolManagement', 'Manage Branches'), color: 'bg-blue-600' },
+                { label: 'Curriculum', icon: <Globe className="w-6 h-6" />, onClick: () => navigateTo('curriculumManagement', 'Curriculum Management'), color: 'bg-emerald-700' },
+                ...(!currentBranchId ? [{ label: 'Branch Transfers', icon: <UsersIcon />, onClick: () => navigateTo('branchTransfer', 'Branch Transfers'), color: 'bg-fuchsia-600' }] : []),
+            ]
+        },
+        {
+            id: 'academic', name: 'Academic', items: [
+                { label: 'Timetable', icon: <ClipboardListIcon />, onClick: () => navigateTo('timetable', 'AI Timetable'), color: 'bg-indigo-500' },
+                { label: 'Teacher Assignments', icon: <UsersRound className="w-6 h-6" />, onClick: () => navigateTo('teacherAssignments', 'Teacher Assignments'), color: 'bg-purple-600' },
+                { label: 'Classrooms & QR', icon: <QrCode className="w-6 h-6" />, onClick: () => navigateTo('classroomManagement', 'Classrooms & QR Codes'), color: 'bg-sky-600' },
+                { label: 'Class Verification', icon: <ScanLine className="w-6 h-6" />, onClick: () => navigateTo('classVerification', 'Class Verification'), color: 'bg-blue-700' },
+                { label: 'Register Exams', icon: <DocumentTextIcon />, onClick: () => navigateTo('exams', 'External Exams'), color: 'bg-indigo-600' },
+                { label: 'Enter Results', icon: <TrendingUp />, onClick: () => navigateTo('resultsEntry', 'Results Entry'), color: 'bg-cyan-600' },
+                { label: 'Publish Reports', icon: <ReportIcon />, onClick: () => navigateTo('reportCardPublishing', 'Publish Reports', {}), color: 'bg-purple-500' },
+                { label: 'Promotion', icon: <GraduationCap />, onClick: () => navigateTo('sessionPromotion', 'End-of-Session Promotion'), color: 'bg-indigo-700' },
+                { label: 'Track Attendance', icon: <Calendar />, onClick: () => navigateTo('attendanceTracker', 'Curriculum Attendance'), color: 'bg-green-600' },
+                { label: 'Classroom Observation', icon: <ClipboardEdit className="w-6 h-6" />, onClick: () => navigateTo('classroomObservation', 'Classroom Observation'), color: 'bg-fuchsia-700' },
+                { label: 'Departments', icon: <Building2 className="w-6 h-6" />, onClick: () => navigateTo('departmentManagement', 'Departments'), color: 'bg-cyan-900' },
+                { label: 'School Clubs', icon: <Star className="w-6 h-6" />, onClick: () => navigateTo('clubManagement', 'School Clubs'), color: 'bg-amber-800' },
+            ]
+        },
+        {
+            id: 'attendanceSafety', name: 'Attendance & Safety', items: [
+                { label: 'Attendance', icon: <ClockIcon />, onClick: () => navigateTo('teacherAttendance', 'Teacher Attendance'), color: 'bg-amber-500' },
+                { label: 'Health Log', icon: <HeartIcon />, onClick: () => navigateTo('healthLog', 'Health Log'), color: 'bg-red-500' },
+                { label: 'Bus Roster', icon: <BusVehicleIcon />, onClick: () => navigateTo('busDutyRoster', 'Bus Duty Roster'), color: 'bg-orange-500' },
+                { label: 'Compliance', icon: <Shield />, onClick: () => navigateTo('complianceOnboarding', 'School Compliance'), color: 'bg-violet-600' },
+                { label: 'SOP Cases', icon: <ClipboardCheck className="w-6 h-6" />, onClick: () => navigateTo('sopCaseManagement', 'Case Management'), color: 'bg-rose-600' },
+                { label: 'Substitute Coverage', icon: <Repeat className="w-6 h-6" />, onClick: () => navigateTo('substituteCoverage', 'Substitute Coverage'), color: 'bg-teal-600' },
+                { label: 'Leave Approvals', icon: <ClipboardCheck className="w-6 h-6" />, onClick: () => navigateTo('leaveApproval', 'Leave Approvals'), color: 'bg-lime-700' },
+                { label: 'At-Risk Students', icon: <ShieldAlert className="w-6 h-6" />, onClick: () => navigateTo('atRiskStudents', 'At-Risk Students'), color: 'bg-red-700' },
+                { label: 'Student Gate', icon: <LogOut className="w-6 h-6" />, onClick: () => navigateTo('studentGate', 'Student Departure'), color: 'bg-cyan-700' },
+                { label: 'Gate Pass Approvals', icon: <DoorOpen className="w-6 h-6" />, onClick: () => navigateTo('gatePassApprovals', 'Gate Pass Approvals'), color: 'bg-cyan-800' },
+                { label: 'Emergency', icon: <AlertTriangle />, onClick: () => setIsBroadcastOpen(true), color: 'bg-red-600 animate-pulse' },
+            ]
+        },
+        {
+            id: 'commsSystem', name: 'Communication & System', items: [
+                { label: 'Announce', icon: <MegaphoneIcon />, onClick: () => navigateTo('communicationHub', 'Communication Hub'), color: 'bg-teal-500' },
+                { label: 'Launch Hub', icon: <Rocket className="animate-bounce" />, onClick: () => navigateTo('onboardingPage', 'Pilot Onboarding'), color: 'bg-gray-900' },
+            ]
+        },
+        {
+            id: 'contentManagement', name: 'Content Management', items: [
+                { label: 'School Policies', icon: <DocumentTextIcon />, onClick: () => navigateTo('managePolicies', 'Manage Policies'), color: 'bg-pink-500' },
+                { label: 'Volunteering', icon: <HelpingHandIcon />, onClick: () => navigateTo('manageVolunteering', 'Manage Volunteering'), color: 'bg-emerald-500' },
+                { label: 'Permission Slips', icon: <ClipboardListIcon />, onClick: () => navigateTo('managePermissionSlips', 'Manage Permission Slips'), color: 'bg-cyan-500' },
+                { label: 'Learning Resources', icon: <ElearningIcon />, onClick: () => navigateTo('manageLearningResources', 'Manage Learning Resources'), color: 'bg-indigo-600' },
+                { label: 'PTA Meetings', icon: <AcademicCapIcon />, onClick: () => navigateTo('managePTAMeetings', 'PTA Meetings'), color: 'bg-indigo-600' },
+                { label: 'External Exams', icon: <Beaker />, onClick: () => navigateTo('exams', 'External Exams'), color: 'bg-indigo-600 shadow-lg shadow-indigo-100 ring-2 ring-indigo-50' },
+                { label: 'Enrollment', icon: <UserGroupIcon />, onClick: () => navigateTo('enrollmentPage', 'Student Enrollment'), color: 'bg-indigo-600' },
+                { label: 'Curriculum', icon: <BookOpenIcon />, onClick: () => navigateTo('manageCurriculum', 'Curriculum Configuration'), color: 'bg-indigo-600' },
+                { label: 'Lesson Notes', icon: <BookOpenIcon />, onClick: () => navigateTo('lessonNotes', 'Lesson Notes Review'), color: 'bg-violet-600' },
+            ]
+        },
+        {
+            id: 'infrastructure', name: 'Infrastructure & Facilities', items: [
+                { label: 'Facility Register', icon: <SchoolLogoIcon />, onClick: () => navigateTo('facilityRegister', 'Facility Register'), color: 'bg-indigo-700' },
+                { label: 'Asset Inventory', icon: <ClipboardListIcon />, onClick: () => navigateTo('equipmentInventory', 'Equipment Inventory'), color: 'bg-indigo-700' },
+            ]
+        },
+        {
+            id: 'boardingTransport', name: 'Boarding & Transport', items: [
+                { label: 'Hostel Management', icon: <Building2 />, onClick: () => navigateTo('hostelManagement', 'Hostel & Boarding'), color: 'bg-violet-600' },
+                { label: 'Transport Mgmt', icon: <Bus />, onClick: () => navigateTo('transportManagement', 'Transport Management'), color: 'bg-orange-600' },
+                { label: 'Behavior Tracking', icon: <Star />, onClick: () => navigateTo('behaviorLog', 'Behavior & Progress'), color: 'bg-amber-600' },
+            ]
+        },
+        {
+            id: 'systemData', name: 'System & Data', items: [
+                { label: 'Custom Reports', icon: <BarChart3 />, onClick: () => navigateTo('customReportBuilder', 'Custom Report Builder'), color: 'bg-cyan-700' },
+                { label: 'Backup & Restore', icon: <Database />, onClick: () => navigateTo('backupRestore', 'Data Backup & Restore'), color: 'bg-emerald-700' },
+                { label: 'Active Sessions', icon: <Monitor />, onClick: () => navigateTo('sessionManagement', 'Session Management'), color: 'bg-slate-700' },
+                { label: 'Auto Invoices', icon: <Receipt />, onClick: () => navigateTo('autoInvoice', 'Auto Invoice Generator'), color: 'bg-teal-700' },
+                { label: 'Late Arrivals', icon: <Clock />, onClick: () => navigateTo('lateArrivalConfig', 'Late Arrival Config'), color: 'bg-rose-600' },
+                { label: 'Enrollment Trends', icon: <TrendingUp />, onClick: () => navigateTo('enrollmentTrends', 'Enrollment Trends'), color: 'bg-indigo-600' },
+            ]
+        },
+        {
+            id: 'compliancePrivacy', name: 'Compliance & Privacy', items: [
+                { label: 'Consent Forms', icon: <FileCheck />, onClick: () => navigateTo('consentForms', 'Parental Consent (NDPR)'), color: 'bg-green-700' },
+                { label: 'Data Export', icon: <Download />, onClick: () => navigateTo('dataExport', 'Data Export & Deletion'), color: 'bg-gray-700' },
+                { label: 'Notification Settings', icon: <BellRing />, onClick: () => navigateTo('notificationDigest', 'Notification Digest'), color: 'bg-purple-600' },
+                { label: 'Project Boards', icon: <LayoutGrid />, onClick: () => navigateTo('projectBoard', 'Kanban Project Boards'), color: 'bg-sky-600' },
+            ]
+        },
+        {
+            id: 'safetyWellbeing', name: 'Safety & Wellbeing', items: [
+                { label: 'Emergency Alerts', icon: <AlertTriangle className="animate-pulse" />, onClick: () => navigateTo('emergencyAlert', 'Emergency Alerts'), color: 'bg-red-600' },
+                { label: 'Health & Incidents', icon: <Activity />, onClick: () => navigateTo('safetyHealthLogs', 'Safety & Health'), color: 'bg-emerald-600' },
+                { label: 'Emergency Drills', icon: <Flame />, onClick: () => navigateTo('safetyHealthLogs', 'Safety & Health'), color: 'bg-orange-600' },
+                { label: 'Safeguarding', icon: <ShieldCheck />, onClick: () => navigateTo('safetyHealthLogs', 'Safety & Health'), color: 'bg-indigo-600' },
+            ]
+        },
+        {
+            id: 'governanceMinistry', name: 'Governance & Ministry', items: [
+                { label: 'Quality Assurance', icon: <Shield className="animate-pulse" />, onClick: () => navigateTo('inspectionHub', 'Inspection Hub'), color: 'bg-slate-800' },
+                { label: 'Ministry Reports', icon: <FileText />, onClick: () => navigateTo('inspectionHub', 'Inspection Hub'), color: 'bg-slate-700' },
+                { label: 'Live Compliance', icon: <Activity className="text-emerald-400" />, onClick: () => navigateTo('complianceDashboard', 'Compliance Dashboard'), color: 'bg-slate-900 shadow-xl shadow-slate-200' },
+                { label: 'Governance Hub', icon: <Shield className="text-yellow-400" />, onClick: () => navigateTo('governanceHub', 'Unified Governance'), color: 'bg-black shadow-xl' },
+                { label: 'System Validation', icon: <Beaker />, onClick: () => navigateTo('validationConsole', 'Validation Console'), color: 'bg-indigo-900' },
+            ]
+        },
+    ];
+
     return (
         <div className="p-4 lg:p-6 bg-gray-50 min-h-full">
             {isError && <div className="bg-red-50 border border-red-200 text-red-700 p-4 mb-4 rounded-xl shadow-sm text-sm font-semibold">{(error as any)?.message || 'Failed to load dashboard data.'}</div>}
@@ -455,320 +578,46 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                             </div>
                         </div>
 
-                        <div className="space-y-6">
-                            {/* People & Enrollment */}
-                            <div>
-                                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-1">People & Enrollment</h3>
-                                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 sm:gap-4">
-                                    <QuickActionCard index={0} label="School Status" icon={<School className="w-6 h-6" />} onClick={() => navigateTo('digitalTwin', 'School Status')} color="bg-slate-800" />
-                                    <QuickActionCard index={1} label="Add User" icon={<PlusIcon />} onClick={() => navigateTo('selectUserTypeToAdd', 'Add New User', {})} color="bg-indigo-500" />
-                                    <QuickActionCard index={2} label="Approvals" icon={<CheckCircleIcon />} onClick={() => navigateTo('studentApprovals', 'Student Approvals')} color="bg-indigo-600" />
-                                    <QuickActionCard index={3} label="Onboarding" icon={<SchoolLogoIcon />} onClick={() => navigateTo('manageSchoolInfo', 'School Onboarding')} color="bg-pink-600" />
-                                    <QuickActionCard index={4} label="Enroll Student" icon={<UserIcon />} onClick={() => navigateTo('enrollmentPage', 'New Student Enrollment')} color="bg-emerald-600" />
-                                    <QuickActionCard index={5} label="Past Students" icon={<Archive className="w-6 h-6" />} onClick={() => navigateTo('pastStudents', 'Past Students')} color="bg-slate-600" />
-                                    <QuickActionCard index={6} label="User Accounts" icon={<UsersIcon />} onClick={() => navigateTo('userAccounts', 'User Accounts')} color="bg-indigo-600" />
-                                    <QuickActionCard index={7} label="Manage Branches" icon={<Building2 className="w-6 h-6" />} onClick={() => navigateTo('schoolManagement', 'Manage Branches')} color="bg-blue-600" />
-                                    <QuickActionCard index={9} label="Curriculum" icon={<Globe className="w-6 h-6" />} onClick={() => navigateTo('curriculumManagement', 'Curriculum Management')} color="bg-emerald-700" />
-                                    {!currentBranchId && (
-                                        <QuickActionCard index={8} label="Branch Transfers" icon={<UsersIcon />} onClick={() => navigateTo('branchTransfer', 'Branch Transfers')} color="bg-fuchsia-600" />
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Academic */}
-                            <div>
-                                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-1">Academic</h3>
-                                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 sm:gap-4">
-                                    <QuickActionCard index={0} label="Timetable" icon={<ClipboardListIcon />} onClick={() => navigateTo('timetable', 'AI Timetable')} color="bg-indigo-500" />
-                                    <QuickActionCard index={1} label="Teacher Assignments" icon={<UsersRound className="w-6 h-6" />} onClick={() => navigateTo('teacherAssignments', 'Teacher Assignments')} color="bg-purple-600" />
-                                    <QuickActionCard index={2} label="Classrooms & QR" icon={<QrCode className="w-6 h-6" />} onClick={() => navigateTo('classroomManagement', 'Classrooms & QR Codes')} color="bg-sky-600" />
-                                    <QuickActionCard index={3} label="Class Verification" icon={<ScanLine className="w-6 h-6" />} onClick={() => navigateTo('classVerification', 'Class Verification')} color="bg-blue-700" />
-                                    <QuickActionCard index={4} label="Register Exams" icon={<DocumentTextIcon />} onClick={() => navigateTo('exams', 'External Exams')} color="bg-indigo-600" />
-                                    <QuickActionCard index={5} label="Enter Results" icon={<TrendingUp />} onClick={() => navigateTo('resultsEntry', 'Results Entry')} color="bg-cyan-600" />
-                                    <QuickActionCard index={6} label="Publish Reports" icon={<ReportIcon />} onClick={() => navigateTo('reportCardPublishing', 'Publish Reports', {})} color="bg-purple-500" />
-                                    <QuickActionCard index={7} label="Promotion" icon={<GraduationCap />} onClick={() => navigateTo('sessionPromotion', 'End-of-Session Promotion')} color="bg-indigo-700" />
-                                    <QuickActionCard index={8} label="Track Attendance" icon={<Calendar />} onClick={() => navigateTo('attendanceTracker', 'Curriculum Attendance')} color="bg-green-600" />
-                                    <QuickActionCard index={9} label="Classroom Observation" icon={<ClipboardEdit className="w-6 h-6" />} onClick={() => navigateTo('classroomObservation', 'Classroom Observation')} color="bg-fuchsia-700" />
-                                    <QuickActionCard index={10} label="Departments" icon={<Building2 className="w-6 h-6" />} onClick={() => navigateTo('departmentManagement', 'Departments')} color="bg-cyan-900" />
-                                    <QuickActionCard index={11} label="School Clubs" icon={<Star className="w-6 h-6" />} onClick={() => navigateTo('clubManagement', 'School Clubs')} color="bg-amber-800" />
-                                </div>
-                            </div>
-
-                            {/* Attendance & Safety */}
-                            <div>
-                                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-1">Attendance & Safety</h3>
-                                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 sm:gap-4">
-                                    <QuickActionCard label="Attendance" icon={<ClockIcon />} onClick={() => navigateTo('teacherAttendance', 'Teacher Attendance')} color="bg-amber-500" />
-                                    <QuickActionCard label="Health Log" icon={<HeartIcon />} onClick={() => navigateTo('healthLog', 'Health Log')} color="bg-red-500" />
-                                    <QuickActionCard label="Bus Roster" icon={<BusVehicleIcon />} onClick={() => navigateTo('busDutyRoster', 'Bus Duty Roster')} color="bg-orange-500" />
-                                    <QuickActionCard label="Compliance" icon={<Shield />} onClick={() => navigateTo('complianceOnboarding', 'School Compliance')} color="bg-violet-600" />
-                                    <QuickActionCard label="SOP Cases" icon={<ClipboardCheck className="w-6 h-6" />} onClick={() => navigateTo('sopCaseManagement', 'Case Management')} color="bg-rose-600" />
-                                    <QuickActionCard label="Substitute Coverage" icon={<Repeat className="w-6 h-6" />} onClick={() => navigateTo('substituteCoverage', 'Substitute Coverage')} color="bg-teal-600" />
-                                    <QuickActionCard label="Leave Approvals" icon={<ClipboardCheck className="w-6 h-6" />} onClick={() => navigateTo('leaveApproval', 'Leave Approvals')} color="bg-lime-700" />
-                                    <QuickActionCard label="At-Risk Students" icon={<ShieldAlert className="w-6 h-6" />} onClick={() => navigateTo('atRiskStudents', 'At-Risk Students')} color="bg-red-700" />
-                                    <QuickActionCard label="Student Gate" icon={<LogOut className="w-6 h-6" />} onClick={() => navigateTo('studentGate', 'Student Departure')} color="bg-cyan-700" />
-                                    <QuickActionCard label="Gate Pass Approvals" icon={<DoorOpen className="w-6 h-6" />} onClick={() => navigateTo('gatePassApprovals', 'Gate Pass Approvals')} color="bg-cyan-800" />
-                                    <QuickActionCard label="Emergency" icon={<AlertTriangle />} onClick={() => setIsBroadcastOpen(true)} color="bg-red-600 animate-pulse" />
-                                </div>
-                            </div>
-
-                            {/* Communication & System */}
-                            <div>
-                                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-1">Communication & System</h3>
-                                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 sm:gap-4">
-                                    <QuickActionCard label="Announce" icon={<MegaphoneIcon />} onClick={() => navigateTo('communicationHub', 'Communication Hub')} color="bg-teal-500" />
-                                    <QuickActionCard label="Launch Hub" icon={<Rocket className="animate-bounce" />} onClick={() => navigateTo('onboardingPage', 'Pilot Onboarding')} color="bg-gray-900" />
-                                </div>
-                            </div>
-                        </div>
-
-
-                        {/* Content Management Section */}
-                        <div className="mt-8">
-                            <h2 className="text-xl font-bold text-gray-700 mb-3 px-1">Content Management</h2>
-                            <div className="grid grid-cols-3 md:grid-cols-5 gap-4">
-                                <QuickActionCard
-                                    label="School Policies"
-                                    icon={<DocumentTextIcon />}
-                                    onClick={() => navigateTo('managePolicies', 'Manage Policies')}
-                                    color="bg-pink-500"
-                                />
-                                <QuickActionCard
-                                    label="Volunteering"
-                                    icon={<HelpingHandIcon />}
-                                    onClick={() => navigateTo('manageVolunteering', 'Manage Volunteering')}
-                                    color="bg-emerald-500"
-                                />
-                                <QuickActionCard
-                                    label="Permission Slips"
-                                    icon={<ClipboardListIcon />}
-                                    onClick={() => navigateTo('managePermissionSlips', 'Manage Permission Slips')}
-                                    color="bg-cyan-500"
-                                />
-                                <QuickActionCard
-                                    label="Learning Resources"
-                                    icon={<ElearningIcon />}
-                                    onClick={() => navigateTo('manageLearningResources', 'Manage Learning Resources')}
-                                    color="bg-indigo-600"
-                                />
-                                <QuickActionCard
-                                    label="PTA Meetings"
-                                    icon={<AcademicCapIcon />}
-                                    onClick={() => navigateTo('managePTAMeetings', 'PTA Meetings')}
-                                    color="bg-indigo-600"
-                                />
-                                <QuickActionCard
-                                    label="External Exams"
-                                    icon={<Beaker />}
-                                    onClick={() => navigateTo('exams', 'External Exams')}
-                                    color="bg-indigo-600 shadow-lg shadow-indigo-100 ring-2 ring-indigo-50"
-                                />
-                                <QuickActionCard
-                                    label="Enrollment"
-                                    icon={<UserGroupIcon />}
-                                    onClick={() => navigateTo('enrollmentPage', 'Student Enrollment')}
-                                    color="bg-indigo-600"
-                                />
-                                <QuickActionCard
-                                    label="Curriculum"
-                                    icon={<BookOpenIcon />}
-                                    onClick={() => navigateTo('manageCurriculum', 'Curriculum Configuration')}
-                                    color="bg-indigo-600"
-                                />
-                                <QuickActionCard
-                                    label="Lesson Notes"
-                                    icon={<BookOpenIcon />}
-                                    onClick={() => navigateTo('lessonNotes', 'Lesson Notes Review')}
-                                    color="bg-violet-600"
-                                />
-
-                            </div>
-                        </div>
-
-                        {/* Infrastructure & Facilities Section - STEP 11 */}
-                        <div className="mt-8">
-                            <h2 className="text-xl font-bold text-gray-700 mb-3 px-1">Infrastructure & Facilities</h2>
-                            <div className="grid grid-cols-3 md:grid-cols-5 gap-4">
-                                <QuickActionCard
-                                    label="Facility Register"
-                                    icon={<SchoolLogoIcon />}
-                                    onClick={() => navigateTo('facilityRegister', 'Facility Register')}
-                                    color="bg-indigo-700"
-                                />
-                                <QuickActionCard
-                                    label="Asset Inventory"
-                                    icon={<ClipboardListIcon />}
-                                    onClick={() => navigateTo('equipmentInventory', 'Equipment Inventory')}
-                                    color="bg-indigo-700"
+                        {/* Everything else: the original always-expanded category sections,
+                            with a search box above them that narrows the view down to
+                            matching actions when typed into. */}
+                        <div className="mt-2">
+                            <div className="relative mb-4">
+                                <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                                <input
+                                    type="text"
+                                    value={actionSearch}
+                                    onChange={(e) => setActionSearch(e.target.value)}
+                                    placeholder="Search all actions…"
+                                    className="w-full pl-9 pr-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
                                 />
                             </div>
-                        </div>
 
-                        {/* Boarding & Transport Section */}
-                        <div className="mt-8">
-                            <h2 className="text-xl font-bold text-gray-700 mb-3 px-1 flex items-center gap-2"><Building2 className="w-5 h-5 text-gray-400" />Boarding & Transport</h2>
-                            <div className="grid grid-cols-3 md:grid-cols-5 gap-4">
-                                <QuickActionCard
-                                    label="Hostel Management"
-                                    icon={<Building2 />}
-                                    onClick={() => navigateTo('hostelManagement', 'Hostel & Boarding')}
-                                    color="bg-violet-600"
-                                />
-                                <QuickActionCard
-                                    label="Transport Mgmt"
-                                    icon={<Bus />}
-                                    onClick={() => navigateTo('transportManagement', 'Transport Management')}
-                                    color="bg-orange-600"
-                                />
-                                <QuickActionCard
-                                    label="Behavior Tracking"
-                                    icon={<Star />}
-                                    onClick={() => navigateTo('behaviorLog', 'Behavior & Progress')}
-                                    color="bg-amber-600"
-                                />
-                            </div>
-                        </div>
-
-                        {/* System & Data Section */}
-                        <div className="mt-8">
-                            <h2 className="text-xl font-bold text-gray-700 mb-3 px-1 flex items-center gap-2"><Settings className="w-5 h-5 text-gray-400" />System & Data</h2>
-                            <div className="grid grid-cols-3 md:grid-cols-5 gap-4">
-                                <QuickActionCard
-                                    label="Custom Reports"
-                                    icon={<BarChart3 />}
-                                    onClick={() => navigateTo('customReportBuilder', 'Custom Report Builder')}
-                                    color="bg-cyan-700"
-                                />
-                                <QuickActionCard
-                                    label="Backup & Restore"
-                                    icon={<Database />}
-                                    onClick={() => navigateTo('backupRestore', 'Data Backup & Restore')}
-                                    color="bg-emerald-700"
-                                />
-                                <QuickActionCard
-                                    label="Active Sessions"
-                                    icon={<Monitor />}
-                                    onClick={() => navigateTo('sessionManagement', 'Session Management')}
-                                    color="bg-slate-700"
-                                />
-                                <QuickActionCard
-                                    label="Auto Invoices"
-                                    icon={<Receipt />}
-                                    onClick={() => navigateTo('autoInvoice', 'Auto Invoice Generator')}
-                                    color="bg-teal-700"
-                                />
-                                <QuickActionCard
-                                    label="Late Arrivals"
-                                    icon={<Clock />}
-                                    onClick={() => navigateTo('lateArrivalConfig', 'Late Arrival Config')}
-                                    color="bg-rose-600"
-                                />
-                                <QuickActionCard
-                                    label="Enrollment Trends"
-                                    icon={<TrendingUp />}
-                                    onClick={() => navigateTo('enrollmentTrends', 'Enrollment Trends')}
-                                    color="bg-indigo-600"
-                                />
-                            </div>
-                        </div>
-
-                        {/* Compliance & Privacy Section */}
-                        <div className="mt-8">
-                            <h2 className="text-xl font-bold text-gray-700 mb-3 px-1 flex items-center gap-2"><Shield className="w-5 h-5 text-gray-400" />Compliance & Privacy</h2>
-                            <div className="grid grid-cols-3 md:grid-cols-5 gap-4">
-                                <QuickActionCard
-                                    label="Consent Forms"
-                                    icon={<FileCheck />}
-                                    onClick={() => navigateTo('consentForms', 'Parental Consent (NDPR)')}
-                                    color="bg-green-700"
-                                />
-                                <QuickActionCard
-                                    label="Data Export"
-                                    icon={<Download />}
-                                    onClick={() => navigateTo('dataExport', 'Data Export & Deletion')}
-                                    color="bg-gray-700"
-                                />
-                                <QuickActionCard
-                                    label="Notification Settings"
-                                    icon={<BellRing />}
-                                    onClick={() => navigateTo('notificationDigest', 'Notification Digest')}
-                                    color="bg-purple-600"
-                                />
-                                <QuickActionCard
-                                    label="Project Boards"
-                                    icon={<LayoutGrid />}
-                                    onClick={() => navigateTo('projectBoard', 'Kanban Project Boards')}
-                                    color="bg-sky-600"
-                                />
-                            </div>
-                        </div>
-
-                        {/* Phase 8: Step 12 Safety & Wellbeing Section */}
-                        <div className="mt-8">
-                            <h2 className="text-xl font-bold text-gray-700 mb-3 px-1 flex items-center gap-2"><ShieldCheck className="w-5 h-5 text-gray-400" />Safety & Wellbeing</h2>
-                            <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                                <QuickActionCard
-                                    label="Emergency Alerts"
-                                    icon={<AlertTriangle className="animate-pulse" />}
-                                    onClick={() => navigateTo('emergencyAlert', 'Emergency Alerts')}
-                                    color="bg-red-600"
-                                />
-                                <QuickActionCard
-                                    label="Health & Incidents"
-                                    icon={<Activity />}
-                                    onClick={() => navigateTo('safetyHealthLogs', 'Safety & Health')}
-                                    color="bg-emerald-600"
-                                />
-                                <QuickActionCard
-                                    label="Emergency Drills"
-                                    icon={<Flame />}
-                                    onClick={() => navigateTo('safetyHealthLogs', 'Safety & Health')}
-                                    color="bg-orange-600"
-                                />
-                                <QuickActionCard
-                                    label="Safeguarding"
-                                    icon={<ShieldCheck />}
-                                    onClick={() => navigateTo('safetyHealthLogs', 'Safety & Health')}
-                                    color="bg-indigo-600"
-                                />
-                            </div>
-                        </div>
-
-                        {/* Phase 9: Step 13 Governance & Ministry Section */}
-                        <div className="mt-8">
-                            <h2 className="text-xl font-bold text-gray-700 mb-3 px-1 flex items-center gap-2"><Landmark className="w-5 h-5 text-gray-400" />Governance & Ministry</h2>
-                            <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                                <QuickActionCard
-                                    label="Quality Assurance"
-                                    icon={<Shield className="animate-pulse" />}
-                                    onClick={() => navigateTo('inspectionHub', 'Inspection Hub')}
-                                    color="bg-slate-800"
-                                />
-                                <QuickActionCard
-                                    label="Ministry Reports"
-                                    icon={<FileText />}
-                                    onClick={() => navigateTo('inspectionHub', 'Inspection Hub')}
-                                    color="bg-slate-700"
-                                />
-                                <QuickActionCard
-                                    label="Live Compliance"
-                                    icon={<Activity className="text-emerald-400" />}
-                                    onClick={() => navigateTo('complianceDashboard', 'Compliance Dashboard')}
-                                    color="bg-slate-900 shadow-xl shadow-slate-200"
-                                />
-                                <QuickActionCard
-                                    label="Governance Hub"
-                                    icon={<Shield className="text-yellow-400" />}
-                                    onClick={() => navigateTo('governanceHub', 'Unified Governance')}
-                                    color="bg-black shadow-xl"
-                                />
-                                <QuickActionCard
-                                    label="System Validation"
-                                    icon={<Beaker />}
-                                    onClick={() => navigateTo('validationConsole', 'Validation Console')}
-                                    color="bg-indigo-900"
-                                />
-                            </div>
+                            {(() => {
+                                const q = actionSearch.trim().toLowerCase();
+                                const categoriesToShow = q
+                                    ? quickActionCategories
+                                        .map(cat => ({ ...cat, items: cat.items.filter(item => item.label.toLowerCase().includes(q)) }))
+                                        .filter(cat => cat.items.length > 0)
+                                    : quickActionCategories;
+                                if (q && categoriesToShow.length === 0) {
+                                    return <p className="text-sm text-gray-500 text-center py-6">No actions match "{actionSearch}".</p>;
+                                }
+                                return (
+                                    <div className="space-y-6">
+                                        {categoriesToShow.map(cat => (
+                                            <div key={cat.id}>
+                                                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-1">{cat.name}</h3>
+                                                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 sm:gap-4">
+                                                    {cat.items.map((item, i) => (
+                                                        <QuickActionCard key={item.label} index={i} label={item.label} icon={item.icon} onClick={item.onClick} color={item.color} />
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                );
+                            })()}
                         </div>
 
                         {/* Desktop view */}
