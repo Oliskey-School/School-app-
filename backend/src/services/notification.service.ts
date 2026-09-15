@@ -141,7 +141,6 @@ export class NotificationService {
         });
 
         if (!settings) {
-            // Initialize with defaults if not exists
             const defaultCategories = {
                 emailAlerts: true,
                 pushNotifications: true,
@@ -151,12 +150,22 @@ export class NotificationService {
                 paymentReminders: true
             };
 
+            // Demo / virtual sessions: the user may not be a real DB row, and
+            // NotificationSetting.user_id has a hard FK to users.id, so create()
+            // would throw (500) instead of just having no saved settings yet.
+            // Same guard as updateSettingsByUserId below — return the defaults
+            // without persisting rather than let the FK violation surface.
+            const owner = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, school_id: true } });
+            if (!owner) {
+                return { categories: defaultCategories, digest_time: '19:00' };
+            }
+
             settings = await prisma.notificationSetting.create({
                 data: {
                     user_id: userId,
                     categories: defaultCategories,
                     digest_time: '19:00',
-                    school_id: 'GLOBAL', // Fallback for demo
+                    school_id: owner.school_id || 'GLOBAL',
                     branch_id: 'GLOBAL'
                 }
             });
