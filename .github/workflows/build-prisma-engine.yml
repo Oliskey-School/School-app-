@@ -1,0 +1,29 @@
+name: Build Linux Prisma Engine Cache
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install deps (runs prisma generate via postinstall)
+        run: npm install
+
+      - name: Push generated Prisma client as a cache branch
+        run: |
+          git config user.name "prisma-engine-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git checkout -B chore/prisma-linux-engine-cache
+          git add -f node_modules/.prisma/client node_modules/@prisma/client backend/generated/prisma-client
+          git commit -m "chore: cache Linux Prisma engine + generated client"
+          git push -f origin chore/prisma-linux-engine-cache
