@@ -6,7 +6,11 @@ import { config } from '../config/env';
  * provider answered. Server-side only: the key comes from GEMINI_API_KEY and
  * never reaches a bundle. One attempt, no retries — the gateway decides.
  */
-export const GEMINI_FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || 'gemini-2.5-flash-lite';
+// gemini-2.5-flash-lite was the intended default, but Google now answers 404
+// for it on this project ("no longer available to new users … use
+// gemini-3.5-flash-lite" — seen in production logs 2026-09-18), so the
+// current lite model is the default. Override with GEMINI_FALLBACK_MODEL.
+export const GEMINI_FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || 'gemini-3.5-flash-lite';
 const ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models';
 const ATTEMPT_TIMEOUT_MS = 45_000;
 

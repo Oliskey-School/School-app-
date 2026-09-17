@@ -18,7 +18,8 @@ import prisma from '../config/database';
 import { config } from '../config/env';
 import { gradeBand, normaliseSubject, type BattleQuestion } from './gameContent.service';
 
-const MODEL = process.env.GAME_QUESTION_MODEL || 'gemini-2.5-flash-lite';
+// See geminiAI.service.ts: 2.5-flash-lite now 404s for this project.
+const MODEL = process.env.GAME_QUESTION_MODEL || process.env.GEMINI_FALLBACK_MODEL || 'gemini-3.5-flash-lite';
 const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 
 const BAND_LABEL: Record<string, string> = {
