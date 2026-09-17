@@ -93,7 +93,7 @@ export class DemoSeederService {
                     `;
                     sharedBranchId = 'demo-v-shared';
                 }
-                await this.seedBranchData(demoSchoolId, sharedBranchId, 'shared');
+                await this.seedBranchDataOnce(demoSchoolId, sharedBranchId, 'shared');
             } catch (sandboxErr) {
                 console.error('⚠️ [Seeder] Shared MAIN demo sandbox seed failed (login will retry it in the background):', sandboxErr);
             }
@@ -124,25 +124,48 @@ export class DemoSeederService {
     private static cachedPasswordHash: string | null = null;
 
     /**
-     * In-flight guard for background sandbox seeds. Multiple concurrent demo
-     * logins arriving while the sandbox is empty must trigger exactly ONE seed,
-     * not one per request — the seed is idempotent but expensive (~600 statements).
+     * In-flight guard for sandbox seeds. Multiple concurrent callers arriving
+     * while the sandbox is empty must trigger exactly ONE seed, not one per
+     * caller — the seed is idempotent but expensive (~600 statements), AND
+     * running it twice concurrently against a genuinely empty table is a real
+     * data race, not just wasted work: both calls compute the identical
+     * deterministic user id/school_generated_id for a not-yet-existing row,
+     * both see it missing, and whichever upsert's CREATE loses the race hits
+     * a unique constraint violation on school_generated_id. Server startup's
+     * own seed call (ensureDemoData) goes through this exact same guard —
+     * it used to call seedBranchData directly, un-registered, so a demo
+     * login arriving during that startup window (server accepts connections
+     * before background seeding finishes) would race it exactly this way.
      */
     private static inFlightSeeds = new Map<string, Promise<void>>();
 
     /**
-     * Fire-and-forget sandbox seed for the login path. The request that triggers
-     * this NEVER waits on it — it returns a "warming up" response and the client
-     * retries into a fully seeded sandbox. Deduped per (school, branch).
+     * Runs seedBranchData for (schoolId, branchId) at most once concurrently,
+     * regardless of how many callers ask for it at the same time — every
+     * caller (whether it awaits or not) shares the single in-flight promise.
      */
-    static seedSandboxInBackground(schoolId: string, branchId: string, ipHash: string) {
+    private static seedBranchDataOnce(schoolId: string, branchId: string, ipHash: string): Promise<void> {
         const key = `${schoolId}:${branchId}`;
-        if (this.inFlightSeeds.has(key)) return;
-        console.log(`🏗️ [Seeder] Background seeding demo sandbox ${branchId} (login-requested).`);
+        const existing = this.inFlightSeeds.get(key);
+        if (existing) return existing;
         const run = this.seedBranchData(schoolId, branchId, ipHash)
-            .catch((err) => console.error(`❌ [Seeder] Background demo sandbox seed failed for ${branchId}:`, err))
             .finally(() => this.inFlightSeeds.delete(key));
         this.inFlightSeeds.set(key, run);
+        return run;
+    }
+
+    /**
+     * Fire-and-forget sandbox seed for the login path. The request that triggers
+     * this NEVER waits on it — it returns a "warming up" response and the client
+     * retries into a fully seeded sandbox. Deduped per (school, branch), and
+     * against server startup's own seed of the same branch (see
+     * seedBranchDataOnce).
+     */
+    static seedSandboxInBackground(schoolId: string, branchId: string, ipHash: string) {
+        const alreadyRunning = this.inFlightSeeds.has(`${schoolId}:${branchId}`);
+        if (!alreadyRunning) console.log(`🏗️ [Seeder] Background seeding demo sandbox ${branchId} (login-requested).`);
+        this.seedBranchDataOnce(schoolId, branchId, ipHash)
+            .catch((err) => console.error(`❌ [Seeder] Background demo sandbox seed failed for ${branchId}:`, err));
     }
 
     /**
