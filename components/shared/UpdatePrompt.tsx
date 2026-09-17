@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
-import { APP_VERSION } from '../../lib/config';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 
@@ -64,6 +63,14 @@ export default function UpdatePrompt({ forced = false, targetVersion }: UpdatePr
 
     // Pull the REAL latest published version from the backend so the prompt always
     // reflects the actual current release (not a stale hard-coded string).
+    //
+    // Re-fetched whenever needRefresh flips on: the page was loaded BEFORE the
+    // new release existed, so a value fetched once at mount can only ever be the
+    // release the user is already running. The service worker noticing a new
+    // build is the exact moment the server's answer changes — and the first
+    // /api/versions call a new deployment serves is also what registers it
+    // (VersionService.ensureRunningVersionRegistered), so asking now yields the
+    // version that is genuinely about to be installed.
     const [latestVersion, setLatestVersion] = useState<string | null>(null);
     React.useEffect(() => {
         if (forced) return; // forced already carries the authoritative targetVersion
@@ -73,9 +80,9 @@ export default function UpdatePrompt({ forced = false, targetVersion }: UpdatePr
             .then((list: any[]) => {
                 if (active && Array.isArray(list) && list[0]?.version) setLatestVersion(list[0].version);
             })
-            .catch(() => { /* non-blocking — fall back to APP_VERSION */ });
+            .catch(() => { /* non-blocking — the banner then names no version rather than a wrong one */ });
         return () => { active = false; };
-    }, [forced, user]);
+    }, [forced, user, needRefresh]);
 
     // "needRefresh" only becomes true once the browser's own service-worker
     // lifecycle has already noticed a new build sitting in "waiting" — but
@@ -169,7 +176,10 @@ export default function UpdatePrompt({ forced = false, targetVersion }: UpdatePr
 
     if (!show) return null;
 
-    const displayVersion = targetVersion || latestVersion || APP_VERSION;
+    // Only ever name a version the server has actually published. APP_VERSION is
+    // the build THIS page is running — falling back to it printed the old release
+    // as the "new" one whenever the registry was unreachable.
+    const displayVersion = targetVersion || latestVersion;
 
     return (
         <div
@@ -233,7 +243,7 @@ export default function UpdatePrompt({ forced = false, targetVersion }: UpdatePr
                             >
                                 {forced
                                     ? `Version ${targetVersion} is now available. Please update to stay in sync.`
-                                    : `A new version (v${displayVersion}) with the latest improvements is ready.`
+                                    : `A new version${displayVersion ? ` (v${displayVersion})` : ''} with the latest improvements is ready.`
                                 }
                             </p>
                         </div>
@@ -333,7 +343,7 @@ export default function UpdatePrompt({ forced = false, targetVersion }: UpdatePr
                 >
                     <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: forced ? '#ef4444' : '#10b981' }}></div>
                     <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 500 }}>
-                        {forced ? `Mandatory platform sync (v${targetVersion})` : `Latest release v${displayVersion} ready to install`}
+                        {forced ? `Mandatory platform sync (v${targetVersion})` : `Latest release${displayVersion ? ` v${displayVersion}` : ''} ready to install`}
                     </span>
                 </div>
             </div>
