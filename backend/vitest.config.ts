@@ -22,7 +22,7 @@ import { defineConfig } from 'vite';
 export default defineConfig({
   root: __dirname,
   test: {
-    include: ['tests/integration/**/*.test.ts'],
+    include: ['tests/integration/**/*.test.ts', 'tests/unit/**/*.test.ts'],
     environment: 'node',
     globals: true,
     testTimeout: 120000,

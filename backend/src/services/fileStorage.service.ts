@@ -86,7 +86,13 @@ export async function getSignedUrl(key: string): Promise<string> {
             throw new Error(`Supabase Storage sign failed (${res.status}): ${await res.text()}`);
         }
         const { signedURL } = await res.json() as { signedURL: string };
-        return `${base}${signedURL.startsWith('/') ? '' : '/'}${signedURL}`;
+        // Supabase returns the signed path RELATIVE to /storage/v1
+        // ("/object/sign/<bucket>/<key>?token=..."), so it must be joined
+        // under that prefix — gluing it straight onto the project URL gives
+        // https://<ref>.supabase.co/object/sign/... which is a 404 from the
+        // first second, token or no token (this is what 0.7.25 shipped).
+        const relative = signedURL.startsWith('/') ? signedURL : `/${signedURL}`;
+        return relative.startsWith('/storage/v1/') ? `${base}${relative}` : `${base}/storage/v1${relative}`;
     }
 
     if (S3_ENABLED) {
@@ -142,27 +148,42 @@ export async function storeUploadedFile(
             );
         }
 
-        // A signed URL, not the permanent /object/public/... URL: the latter
-        // works forever with no authorization check at all as long as the
-        // Storage bucket is public. NOTE: this alone only isolates tenants if
-        // the SUPABASE_STORAGE_BUCKET bucket is also configured PRIVATE in
-        // the Supabase dashboard — a signed URL from a public bucket is
-        // redundant, since the unsigned /object/public/ path still serves it
-        // to anyone. Making that bucket private is a manual, one-time
-        // dashboard change outside this codebase; until it's done, this fix
-        // narrows the exposure (new URLs expire, aren't guessable/enumerable
-        // ahead of time) but does not fully close it.
-        return { publicUrl: await getSignedUrl(key), key };
+        // The PERMANENT public object URL — deliberately not a signed one.
+        //
+        // Whatever this returns is what every caller persists (User.avatar_url,
+        // School.logo_url, StudentDocument.url, ...) and renders in a plain
+        // <img src>, which cannot attach the API's bearer token. A signed URL
+        // is a 1-hour token: 0.7.25 returned one here (mis-joined, see
+        // getSignedUrl) and every image uploaded after 2026-09-12 broke —
+        // immediately from the bad path, and an hour later regardless. The
+        // reference that gets stored must be stable; the file itself is what
+        // lives forever in the bucket.
+        //
+        // Access control note: this URL only serves the object while the
+        // SUPABASE_STORAGE_BUCKET bucket is public, which is how it is
+        // configured today (verified 2026-09-17). Making uploads private is a
+        // real design change — store the key, serve through an authenticated
+        // proxy the browser can reach without a bearer header — not a matter
+        // of which URL to hand back here; signing a public bucket's objects
+        // protected nothing and broke everything.
+        return { publicUrl: `${base}/storage/v1/object/public/${storageBucket}/${key}`, key };
     }
 
     if (S3_ENABLED) {
+        // Same reasoning as above: the stored reference must not expire, so a
+        // permanent public base is required. Fail before uploading rather than
+        // store a file nobody will ever be able to display.
+        const publicBase = (process.env.S3_PUBLIC_URL_BASE || '').replace(/\/+$/, '');
+        if (!publicBase) {
+            throw new Error('S3_PUBLIC_URL_BASE is not set: uploads need a permanent public URL base, not a presigned link that expires.');
+        }
         await getS3Client().send(new PutObjectCommand({
             Bucket: process.env.S3_BUCKET,
             Key: key,
             Body: buffer,
             ContentType: mimetype,
         }));
-        return { publicUrl: await getSignedUrl(key), key };
+        return { publicUrl: `${publicBase}/${key}`, key };
     }
 
     // Local disk fallback — served via the authenticated /api/media/file
