@@ -560,10 +560,35 @@ class ExpressApiClient {
 
     async demoLogin(role: string): Promise<any> {
         this.clearCsrfToken();
-        const result = await this.post<any>('/auth/demo/login', { role });
-        if (result.token) sessionStorage.setItem('auth_token', result.token);
-        if (result.refreshToken) sessionStorage.setItem('auth_refresh_token', result.refreshToken);
-        return result;
+        // The backend deliberately never seeds a demo sandbox inline on a login
+        // request (that used to make a cold login take seconds and let
+        // concurrent first-time visitors stampede the DB) — instead it seeds in
+        // the background at server startup and, if a login lands before that
+        // finishes, throws a 503 with an explicit "try again in a few seconds"
+        // message (see AuthService.generateDemoToken). fetch()'s error handling
+        // discards the HTTP status and rethrows a plain Error with just the
+        // message (see the `throw new Error(errorMessage)` in this class'
+        // request handler), so this is matched by that exact, stable message
+        // text rather than a status code. Without this retry, ANY visitor
+        // arriving in that window — a real user right after a deploy/restart
+        // just as much as this app's own CI, which seeds a genuinely fresh
+        // database every run — got a bare "Demo login failed" with no
+        // recovery, because the UI never retried at all.
+        const maxAttempts = 6;
+        const retryDelayMs = 3000;
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                const result = await this.post<any>('/auth/demo/login', { role });
+                if (result.token) sessionStorage.setItem('auth_token', result.token);
+                if (result.refreshToken) sessionStorage.setItem('auth_refresh_token', result.refreshToken);
+                return result;
+            } catch (err: any) {
+                const isWarmingUp = /warming up/i.test(err?.message || '');
+                if (!isWarmingUp || attempt === maxAttempts) throw err;
+                console.log(`[API] Demo sandbox still seeding, retrying demo login (attempt ${attempt}/${maxAttempts})...`);
+                await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+            }
+        }
     }
 
     async googleLogin(credential: string): Promise<any> {
