@@ -1,8 +1,7 @@
 import prisma from '../config/database';
 import bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
-import path from 'path';
-import fs from 'fs';
+import { VersionService, RUNNING_VERSION } from './version.service';
 
 /**
  * Service responsible for ensuring Demo Accounts exist in the PostgreSQL Database.
@@ -19,19 +18,6 @@ export class DemoSeederService {
             const demoSchoolId = AuthService.DEMO_SCHOOL_ID;
             const demoBranchId = AuthService.DEMO_BRANCH_ID;
             
-            // 0. Dynamic Versioning - Read from package.json
-            let currentVersion = '0.5.38'; // Fallback
-            try {
-                const pkgPath = path.join(process.cwd(), 'package.json');
-                if (fs.existsSync(pkgPath)) {
-                    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-                    currentVersion = pkg.version;
-                    console.log(`📌 [Version] Detected Code Version: v${currentVersion}`);
-                }
-            } catch (err) {
-                console.warn('⚠️ [Version] Could not read package.json version, using fallback.');
-            }
-
             // 0a. Ensure Global Demo School exists
             await prisma.school.upsert({
                 where: { id: demoSchoolId },
@@ -98,20 +84,14 @@ export class DemoSeederService {
                 console.error('⚠️ [Seeder] Shared MAIN demo sandbox seed failed (login will retry it in the background):', sandboxErr);
             }
             
-            // 2. Ensure App Version records are up to date for the dashboard
-            try {
-                await prisma.appVersion.upsert({
-                    where: { version: currentVersion },
-                    update: { is_active: true },
-                    create: { 
-                        version: currentVersion, 
-                        description: `Automatic sync for ${currentVersion}`,
-                        is_active: true 
-                    }
-                });
-                console.log(`✅ App Version v${currentVersion} synchronized.`);
-            } catch (vError) {
-                console.warn('⚠️ [Version] Could not sync app version table.');
+            // 2. Ensure the running version is in the registry. One shared code
+            // path with /api/versions (VersionService), which also covers hosts
+            // where this startup seeder never runs (Vercel). The old inline
+            // upsert read package.json from cwd with a '0.5.38' fallback and
+            // downgraded any failure to a warning — in production that hid an
+            // RLS default-deny for months.
+            if (await VersionService.ensureRunningVersionRegistered()) {
+                console.log(`✅ App Version v${RUNNING_VERSION} synchronized.`);
             }
             
             console.log('✅ Global Demo Baseline verified.');
