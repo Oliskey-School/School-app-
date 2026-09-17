@@ -2,6 +2,7 @@ import { API_BASE_URL } from '../config';
 import { getJwtExpiryMs, getJwtSubject } from '../tokenUtils';
 import { networkManager } from '../networkManager';
 import { offlineDB } from '../dexie-db';
+import { isLowDataMode } from '../lowDataMode';
 
 // Real-money endpoints must never be silently queued offline — the user has
 // no way to know if a queued charge actually succeeded once replayed later,
@@ -59,7 +60,9 @@ type ApiRequestInit = RequestInit & {
 class ApiCore {
     private baseUrl: string = API_BASE_URL;
     private cache = new Map<string, { data: any; timestamp: number }>();
-    private CACHE_TTL = 30000; // 30 seconds
+    // Fresh-enough window for serving a cached GET without a request. Low Data
+    // Mode stretches it to five minutes so revisiting screens costs nothing.
+    private get CACHE_TTL(): number { return isLowDataMode() ? 5 * 60 * 1000 : 30000; }
     private csrfToken: string | null = null;
     private inFlightRequests = new Map<string, Promise<any>>();
 

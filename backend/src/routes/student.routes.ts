@@ -3,6 +3,7 @@ import {
     enrollStudent, 
     approveStudent, 
     getAllStudents, 
+    getStudentSummary, 
     getStudentById, 
     getStudentByStudentId, 
     updateStudent, 
@@ -76,6 +77,7 @@ router.post('/unlink-guardian', authenticate, unlinkGuardian);
 
 router.get('/next-admission-number', authenticate, getNextAdmissionNumber);
 router.get('/pending-approvals', authenticate, getPendingApprovals);
+router.get('/summary', authenticate, getStudentSummary);
 router.get('/class/:classId', authenticate, getStudentsByClassId);
 router.get('/by-class', authenticate, getStudentsByClass);
 router.get('/', authenticate, getAllStudents);

@@ -135,7 +135,12 @@ test.describe('network resilience', () => {
         // connection looks like to this app.
         await page.route('**/api/**', async (route) => {
             await new Promise((r) => setTimeout(r, 400));
-            return route.continue();
+            // The app polls in the background, so a handler is usually still
+            // mid-sleep when the test finishes and unroutes. The browser has
+            // already cancelled that request by then, and continuing it throws
+            // "Route is already handled!" as an unhandled rejection that fails
+            // the test AFTER every assertion has passed. Swallow just that.
+            return route.continue().catch(() => {});
         });
 
         const started = Date.now();

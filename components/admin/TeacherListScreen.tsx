@@ -7,6 +7,7 @@ import { api } from '../../lib/api';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { formatSchoolId } from '../../utils/idFormatter';
 import { toast } from 'react-hot-toast';
+import LowDataImage from '../ui/LowDataImage';
 
 interface Teacher {
     id: string;
@@ -39,7 +40,7 @@ const TeacherCard: React.FC<{ teacher: Teacher; onSelect: (teacher: Teacher) => 
         >
             {/* Avatar */}
             <div className="relative flex-shrink-0">
-                <img
+                <LowDataImage
                     src={teacher.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(teacher.name)}&background=random`}
                     alt={teacher.name}
                     className="w-16 h-16 rounded-full object-cover ring-2 ring-gray-50 bg-gray-100 transition-transform duration-300 group-hover:scale-105"

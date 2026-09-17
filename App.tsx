@@ -40,16 +40,13 @@ const ContextualMarquee = lazyWithRetry(() => import('./components/shared/Contex
 const UpdatePrompt = lazyWithRetry(() => import('./components/shared/UpdatePrompt'));
 const SubscriptionLockScreen = lazyWithRetry(() => import('./components/shared/SubscriptionLockScreen'));
 
-// framer-motion is used by ~250 lazy-loaded screens but essentially nothing
-// eager (Login has zero motion.* usage) — yet importing MotionConfig here
-// statically forced the entire library (339KB minified, the single largest
-// piece of the eager bundle) into every visitor's critical-path download
-// before the login page could even paint. Loading it the same way as every
-// other non-critical piece of this shell lets Rollup split it into its own
-// chunk instead. The Suspense fallback is the same content unwrapped (not a
-// spinner), so there's no visible loading state — just a few ms window,
-// usually already overlapped with other startup requests, where the
-// prefers-reduced-motion setting isn't applied yet.
+// framer-motion is used by ~250 lazy-loaded screens but by nothing on the
+// login path — yet importing MotionConfig here statically forced the entire
+// library (339KB minified, the single largest piece of the eager bundle) into
+// every visitor's critical-path download before the login page could paint.
+// It is loaded lazily and mounted only around the trees that actually contain
+// motion.* components (see AuthenticatedApp), inside Suspense boundaries that
+// already wait on other lazy chunks, so it adds no round trip of its own.
 const LazyMotionConfig = lazyWithRetry(
   () => import('framer-motion').then(m => ({ default: m.MotionConfig })),
   'motion-config'
@@ -207,10 +204,18 @@ const AuthenticatedApp: React.FC = () => {
   if (!user || !role) {
     return (
       <Suspense fallback={<LoadingScreen />}>
+        {/* Login has no framer-motion usage and must never wait on that chunk
+            (it is the critical path). The two signup screens do use motion.*
+            and are lazy chunks themselves, so wrapping just them costs no
+            extra round trip — both chunks fetch under this one boundary. */}
         {authView === 'signup' ? (
-          <Signup onNavigateToLogin={() => React.startTransition(() => setAuthView('login'))} />
+          <LazyMotionConfig reducedMotion="user">
+            <Signup onNavigateToLogin={() => React.startTransition(() => setAuthView('login'))} />
+          </LazyMotionConfig>
         ) : authView === 'create-school' ? (
-          <CreateSchoolSignup onNavigateToLogin={() => React.startTransition(() => setAuthView('login'))} />
+          <LazyMotionConfig reducedMotion="user">
+            <CreateSchoolSignup onNavigateToLogin={() => React.startTransition(() => setAuthView('login'))} />
+          </LazyMotionConfig>
         ) : (
           <Login
             onNavigateToSignup={() => React.startTransition(() => setAuthView('signup'))}
@@ -228,6 +233,14 @@ const AuthenticatedApp: React.FC = () => {
   return (
     <ErrorBoundary>
       <Suspense fallback={<LoadingScreen />}>
+        {/* Every motion.* consumer in the app lives inside this authenticated
+            tree (the ~250 lazy dashboard screens), which mounts fresh once
+            the user signs in and already suspends on several lazy chunks —
+            so this is where MotionConfig belongs. Placing it around Login
+            instead (tried first) put framer-motion back on the critical path
+            as a second sequential round trip and made LCP on a throttled
+            link WORSE, not better. */}
+        <LazyMotionConfig reducedMotion="user">
         {/* Only mounted once a user/role exist (this branch runs after the
             !user || !role early return above), so it never shows on the
             public login screen before a socket connection has even been
@@ -248,6 +261,7 @@ const AuthenticatedApp: React.FC = () => {
             </>
           )}
         </VerificationGuard>
+        </LazyMotionConfig>
       </Suspense>
     </ErrorBoundary>
   );
@@ -324,19 +338,8 @@ const App: React.FC = () => {
         <div className="font-sans w-full min-h-screen bg-[#F0F2F5] flex flex-col overflow-x-hidden">
           <div className="relative w-full flex-1 flex flex-col overflow-x-hidden">
             <ErrorBoundary>
-              {/* AuthenticatedApp has never mounted yet the first time this
-                  Suspense resolves, so folding LazyMotionConfig's own chunk
-                  load into the SAME boundary (rather than a separate Suspense
-                  around already-mounted, stateful UI) costs nothing extra in
-                  practice — both chunks fetch in parallel — and can't cause
-                  a later remount. A MotionConfig swap placed around the
-                  already-interactive app shell instead (tried first) did
-                  cause one: Playwright caught it as the demo role tiles
-                  never appearing after the "Try Demo School" click. */}
               <Suspense fallback={<LoadingScreen />}>
-                <LazyMotionConfig reducedMotion="user">
-                  <AuthenticatedApp />
-                </LazyMotionConfig>
+                <AuthenticatedApp />
               </Suspense>
               {/* UpdatePrompt owns the ONLY service-worker registration
                   (useRegisterSW), so it stays mounted at the root, where it

@@ -19,7 +19,8 @@ import {
     DollarSignIcon,
     SchoolIcon
 } from '../../constants';
-import { RefreshCw as RefreshIcon } from 'lucide-react';
+import { RefreshCw as RefreshIcon, WifiOff } from 'lucide-react';
+import DataUsageSettings from '../shared/DataUsageSettings';
 import { useAuth } from '../../context/AuthContext';
 import { THEME_CONFIG } from '../../constants';
 import { DashboardType } from '../../types';
@@ -44,7 +45,7 @@ interface TeacherSettingsScreenProps {
     currentUserId?: string | null;
 }
 
-type SettingView = 'editTeacherProfile' | 'teacherNotificationSettings' | 'teacherSecurity' | 'professionalDevelopment' | 'cbtManagement' | null;
+type SettingView = 'editTeacherProfile' | 'teacherNotificationSettings' | 'teacherSecurity' | 'professionalDevelopment' | 'cbtManagement' | 'dataUsage' | null;
 
 const SettingsPlaceholder: React.FC = () => (
     <div className="flex-col items-center justify-center h-full text-center text-gray-500 bg-[#F0F2F5] border-l border-gray-300/80 hidden md:flex">
@@ -104,6 +105,7 @@ const TeacherSettingsScreen: React.FC<TeacherSettingsScreenProps> = ({
         { id: 'leaveRequest', icon: <CalendarPlusIcon />, label: 'My Leaves', color: 'bg-pink-100 text-pink-500' },
         { id: 'payslips', icon: <DollarSignIcon />, label: 'My Payslips', color: 'bg-amber-100 text-amber-500' },
         { id: 'teacherSecurity', icon: <SecurityIcon />, label: 'Security & Password', color: 'bg-orange-100 text-orange-500' },
+        { id: 'dataUsage', icon: <WifiOff className="h-5 w-5" />, label: 'Data Usage', color: 'bg-teal-100 text-teal-500' },
         { id: 'help', icon: <HelpIcon />, label: 'Help & Support', color: 'bg-purple-100 text-purple-500' },
     ];
 
@@ -131,6 +133,8 @@ const TeacherSettingsScreen: React.FC<TeacherSettingsScreenProps> = ({
                 return <TeacherNotificationSettingsScreen teacherId={teacherId} />;
             case 'teacherSecurity':
                 return <TeacherSecurityScreen navigateTo={navigateTo} teacherId={teacherId} userId={currentUser?.id || currentUserId} />;
+            case 'dataUsage':
+                return <DataUsageSettings accent="purple" />;
             default:
                 return <SettingsPlaceholder />;
         }

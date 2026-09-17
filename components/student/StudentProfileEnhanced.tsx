@@ -19,8 +19,9 @@ import {
     Download, Eye, GraduationCap, CheckCircle,
     Award, TrendingUp, Mail, Phone, MapPin,
     Edit, Share2, Settings, Bell, ChevronRight,
-    Clock, Target, Briefcase, Globe, Copy, Lock
+    Clock, Target, Briefcase, Globe, Copy, Lock, WifiOff
 } from 'lucide-react';
+import DataUsageSettings from '../shared/DataUsageSettings';
 import { getAIClient, AI_MODEL_NAME, SchemaType as Type } from '../../lib/ai';
 import { fetchAcademicPerformance, fetchStudentStats, fetchUpcomingEvents, fetchStudentActivities, fetchStudentDocuments } from '../../lib/database';
 import { useUserIdentity } from '../../lib/hooks/useUserIdentity';
@@ -699,6 +700,19 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                                             <QuickStat icon={<FileText />} label="Assignments Submitted" value={stats.assignmentsSubmitted} color="blue" />
                                             <QuickStat icon={<Clock />} label="Est. Study Hours" value={`${stats.studyHours}h`} color="purple" />
                                             <QuickStat icon={<Award />} label="Achievements" value={stats.achievements} color="amber" />
+                                        </CardContent>
+                                    </Card>
+
+                                    {/* Data usage (students have no separate settings hub) */}
+                                    <Card className="border-slate-200 shadow-sm">
+                                        <CardHeader className="border-b border-slate-100">
+                                            <CardTitle className="text-lg flex items-center gap-2">
+                                                <WifiOff className="w-5 h-5 text-orange-600" />
+                                                Data Usage
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="p-0">
+                                            <DataUsageSettings accent="orange" variant="card" />
                                         </CardContent>
                                     </Card>
 

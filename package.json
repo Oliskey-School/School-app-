@@ -1,6 +1,6 @@
 {
   "name": "school-app-oliskey",
-  "version": "0.7.29",
+  "version": "0.7.30",
   "scripts": {
     "dev": "vite",
     "prebuild": "node scripts/check-env.mjs",

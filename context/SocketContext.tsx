@@ -13,15 +13,21 @@ const SocketContext = createContext<SocketContextType>({ socket: null });
 export const useSocket = () => useContext(SocketContext);
 
 import { SOCKET_URL } from '../lib/config';
+import { useLowDataMode } from '../lib/lowDataMode';
 
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   const socketRef = useRef<Socket | null>(null);
   const queryClient = useQueryClient();
+  const lowData = useLowDataMode();
 
   useEffect(() => {
     // No identity yet (still loading / logged out) — nothing to connect for.
     if (!user?.id) return;
+    // Low Data Mode: no persistent socket. Chat, notifications and the
+    // roster refresh signals this socket drives fall back to the existing
+    // background polling; toggling the mode off reconnects (effect re-runs).
+    if (lowData) return;
 
     let cancelled = false;
     let socket: Socket | null = null;
@@ -317,7 +323,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       socket?.disconnect();
       socketRef.current = null;
     };
-  }, [user?.school_id, queryClient]);
+  }, [user?.school_id, queryClient, lowData]);
 
   return (
     <SocketContext.Provider value={{ socket: socketRef.current }}>

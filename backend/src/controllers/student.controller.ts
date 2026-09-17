@@ -111,12 +111,40 @@ export const getAllStudents = async (req: AuthRequest, res: Response) => {
         const branchId = getEffectiveBranchId(req.user, requestedBranch);
         const classId = (req.query.class_id as string) || (req.query.classId as string);
         const status = req.query.status as string;
-        
+
+        // One class group (grade + section, as the list screen groups them) or a
+        // server-side search — see StudentService.getAllStudents. `grade=none`
+        // is the screen's "Unassigned" group (students with no grade yet).
+        const scope: { grade?: number | null; section?: string | null; q?: string } = {};
+        const rawGrade = req.query.grade as string | undefined;
+        if (rawGrade !== undefined && rawGrade !== '') {
+            if (rawGrade === 'none') scope.grade = null;
+            else if (Number.isInteger(Number(rawGrade))) scope.grade = Number(rawGrade);
+            else return res.status(400).json({ message: 'grade must be an integer or "none"' });
+            const rawSection = req.query.section as string | undefined;
+            if (rawSection !== undefined) scope.section = rawSection === 'none' ? null : rawSection;
+        }
+        if (typeof req.query.q === 'string' && req.query.q.trim()) scope.q = req.query.q.trim().slice(0, 100);
+
         console.log(`[DEBUG] getAllStudents (GET /): schoolId=${req.user.school_id}, branchId=${branchId}, classId=${classId}, status=${status}`);
 
-        const result = await StudentService.getAllStudents(req.user.school_id, branchId, classId, status);
+        const result = await StudentService.getAllStudents(req.user.school_id, branchId, classId, status, scope);
 
         res.json(isAdmin(req) ? result : stripStudentCredentials(result));
+    } catch (error: any) {
+        sendError(res, error, 'student.controller.ts');
+    }
+};
+
+export const getStudentSummary = async (req: AuthRequest, res: Response) => {
+    try {
+        const roleLower = (req.user.role || '').toLowerCase();
+        if (!isAdmin(req) && roleLower !== 'teacher') {
+            return res.status(403).json({ message: 'You do not have access to the full student directory' });
+        }
+        const requestedBranch = (req.query.branch_id as string) || (req.query.branchId as string);
+        const branchId = getEffectiveBranchId(req.user, requestedBranch);
+        res.json(await StudentService.getStudentSummary(req.user.school_id, branchId));
     } catch (error: any) {
         sendError(res, error, 'student.controller.ts');
     }

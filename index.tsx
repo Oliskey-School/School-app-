@@ -4,7 +4,7 @@ import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client
 import { queryClient, idbPersister } from './lib/react-query';
 import App from './App';
 import './index.css';
-import './lib/i18n'; // initialize app-wide translations + RTL before first render
+import { i18nReady } from './lib/i18n'; // initialize app-wide translations + RTL before first render
 import { startAutoTranslate } from './lib/i18n/autoTranslate'; // whole-app live translation
 import { initSentry } from './lib/sentry';
 import { initLiquidGlass } from './components/shared/LiquidGlassControl';
@@ -53,20 +53,24 @@ import { BranchProvider } from './context/BranchContext';
 import { SocketProvider } from './context/SocketContext';
 
 const root = ReactDOM.createRoot(rootElement);
-root.render(
-  <React.StrictMode>
-    <PersistQueryClientProvider client={queryClient} persistOptions={{ persister: idbPersister }}>
-      <BrowserRouter>
-        <AuthProvider>
-          <ProfileProvider>
-            <BranchProvider>
-              <SocketProvider>
-                <App />
-              </SocketProvider>
-            </BranchProvider>
-          </ProfileProvider>
-        </AuthProvider>
-      </BrowserRouter>
-    </PersistQueryClientProvider>
-  </React.StrictMode>
-);
+// Only non-English users actually wait here (one small locale fetch); for
+// everyone else i18nReady is already resolved. See lib/i18n/index.ts.
+i18nReady.then(() => {
+  root.render(
+    <React.StrictMode>
+      <PersistQueryClientProvider client={queryClient} persistOptions={{ persister: idbPersister }}>
+        <BrowserRouter>
+          <AuthProvider>
+            <ProfileProvider>
+              <BranchProvider>
+                <SocketProvider>
+                  <App />
+                </SocketProvider>
+              </BranchProvider>
+            </ProfileProvider>
+          </AuthProvider>
+        </BrowserRouter>
+      </PersistQueryClientProvider>
+    </React.StrictMode>
+  );
+});

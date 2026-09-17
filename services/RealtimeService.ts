@@ -1,5 +1,6 @@
 import { showNotification } from '../components/shared/notifications';
 import { api } from '../lib/api';
+import { isLowDataMode, LOW_DATA_EVENT } from '../lib/lowDataMode';
 
 /**
  * Service to handle background polling for global updates
@@ -12,6 +13,24 @@ class RealtimeService {
     private lastNotificationId: string | number | null = null;
     private branchId: string | null = null;
     private isInitialized = false;
+    private lowDataListener: (() => void) | null = null;
+
+    // Low Data Mode: no persistent socket (its keep-alives and per-event
+    // traffic are what an expensive connection can't afford) and half the
+    // polling frequency; the poll below is the fallback that keeps
+    // notifications flowing either way.
+    private pollIntervalMs() { return isLowDataMode() ? 60000 : 30000; }
+
+    private applyRealtimeTransport() {
+        if (!this.schoolId) return;
+        const schoolId = this.schoolId;
+        import('../lib/socketService').then(({ socketService }) => {
+            if (isLowDataMode()) socketService.disconnect();
+            else socketService.initialize(schoolId);
+        });
+        if (this.interval) clearInterval(this.interval);
+        this.interval = setInterval(() => this.pollUpdates(), this.pollIntervalMs());
+    }
 
     initialize(userId: string, schoolId: string, branchId?: string) {
         // useRealtimeSync re-invokes this whenever the active branch changes and
@@ -33,13 +52,13 @@ class RealtimeService {
 
         console.log(`ðŸ”Œ Initializing Global Background Polling for School: ${schoolId}`);
 
-        // Initialize WebSocket for real-time instant updates
-        import('../lib/socketService').then(({ socketService }) => {
-            socketService.initialize(schoolId);
-        });
-
-        // Start polling for notifications every 30 seconds as fallback/extra
-        this.interval = setInterval(() => this.pollUpdates(), 30000);
+        // WebSocket for instant updates + polling fallback (or polling only, in
+        // Low Data Mode) — re-applied whenever the mode is toggled.
+        this.applyRealtimeTransport();
+        if (!this.lowDataListener && typeof window !== 'undefined') {
+            this.lowDataListener = () => this.applyRealtimeTransport();
+            window.addEventListener(LOW_DATA_EVENT, this.lowDataListener);
+        }
         // Non-blocking initial poll: fire and forget after a small delay
         setTimeout(() => this.pollUpdates(), 500);
     }
@@ -87,6 +106,10 @@ class RealtimeService {
         if (this.interval) {
             clearInterval(this.interval);
             this.interval = null;
+        }
+        if (this.lowDataListener && typeof window !== 'undefined') {
+            window.removeEventListener(LOW_DATA_EVENT, this.lowDataListener);
+            this.lowDataListener = null;
         }
         this.userId = null;
         this.schoolId = null;
