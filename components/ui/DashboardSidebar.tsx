@@ -1,6 +1,6 @@
 import React, { cloneElement } from 'react';
 import { motion } from 'framer-motion';
-import { HomeIcon, BellIcon, UserIcon as ProfileIcon, DocumentTextIcon, PhoneIcon, PlayIcon, AnalyticsIcon, MegaphoneIcon, SettingsIcon, MessagesIcon, ElearningIcon, SparklesIcon, UserGroupIcon, GameControllerIcon, ChartBarIcon, ClockIcon, LogoutIcon, ReportIcon, CheckCircleIcon, BuildingLibraryIcon, SUBJECT_COLORS, getFormattedClassName } from '../../constants';
+import { HomeIcon, BellIcon, UserIcon as ProfileIcon, DocumentTextIcon, PhoneIcon, PlayIcon, AnalyticsIcon, MegaphoneIcon, SettingsIcon, MessagesIcon, ElearningIcon, SparklesIcon, UserGroupIcon, GameControllerIcon, ChartBarIcon, ClockIcon, LogoutIcon, ReportIcon, CheckCircleIcon, BuildingLibraryIcon, StudentsIcon, ClipboardListIcon, ExamIcon, EnterResultsIcon, ShieldCheckIcon, SUBJECT_COLORS, getFormattedClassName } from '../../constants';
 import { useTeacherClasses } from '../../hooks/useTeacherClasses';
 
 // ⚠️ PERMANENT, OWNER-LOCKED NAV SETS ⚠️
@@ -11,6 +11,11 @@ import { useTeacherClasses } from '../../hooks/useTeacherClasses';
 // reason without first stopping and getting explicit confirmation from the
 // owner. New feature entry points belong on that role's Quick Actions/
 // home-screen tiles instead — never here.
+//
+// Exception on record: AdminSidebar's Students/Timetable/Exams/Results/
+// Compliance items (Phase 6.2, owner-approved) promote daily-use screens out
+// of the Quick Actions grid. Any further change to AdminSidebar still needs
+// the same explicit sign-off as every other sidebar here.
 
 interface SidebarItemProps {
     icon: React.ReactElement<{ className?: string }>;
@@ -106,8 +111,13 @@ export const AdminSidebar = ({ activeScreen, setActiveScreen, onLogout, schoolNa
             <nav className="flex-1 py-6 overflow-y-auto">
                 <div className="space-y-1">
                     <SidebarItem id="home" icon={<HomeIcon />} label="Home" isActive={activeScreen === 'home'} onClick={() => setActiveScreen('home')} activeColor="text-indigo-600" />
-                    <SidebarItem id="branches" icon={<BuildingLibraryIcon />} label="Branches" isActive={activeScreen === 'branches'} onClick={() => setActiveScreen('branches')} activeColor="text-indigo-600" />
+                    <SidebarItem id="studentList" icon={<StudentsIcon />} label="Students" isActive={activeScreen === 'studentList'} onClick={() => setActiveScreen('studentList')} activeColor="text-indigo-600" />
                     <SidebarItem id="teacherList" icon={<UserGroupIcon />} label="Teachers" isActive={activeScreen === 'teacherList'} onClick={() => setActiveScreen('teacherList')} activeColor="text-indigo-600" />
+                    <SidebarItem id="timetable" icon={<ClipboardListIcon />} label="Timetable" isActive={activeScreen === 'timetable'} onClick={() => setActiveScreen('timetable')} activeColor="text-indigo-600" />
+                    <SidebarItem id="examManagement" icon={<ExamIcon />} label="Exams" isActive={activeScreen === 'examManagement'} onClick={() => setActiveScreen('examManagement')} activeColor="text-indigo-600" />
+                    <SidebarItem id="results" icon={<EnterResultsIcon />} label="Results" isActive={activeScreen === 'results'} onClick={() => setActiveScreen('results')} activeColor="text-indigo-600" />
+                    <SidebarItem id="compliance" icon={<ShieldCheckIcon />} label="Compliance" isActive={activeScreen === 'compliance'} onClick={() => setActiveScreen('compliance')} activeColor="text-indigo-600" />
+                    <SidebarItem id="branches" icon={<BuildingLibraryIcon />} label="Branches" isActive={activeScreen === 'branches'} onClick={() => setActiveScreen('branches')} activeColor="text-indigo-600" />
                     <SidebarItem id="studentApprovals" icon={<CheckCircleIcon />} label="Approvals" isActive={activeScreen === 'studentApprovals'} onClick={() => setActiveScreen('studentApprovals')} activeColor="text-indigo-600" />
                     <SidebarItem id="feeManagement" icon={<DocumentTextIcon />} label="Fee Management" isActive={activeScreen === 'feeManagement'} onClick={() => setActiveScreen('feeManagement')} activeColor="text-indigo-600" />
                     <SidebarItem id="messages" icon={<MessagesIcon />} label="Messages" isActive={activeScreen === 'messages'} onClick={() => setActiveScreen('messages')} activeColor="text-indigo-600" />

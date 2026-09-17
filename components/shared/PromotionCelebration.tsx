@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
+import { useNotifications, NOTIFICATIONS_QUERY_KEY } from '../../hooks/useNotifications';
 
 const SEEN_KEY = 'promotion_celebrated_ids';
 
@@ -23,32 +24,37 @@ const CONFETTI_COLORS = ['#6366f1', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', 
  */
 const PromotionCelebration: React.FC = () => {
     const [notice, setNotice] = useState<{ id: string; title: string; message: string } | null>(null);
+    // Reads the SAME shared notification cache every notification bell / badge
+    // already uses instead of firing its own /notifications/me — this component
+    // used to fetch independently, so it doubled the request on every page that
+    // renders it alongside anything else reading notifications.
+    const { notifications, queryClient } = useNotifications();
 
     useEffect(() => {
-        let active = true;
-        const check = async () => {
-            try {
-                const notifications = await api.getMyNotifications();
-                const seen = readSeen();
-                const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
-                const promo = (notifications || []).find((n: any) =>
-                    (n.category || '').toLowerCase() === 'promotion'
-                    && !seen.includes(n.id)
-                    && new Date(n.created_at).getTime() > cutoff
-                );
-                if (active && promo) setNotice({ id: promo.id, title: promo.title, message: promo.message });
-            } catch { /* no notice, no celebration */ }
-        };
-        check();
+        const seen = readSeen();
+        const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+        const promo = (notifications || []).find((n: any) =>
+            (n.category || '').toLowerCase() === 'promotion'
+            && !seen.includes(n.id)
+            && new Date(n.created_at).getTime() > cutoff
+        );
+        if (promo) setNotice({ id: promo.id, title: promo.title, message: promo.message });
+    }, [notifications]);
+
+    useEffect(() => {
         // Celebrate live the moment the admin runs the promotion — it fires a
         // students update to the whole school, and per-user notification events.
+        // Invalidating the shared cache (rather than fetching here) means every
+        // consumer of useNotifications() gets the refresh, not just this widget.
         const onUpdate = (e: any) => {
             const t = e?.detail?.table;
-            if (t === 'notifications' || t === 'students') check();
+            if (t === 'notifications' || t === 'students') {
+                queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_QUERY_KEY });
+            }
         };
         window.addEventListener('realtime-update', onUpdate);
-        return () => { active = false; window.removeEventListener('realtime-update', onUpdate); };
-    }, []);
+        return () => window.removeEventListener('realtime-update', onUpdate);
+    }, [queryClient]);
 
     if (!notice) return null;
 

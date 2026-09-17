@@ -138,7 +138,12 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
       // signature, audience, and expiry against Google directly. We never trust
       // a client-side JWT decode for the actual email/identity used to log in.
       await signInWithGoogle(response.credential);
-      navigate('/');
+      // No navigate('/') here on purpose: whatever URL the browser already
+      // has (e.g. a deep link someone tried to open before being shown this
+      // login screen) should stay exactly where it is. App.tsx's own
+      // `!user || !role` check swaps this component out for the dashboard
+      // on the very next render once auth state updates — forcing a URL
+      // change to '/' would discard that deep link instead of honoring it.
     } catch (err: any) {
       console.error('❌ [Google] Auth Error:', err);
       setError(err.message || 'No Data');
@@ -217,7 +222,8 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
             schoolGeneratedId: user.school_generated_id,
             school: user.school_id ? { id: user.school_id } : undefined
           });
-          navigate('/'); // Redirect to dashboard
+          // Same reasoning as handleGoogleResponse above — leave the URL
+          // (the deep link that brought the user here) alone.
         }}
       />
     );
@@ -423,8 +429,9 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
           school: result.userData?.school_id ? { id: result.userData.school_id } : undefined
 
         });
-        
-        navigate('/'); // Redirect to dashboard
+        // Same reasoning as handleGoogleResponse above — leave the URL (the
+        // deep link that brought the user here) alone; App.tsx swaps this
+        // screen for the real dashboard the moment auth state updates.
       }
 
     } catch (err: any) {
@@ -442,7 +449,12 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
     try {
       console.log(`🚀 [Demo] Switching to Demo Role: ${roleKey}...`);
       await switchDemoRole(roleKey);
-      navigate('/'); // Redirect to dashboard
+      // Unlike the real sign-in flows above, this one DOES navigate to '/':
+      // picking a demo role is a deliberate "start fresh as this role"
+      // action, not "continue where I left off", and whatever screen name
+      // was in the URL almost certainly doesn't exist for the newly chosen
+      // role anyway.
+      navigate('/');
     } catch (err: any) {
       console.error("❌ [Demo] Quick Login Error:", err);
       setError(err.message || 'Demo login failed');

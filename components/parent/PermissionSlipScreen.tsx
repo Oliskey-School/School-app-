@@ -10,15 +10,23 @@ import ConfirmationModal from '../ui/ConfirmationModal';
 interface PermissionSlipScreenProps {
     students?: any[];
     schoolId?: string;
+    // True while ParentDashboard's own children fetch is still in flight —
+    // `students` is [] until that resolves, which is not the same as
+    // "confirmed no children," so it must be checked before treating an
+    // empty students array as final.
+    loading?: boolean;
 }
 
-const PermissionSlipScreen: React.FC<PermissionSlipScreenProps> = ({ students = [], schoolId }) => {
+const PermissionSlipScreen: React.FC<PermissionSlipScreenProps> = ({ students = [], schoolId, loading: studentsLoading }) => {
     const [slips, setSlips] = useState<any[]>([]);
     const [currentSlipIndex, setCurrentSlipIndex] = useState(0);
     const [loading, setLoading] = useState(true);
     const [pendingResponse, setPendingResponse] = useState<'Approved' | 'Rejected' | null>(null);
 
     const fetchSlips = useCallback(async () => {
+        if (studentsLoading) {
+            return;
+        }
         if (!students || students.length === 0) {
             setSlips([]);
             setLoading(false);
@@ -44,7 +52,7 @@ const PermissionSlipScreen: React.FC<PermissionSlipScreenProps> = ({ students = 
         } finally {
             setLoading(false);
         }
-    }, [students, schoolId]);
+    }, [students, schoolId, studentsLoading]);
 
     // Real-time synchronization
     useAutoSync(['permission_slips'], fetchSlips);

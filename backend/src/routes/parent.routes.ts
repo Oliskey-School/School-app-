@@ -16,7 +16,6 @@ router.get('/:id/children', getChildrenForParent);
 router.get('/', getParents);
 router.post('/', createParent);
 router.post('/link-child', linkChild);
-router.post('/link-child-unique', linkChild);
 router.post('/unlink-child', unlinkChild);
 router.post('/appointments', createAppointment);
 router.get('/me/appointments', getMyAppointments);
@@ -88,6 +87,21 @@ router.get('/:parentId/today-update', getParentTodayUpdate); // External support
 router.get('/complaints', getComplaints);
 router.post('/complaints', createComplaint);
 router.get('/teachers/:teacherId/availability', getTeacherAvailability);
+
+// This catch-all sits after every named route above, but Express still
+// matches it against any path segment that reaches this point unmatched —
+// a typo'd or removed route (e.g. a stale frontend build hitting an old
+// path) silently falls through here and gets treated as a parent lookup,
+// returning a confusing "Parent not found" instead of a real 404. Reject
+// anything that isn't actually shaped like a Parent id (a UUID) before it
+// reaches the controller.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+router.param('id', (req, res, next, id) => {
+    if (!UUID_RE.test(id)) {
+        return res.status(404).json({ message: `Route not found: ${req.method} ${req.originalUrl}` });
+    }
+    next();
+});
 
 router.get('/:id', getParentById);
 router.put('/:id', updateParent);

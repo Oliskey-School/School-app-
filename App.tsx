@@ -1,6 +1,7 @@
 import React, { useState, useMemo, lazy, Suspense, useEffect } from 'react';
 import { DashboardType } from './types';
 import { OfflineIndicator } from './components/shared/OfflineIndicator';
+import { RealtimeStatusIndicator } from './components/shared/RealtimeStatusIndicator';
 import { AppearanceSync } from './components/shared/LiquidGlassControl';
 import { MotionConfig } from 'framer-motion';
 import { Toaster } from 'react-hot-toast';
@@ -213,6 +214,11 @@ const AuthenticatedApp: React.FC = () => {
   return (
     <ErrorBoundary>
       <Suspense fallback={<LoadingScreen />}>
+        {/* Only mounted once a user/role exist (this branch runs after the
+            !user || !role early return above), so it never shows on the
+            public login screen before a socket connection has even been
+            attempted. */}
+        <RealtimeStatusIndicator />
         <MobileNavigationHandler />
         <ContextualMarquee />
         <VerificationGuard>
@@ -286,7 +292,16 @@ const App: React.FC = () => {
 
   return (
     <MotionConfig reducedMotion="user">
-      <Toaster position="top-right" />
+      <Toaster
+        position="top-right"
+        // react-hot-toast's own defaults are inconsistent (2s for success, 4s
+        // for error/blank) and short enough that a message can disappear
+        // before it's read. `loading` is deliberately left out — those are
+        // meant to stay until the caller explicitly dismisses them; the real
+        // "toasts never dismiss" bug was call sites that forgot to do that,
+        // not the loading type itself.
+        toastOptions={{ duration: 5000 }}
+      />
       <OfflineIndicator />
       <AppearanceSync />
       {isInitializing ? (

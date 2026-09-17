@@ -8,15 +8,20 @@ import { ElearningIcon, AwardIcon, ClockIcon, SparklesIcon, BookOpenIcon } from 
 interface LearningHubProgressScreenProps {
   navigateTo: (view: string, title: string, props?: any) => void;
   students?: Student[];
+  // True while ParentDashboard's own children fetch is still in flight —
+  // `students` (and so `selectedChildId`) is empty until that resolves,
+  // which is not the same as "confirmed no child linked."
+  loading?: boolean;
 }
 
-const LearningHubProgressScreen: React.FC<LearningHubProgressScreenProps> = ({ students = [] }) => {
+const LearningHubProgressScreen: React.FC<LearningHubProgressScreenProps> = ({ students = [], loading: studentsLoading }) => {
   const [selectedChildId, setSelectedChildId] = useState<string>(students[0]?.id || '');
   const [summary, setSummary] = useState<any>(null);
   const [progress, setProgress] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
+    if (studentsLoading) { return; }
     if (!selectedChildId) { setLoading(false); return; }
     setLoading(true);
     try {
@@ -32,7 +37,7 @@ const LearningHubProgressScreen: React.FC<LearningHubProgressScreenProps> = ({ s
     } finally {
       setLoading(false);
     }
-  }, [selectedChildId]);
+  }, [selectedChildId, studentsLoading]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { if (!selectedChildId && students[0]) setSelectedChildId(students[0].id); }, [students, selectedChildId]);

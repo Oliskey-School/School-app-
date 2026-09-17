@@ -93,7 +93,7 @@ export class DemoSeederService {
                     `;
                     sharedBranchId = 'demo-v-shared';
                 }
-                await this.seedBranchData(demoSchoolId, sharedBranchId, 'shared');
+                await this.seedBranchDataOnce(demoSchoolId, sharedBranchId, 'shared');
             } catch (sandboxErr) {
                 console.error('⚠️ [Seeder] Shared MAIN demo sandbox seed failed (login will retry it in the background):', sandboxErr);
             }
@@ -124,25 +124,48 @@ export class DemoSeederService {
     private static cachedPasswordHash: string | null = null;
 
     /**
-     * In-flight guard for background sandbox seeds. Multiple concurrent demo
-     * logins arriving while the sandbox is empty must trigger exactly ONE seed,
-     * not one per request — the seed is idempotent but expensive (~600 statements).
+     * In-flight guard for sandbox seeds. Multiple concurrent callers arriving
+     * while the sandbox is empty must trigger exactly ONE seed, not one per
+     * caller — the seed is idempotent but expensive (~600 statements), AND
+     * running it twice concurrently against a genuinely empty table is a real
+     * data race, not just wasted work: both calls compute the identical
+     * deterministic user id/school_generated_id for a not-yet-existing row,
+     * both see it missing, and whichever upsert's CREATE loses the race hits
+     * a unique constraint violation on school_generated_id. Server startup's
+     * own seed call (ensureDemoData) goes through this exact same guard —
+     * it used to call seedBranchData directly, un-registered, so a demo
+     * login arriving during that startup window (server accepts connections
+     * before background seeding finishes) would race it exactly this way.
      */
     private static inFlightSeeds = new Map<string, Promise<void>>();
 
     /**
-     * Fire-and-forget sandbox seed for the login path. The request that triggers
-     * this NEVER waits on it — it returns a "warming up" response and the client
-     * retries into a fully seeded sandbox. Deduped per (school, branch).
+     * Runs seedBranchData for (schoolId, branchId) at most once concurrently,
+     * regardless of how many callers ask for it at the same time — every
+     * caller (whether it awaits or not) shares the single in-flight promise.
      */
-    static seedSandboxInBackground(schoolId: string, branchId: string, ipHash: string) {
+    private static seedBranchDataOnce(schoolId: string, branchId: string, ipHash: string): Promise<void> {
         const key = `${schoolId}:${branchId}`;
-        if (this.inFlightSeeds.has(key)) return;
-        console.log(`🏗️ [Seeder] Background seeding demo sandbox ${branchId} (login-requested).`);
+        const existing = this.inFlightSeeds.get(key);
+        if (existing) return existing;
         const run = this.seedBranchData(schoolId, branchId, ipHash)
-            .catch((err) => console.error(`❌ [Seeder] Background demo sandbox seed failed for ${branchId}:`, err))
             .finally(() => this.inFlightSeeds.delete(key));
         this.inFlightSeeds.set(key, run);
+        return run;
+    }
+
+    /**
+     * Fire-and-forget sandbox seed for the login path. The request that triggers
+     * this NEVER waits on it — it returns a "warming up" response and the client
+     * retries into a fully seeded sandbox. Deduped per (school, branch), and
+     * against server startup's own seed of the same branch (see
+     * seedBranchDataOnce).
+     */
+    static seedSandboxInBackground(schoolId: string, branchId: string, ipHash: string) {
+        const alreadyRunning = this.inFlightSeeds.has(`${schoolId}:${branchId}`);
+        if (!alreadyRunning) console.log(`🏗️ [Seeder] Background seeding demo sandbox ${branchId} (login-requested).`);
+        this.seedBranchDataOnce(schoolId, branchId, ipHash)
+            .catch((err) => console.error(`❌ [Seeder] Background demo sandbox seed failed for ${branchId}:`, err));
     }
 
     /**
@@ -331,7 +354,8 @@ export class DemoSeederService {
                     extraTeacherProfiles[t.index] = profile;
                 }
 
-                // 3. Link Parent to Student (Primary)
+                // 3. Link Parent to Student (Primary) — and a second child, so the
+                // parent dashboard's multi-child switcher isn't a single-child demo.
                 const parentUser = createdUsers.find(u => u.role === 'PARENT');
                 const studentUser = createdUsers.find(u => u.role === 'STUDENT');
                 if (parentUser && studentUser) {
@@ -343,6 +367,14 @@ export class DemoSeederService {
                             update: {},
                             create: { parent_id: parentProfile.id, student_id: studentProfile.id, school_id: schoolId, branch_id: branchId }
                         });
+                        const secondChild = extraStudentProfiles[0];
+                        if (secondChild) {
+                            await tx.parentChild.upsert({
+                                where: { parent_id_student_id: { parent_id: parentProfile.id, student_id: secondChild.id } },
+                                update: {},
+                                create: { parent_id: parentProfile.id, student_id: secondChild.id, school_id: schoolId, branch_id: branchId }
+                            });
+                        }
                     }
                 }
 
@@ -1192,27 +1224,33 @@ export class DemoSeederService {
                         });
                     }
 
-                    // 8. Seed Fees (Financial Persistence)
+                    // 8. Seed Fees (Financial Persistence) — a mix of paid and overdue,
+                    // so both the "Fee Status" screen's states and the admin's
+                    // arrears reporting have something real to show.
                     const feeStructures = [
-                        { name: 'Tuition Fee - Q1', amount: 45000, type: 'Tuition' },
-                        { name: 'Development Levy', amount: 15000, type: 'Other' },
-                        { name: 'Library & Tech', amount: 5000, type: 'Other' }
+                        { name: 'Tuition Fee - Q1', amount: 45000, type: 'Tuition', status: 'Overdue' },
+                        { name: 'Development Levy', amount: 15000, type: 'Other', status: 'Overdue' },
+                        { name: 'Library & Tech', amount: 5000, type: 'Other', status: 'Paid' }
                     ];
 
                     for (const fs of feeStructures) {
                         const feeId = `fee-${ipHash}-${fs.name.replace(/\s+/g, '')}`;
+                        const paidAmount = fs.status === 'Paid' ? fs.amount : 0;
                         const fee = await tx.studentFee.upsert({
                             where: { id: feeId },
-                            update: { amount: fs.amount, status: 'Overdue' },
+                            update: { amount: fs.amount, status: fs.status, paid_amount: paidAmount },
                             create: {
                                 id: feeId,
                                 school_id: schoolId,
                                 branch_id: branchId,
                                 student_id: studentProfile.id,
                                 amount: fs.amount,
+                                paid_amount: paidAmount,
                                 title: fs.name,
-                                status: 'Overdue',
-                                due_date: new Date(Date.now() - 86400000 * 7)
+                                status: fs.status,
+                                due_date: fs.status === 'Paid'
+                                    ? new Date(Date.now() - 86400000 * 20)
+                                    : new Date(Date.now() - 86400000 * 7)
                             }
                         });
                     }
@@ -1240,6 +1278,108 @@ export class DemoSeederService {
                                 total_marks: 100,
                                 passing_marks: 0,
                                 is_published: false
+                            }
+                        });
+                    }
+
+                    // 10. Seed 2 weeks of mixed daily Attendance for every SSS 1 student —
+                    // this was entirely missing before (no tx.attendance.* anywhere in
+                    // this seeder), so the demo's Attendance screens and the parent
+                    // dashboard's "today's attendance" widget had nothing real to show.
+                    const attendanceDays: string[] = [];
+                    for (let offset = 1; offset <= 14; offset++) {
+                        const d = new Date();
+                        d.setDate(d.getDate() - offset);
+                        if (d.getDay() === 0 || d.getDay() === 6) continue; // skip weekends
+                        attendanceDays.push(d.toISOString().slice(0, 10));
+                    }
+                    // Deterministic per (student, day) mix instead of Math.random(), so a
+                    // re-run of this idempotent seeder produces the same attendance history
+                    // rather than silently drifting the demo's numbers on every restart.
+                    const attendanceCycle = ['Present', 'Present', 'Present', 'Late', 'Present', 'Absent', 'Present'];
+                    const attendancePromises: Promise<any>[] = [];
+                    allStudentProfiles.forEach((sp, studentIdx) => {
+                        attendanceDays.forEach((dateStr, dayIdx) => {
+                            const status = attendanceCycle[(studentIdx + dayIdx) % attendanceCycle.length];
+                            attendancePromises.push(tx.attendance.upsert({
+                                where: { student_id_class_id_date: { student_id: sp.id, class_id: sss1ClassId, date: new Date(dateStr) } },
+                                update: { status },
+                                create: {
+                                    school_id: schoolId,
+                                    branch_id: branchId,
+                                    student_id: sp.id,
+                                    class_id: sss1ClassId,
+                                    date: new Date(dateStr),
+                                    status,
+                                }
+                            }));
+                        });
+                    });
+                    await Promise.all(attendancePromises);
+
+                    // 11. A couple of the same 2 weeks' TeacherAttendance left pending
+                    // approval — the one existing entry (today, Michael, Absent) was
+                    // always pre-approved, so the admin's Leave/Attendance Approvals
+                    // screen had nothing waiting in it.
+                    for (const offset of [3, 6]) {
+                        const d = new Date();
+                        d.setDate(d.getDate() - offset);
+                        if (d.getDay() === 0 || d.getDay() === 6) continue;
+                        const dateStr = d.toISOString().slice(0, 10);
+                        await (tx as any).teacherAttendance.upsert({
+                            where: { teacher_id_date_branch_id: { teacher_id: teacherProfile.id, date: dateStr, branch_id: branchId } },
+                            update: { status: 'Present', approval_status: 'pending' },
+                            create: {
+                                teacher_id: teacherProfile.id, school_id: schoolId, branch_id: branchId,
+                                date: dateStr, status: 'Present', approval_status: 'pending',
+                            }
+                        });
+                    }
+
+                    // 12. One live (published) quiz students can actually take right now —
+                    // there was no tx.quiz.* anywhere in this seeder, so the quiz/CBT
+                    // feature had nothing to demo without a teacher first creating one.
+                    const liveQuizId = `quiz-${ipHash}-algebra`;
+                    await tx.quiz.upsert({
+                        where: { id: liveQuizId },
+                        update: { is_published: true, status: 'published' },
+                        create: {
+                            id: liveQuizId,
+                            school_id: schoolId,
+                            branch_id: branchId,
+                            teacher_id: teacherProfile.id,
+                            class_id: sss1ClassId,
+                            subject_id: subjects[0].id,
+                            title: 'Algebraic Expressions — Quick Check',
+                            description: 'A short check on simplifying and evaluating algebraic expressions.',
+                            time_limit: 10,
+                            total_marks: 3,
+                            type: 'QUIZ',
+                            status: 'published',
+                            is_published: true,
+                        }
+                    });
+                    const quizQuestions = [
+                        { text: 'Simplify: 3x + 2x', options: ['5x', '6x', '5x^2', '3x'], correct: '5x' },
+                        { text: 'If x = 4, what is 2x + 3?', options: ['7', '11', '9', '10'], correct: '11' },
+                        { text: 'Simplify: 5y - 2y + y', options: ['4y', '3y', '2y', '8y'], correct: '4y' },
+                    ];
+                    for (const [idx, q] of quizQuestions.entries()) {
+                        const questionId = `${liveQuizId}-q${idx + 1}`;
+                        await tx.quizQuestion.upsert({
+                            where: { id: questionId },
+                            update: {},
+                            create: {
+                                id: questionId,
+                                quiz_id: liveQuizId,
+                                school_id: schoolId,
+                                branch_id: branchId,
+                                question_text: q.text,
+                                question_type: 'multiple_choice',
+                                options: q.options as any,
+                                correct_answer: q.correct,
+                                points: 1,
+                                order_index: idx + 1,
                             }
                         });
                     }

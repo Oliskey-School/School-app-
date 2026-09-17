@@ -161,7 +161,17 @@ export default defineConfig(({ mode }) => {
         }
       })
     ],
-    envPrefix: 'VITE_', 
+    envPrefix: 'VITE_',
+    // esbuild is a TOP-LEVEL Vite option (it also drives the dev server's own
+    // transform), not a build.esbuild sub-key — nesting it under build would
+    // silently do nothing. Scoped to production so `npm run dev` keeps normal
+    // console output. `pure` (not `drop: ['console']`) so error reporting
+    // survives: it marks log/debug/info/warn calls as side-effect-free so
+    // esbuild's minifier removes them, while leaving console.error alone.
+    esbuild: mode === 'production' ? {
+      drop: ['debugger'],
+      pure: ['console.log', 'console.debug', 'console.info', 'console.warn'],
+    } : undefined,
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.VITE_GEMINI_API_KEY),
       'process.env.APP_VERSION': JSON.stringify(env.VITE_APP_VERSION || process.env.npm_package_version || packageJson.version || '0.5.38')
@@ -203,6 +213,18 @@ export default defineConfig(({ mode }) => {
             if (!id.includes('node_modules')) return;
             if (/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id)) {
               return 'react-vendor';
+            }
+            // Every lucide icon is its own ES module, so Rollup's default
+            // "follow the import graph" chunking (deliberately kept for
+            // everything else, see above) splits each one imported from 2+
+            // places into its OWN tiny chunk — dozens of ~300-400 byte
+            // requests, each a full HTTP round trip. Icons are used
+            // everywhere, so bucketing just this one package into a single
+            // shared chunk collapses that fragmentation without touching the
+            // per-route splitting for anything else (markdown, socket.io,
+            // etc. stay lazy exactly as before).
+            if (/[\\/]node_modules[\\/]lucide-react[\\/]/.test(id)) {
+              return 'icons';
             }
           },
         },

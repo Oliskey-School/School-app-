@@ -35,15 +35,17 @@ export const useTeacherClasses = (teacherId?: string | null, branchId?: string |
             setLoading(true);
 
             try {
-                const { api } = await import('../lib/api');
+                const { getMyTeacherProfileCached } = await import('../lib/queryClient');
 
                 // Resolve the teacher ID AND fetch the detailed profile in one call —
                 // this endpoint already returns everything needed, so calling it twice
                 // (once to resolve the ID, once for the data) just doubled load on a
                 // heavy nested-include query for every screen that uses this hook.
+                // getMyTeacherProfileCached shares one cached/in-flight request across
+                // every screen that needs this same profile within the same session.
                 let teacherData: any = null;
                 if (!currentTeacherId) {
-                    teacherData = await api.getMyTeacherProfile().catch(() => null);
+                    teacherData = await getMyTeacherProfileCached().catch(() => null);
                     if (teacherData) {
                         currentTeacherId = teacherData.id;
                         currentSchoolId = teacherData.school_id;
@@ -60,7 +62,7 @@ export const useTeacherClasses = (teacherId?: string | null, branchId?: string |
 
                 // If teacherId was passed in directly, we still need to fetch the data.
                 if (!teacherData) {
-                    teacherData = await api.getMyTeacherProfile();
+                    teacherData = await getMyTeacherProfileCached();
                 }
 
                 if (teacherData) {

@@ -77,7 +77,7 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                 school_generated_id: initialStudent.school_generated_id || initialStudent.schoolGeneratedId || initialStudent.schoolId || initialStudent.admission_number,
                 admission_number: initialStudent.admission_number || initialStudent.school_generated_id || initialStudent.schoolGeneratedId || initialStudent.schoolId,
                 // Ensure grade/section are present for class display
-                grade: initialStudent.grade || '',
+                grade: initialStudent.grade ?? '',
                 section: initialStudent.section || ''
             };
             setStudent(normalized);
@@ -162,7 +162,7 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                     avatarUrl: dbStudent.avatarUrl || dbStudent.avatar_url || dbStudent.profile_photo || student?.avatarUrl || '',
                     school_generated_id: dbStudent.schoolGeneratedId || dbStudent.school_generated_id,
                     admission_number: dbStudent.schoolGeneratedId || dbStudent.school_generated_id || dbStudent.admission_number || 'Pending',
-                    grade: dbStudent.grade || dbStudent.class_name?.match(/\d+/)?.[0] || '10',
+                    grade: dbStudent.grade ?? dbStudent.class_name?.match(/\d+/)?.[0] ?? '10',
                     section: dbStudent.section || dbStudent.class_name?.match(/[A-Z]$/)?.[0] || 'A',
                     gender: dbStudent.gender || dbStudent.Gender,
                     dob: dbStudent.dob || dbStudent.birthday || dbStudent.date_of_birth || dbStudent.dateOfBirth,
@@ -307,7 +307,7 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                     <p style="margin:0 0 16px;line-height:1.6">
                         <b>Name:</b> ${student.name || ''}<br/>
                         <b>Student ID:</b> ${student.school_generated_id || student.admission_number || ''}<br/>
-                        <b>Class:</b> ${student.class_name || ('Grade ' + (student.grade || ''))}<br/>
+                        <b>Class:</b> ${student.class_name || ('Grade ' + (student.grade ?? ''))}<br/>
                         <b>Overall Average:</b> ${stats.averageScore}%
                     </p>
                     <table style="border-collapse:collapse;width:100%;font-size:13px">

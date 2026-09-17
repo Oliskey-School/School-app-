@@ -79,8 +79,22 @@ const prismaClientSingleton = () => {
       timeout: 20000,
       maxWait: 10000,
     },
-    log: process.env.NODE_ENV === 'production' ? ['error'] : ['info', 'warn', 'error'],
+    // Opt-in per-query timing, off by default. Query-level events require
+    // { emit: 'event', level: 'query' } rather than the plain 'query' string,
+    // which only prints to stdout with no timing captured. Set
+    // PROFILE_QUERIES=true locally to see exactly which queries a request
+    // issues and how long each took — this is how the N+1 patterns behind
+    // the slow-dashboard fixes were found.
+    log: process.env.PROFILE_QUERIES === 'true'
+      ? [{ emit: 'event', level: 'query' }, 'warn', 'error']
+      : (process.env.NODE_ENV === 'production' ? ['error'] : ['info', 'warn', 'error']),
   });
+
+  if (process.env.PROFILE_QUERIES === 'true') {
+    (client as any).$on('query', (e: any) => {
+      console.log(`[PROFILE] ${e.duration}ms  ${e.query.slice(0, 200)}`);
+    });
+  }
 
   globalThis.__rawPrisma = client;
 

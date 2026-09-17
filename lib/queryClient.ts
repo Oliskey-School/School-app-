@@ -1,5 +1,6 @@
 import { QueryClient } from '@tanstack/react-query';
 import { persistQueryClient } from '@tanstack/react-query-persist-client';
+import api from './api';
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -11,6 +12,21 @@ export const queryClient = new QueryClient({
     },
   },
 });
+
+// Several teacher screens each called api.getMyTeacherProfile() directly from
+// their own effect — a heavy nested-include query that fired once per screen
+// per navigation instead of once per session. queryClient.fetchQuery shares
+// one in-flight request across simultaneous callers and serves cached data
+// within staleTime, without requiring every call site to become a useQuery
+// hook (several of them need the result inline in an async function, not as
+// render-time hook state).
+export function getMyTeacherProfileCached() {
+  return queryClient.fetchQuery({
+    queryKey: ['teacherProfile'],
+    queryFn: () => api.getMyTeacherProfile(),
+    staleTime: 1000 * 60, // 60s
+  });
+}
 
 const localStoragePersister = {
   persistClient: async (client: any) => {

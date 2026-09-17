@@ -30,6 +30,22 @@ const prisma = new PrismaClient(
 );
 const DEMO_SCHOOL_ID = 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
 const DEMO_BRANCH_ID = '7601cbea-e1ba-49d6-b59b-412a584cb94f';
+// Must match the `code` this file gives DEMO_BRANCH_ID below (search "MAIN-CMP").
+// The runtime demo-login seeder (backend/src/services/demoSeeder.service.ts /
+// auth.service.ts's generateDemoToken) independently computes and RESERVES
+// OLISKEY_MAIN_{ROLE}_0001 as the primary key of the row it creates for its
+// own "MAIN"-coded virtual sandbox branch — a completely different branch
+// from this one. This file's four demo accounts used to hardcode that exact
+// same string into their OWN school_generated_id field, which doesn't even
+// share a primary key with the runtime seeder's row, just the id STRING — so
+// on a fresh database the runtime seeder's create() collided with a unique
+// constraint on school_generated_id and failed outright, and no demo login
+// could ever complete (window.ADMIN_NAVIGATE/etc. never installed — see the
+// "fix: demo sandbox seed race" commit on this branch, which is a distinct,
+// real bug this one was masking). Deriving the id from THIS branch's own
+// code keeps every id here self-consistent and out of the runtime seeder's
+// reserved namespace.
+const BRANCH_CODE = 'MAIN-CMP';
 
 export async function seedDemoSchool() {
   console.log('🌱 Starting comprehensive database seed for Real Data...');
@@ -78,7 +94,7 @@ export async function seedDemoSchool() {
       school_id: school.id, 
       branch_id: branch.id,
       full_name: 'School Admin',
-      school_generated_id: 'OLISKEY_MAIN_ADM_0001'
+      school_generated_id: `OLISKEY_${BRANCH_CODE}_ADM_0001`
     },
     create: {
       email: 'admin@demo.com',
@@ -88,7 +104,7 @@ export async function seedDemoSchool() {
       school_id: school.id,
       branch_id: branch.id,
       email_verified: true,
-      school_generated_id: 'OLISKEY_MAIN_ADM_0001',
+      school_generated_id: `OLISKEY_${BRANCH_CODE}_ADM_0001`,
     } as any
   });
 
@@ -192,7 +208,7 @@ export async function seedDemoSchool() {
         email: t.email,
         school_id: school.id,
         branch_id: branch.id,
-        school_generated_id: t.email === 'john.smith@demo.com' ? 'OLISKEY_MAIN_TCH_0001' : `OLISKEY_MAIN_TCH_000${i+1}`
+        school_generated_id: t.email === 'john.smith@demo.com' ? `OLISKEY_${BRANCH_CODE}_TCH_0001` : `OLISKEY_${BRANCH_CODE}_TCH_000${i+1}`
       },
       create: {
         user_id: u.id,
@@ -200,7 +216,7 @@ export async function seedDemoSchool() {
         branch_id: branch.id,
         full_name: t.name,
         email: t.email,
-        school_generated_id: t.email === 'john.smith@demo.com' ? 'OLISKEY_MAIN_TCH_0001' : `OLISKEY_MAIN_TCH_000${i+1}`
+        school_generated_id: t.email === 'john.smith@demo.com' ? `OLISKEY_${BRANCH_CODE}_TCH_0001` : `OLISKEY_${BRANCH_CODE}_TCH_000${i+1}`
       } as any
     });
     
@@ -270,7 +286,7 @@ export async function seedDemoSchool() {
             school_id: school.id,
             branch_id: branch.id,
             updated_at: new Date(),
-            school_generated_id: email === 'parent1@demo.com' ? 'OLISKEY_MAIN_PAR_0001' : `PAR-2026-${String(i+1).padStart(3, '0')}`
+            school_generated_id: email === 'parent1@demo.com' ? `OLISKEY_${BRANCH_CODE}_PAR_0001` : `PAR-2026-${String(i+1).padStart(3, '0')}`
           },
           create: {
               user_id: u.id,
@@ -279,7 +295,7 @@ export async function seedDemoSchool() {
               full_name: u.full_name,
               email,
               phone: `555-010${i+1}`,
-              school_generated_id: email === 'parent1@demo.com' ? 'OLISKEY_MAIN_PAR_0001' : `PAR-2026-${String(i+1).padStart(3, '0')}`,
+              school_generated_id: email === 'parent1@demo.com' ? `OLISKEY_${BRANCH_CODE}_PAR_0001` : `PAR-2026-${String(i+1).padStart(3, '0')}`,
               updated_at: new Date()
           } as any
       });
@@ -377,7 +393,7 @@ export async function seedDemoSchool() {
             school_id: school.id,
             branch_id: branch.id,
             updated_at: new Date(),
-            school_generated_id: email === 'student1@demo.com' ? 'OLISKEY_MAIN_STU_0001' : `STU-2026-${String(i+1).padStart(3, '0')}`
+            school_generated_id: email === 'student1@demo.com' ? `OLISKEY_${BRANCH_CODE}_STU_0001` : `STU-2026-${String(i+1).padStart(3, '0')}`
           },
           create: {
               user_id: u.id,
@@ -385,7 +401,7 @@ export async function seedDemoSchool() {
               branch_id: branch.id,
               full_name: u.full_name,
               email,
-              school_generated_id: email === 'student1@demo.com' ? 'OLISKEY_MAIN_STU_0001' : `STU-2026-${String(i+1).padStart(3, '0')}`,
+              school_generated_id: email === 'student1@demo.com' ? `OLISKEY_${BRANCH_CODE}_STU_0001` : `STU-2026-${String(i+1).padStart(3, '0')}`,
               grade: classRecords[i % classRecords.length].grade,
               section: classRecords[i % classRecords.length].section,
               status: 'Active',

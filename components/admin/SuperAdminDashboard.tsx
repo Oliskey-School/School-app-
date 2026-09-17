@@ -8,6 +8,7 @@ import { LogOut, LayoutDashboard, Building, Briefcase, Settings, Menu, X, Bell, 
 import { Header } from './Header'; // Use shared Header
 import { Toaster, toast } from 'react-hot-toast';
 import { lazyWithRetry } from '../../lib/lazyRetry';
+import { useDashboardRouting } from '../../hooks/useDashboardRouting';
 // import { realtimeService } from '../../services/RealtimeService';
 
 // SaaS Imports
@@ -33,7 +34,9 @@ interface SuperAdminDashboardProps {
 }
 
 const SuperAdminDashboardContent: React.FC<SuperAdminDashboardProps> = ({ onLogout, setIsHomePage, currentUser }) => {
-    const [activeScreen, setActiveScreen] = useState('overview');
+    // Pure tab-switcher (no back stack) — every screen is a real URL via replaceView.
+    const { view: activeScreen, replaceView } = useDashboardRouting('overview', 'Super Admin Dashboard');
+    const setActiveScreen = (screen: string) => replaceView(screen);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 

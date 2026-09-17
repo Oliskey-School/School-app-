@@ -29,6 +29,12 @@ interface UnifiedParentHomeProps {
     students: Student[];
     schoolId?: string;
     navigateTo: (view: string, title: string, props?: any) => void;
+    // True while ParentDashboard's own children fetch is still in flight. The
+    // `students` prop starts as [] before that fetch resolves, and this
+    // component used to treat an empty array as "confirmed no children"
+    // regardless — showing "No Children Linked" on every normal page load,
+    // before the real answer was known, even though the backend had the data.
+    loading?: boolean;
 }
 
 // Attendance status → label, keyed by the lowercase status the backend stores
@@ -42,22 +48,30 @@ const ATTENDANCE_LABEL: Record<string, string> = {
     not_marked: '⏳ Not marked yet',
 };
 
-export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, schoolId, navigateTo }) => {
+export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, schoolId, navigateTo, loading: studentsLoading }) => {
     const { user, currentSchool } = useAuth();
     const { switchBranch, currentBranch } = useBranch();
     const [children, setChildren] = useState<ChildOverview[]>([]);
     const [activeChildIndex, setActiveChildIndex] = useState(0);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(false);
     const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
     const [latestNotice, setLatestNotice] = useState<any | null>(null);
 
     const load = useCallback(async () => {
+        // ParentDashboard is still fetching the children list — students === []
+        // here does not yet mean "no children," it means "don't know yet."
+        // Stay on the skeleton until that resolves one way or the other.
+        if (studentsLoading) {
+            return;
+        }
         if (!user || (!currentSchool && !schoolId) || students.length === 0) {
-            if (students.length === 0) setLoading(false);
+            setLoading(false);
             return;
         }
 
         setLoading(true);
+        setLoadError(false);
         try {
             // Fetch data for ALL children to allow quick switching
             const overviewPromises = students.map(s =>
@@ -66,7 +80,13 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
             const results = await Promise.all(overviewPromises);
             setChildren(results);
         } catch (err) {
+            // Promise.all rejects on the FIRST failed overview, so one child's
+            // fetch failing used to silently leave `children` empty — which fell
+            // through to "No Children Linked" even though the real cause was a
+            // fetch error, not an empty roster. Surface it as its own state
+            // instead of relying on the (misleading) empty-state copy.
             console.error("Error loading unified overview:", err);
+            setLoadError(true);
         } finally {
             setLoading(false);
         }
@@ -80,7 +100,7 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
         } catch (err) {
             console.error("Error loading latest notice:", err);
         }
-    }, [user, currentSchool, schoolId, students, currentBranch?.id]);
+    }, [user, currentSchool, schoolId, students, currentBranch?.id, studentsLoading]);
 
     // Real-time synchronization
     // Note: We sync on 'students' because child overview depends on a variety of data (attendance, grades, etc)
@@ -100,6 +120,24 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
             </div>
             <div className="h-40 bg-gray-200 rounded-2xl" />
         </div>
+    );
+    if (loadError) return (
+        <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="flex flex-col items-center justify-center h-[60vh] p-6 text-center"
+        >
+            <CircleUser className="w-20 h-20 text-gray-300 mb-4" />
+            <h2 className="text-xl font-bold text-gray-700">Couldn't Load Your Children</h2>
+            <p className="text-gray-500 mt-2">Something went wrong loading your children's details.<br/>Please try again.</p>
+            <button
+                onClick={() => load()}
+                className="mt-4 px-4 py-2 rounded-xl bg-indigo-600 text-white font-semibold"
+            >
+                Retry
+            </button>
+        </motion.div>
     );
     if (children.length === 0) return (
         <motion.div

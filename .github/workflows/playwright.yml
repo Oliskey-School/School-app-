@@ -115,24 +115,65 @@ jobs:
           curl -fsSI "http://127.0.0.1:4173/api/health" | head -1
 
       - name: Run critical path suite
-        run: BASE_URL=http://localhost:4173 npx playwright test tests/e2e/production-critical-path.spec.ts --project=chromium --workers=1
+        run: BASE_URL=http://localhost:4173 npx playwright test tests/e2e/production-critical-path.spec.ts --project=chromium --workers=1 --reporter=list,html
 
       - name: Run role performance matrix
-        run: BASE_URL=http://localhost:4173 npx playwright test tests/e2e/performance-role-matrix.spec.ts --project=chromium --workers=1
+        if: ${{ !cancelled() }}
+        run: BASE_URL=http://localhost:4173 npx playwright test tests/e2e/performance-role-matrix.spec.ts --project=chromium --workers=1 --reporter=list,html
+
+      # Full logs, unconditionally — a failure investigation needs the whole
+      # run, not just whatever fit in the last 200 lines. A backend that logs
+      # one line per request across 9 tests x 3 retries x dozens of requests
+      # each easily buries the one call (or its absence) that actually matters
+      # well before the tail window, which is exactly what made an earlier
+      # investigation on this branch look like "the demo-login endpoint is
+      # never called" when the log simply no longer contained that far back.
+      - name: Save full server logs
+        if: always()
+        run: |
+          cp /tmp/e2e-backend.log ./e2e-backend-full.log 2>/dev/null || echo "(no backend log)" > ./e2e-backend-full.log
+          cp /tmp/e2e-preview.log ./e2e-preview-full.log 2>/dev/null || echo "(no preview log)" > ./e2e-preview-full.log
 
       - name: Server logs on failure
         if: failure()
         run: |
-          echo "::group::backend log (last 200 lines)"
+          echo "::group::backend log (last 200 lines — see the full-server-logs artifact for the complete run)"
           tail -200 /tmp/e2e-backend.log || true
           echo "::endgroup::"
           echo "::group::vite preview log (last 100 lines)"
           tail -100 /tmp/e2e-preview.log || true
           echo "::endgroup::"
 
+      # .playwright-report/ is the HTML summary (only produced if the html
+      # reporter finishes writing it); .playwright-results/ is where Playwright
+      # actually puts the per-test failure evidence this repo's own tests
+      # reference on every failure — trace.zip, error-context.md (a DOM/ARIA
+      # snapshot at the moment of failure), and screenshots. Only the summary
+      # was ever uploaded before, so a genuinely broken run produced no
+      # artifact at all ("No files were found with the provided path:
+      # .playwright-report/") and every past investigation had to guess from
+      # stdout text alone.
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
           name: playwright-report
           path: .playwright-report/
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-results
+          path: .playwright-results/
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: full-server-logs
+          path: |
+            ./e2e-backend-full.log
+            ./e2e-preview-full.log
           retention-days: 30

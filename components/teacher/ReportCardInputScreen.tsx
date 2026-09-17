@@ -8,6 +8,7 @@ import { SchoolLogoIcon, PlusIcon, AIIcon, LockIcon, getFormattedClassName, Chev
 import ConfirmationModal from '../ui/ConfirmationModal';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
+import { getMyTeacherProfileCached } from '../../lib/queryClient';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { useTeacherClasses } from '../../hooks/useTeacherClasses';
 
@@ -118,7 +119,7 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
         const fetchUser = async () => {
             if (!authUser) return;
             try {
-                const teacher = await api.getMyTeacherProfile();
+                const teacher = await getMyTeacherProfileCached();
                 if (!teacher) return;
 
                 if (!loadingPermissions) {

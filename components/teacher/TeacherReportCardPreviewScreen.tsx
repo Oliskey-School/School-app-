@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { SchoolLogoIcon, DocumentTextIcon, XCircleIcon, PublishIcon, getFormattedClassName } from '../../constants';
 import { Student, Teacher } from '../../types';
 import { useAuth } from '../../context/AuthContext';
-import { api } from '../../lib/api';
+import { getMyTeacherProfileCached } from '../../lib/queryClient';
 import { useTeacherClasses } from '../../hooks/useTeacherClasses';
 
 interface TeacherReportCardPreviewScreenProps {
@@ -34,7 +34,7 @@ const TeacherReportCardPreviewScreen: React.FC<TeacherReportCardPreviewScreenPro
         const fetchUser = async () => {
             if (!authUser) return;
             try {
-                const teacher = await api.getMyTeacherProfile();
+                const teacher = await getMyTeacherProfileCached();
                 if (!teacher) return;
 
                 if (!loadingPermissions) {

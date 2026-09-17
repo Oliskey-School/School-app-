@@ -1,4 +1,4 @@
-import React, { useState, useEffect, lazy, Suspense, useRef } from 'react';
+import React, { useState, useEffect, useCallback, lazy, Suspense, useRef } from 'react';
 import DashboardLayout from '../layout/DashboardLayout';
 import { DashboardType } from '../../types';
 import { THEME_CONFIG } from '../../constants';
@@ -6,9 +6,10 @@ import { formatSchoolId } from '../../utils/idFormatter';
 import PremiumLoader from '../ui/PremiumLoader';
 import ErrorBoundary from '../ui/ErrorBoundary';
 import { useAuth } from '../../context/AuthContext';
-import { api } from '../../lib/api';
+import { getMyTeacherProfileCached } from '../../lib/queryClient';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { lazyWithRetry } from '../../lib/lazyRetry';
+import { useDashboardRouting } from '../../hooks/useDashboardRouting';
 
 // Lazy load only the Global Search Screen as it's an overlay
 const GlobalSearchScreen = lazyWithRetry(() => import('../shared/GlobalSearchScreen'));
@@ -112,12 +113,6 @@ const DashboardSuspenseFallback = () => (
   <PremiumLoader message="Loading teacher workspace..." />
 );
 
-interface ViewStackItem {
-  view: string;
-  props?: any;
-  title: string;
-}
-
 interface TeacherDashboardProps {
   onLogout?: () => void;
   setIsHomePage?: (isHome: boolean) => void;
@@ -125,7 +120,21 @@ interface TeacherDashboardProps {
 }
 
 const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHomePage, currentUser }) => {
-   const [viewStack, setViewStack] = useState<ViewStackItem[]>([{ view: 'overview', title: 'Teacher Dashboard', props: {} }]);
+   const {
+     view, title, props: routeProps,
+     navigateTo: pushView, replaceView, handleBack, canGoBack,
+   } = useDashboardRouting('overview', 'Teacher Dashboard');
+   // navigateTo('overview', ...) used to reset the stack to a single root
+   // rather than push (see the original navigateTo below) — every other
+   // view pushed normally. Preserved as the one place this dashboard's
+   // navigateTo differs from the hook's default (always-push) behavior.
+   // Memoized: an unstable reference here made the audit-exposure effect
+   // below (whose deps include navigateTo) re-run on every single render
+   // instead of only when the underlying navigation functions change.
+   const navigateTo = useCallback((nextView: string, nextTitle: string, nextProps: any = {}) => {
+     if (nextView === 'overview') replaceView('overview', 'Teacher Dashboard', nextProps);
+     else pushView(nextView, nextTitle, nextProps);
+   }, [replaceView, pushView]);
    const [activeBottomNav, setActiveBottomNav] = useState('home');
    const [version, setVersion] = useState(0);
    const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -176,7 +185,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
           return;
       }
       
-      const data = await api.getMyTeacherProfile();
+      const data = await getMyTeacherProfileCached();
 
       if (data) {
         setTeacherId(data.id);
@@ -221,42 +230,21 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
   const forceUpdate = () => setVersion(v => v + 1);
 
   useEffect(() => {
-    const currentView = viewStack[viewStack.length - 1];
-    setIsHomePage(currentView.view === 'overview' && !isSearchOpen);
-  }, [viewStack, isSearchOpen, setIsHomePage]);
-
-  const navigateTo = (view: string, title: string, props: any = {}) => {
-    React.startTransition(() => {
-      if (view === 'overview') {
-        setViewStack([{ view: 'overview', title: 'Teacher Dashboard', props }]);
-      } else {
-        setViewStack((prev) => [...prev, { view, title, props }]);
-      }
-    });
-  };
-
-  const handleBack = () => {
-    if (viewStack.length > 1) {
-      React.startTransition(() => {
-        setViewStack((prev) => prev.slice(0, -1));
-      });
-    }
-  };
+    setIsHomePage(view === 'overview' && !isSearchOpen);
+  }, [view, isSearchOpen, setIsHomePage]);
 
   const handleBottomNavClick = (screen: string) => {
-    React.startTransition(() => {
-      setActiveBottomNav(screen);
-      switch (screen) {
-        case 'home': setViewStack([{ view: 'overview', title: 'Teacher Dashboard', props: {} }]); break;
-        case 'timetable': setViewStack([{ view: 'timetable', title: 'Timetable Dashboard', props: {} }]); break;
-        case 'lessonNotes': setViewStack([{ view: 'lessonNotesUpload', title: 'Lesson Notes', props: {} }]); break;
-        case 'reports': setViewStack([{ view: 'reports', title: 'Student Reports', props: {} }]); break;
-        case 'forum': setViewStack([{ view: 'collaborationForum', title: 'Collaboration Forum', props: {} }]); break;
-        case 'messages': setViewStack([{ view: 'messages', title: 'Messages', props: {} }]); break;
-        case 'settings': setViewStack([{ view: 'settings', title: 'Settings', props: {} }]); break;
-        default: setViewStack([{ view: 'overview', title: 'Teacher Dashboard', props: {} }]);
-      }
-    });
+    setActiveBottomNav(screen);
+    switch (screen) {
+      case 'home': replaceView('overview', 'Teacher Dashboard'); break;
+      case 'timetable': replaceView('timetable', 'Timetable Dashboard'); break;
+      case 'lessonNotes': replaceView('lessonNotesUpload', 'Lesson Notes'); break;
+      case 'reports': replaceView('reports', 'Student Reports'); break;
+      case 'forum': replaceView('collaborationForum', 'Collaboration Forum'); break;
+      case 'messages': replaceView('messages', 'Messages'); break;
+      case 'settings': replaceView('settings', 'Settings'); break;
+      default: replaceView('overview', 'Teacher Dashboard');
+    }
   };
 
   const viewComponents: any = {
@@ -355,18 +343,15 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     workloadCalculator: WorkloadCalculator,
   };
 
-  // Always resolve to a valid view — never let an empty/corrupt stack crash the dashboard.
-  const currentNavigation = viewStack[viewStack.length - 1]
-    || { view: 'overview', props: {}, title: 'Dashboard' };
-  const ComponentToRender = viewComponents[currentNavigation.view as keyof typeof viewComponents];
+  const ComponentToRender = viewComponents[view as keyof typeof viewComponents];
   // Identifies THIS exact screen (view + its data) so scroll position can be
   // remembered per screen and restored on return, while a screen never visited
   // this session still opens at the top. Computed unconditionally (before any
   // early return below) to keep hook order stable across renders.
   const scrollKey = React.useMemo(() => {
-    try { return `${currentNavigation.view}::${JSON.stringify((currentNavigation as any).props)}`; }
-    catch { return currentNavigation.view; }
-  }, [currentNavigation.view, (currentNavigation as any).props]);
+    try { return `${view}::${JSON.stringify(routeProps)}`; }
+    catch { return view; }
+  }, [view, routeProps]);
 
   // --- AUDIT SYSTEM EXPOSURE ---
   useEffect(() => {
@@ -424,13 +409,13 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     );
   }
 
-  const isFullScreen = ['messages', 'newChat', 'chat', 'learningHubResource'].includes(currentNavigation.view);
-  const hideBottomNav = currentNavigation.view === 'chat';
+  const isFullScreen = ['messages', 'newChat', 'chat', 'learningHubResource'].includes(view);
+  const hideBottomNav = view === 'chat';
 
   return (
     <DashboardLayout
-      title={currentNavigation.title}
-      onBack={viewStack.length > 1 ? handleBack : undefined}
+      title={title}
+      onBack={canGoBack ? handleBack : undefined}
       scrollKey={scrollKey}
       activeScreen={activeBottomNav}
       setActiveScreen={handleBottomNavClick}
@@ -438,19 +423,19 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
       hidePadding={isFullScreen}
       hideBottomNav={hideBottomNav}
     >
-      <div key={`${viewStack.length}-${version}`} className="w-full h-full">
+      <div key={`${view}-${version}`} className="w-full h-full">
         <ErrorBoundary
-          key={currentNavigation.view}
-          title={`${currentNavigation.title} Error`}
+          key={view}
+          title={`${title} Error`}
           message="We encountered an issue while rendering this screen. This could be due to a data mismatch or a temporary connection issue."
           onReset={forceUpdate}
         >
           {ComponentToRender ? (
             <Suspense fallback={<DashboardSuspenseFallback />}>
-              <ComponentToRender {...currentNavigation.props} {...commonProps} />
+              <ComponentToRender {...routeProps} {...commonProps} />
             </Suspense>
           ) : (
-            <div className="p-6 text-center text-gray-500">View not found: {currentNavigation.view}</div>
+            <div className="p-6 text-center text-gray-500">View not found: {view}</div>
           )}
         </ErrorBoundary>
       </div>

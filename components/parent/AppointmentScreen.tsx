@@ -14,9 +14,13 @@ interface AppointmentScreenProps {
     students: Student[];
     navigateTo: (view: string, title: string, props?: any) => void;
     studentId?: string;
+    // True while ParentDashboard's own children fetch is still in flight —
+    // `students` is [] until that resolves, which is not the same as
+    // "confirmed no children linked."
+    loading?: boolean;
 }
 
-const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, students, navigateTo, studentId }) => {
+const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, students, navigateTo, studentId, loading: studentsLoading }) => {
     const { currentSchool, currentBranchId } = useAuth();
     const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
     const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
@@ -274,6 +278,19 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
                         Book Another Appointment
                     </motion.button>
                 </motion.div>
+            </div>
+        );
+    }
+
+    // ParentDashboard's own children fetch may still be in flight — students
+    // === [] here doesn't yet mean "no children," it means "don't know yet."
+    // This used to show "No Students Linked" on every normal page load.
+    if (studentsLoading) {
+        return (
+            <div className="p-4 space-y-4 animate-pulse">
+                <div className="h-8 w-2/3 bg-gray-200 rounded-lg" />
+                <div className="h-32 bg-gray-200 rounded-2xl" />
+                <div className="h-32 bg-gray-200 rounded-2xl" />
             </div>
         );
     }

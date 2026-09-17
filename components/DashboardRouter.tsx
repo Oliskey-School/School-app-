@@ -1,13 +1,12 @@
 import React, { useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { DashboardType } from '../types';
-import { useNavigate, useLocation, Routes, Route } from 'react-router';
+import { Routes, Route } from 'react-router';
 import VerifiedAdminRoute from './auth/VerifiedAdminRoute';
 import { lazyWithRetry } from '../lib/lazyRetry';
 import { prefetchRoleChunks } from '../lib/rolePrefetch';
 
 const PremiumErrorPage = lazyWithRetry(() => import('./ui/PremiumErrorPage'));
-const NotFoundPage = lazyWithRetry(() => import('./ui/NotFoundPage'));
 
 const AdminDashboard = lazyWithRetry(() => import('./admin/AdminDashboard'));
 const SuperAdminDashboard = lazyWithRetry(() => import('./admin/SuperAdminDashboard'));
@@ -37,8 +36,6 @@ interface DashboardRouterProps {
 
 const DashboardRouter: React.FC<DashboardRouterProps> = (props) => {
     const { role, currentSchool, loading } = useAuth();
-    const navigate = useNavigate();
-    const location = useLocation();
 
     useEffect(() => {
         if (currentSchool?.primaryColor) {
@@ -46,11 +43,14 @@ const DashboardRouter: React.FC<DashboardRouterProps> = (props) => {
         }
     }, [currentSchool]);
 
-    useEffect(() => {
-        if (!loading && !role) {
-            navigate('/login');
-        }
-    }, [role, loading, navigate]);
+    // Deliberately no navigate('/login') here. There is no real /login route —
+    // Login is rendered inline by App.tsx's own `if (!user || !role)` check,
+    // at whatever URL the browser already has. Forcing a URL change to
+    // '/login' here (which nothing in the route tree matches) would strand a
+    // session-expiry mid-dashboard at a dead '/login' URL instead of letting
+    // the user land back on the exact screen they were on once they sign back
+    // in — the same URL just needs to stay put and let App.tsx's conditional
+    // do its job on the next render.
 
     // The current dashboard is already interactive by the time this router has
     // resolved the role. Warm only a small, role-safe set of likely next screens.
@@ -115,11 +115,15 @@ const DashboardRouter: React.FC<DashboardRouterProps> = (props) => {
                 } as React.CSSProperties}
             >
                 <Routes>
-                    <Route path="/" element={renderDashboard()} />
                     <Route path="/subscription" element={<SubscriptionPage {...(props as any)} />} />
                     <Route path="/upgrade" element={<SubscriptionPage {...(props as any)} />} />
                     <Route path="/external-exams" element={<ExternalExamsPage {...(props as any)} />} />
-                    <Route path="*" element={<NotFoundPage />} />
+                    {/* Every other path (including bare "/") renders the same
+                        role dashboard shell — each dashboard now reads its own
+                        screen name from the wildcard via useDashboardRouting,
+                        so this one route covers every screen instead of only
+                        the dashboard's default view. */}
+                    <Route path="/*" element={renderDashboard()} />
                 </Routes>
             </div>
         </React.Suspense>

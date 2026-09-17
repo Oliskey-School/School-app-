@@ -98,6 +98,8 @@ test('admin: a created Student survives a full page reload', async ({ page, base
     // At least one class enrolment is required (the scrollable "Class Enrollments" box).
     // Prefer a real level (JSS/SSS/Primary/Basic/Grade) over any malformed demo class
     // so the student lands in a normal stage rather than the "preschool/Unassigned" bucket.
+    // The UI enrolls a new student into exactly one class, so this list is rendered as
+    // radio inputs (single-select), not checkboxes.
     const classLabels = page.locator('div.max-h-48 label');
     const classCount = await classLabels.count();
     test.skip(classCount === 0, 'Demo school has no classes to enrol — cannot exercise student persistence');
@@ -106,12 +108,12 @@ test('admin: a created Student survives a full page reload', async ({ page, base
         const label = classLabels.nth(i);
         const text = (await label.innerText().catch(() => '')) || '';
         if (/JSS|SSS|Primary|Basic|Grade|Year|Nursery/i.test(text)) {
-            await label.locator('input[type="checkbox"]').check();
+            await label.locator('input[type="radio"]').check();
             picked = true;
             break;
         }
     }
-    if (!picked) await classLabels.first().locator('input[type="checkbox"]').check();
+    if (!picked) await classLabels.first().locator('input[type="radio"]').check();
 
     const saveBtn = page.getByRole('button', { name: /^(Save Student|Update Student)$/i });
     await saveBtn.scrollIntoViewIfNeeded().catch(() => { });

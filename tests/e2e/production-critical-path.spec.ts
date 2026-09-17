@@ -13,10 +13,44 @@ import { test, expect, Page, APIRequestContext } from '@playwright/test';
  * rather than one all-or-nothing run.
  */
 
+// Diagnostic only, temporary: forwards the browser's own console/error/network
+// activity into CI's stdout, which IS captured reliably (unlike the
+// .playwright-results/ trace+screenshot artifacts, which this suite's own
+// error messages reference by path but which have not actually been showing
+// up in this workflow's uploads). Every failing test in this file goes
+// through loginAsDemo, and CI evidence gathered so far shows the backend
+// receiving literally zero requests from these tests (not even a page load's
+// worth of translate/collect calls) — meaning the page itself is not
+// mounting/becoming interactive, not that a click or a network call is
+// failing. This is the fastest way to find out why without another blind
+// round-trip.
+function attachDiagnostics(page: Page, label: string) {
+    // Errors only — a passing run stays quiet, a failing one explains itself.
+    // Forwarding every console.log as well made a green run unreadable.
+    page.on('console', (msg) => {
+        if (msg.type() === 'error' || msg.type() === 'warning') {
+            console.log(`[BROWSER:${label}][${msg.type()}]`, msg.text());
+        }
+    });
+    page.on('pageerror', (err) => console.log(`[PAGEERROR:${label}]`, err.message, err.stack || ''));
+    page.on('requestfailed', (req) => console.log(`[REQUESTFAILED:${label}]`, req.url(), req.failure()?.errorText));
+    page.on('response', (r) => {
+        if (r.status() >= 400) console.log(`[HTTP:${label}]`, r.status(), r.url());
+    });
+}
+
 async function loginAsDemo(page: Page, baseURL: string, role: 'admin' | 'teacher' | 'student' | 'parent') {
+    attachDiagnostics(page, `loginAsDemo:${role}`);
     await page.goto(baseURL, { waitUntil: 'domcontentloaded' });
+    console.log(`[DIAG] navigated to ${baseURL}, current URL: ${page.url()}`);
     const demoBtn = page.getByRole('button', { name: /Try Demo School/i });
-    await demoBtn.waitFor({ state: 'visible', timeout: 30_000 });
+    try {
+        await demoBtn.waitFor({ state: 'visible', timeout: 30_000 });
+    } catch (e) {
+        const bodyText = await page.locator('body').innerText().catch(() => '(could not read body)');
+        console.log(`[DIAG] "Try Demo School" never became visible. Body text follows:\n${bodyText.slice(0, 2000)}`);
+        throw e;
+    }
     await demoBtn.click();
     const tile = page.locator(`button:has-text("${role}")`).first();
     await tile.waitFor({ state: 'visible', timeout: 10_000 });
@@ -84,12 +118,23 @@ async function onboardThrowawaySchool(request: APIRequestContext, apiBase: strin
 test.describe('Production critical path', () => {
 
     test('Login', async ({ page, baseURL }) => {
+        // loginAsAdminWithHook alone waits up to 60s for window.ADMIN_NAVIGATE,
+        // on top of loginAsDemo's own up to 40s for the demo button + role tile
+        // — comfortably more than Playwright's 30s default test timeout, which
+        // this test (and several below) had relied on implicitly by getting
+        // lucky on faster/warmer environments. A slower CI runner + a genuinely
+        // fresh database makes the real end-to-end time exceed 30s, so the test
+        // was cut off mid-wait regardless of whether login would have actually
+        // succeeded. 'Student creation'/'Student editing' below already learned
+        // this the same way; giving every test here the same headroom.
+        test.setTimeout(90_000);
         await loginAsAdminWithHook(page, baseURL!);
         const hasNav = await page.evaluate(() => typeof (window as any).ADMIN_NAVIGATE === 'function');
         expect(hasNav).toBe(true);
     });
 
     test('Dashboard loading', async ({ page, baseURL }) => {
+        test.setTimeout(90_000);
         const serverErrors = trackServerErrors(page);
         await loginAsAdminWithHook(page, baseURL!);
         await navigateAdmin(page, 'dashboard');
@@ -252,7 +297,7 @@ test.describe('Production critical path', () => {
     });
 
     test('Student editing', async ({ page, baseURL }) => {
-        test.setTimeout(60_000);
+        test.setTimeout(90_000);
         await loginAsAdminWithHook(page, baseURL!);
         await navigateAdmin(page, 'studentList');
 
@@ -304,6 +349,7 @@ test.describe('Production critical path', () => {
     });
 
     test('Attendance', async ({ page, baseURL }) => {
+        test.setTimeout(90_000);
         await loginAsAdminWithHook(page, baseURL!);
         const views: string[] = await page.evaluate(() => (window as any).ADMIN_COMPONENTS || []);
         const attView = views.find((v) => /attendance/i.test(v));
@@ -314,6 +360,7 @@ test.describe('Production critical path', () => {
     });
 
     test('Results', async ({ page, baseURL }) => {
+        test.setTimeout(90_000);
         await loginAsAdminWithHook(page, baseURL!);
         const views: string[] = await page.evaluate(() => (window as any).ADMIN_COMPONENTS || []);
         const resultView = views.find((v) => /result/i.test(v));
@@ -324,6 +371,7 @@ test.describe('Production critical path', () => {
     });
 
     test('Logout', async ({ page, baseURL }) => {
+        test.setTimeout(90_000);
         await loginAsAdminWithHook(page, baseURL!);
         await page.evaluate(() => sessionStorage.clear());
         await page.goto(baseURL!, { waitUntil: 'domcontentloaded' });
@@ -331,6 +379,7 @@ test.describe('Production critical path', () => {
     });
 
     test('Role permissions — a teacher cannot reach admin-only data', async ({ page, baseURL }) => {
+        test.setTimeout(90_000);
         await loginAsDemo(page, baseURL!, 'teacher');
         await page.waitForTimeout(3000);
         const token = await page.evaluate(() => sessionStorage.getItem('auth_token'));

@@ -103,9 +103,9 @@ const ReportCardView: React.FC<{ report: ReportCard, student?: Student, schoolNa
                             {report.academicRecords.map((record, i) => (
                                 <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                                     <td className={`sticky left-0 z-[5] p-1.5 border border-gray-200 font-semibold text-gray-800 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)] ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>{record.subject}</td>
-                                    <td className="p-1.5 border border-gray-200 text-center text-gray-700">{record.test1 || '-'}</td>
-                                    <td className="p-1.5 border border-gray-200 text-center text-gray-700">{record.test2 || '-'}</td>
-                                    <td className="p-1.5 border border-gray-200 text-center text-gray-700">{record.exam || '-'}</td>
+                                    <td className="p-1.5 border border-gray-200 text-center text-gray-700">{record.test1 ?? '-'}</td>
+                                    <td className="p-1.5 border border-gray-200 text-center text-gray-700">{record.test2 ?? '-'}</td>
+                                    <td className="p-1.5 border border-gray-200 text-center text-gray-700">{record.exam ?? '-'}</td>
                                     <td className="p-1.5 border border-gray-200 text-center font-bold text-gray-900">{record.total}</td>
                                     <td className="p-1.5 border border-gray-200 text-center font-bold">{record.grade}</td>
                                     <td className="p-1.5 border border-gray-200 italic text-gray-500 text-xs">{record.remark}</td>

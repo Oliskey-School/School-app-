@@ -33,7 +33,7 @@ export const DigitalReportCard: React.FC<ReportProps> = ({ summary, grades, scho
                 </div>
                 <div className="bg-blue-50 p-4 rounded-2xl text-center">
                     <p className="text-xs font-bold text-blue-400 uppercase mb-1">Attendance</p>
-                    <p className="text-2xl font-black text-blue-700">{summary.attendance_count || 'N/A'}</p>
+                    <p className="text-2xl font-black text-blue-700">{summary.attendance_count ?? 'N/A'}</p>
                 </div>
                 <div className="bg-purple-50 p-4 rounded-2xl text-center">
                     <p className="text-xs font-bold text-purple-400 uppercase mb-1">Grade</p>

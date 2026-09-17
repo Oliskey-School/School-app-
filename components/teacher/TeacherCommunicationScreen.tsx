@@ -4,6 +4,7 @@ import { AnnouncementCategory, Notice } from '../../types';
 import { CameraIcon, StopIcon, XCircleIcon, VideoIcon } from '../../constants';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
+import { getMyTeacherProfileCached } from '../../lib/queryClient';
 
 import { useTeacherClasses } from '../../hooks/useTeacherClasses';
 
@@ -41,7 +42,7 @@ const TeacherCommunicationScreen: React.FC = () => {
             if (!user) return;
             // Get Teacher via backend API
             try {
-                const teacher = await api.getMyTeacherProfile();
+                const teacher = await getMyTeacherProfileCached();
                 if (teacher) {
                     setTeacherName(teacher.name || teacher.full_name || '');
                     setSchoolId(teacher.school_id || '');
@@ -228,7 +229,12 @@ const TeacherCommunicationScreen: React.FC = () => {
                                             </button>
                                         );
                                     })}
-                                    {classes.length === 0 && <p className="text-sm text-gray-500 col-span-2">No classes found assigned to you.</p>}
+                                    {classesLoading && <p className="text-sm text-gray-500 col-span-2">Loading your classes…</p>}
+                                    {/* classesLoading gates fetchMeta (see effect above) but not this
+                                        render — `classes` stays [] for the whole loading window, which
+                                        used to show "No classes found" before the fetch had a chance to
+                                        finish, not just when it genuinely came back empty. */}
+                                    {!classesLoading && classes.length === 0 && <p className="text-sm text-gray-500 col-span-2">No classes found assigned to you.</p>}
                                 </div>
                             </div>
 
