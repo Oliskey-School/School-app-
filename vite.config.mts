@@ -96,6 +96,28 @@ export default defineConfig(async ({ mode }) => {
     },
     plugins: [
       react(),
+      // APP_VERSION is inlined from package.json in `define` below, which Vite
+      // evaluates once when the dev server starts. A version bump while the
+      // server keeps running therefore leaves the browser on a bundle stamped
+      // with the OLD number while the backend (tsx watch restarts it) registers
+      // the NEW one — the app then shows a mandatory "System Update Required"
+      // that no reload can satisfy, because the dev server keeps serving the
+      // same stale constant. Vite already restarts itself when the config or
+      // .env files change; package.json belongs in that set for the same reason.
+      {
+        name: 'oliskey:restart-on-package-json-change',
+        apply: 'serve',
+        configureServer(server) {
+          const packageJsonPath = path.resolve(__dirname, 'package.json');
+          server.watcher.add(packageJsonPath);
+          server.watcher.on('change', (changed) => {
+            if (path.resolve(changed) === packageJsonPath) {
+              server.config.logger.info('package.json changed — restarting dev server so APP_VERSION is re-read', { timestamp: true });
+              server.restart();
+            }
+          });
+        },
+      },
       ...(process.env.ANALYZE_BUNDLE === 'true' ? [(await import('rollup-plugin-visualizer')).visualizer({
         filename: 'bundle-analysis.html',
         template: 'treemap',
@@ -180,7 +202,11 @@ export default defineConfig(async ({ mode }) => {
     } : undefined,
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.VITE_GEMINI_API_KEY),
-      'process.env.APP_VERSION': JSON.stringify(env.VITE_APP_VERSION || process.env.npm_package_version || packageJson.version || '0.5.38')
+      // package.json is read afresh on every (re)start; npm_package_version is
+      // stamped into the environment once by npm/npx at process launch and is
+      // still the OLD number after the restart-on-package.json-change plugin
+      // above re-resolves this config, so it must not shadow the file.
+      'process.env.APP_VERSION': JSON.stringify(env.VITE_APP_VERSION || packageJson.version || process.env.npm_package_version || '0.5.38')
     },
     build: {
       minify: 'esbuild',
