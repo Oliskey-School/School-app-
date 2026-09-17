@@ -1,4 +1,4 @@
-import React, { useState, useEffect, lazy, Suspense, useRef } from 'react';
+import React, { useState, useEffect, useCallback, lazy, Suspense, useRef } from 'react';
 import DashboardLayout from '../layout/DashboardLayout';
 import { DashboardType } from '../../types';
 import { THEME_CONFIG } from '../../constants';
@@ -128,10 +128,13 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
    // rather than push (see the original navigateTo below) — every other
    // view pushed normally. Preserved as the one place this dashboard's
    // navigateTo differs from the hook's default (always-push) behavior.
-   const navigateTo = (nextView: string, nextTitle: string, nextProps: any = {}) => {
+   // Memoized: an unstable reference here made the audit-exposure effect
+   // below (whose deps include navigateTo) re-run on every single render
+   // instead of only when the underlying navigation functions change.
+   const navigateTo = useCallback((nextView: string, nextTitle: string, nextProps: any = {}) => {
      if (nextView === 'overview') replaceView('overview', 'Teacher Dashboard', nextProps);
      else pushView(nextView, nextTitle, nextProps);
-   };
+   }, [replaceView, pushView]);
    const [activeBottomNav, setActiveBottomNav] = useState('home');
    const [version, setVersion] = useState(0);
    const [isSearchOpen, setIsSearchOpen] = useState(false);

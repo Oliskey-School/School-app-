@@ -80,12 +80,26 @@ export function useDashboardRouting(defaultView: string, defaultTitle: string): 
     // counter driven off that: PUSH grows it, POP (back/forward) shrinks it,
     // REPLACE (tab switches — the old setViewStack([{...}]) "reset to one
     // root" calls) resets it to 0.
+    //
+    // Both the "have we already seen this location.key" check AND the depth
+    // itself live in useState (React's documented-safe "adjust state during
+    // render" pattern — see react.dev/reference/react/useState#storing-information-from-previous-renders),
+    // not a useRef mutated inline. A ref written during render is not safe
+    // under concurrent rendering: React can invoke a component's render
+    // function more than once for a single update (and discard a result),
+    // and a raw ref mutation is not undone when that happens, so a second
+    // invocation would see the ref already updated and silently skip the
+    // depth update the first (discarded) pass "consumed" — observed in
+    // practice as React logging "error during concurrent rendering... was
+    // able to recover" under rapid, repeated navigation. Two state values
+    // are replay-safe: every render (re-tried or not) computes the same
+    // depth from the same last-committed (prevKey, depth) pair.
+    const [prevKey, setPrevKey] = useState(location.key);
     const [depth, setDepth] = useState(0);
-    const lastKeyRef = useRef(location.key);
-    if (lastKeyRef.current !== location.key) {
-        lastKeyRef.current = location.key;
-        if (navigationType === 'PUSH') setDepth(d => d + 1);
-        else if (navigationType === 'POP') setDepth(d => Math.max(0, d - 1));
+    if (prevKey !== location.key) {
+        setPrevKey(location.key);
+        if (navigationType === 'PUSH') setDepth(depth + 1);
+        else if (navigationType === 'POP') setDepth(Math.max(0, depth - 1));
         else if (navigationType === 'REPLACE') setDepth(0);
     }
 
