@@ -13,10 +13,38 @@ import { test, expect, Page, APIRequestContext } from '@playwright/test';
  * rather than one all-or-nothing run.
  */
 
+// Diagnostic only, temporary: forwards the browser's own console/error/network
+// activity into CI's stdout, which IS captured reliably (unlike the
+// .playwright-results/ trace+screenshot artifacts, which this suite's own
+// error messages reference by path but which have not actually been showing
+// up in this workflow's uploads). Every failing test in this file goes
+// through loginAsDemo, and CI evidence gathered so far shows the backend
+// receiving literally zero requests from these tests (not even a page load's
+// worth of translate/collect calls) — meaning the page itself is not
+// mounting/becoming interactive, not that a click or a network call is
+// failing. This is the fastest way to find out why without another blind
+// round-trip.
+function attachDiagnostics(page: Page, label: string) {
+    page.on('console', (msg) => console.log(`[BROWSER:${label}][${msg.type()}]`, msg.text()));
+    page.on('pageerror', (err) => console.log(`[PAGEERROR:${label}]`, err.message, err.stack || ''));
+    page.on('requestfailed', (req) => console.log(`[REQUESTFAILED:${label}]`, req.url(), req.failure()?.errorText));
+    page.on('response', (r) => {
+        if (r.status() >= 400) console.log(`[HTTP:${label}]`, r.status(), r.url());
+    });
+}
+
 async function loginAsDemo(page: Page, baseURL: string, role: 'admin' | 'teacher' | 'student' | 'parent') {
+    attachDiagnostics(page, `loginAsDemo:${role}`);
     await page.goto(baseURL, { waitUntil: 'domcontentloaded' });
+    console.log(`[DIAG] navigated to ${baseURL}, current URL: ${page.url()}`);
     const demoBtn = page.getByRole('button', { name: /Try Demo School/i });
-    await demoBtn.waitFor({ state: 'visible', timeout: 30_000 });
+    try {
+        await demoBtn.waitFor({ state: 'visible', timeout: 30_000 });
+    } catch (e) {
+        const bodyText = await page.locator('body').innerText().catch(() => '(could not read body)');
+        console.log(`[DIAG] "Try Demo School" never became visible. Body text follows:\n${bodyText.slice(0, 2000)}`);
+        throw e;
+    }
     await demoBtn.click();
     const tile = page.locator(`button:has-text("${role}")`).first();
     await tile.waitFor({ state: 'visible', timeout: 10_000 });
