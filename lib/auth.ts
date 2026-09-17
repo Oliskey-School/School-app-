@@ -2,6 +2,7 @@
 // sites below unchanged while leaving the full client (and its ~600 domain
 // methods) off the first-paint bundle.
 import * as api from './api/eager';
+import { apiCore } from './api/core';
 import { emailTemplates } from './emailTemplates';
 import bcrypt from 'bcryptjs';
 
@@ -47,7 +48,7 @@ export const createUserAccount = async (
     const username = generateUsername(fullName, userType);
     const password = generatePassword(surname);
 
-    const data = await api.post<any>('/auth/create-user', {
+    const data = await apiCore.post<any>('/auth/create-user', {
       email,
       password,
       username,
@@ -87,7 +88,7 @@ export const checkEmailExists = async (email: string): Promise<{
   error?: string | null;
 }> => {
   try {
-    const data = await api.get<any>(`/auth/check-email?email=${encodeURIComponent(email)}`);
+    const data = await apiCore.get<any>(`/auth/check-email?email=${encodeURIComponent(email)}`);
 
     return {
       inUsers: data.exists,
@@ -156,7 +157,7 @@ export const authenticateUser = async (
  */
 export const checkUsernameExists = async (username: string): Promise<boolean> => {
   try {
-    const data = await api.get<any>(`/auth/check-username?username=${encodeURIComponent(username)}`);
+    const data = await apiCore.get<any>(`/auth/check-username?username=${encodeURIComponent(username)}`);
     return data.exists;
   } catch {
     return false;
