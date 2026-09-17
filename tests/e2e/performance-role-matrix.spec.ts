@@ -137,28 +137,7 @@ test.describe('production role performance matrix', () => {
                         else serverErrors.push(entry);
                     }
                 };
-                // React's own concurrent-rendering recovery diagnostic — thrown (so it
-                // reaches pageerror) but explicitly self-reported as handled: React
-                // detected an inconsistency during a low-priority (startTransition)
-                // render pass and recovered by re-rendering synchronously from the
-                // root. Confirmed via extensive live reproduction that this is not a
-                // silent data-loss or broken-screen case (the resulting UI is correct
-                // afterward) — it surfaces only under this suite's rapid, tightly
-                // back-to-back navigateTo() calls, far faster than any real user
-                // interaction, and does not reproduce under realistic click-and-wait
-                // navigation (every-button / real-school-audit suites, both clean).
-                // Tracked for visibility, not treated as a release-blocking crash the
-                // way a genuinely uncaught, unrecovered error is.
-                const isRecoveredConcurrentRenderError = (message: string) =>
-                    /error during concurrent rendering.*was able to recover/i.test(message);
-                const recoveredRenderWarnings: string[] = [];
-                const onPageError = (error: Error) => {
-                    if (isRecoveredConcurrentRenderError(error.message)) {
-                        recoveredRenderWarnings.push(error.message);
-                    } else {
-                        pageErrors.push(error.message);
-                    }
-                };
+                const onPageError = (error: Error) => pageErrors.push(error.message);
                 page.on('request', onRequest);
                 page.on('response', onResponse);
                 page.on('pageerror', onPageError);
@@ -195,7 +174,6 @@ test.describe('production role performance matrix', () => {
                     fiveXX: serverErrors.length,
                     aiServiceErrors: aiServiceErrors.length,
                     pageErrors: pageErrors.length,
-                    recoveredRenderWarnings: recoveredRenderWarnings.length,
                     result: serverErrors.length === 0 && pageErrors.length === 0 ? 'PASS' : 'FAIL',
                 });
 

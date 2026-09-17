@@ -25,7 +25,13 @@ import { test, expect, Page, APIRequestContext } from '@playwright/test';
 // failing. This is the fastest way to find out why without another blind
 // round-trip.
 function attachDiagnostics(page: Page, label: string) {
-    page.on('console', (msg) => console.log(`[BROWSER:${label}][${msg.type()}]`, msg.text()));
+    // Errors only — a passing run stays quiet, a failing one explains itself.
+    // Forwarding every console.log as well made a green run unreadable.
+    page.on('console', (msg) => {
+        if (msg.type() === 'error' || msg.type() === 'warning') {
+            console.log(`[BROWSER:${label}][${msg.type()}]`, msg.text());
+        }
+    });
     page.on('pageerror', (err) => console.log(`[PAGEERROR:${label}]`, err.message, err.stack || ''));
     page.on('requestfailed', (req) => console.log(`[REQUESTFAILED:${label}]`, req.url(), req.failure()?.errorText));
     page.on('response', (r) => {
