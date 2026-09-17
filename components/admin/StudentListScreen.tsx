@@ -1,6 +1,6 @@
 ﻿
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-hot-toast';
@@ -14,6 +14,7 @@ import {
 } from '../../constants';
 import CenteredLoader from '../ui/CenteredLoader';
 import LoadingState from '../ui/LoadingState';
+import LowDataImage from '../ui/LowDataImage';
 import { Student } from '../../types';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
@@ -93,7 +94,7 @@ const StudentRow: React.FC<{
           whileTap={{ scale: 0.95 }}
           className="w-10 h-10 rounded-full object-cover flex-shrink-0 overflow-hidden bg-gray-100"
         >
-          <img
+          <LowDataImage
             src={student.avatarUrl || student.avatar_url || `https://ui-avatars.com/api/?name=${student.name}`}
             alt={student.name}
             className="w-full h-full"
@@ -312,6 +313,79 @@ interface StudentListScreenProps {
   schoolId?: string;
 }
 
+// Maps a roster row from the API into the shape StudentRow / the profile screen expect.
+const mapStudent = (s: any) => ({
+  id: s.id,
+  schoolId: s.school_id || s.schoolId,
+  schoolGeneratedId: s.school_generated_id || s.schoolGeneratedId,
+  name: s.name || s.full_name || '',
+  email: s.email || '',
+  avatarUrl: s.avatar_url || s.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${s.name || s.full_name || 'student'}`,
+  grade: s.grade,
+  section: s.section,
+  department: s.department,
+  attendanceStatus: s.attendance_status || s.attendanceStatus || 'Absent',
+  birthday: s.birthday,
+  classId: s.class_id || s.classId,
+  status: s.status,
+  initial_password: s.user?.initial_password || s.initial_password
+});
+
+// Graduated/Transferred students live exclusively in the Past Students archive —
+// they must never appear (or count) in the active roster.
+const isCurrentStudent = (s: any) => s.status !== 'Graduated' && s.status !== 'Transferred';
+
+/** One class group's headcount, derived from /students/summary. */
+interface ClassGroup {
+  name: string;
+  grade: number | null;
+  // Every (section) this display name covers — normally exactly one.
+  sections: Array<string | null>;
+  total: number;
+}
+
+const classNameFor = (grade: number | null | undefined, section: string | null | undefined) =>
+  grade === null || grade === undefined ? 'Unassigned' : getFormattedClassName(grade, section);
+
+// The roster used to be fetched whole (every student in the school, ~1KB each:
+// 1.5MB at 1,500 students — half a minute on a 400kbps link) and grouped on the
+// client. Sections start collapsed, so a class's rows are only needed when the
+// admin opens it: this fetches just that group, on mount, i.e. on expand
+// (the accordions render no children while closed).
+const ClassStudents: React.FC<{
+  schoolId: string;
+  branchId?: string;
+  group: ClassGroup;
+  statusFilter: 'All' | StudentStatus;
+  onSelect: (student: Student) => void;
+  onStatusChange: (student: any, newStatus: StudentStatus) => void;
+}> = ({ schoolId, branchId, group, statusFilter, onSelect, onStatusChange }) => {
+  const single = group.sections.length === 1;
+  const { data: rows = [], isLoading, isError, refetch } = useQuery({
+    queryKey: ['students', schoolId, branchId, 'class', group.grade, single ? group.sections[0] : '*', statusFilter],
+    queryFn: async () => {
+      // A display name normally maps to one (grade, section). If it covers
+      // several (e.g. a null and an empty section), fetch the grade once and
+      // keep only this group's sections.
+      const raw = await api.getStudentsInClassGroup(schoolId, branchId, group.grade, single ? group.sections[0] : undefined, statusFilter);
+      const wanted = new Set(group.sections.map(s => s ?? null));
+      return (raw || []).filter(isCurrentStudent).filter((s: any) => single || wanted.has(s.section ?? null)).map(mapStudent);
+    },
+    staleTime: 1000 * 60 * 5,
+  });
+
+  if (isLoading) return <LoadingState type="list" rows={Math.min(group.total, 4)} className="p-1" />;
+  if (isError) {
+    return (
+      <div className="flex items-center justify-between px-2 py-1.5 text-sm text-gray-500">
+        <span>Couldn't load this class.</span>
+        <button onClick={() => refetch()} className="font-semibold text-indigo-600 hover:text-indigo-700">Retry</button>
+      </div>
+    );
+  }
+  return <>{rows.map((s: Student) => <StudentRow key={s.id} student={s} onSelect={onSelect} onStatusChange={onStatusChange} />)}</>;
+};
+
 const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateTo, currentBranchId, schoolId: propSchoolId }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'stage' | 'class'>('stage');
@@ -326,39 +400,42 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
   const queryClient = useQueryClient();
 
   const schoolId = propSchoolId || profile?.schoolId || profile?.school_id || user?.user_metadata?.school_id;
+  const branchArg = currentBranchId || undefined;
+  // Prefix for every roster query on this screen (summary, per-class, search),
+  // so one invalidation refreshes whichever of them are on screen.
   const queryKey = ['students', schoolId, currentBranchId];
 
-  const { data: students = [], isLoading, isError, error: fetchError, refetch } = useQuery({
-    queryKey,
-    queryFn: async () => {
-      if (!schoolId) return [];
-      const rawData = await api.getStudents(schoolId, currentBranchId || undefined, { includeUntagged: true });
-      // Graduated/Transferred students live exclusively in the Past Students
-      // archive now — they must never appear (or count) in the active roster.
-      const currentOnly = (rawData || []).filter((s: any) => s.status !== 'Graduated' && s.status !== 'Transferred');
-      return currentOnly.map((s: any) => ({
-        id: s.id,
-        schoolId: s.school_id || s.schoolId,
-        schoolGeneratedId: s.school_generated_id || s.schoolGeneratedId,
-        name: s.name || s.full_name || '',
-        email: s.email || '',
-        avatarUrl: s.avatar_url || s.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${s.name || s.full_name || 'student'}`,
-        grade: s.grade,
-        section: s.section,
-        department: s.department,
-        attendanceStatus: s.attendance_status || s.attendanceStatus || 'Absent',
-        birthday: s.birthday,
-        classId: s.class_id || s.classId,
-        status: s.status,
-        initial_password: s.user?.initial_password || s.initial_password
-      }));
-    },
+  // Headcounts per class group: a few hundred bytes, replaces the whole-roster fetch.
+  const { data: summary = [], isLoading, isError, error: fetchError, refetch } = useQuery({
+    queryKey: [...queryKey, 'summary'],
+    queryFn: async () => (schoolId ? api.getStudentSummary(schoolId, branchArg) : []),
     enabled: !!schoolId,
     staleTime: 1000 * 60 * 5,
   });
 
+  // A closed section renders none of its rows, so while the roster is filtered
+  // by a search term a closed section can swallow the only match and the search
+  // reads as broken. Sections stay force-opened for as long as a term is active;
+  // clearing it restores whatever the user had expanded.
+  const isSearching = searchTerm.trim().length > 0;
+
+  // Search is server-side now (the client no longer holds the roster), so it
+  // waits for typing to pause rather than firing a request per keystroke.
+  const [debouncedTerm, setDebouncedTerm] = useState('');
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedTerm(searchTerm.trim()), 300);
+    return () => window.clearTimeout(t);
+  }, [searchTerm]);
+
+  const { data: searchResults = [], isLoading: searchLoading, isError: searchError } = useQuery({
+    queryKey: [...queryKey, 'search', debouncedTerm, statusFilter],
+    queryFn: async () => (await api.searchStudents(schoolId, branchArg, debouncedTerm, statusFilter)).filter(isCurrentStudent).map(mapStudent),
+    enabled: !!schoolId && debouncedTerm.length > 0,
+    staleTime: 1000 * 60,
+  });
+
   useAutoSync(['students'], () => {
-    refetch();
+    queryClient.invalidateQueries({ queryKey });
   });
 
   const handleStudentSelect = (student: Student) => {
@@ -392,117 +469,127 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
     }
   };
 
-  // A closed section renders none of its rows, so while the roster is filtered
-  // by a search term a closed section can swallow the only match and the search
-  // reads as broken. Sections stay force-opened for as long as a term is active;
-  // clearing it restores whatever the user had expanded.
-  const isSearching = searchTerm.trim().length > 0;
+  // Class groups (with headcounts) that survive the status filter and the
+  // grade/section `filter` prop — the same population the old client-side
+  // filtering produced, minus the rows.
+  const groups = useMemo<ClassGroup[]>(() => {
+    const byName = new Map<string, ClassGroup>();
+    for (const r of summary) {
+      if (statusFilter !== 'All' && (r.status || 'Active') !== statusFilter) continue;
+      if (filter && (r.grade !== filter.grade || (filter.section && r.section !== filter.section))) continue;
+      const name = classNameFor(r.grade, r.section);
+      const g = byName.get(name) || { name, grade: r.grade, sections: [], total: 0 };
+      const sec = r.section ?? null;
+      if (!g.sections.includes(sec)) g.sections.push(sec);
+      g.total += r.count;
+      byName.set(name, g);
+    }
+    return [...byName.values()];
+  }, [summary, statusFilter, filter]);
 
+  // Search results are already rows, so they group exactly as the roster used to.
   const filteredStudentsList = useMemo(() => {
-    return students.filter(student => {
-      const nameMatch = (student.name || '').toLowerCase().includes(searchTerm.toLowerCase());
-      const statusMatch = statusFilter === 'All' || (student.status || 'Active') === statusFilter;
+    if (!isSearching) return [] as Student[];
+    return searchResults.filter(student => {
       if (filter) {
         const gradeMatch = student.grade === filter.grade;
         const sectionMatch = !filter.section || student.section === filter.section;
-        return gradeMatch && sectionMatch && nameMatch && statusMatch;
+        return gradeMatch && sectionMatch;
       }
-      return nameMatch && statusMatch;
+      return true;
     });
-  }, [searchTerm, students, filter, statusFilter]);
+  }, [isSearching, searchResults, filter]);
 
-  const studentsByStageAndClass = useMemo(() => {
-    const stages: {
-      primary: {
-        lower: { [className: string]: Student[] };
-        upper: { [className: string]: Student[] };
-      };
-      junior: { [className: string]: Student[] };
-      senior: { [className: string]: Student[] };
-      preschool: { [className: string]: Student[] };
-    } = { primary: { lower: {}, upper: {} }, junior: {}, senior: {}, preschool: {} };
+  const sortClassNames = (names: string[]) => [...names].sort((a, b) => {
+    const gradeA = parseInt(a.match(/\d+/)?.[0] || '0');
+    const gradeB = parseInt(b.match(/\d+/)?.[0] || '0');
+    if (gradeA !== gradeB) return gradeB - gradeA;
+    const sectionA = a.match(/[A-Z]/)?.[0] || '';
+    const sectionB = b.match(/[A-Z]/)?.[0] || '';
+    return sectionA.localeCompare(sectionB);
+  });
 
-    filteredStudentsList.forEach(student => {
-      const className = student.grade !== null && student.grade !== undefined ? getFormattedClassName(student.grade, student.section) : 'Unassigned';
+  type Stage = 'preschool' | 'lower' | 'upper' | 'junior' | 'senior';
+  const stageOf = (grade: number | null): Stage => {
+    if (grade === null || grade === undefined) return 'preschool';
+    if (grade <= 0) return 'preschool';
+    if (grade <= 3) return 'lower';
+    if (grade <= 6) return 'upper';
+    if (grade <= 9) return 'junior';
+    return 'senior';
+  };
 
-      if (student.grade === null || student.grade === undefined) {
-        if (!stages.preschool['Unassigned']) stages.preschool['Unassigned'] = [];
-        stages.preschool['Unassigned'].push(student);
-      } else if (student.grade <= 0) {
-        if (!stages.preschool[className]) stages.preschool[className] = [];
-        stages.preschool[className].push(student);
-      } else if (student.grade >= 1 && student.grade <= 3) {
-        if (!stages.primary.lower[className]) stages.primary.lower[className] = [];
-        stages.primary.lower[className].push(student);
-      } else if (student.grade >= 4 && student.grade <= 6) {
-        if (!stages.primary.upper[className]) stages.primary.upper[className] = [];
-        stages.primary.upper[className].push(student);
-      } else if (student.grade >= 7 && student.grade <= 9) {
-        if (!stages.junior[className]) stages.junior[className] = [];
-        stages.junior[className].push(student);
-      } else if (student.grade >= 10) {
-        if (!stages.senior[className]) stages.senior[className] = [];
-        stages.senior[className].push(student);
-      }
+  // Stage -> ordered class groups. From the summary normally; from the search
+  // results (as synthetic groups whose rows are already loaded) while searching.
+  const groupsByStage = useMemo(() => {
+    const stages: Record<Stage, ClassGroup[]> = { preschool: [], lower: [], upper: [], junior: [], senior: [] };
+    const source: ClassGroup[] = isSearching
+      ? (() => {
+          const byName = new Map<string, ClassGroup>();
+          filteredStudentsList.forEach(student => {
+            const grade = student.grade === null || student.grade === undefined ? null : student.grade;
+            const name = classNameFor(grade, student.section);
+            const g = byName.get(name) || { name, grade, sections: [student.section ?? null], total: 0 };
+            g.total += 1;
+            byName.set(name, g);
+          });
+          return [...byName.values()];
+        })()
+      : groups;
+    source.forEach(g => stages[stageOf(g.grade)].push(g));
+    (Object.keys(stages) as Stage[]).forEach(k => {
+      const order = sortClassNames(stages[k].map(g => g.name));
+      stages[k] = order.map(n => stages[k].find(g => g.name === n)!);
     });
-
-    const sortClasses = (classGroup: { [className: string]: Student[] }) => {
-      const sortedClasses = Object.keys(classGroup).sort((a, b) => {
-        const gradeA = parseInt(a.match(/\d+/)?.[0] || '0');
-        const gradeB = parseInt(b.match(/\d+/)?.[0] || '0');
-        if (gradeA !== gradeB) return gradeB - gradeA;
-        const sectionA = a.match(/[A-Z]/)?.[0] || '';
-        const sectionB = b.match(/[A-Z]/)?.[0] || '';
-        return sectionA.localeCompare(sectionB);
-      });
-      const sortedGroup: { [className: string]: Student[] } = {};
-      sortedClasses.forEach(cn => { sortedGroup[cn] = classGroup[cn]; });
-      return sortedGroup;
-    };
-
-    stages.primary.lower = sortClasses(stages.primary.lower);
-    stages.primary.upper = sortClasses(stages.primary.upper);
-    stages.junior = sortClasses(stages.junior);
-    stages.senior = sortClasses(stages.senior);
-    stages.preschool = sortClasses(stages.preschool);
-
     return stages;
-  }, [filteredStudentsList]);
+  }, [isSearching, filteredStudentsList, groups]);
 
-  const studentsByClass = useMemo(() => {
-    const classes: Record<string, Student[]> = {};
+  const searchRowsByClass = useMemo(() => {
+    const byName: Record<string, Student[]> = {};
     filteredStudentsList.forEach(student => {
-      const className = getFormattedClassName(student.grade, student.section);
-      if (!classes[className]) classes[className] = [];
-      classes[className].push(student);
+      const name = classNameFor(student.grade === null || student.grade === undefined ? null : student.grade, student.section);
+      (byName[name] ||= []).push(student);
     });
-    return Object.fromEntries(
-      Object.entries(classes).sort((a, b) => a[0].localeCompare(b[0]))
-    );
+    return byName;
   }, [filteredStudentsList]);
 
-  const seniorCount = Object.values(studentsByStageAndClass.senior).flat().length;
-  const juniorCount = Object.values(studentsByStageAndClass.junior).flat().length;
-  const lowerPrimaryCount = Object.values(studentsByStageAndClass.primary.lower).flat().length;
-  const upperPrimaryCount = Object.values(studentsByStageAndClass.primary.upper).flat().length;
-  const preschoolCount = Object.values(studentsByStageAndClass.preschool).flat().length;
+  const classesForClassView = useMemo(() => {
+    const all = (Object.values(groupsByStage) as ClassGroup[][]).flat();
+    return all.sort((a, b) => a.name.localeCompare(b.name));
+  }, [groupsByStage]);
+
+  const countOf = (gs: ClassGroup[]) => gs.reduce((n, g) => n + g.total, 0);
+  const seniorCount = countOf(groupsByStage.senior);
+  const juniorCount = countOf(groupsByStage.junior);
+  const lowerPrimaryCount = countOf(groupsByStage.lower);
+  const upperPrimaryCount = countOf(groupsByStage.upper);
+  const preschoolCount = countOf(groupsByStage.preschool);
   const primaryCount = lowerPrimaryCount + upperPrimaryCount;
+  const totalCount = seniorCount + juniorCount + primaryCount + preschoolCount;
+
+  // A class section's body: already-loaded rows while searching, otherwise
+  // fetched on expand.
+  const renderClassBody = (g: ClassGroup) => (
+    isSearching
+      ? (searchRowsByClass[g.name] || []).map(s => <StudentRow key={s.id} student={s} onSelect={handleStudentSelect} onStatusChange={handleStatusChange} />)
+      : <ClassStudents schoolId={schoolId} branchId={branchArg} group={g} statusFilter={statusFilter} onSelect={handleStudentSelect} onStatusChange={handleStatusChange} />
+  );
 
   const renderContent = () => {
-    if (isLoading) {
+    if (isLoading || (isSearching && searchLoading)) {
       return <LoadingState type="list" rows={8} className="p-2" />;
     }
 
-    if (fetchError) {
+    if (isError || (isSearching && searchError)) {
       return (
         <div className="flex flex-col items-center justify-center p-8 bg-white rounded-2xl shadow-sm border border-red-100 text-center m-2">
           <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center mb-4">
             <CircleAlert className="w-6 h-6 text-red-500" />
           </div>
           <h3 className="font-bold text-gray-900 mb-1">Failed to Load Students</h3>
-          <p className="text-sm text-gray-500 mb-4">{String(fetchError)}</p>
+          <p className="text-sm text-gray-500 mb-4">{String(fetchError || 'Search failed')}</p>
           <button
-            onClick={() => refetch()}
+            onClick={() => (isSearching ? queryClient.invalidateQueries({ queryKey }) : refetch())}
             className="px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-colors"
           >
             Retry Now
@@ -511,7 +598,7 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
       );
     }
 
-    if (filteredStudentsList.length === 0) {
+    if (totalCount === 0) {
       return (
         <div className="text-center py-20 bg-white rounded-2xl shadow-sm border border-dashed border-gray-200 m-2">
           <p className="text-gray-500 font-medium">No students found matching your search.</p>
@@ -520,10 +607,11 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
     }
 
     if (filter) {
+      // A single class's roster (opened from a class card): flat list, no headers.
       return (
         <div className="space-y-3">
-          {filteredStudentsList.map(student => (
-            <StudentRow key={student.id} student={student} onSelect={handleStudentSelect} onStatusChange={handleStatusChange} />
+          {classesForClassView.map(g => (
+            <React.Fragment key={g.name}>{renderClassBody(g)}</React.Fragment>
           ))}
         </div>
       );
@@ -532,9 +620,9 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
     if (viewMode === 'class') {
       return (
         <div className="space-y-3">
-          {Object.entries(studentsByClass).map(([className, classStudents]) => (
-            <ClassAccordion key={className} title={className} count={classStudents.length} forceOpen={isSearching}>
-              {classStudents.map(s => <StudentRow key={s.id} student={s} onSelect={handleStudentSelect} onStatusChange={handleStatusChange} />)}
+          {classesForClassView.map(g => (
+            <ClassAccordion key={g.name} title={g.name} count={g.total} forceOpen={isSearching}>
+              {renderClassBody(g)}
             </ClassAccordion>
           ))}
         </div>
@@ -545,9 +633,9 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
       <>
         {seniorCount > 0 && (
           <StageAccordion title="Senior Secondary" count={seniorCount} forceOpen={isSearching}>
-            {Object.entries(studentsByStageAndClass.senior).map(([className, stageStudents]: [string, Student[]]) => (
-              <SubStageAccordion key={className} title={className} count={stageStudents.length} forceOpen={isSearching}>
-                {stageStudents.map(s => <StudentRow key={s.id} student={s} onSelect={handleStudentSelect} onStatusChange={handleStatusChange} />)}
+            {groupsByStage.senior.map(g => (
+              <SubStageAccordion key={g.name} title={g.name} count={g.total} forceOpen={isSearching}>
+                {renderClassBody(g)}
               </SubStageAccordion>
             ))}
           </StageAccordion>
@@ -555,9 +643,9 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
 
         {juniorCount > 0 && (
           <StageAccordion title="Junior Secondary" count={juniorCount} forceOpen={isSearching}>
-            {Object.entries(studentsByStageAndClass.junior).map(([className, stageStudents]: [string, Student[]]) => (
-              <SubStageAccordion key={className} title={className} count={stageStudents.length} forceOpen={isSearching}>
-                {stageStudents.map(s => <StudentRow key={s.id} student={s} onSelect={handleStudentSelect} onStatusChange={handleStatusChange} />)}
+            {groupsByStage.junior.map(g => (
+              <SubStageAccordion key={g.name} title={g.name} count={g.total} forceOpen={isSearching}>
+                {renderClassBody(g)}
               </SubStageAccordion>
             ))}
           </StageAccordion>
@@ -567,18 +655,18 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
           <StageAccordion title="Primary School" count={primaryCount} forceOpen={isSearching}>
             {upperPrimaryCount > 0 && (
               <SubStageAccordion title="Upper Primary (4-6)" count={upperPrimaryCount} forceOpen={isSearching}>
-                {Object.entries(studentsByStageAndClass.primary.upper).map(([className, stageStudents]: [string, Student[]]) => (
-                  <ClassAccordion key={className} title={className} count={stageStudents.length} forceOpen={isSearching}>
-                    {stageStudents.map(s => <StudentRow key={s.id} student={s} onSelect={handleStudentSelect} onStatusChange={handleStatusChange} />)}
+                {groupsByStage.upper.map(g => (
+                  <ClassAccordion key={g.name} title={g.name} count={g.total} forceOpen={isSearching}>
+                    {renderClassBody(g)}
                   </ClassAccordion>
                 ))}
               </SubStageAccordion>
             )}
             {lowerPrimaryCount > 0 && (
               <SubStageAccordion title="Lower Primary (1-3)" count={lowerPrimaryCount} forceOpen={isSearching}>
-                {Object.entries(studentsByStageAndClass.primary.lower).map(([className, stageStudents]: [string, Student[]]) => (
-                  <ClassAccordion key={className} title={className} count={stageStudents.length} forceOpen={isSearching}>
-                    {stageStudents.map(s => <StudentRow key={s.id} student={s} onSelect={handleStudentSelect} onStatusChange={handleStatusChange} />)}
+                {groupsByStage.lower.map(g => (
+                  <ClassAccordion key={g.name} title={g.name} count={g.total} forceOpen={isSearching}>
+                    {renderClassBody(g)}
                   </ClassAccordion>
                 ))}
               </SubStageAccordion>
@@ -588,9 +676,9 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
 
         {preschoolCount > 0 && (
           <StageAccordion title="Preschool / Nursery" count={preschoolCount} forceOpen={isSearching}>
-            {Object.entries(studentsByStageAndClass.preschool).map(([className, stageStudents]: [string, Student[]]) => (
-              <ClassAccordion key={className} title={className} count={stageStudents.length} forceOpen={isSearching}>
-                {stageStudents.map(s => <StudentRow key={s.id} student={s} onSelect={handleStudentSelect} onStatusChange={handleStatusChange} />)}
+            {groupsByStage.preschool.map(g => (
+              <ClassAccordion key={g.name} title={g.name} count={g.total} forceOpen={isSearching}>
+                {renderClassBody(g)}
               </ClassAccordion>
             ))}
           </StageAccordion>

@@ -577,14 +577,43 @@ export class StudentService {
         });
     }
 
-    static async getAllStudents(schoolId: string, branchId?: string, classId?: string, status: string = 'all') {
+    /**
+     * `scope` narrows the roster so the admin Student List can load one class
+     * section at a time instead of the whole school (1KB/student — 1.5MB at
+     * 1,500 students, which is ~30s on a 400kbps link):
+     *   - grade/section: exactly one class group, as the list screen groups them
+     *     (grade === null means the "Unassigned" group)
+     *   - q: server-side name / ID / admission-number search across the school,
+     *     capped, so searching never needs the full roster on the client either
+     */
+    static async getAllStudents(
+        schoolId: string,
+        branchId?: string,
+        classId?: string,
+        status: string = 'all',
+        scope: { grade?: number | null; section?: string | null; q?: string } = {},
+    ) {
         const queryStatus = (status === 'all' || !status) ? undefined : status;
-        
+
         const where: any = {
             school_id: schoolId,
             status: queryStatus,
             deleted_at: null,
         };
+
+        if (scope.grade !== undefined) {
+            where.grade = scope.grade;
+            if (scope.section !== undefined) where.section = scope.section;
+        }
+        const searchTerm = scope.q?.trim();
+        if (searchTerm) {
+            // AND-wrapped so it can't collide with the classId fallback's own OR below.
+            where.AND = [{ OR: [
+                { full_name: { contains: searchTerm, mode: 'insensitive' } },
+                { school_generated_id: { contains: searchTerm, mode: 'insensitive' } },
+                { admission_number: { contains: searchTerm, mode: 'insensitive' } },
+            ] }];
+        }
 
         // When fetching by classId the enrollment record already scopes to the right
         // students. Applying a branch_id filter on top breaks demo and cross-branch
@@ -689,8 +718,29 @@ export class StudentService {
             // turning one admin page load into an unbounded full-table fetch.
             // A real "load more"/paginated roster is a separate, larger
             // feature change, not part of this pass.
-            take: 5000,
+            take: searchTerm ? 200 : 5000,
         });
+    }
+
+    /**
+     * Per-class-group headcounts for the admin Student List, so it can render
+     * every stage/class header (with counts and status badges) from a payload of
+     * a few hundred bytes and fetch a section's actual students only when the
+     * admin expands it. Same population as getAllStudents with no filters:
+     * current students only — Graduated/Transferred live in the alumni archive.
+     */
+    static async getStudentSummary(schoolId: string, branchId?: string) {
+        const rows = await prisma.student.groupBy({
+            by: ['grade', 'section', 'status'],
+            where: {
+                school_id: schoolId,
+                deleted_at: null,
+                status: { notIn: ['Graduated', 'Transferred'] },
+                ...(branchId && branchId !== 'all' ? { branch_id: branchId } : {}),
+            },
+            _count: { _all: true },
+        });
+        return rows.map(r => ({ grade: r.grade, section: r.section, status: r.status, count: r._count._all }));
     }
 
 

@@ -438,6 +438,34 @@ class ExpressApiClient {
         }
     }
 
+    /** Per (grade, section, status) headcounts — a few hundred bytes for a whole school. */
+    async getStudentSummary(schoolId: string, branchId?: string): Promise<Array<{ grade: number | null; section: string | null; status: string; count: number }>> {
+        const qp = new URLSearchParams({ schoolId });
+        if (branchId && branchId !== 'all') qp.append('branchId', branchId);
+        return this.get(`/students/summary?${qp.toString()}`);
+    }
+
+    /**
+     * One class group of the roster (grade + section; null grade = "Unassigned"),
+     * optionally narrowed by status. Explicit param building because getStudents()
+     * drops falsy grades (0) via `if (filters.grade)` and can't express null.
+     */
+    async getStudentsInClassGroup(schoolId: string, branchId: string | undefined, grade: number | null, section: string | null | undefined, status?: string): Promise<any[]> {
+        const qp = new URLSearchParams({ schoolId, grade: grade === null ? 'none' : String(grade) });
+        if (branchId && branchId !== 'all') qp.append('branchId', branchId);
+        if (section !== undefined) qp.append('section', section === null ? 'none' : section);
+        if (status && status !== 'All') qp.append('status', status);
+        return this.get(`/students?${qp.toString()}`);
+    }
+
+    /** Server-side roster search (name / global ID / admission number), capped at 200. */
+    async searchStudents(schoolId: string, branchId: string | undefined, q: string, status?: string): Promise<any[]> {
+        const qp = new URLSearchParams({ schoolId, q });
+        if (branchId && branchId !== 'all') qp.append('branchId', branchId);
+        if (status && status !== 'All') qp.append('status', status);
+        return this.get(`/students?${qp.toString()}`);
+    }
+
     async getStudentById(id: string): Promise<any> {
         return this.get(`/students/${id}`);
     }

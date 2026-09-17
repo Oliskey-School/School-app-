@@ -10,6 +10,7 @@ import { useProfile } from '../../context/ProfileContext';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { toast } from 'react-hot-toast';
 import CenteredLoader from '../ui/CenteredLoader';
+import LowDataImage from '../ui/LowDataImage';
 
 interface ParentListScreenProps {
   navigateTo: (view: string, title: string, props?: any) => void;
@@ -28,7 +29,7 @@ const ParentCard: React.FC<{ parent: Parent, onSelect: (parent: Parent) => void,
     className="w-full bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow p-4 flex flex-col space-y-3 text-left hover:ring-2 hover:ring-sky-200"
   >
     <div className="flex items-center space-x-4">
-      <img
+      <LowDataImage
         src={parent.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${parent.name}`}
         alt={parent.name}
         className="w-16 h-16 rounded-full object-cover"

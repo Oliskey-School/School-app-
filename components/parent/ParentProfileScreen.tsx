@@ -19,7 +19,8 @@ import {
   ChevronLeftIcon,
   SchoolIcon
 } from '../../constants';
-import { RefreshCw as RefreshIcon } from 'lucide-react';
+import { RefreshCw as RefreshIcon, WifiOff } from 'lucide-react';
+import DataUsageSettings from '../shared/DataUsageSettings';
 import { useAuth } from '../../context/AuthContext';
 import EditParentProfileScreen from './EditParentProfileScreen';
 import LearningResourcesScreen from './LearningResourcesScreen';
@@ -48,7 +49,7 @@ interface ParentProfileScreenProps {
   students?: any[];
 }
 
-type SettingView = 'linkChild' | 'editParentProfile' | 'learningResources' | 'schoolPolicies' | 'ptaMeetings' | 'photoGallery' | 'volunteering' | 'permissionSlips' | 'feedback' | 'notificationSettings' | 'securitySettings' | null;
+type SettingView = 'linkChild' | 'editParentProfile' | 'learningResources' | 'schoolPolicies' | 'ptaMeetings' | 'photoGallery' | 'volunteering' | 'permissionSlips' | 'feedback' | 'notificationSettings' | 'securitySettings' | 'dataUsage' | null;
 
 const SettingsPlaceholder: React.FC = () => (
   <div className="flex-col items-center justify-center h-full text-center text-gray-500 bg-[#F0F2F5] border-l border-gray-300/80 hidden md:flex">
@@ -94,6 +95,7 @@ const ParentProfileScreen: React.FC<ParentProfileScreenProps> = ({ onLogout, nav
     { id: 'feedback', icon: <MegaphoneIcon />, label: 'Feedback & Support' },
     { id: 'notificationSettings', icon: <NotificationIcon />, label: 'Notification Settings' },
     { id: 'securitySettings', icon: <SecurityIcon />, label: 'Security & Password' },
+    { id: 'dataUsage', icon: <WifiOff className="h-5 w-5" />, label: 'Data Usage' },
     { id: 'help', icon: <HelpIcon />, label: 'Help Center' },
   ];
 
@@ -137,6 +139,7 @@ const ParentProfileScreen: React.FC<ParentProfileScreenProps> = ({ onLogout, nav
       case 'feedback': return <FeedbackScreen forceUpdate={forceUpdate} />;
       case 'notificationSettings': return <ParentNotificationSettingsScreen />;
       case 'securitySettings': return <ParentSecurityScreen navigateTo={navigateTo} />;
+      case 'dataUsage': return <DataUsageSettings accent="green" />;
       default: return <SettingsPlaceholder />;
     }
   };

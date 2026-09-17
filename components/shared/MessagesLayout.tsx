@@ -4,6 +4,7 @@ import { api } from '../../lib/api';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { lazyWithRetry } from '../../lib/lazyRetry';
 import { PlusIcon, SearchIcon } from '../../constants';
+import LowDataImage from '../ui/LowDataImage';
 
 const ChatScreen = lazyWithRetry(() => import('./ChatScreen'));
 
@@ -248,7 +249,7 @@ const MessagesLayout: React.FC<MessagesLayoutProps> = ({
                                         style={{ touchAction: 'manipulation' }}
                                     >
                                         <div className="relative flex-shrink-0">
-                                            <img
+                                            <LowDataImage
                                                 src={room.avatar}
                                                 alt={room.displayName}
                                                 className={`w-12 h-12 rounded-full object-cover ring-2 ring-white shadow-sm ${isSelected ? 'ring-offset-1' : ''}`}

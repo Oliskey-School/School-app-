@@ -13,7 +13,8 @@ import {
     UserIcon,
     SchoolIcon
 } from '../../constants';
-import { Copy as CopyIcon, RefreshCw as RefreshIcon } from 'lucide-react';
+import { Copy as CopyIcon, RefreshCw as RefreshIcon, WifiOff } from 'lucide-react';
+import DataUsageSettings from '../shared/DataUsageSettings';
 import EditProfileScreen from './EditProfileScreen';
 import NotificationsSettingsScreen from './NotificationsSettingsScreen';
 import PersonalSecuritySettingsScreen from './PersonalSecuritySettingsScreen';
@@ -23,7 +24,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useUserIdentity } from '../../lib/hooks/useUserIdentity';
 import { toast } from 'react-hot-toast';
 
-type SettingView = 'editProfile' | 'notificationsSettings' | 'personalSecuritySettings' | 'systemSettings' | null;
+type SettingView = 'editProfile' | 'notificationsSettings' | 'personalSecuritySettings' | 'dataUsage' | 'systemSettings' | null;
 
 interface ProfileSettingsProps {
     onLogout: () => void;
@@ -67,6 +68,7 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ onLogout, navigateTo 
         { id: 'editProfile', icon: <EditIcon />, label: 'Edit Profile', color: 'bg-blue-100 text-blue-500' },
         { id: 'notificationsSettings', icon: <NotificationIcon />, label: 'Notifications', color: 'bg-green-100 text-green-500' },
         { id: 'personalSecuritySettings', icon: <SecurityIcon />, label: 'My Security', color: 'bg-orange-100 text-orange-500' },
+        { id: 'dataUsage', icon: <WifiOff className="h-5 w-5" />, label: 'Data Usage', color: 'bg-teal-100 text-teal-500' },
         { id: 'help', icon: <HelpIcon />, label: 'Help & Support', color: 'bg-purple-100 text-purple-500' },
     ];
 
@@ -87,6 +89,8 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ onLogout, navigateTo 
                 return <NotificationsSettingsScreen />;
             case 'personalSecuritySettings':
                 return <PersonalSecuritySettingsScreen navigateTo={navigateTo} />;
+            case 'dataUsage':
+                return <DataUsageSettings accent="indigo" />;
             case 'systemSettings':
                 return <SystemSettingsScreen navigateTo={navigateTo} />;
             default:

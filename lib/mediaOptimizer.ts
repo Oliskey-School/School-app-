@@ -4,6 +4,7 @@
  */
 
 import { networkManager, ConnectionQuality } from './networkManager';
+import { isLowDataMode } from './lowDataMode';
 
 export interface OptimizationOptions {
     maxWidth?: number;
@@ -28,7 +29,8 @@ export async function autoOptimize(file: File): Promise<File> {
         format: 'image/webp'
     };
 
-    if (quality === ConnectionQuality.POOR || hasDataSaver) {
+    // Low Data Mode opts into the same tier as a poor connection / Data Saver.
+    if (quality === ConnectionQuality.POOR || hasDataSaver || isLowDataMode()) {
         options = {
             maxWidth: 800,
             maxHeight: 800,
