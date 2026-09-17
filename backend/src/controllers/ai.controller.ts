@@ -2,6 +2,8 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { AiService } from '../services/ai.service';
 import { NvidiaAIService, NVIDIA_MODELS } from '../services/nvidiaAI.service';
+import { AIGateway } from '../services/aiGateway.service';
+import { GeminiAIService, GEMINI_FALLBACK_MODEL } from '../services/geminiAI.service';
 import prisma from '../config/database';
 import { getEffectiveBranchId } from '../utils/branchScope';
 import { sendError } from '../utils/httpError';
@@ -23,7 +25,10 @@ const sendAiError = (res: Response, error: any) => {
 
 export const aiChat = async (req: AuthRequest, res: Response) => {
     try {
-        const result = await NvidiaAIService.chat(req.body);
+        // Central gateway: NVIDIA first, Gemini on a transient failure. The
+        // user id scopes in-flight de-duplication so two users with the same
+        // prompt never share a response.
+        const result = await AIGateway.chat(req.body, String(req.user?.id || ''));
         res.json(result);
     } catch (error: any) { sendAiError(res, error); }
 };
@@ -62,7 +67,12 @@ export const aiSpeak = async (req: AuthRequest, res: Response) => {
 
 // Lets the frontend discover whether AI is configured + the default model map.
 export const aiStatus = async (_req: AuthRequest, res: Response) => {
-    res.json({ configured: NvidiaAIService.isConfigured(), provider: 'nvidia', models: NVIDIA_MODELS });
+    res.json({
+        configured: NvidiaAIService.isConfigured() || GeminiAIService.isConfigured(),
+        provider: 'nvidia',
+        fallback: GeminiAIService.isConfigured() ? GEMINI_FALLBACK_MODEL : null,
+        models: NVIDIA_MODELS,
+    });
 };
 
 export const getGeneratedResources = async (req: AuthRequest, res: Response) => {

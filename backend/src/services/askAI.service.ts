@@ -1,5 +1,7 @@
 import prisma from '../config/database';
 import { NvidiaAIService, NVIDIA_MODELS } from './nvidiaAI.service';
+import { AIGateway } from './aiGateway.service';
+import { GeminiAIService } from './geminiAI.service';
 import { RiskService } from './risk.service';
 import { DigitalTwinService } from './digitalTwin.service';
 
@@ -257,9 +259,9 @@ export class AskAIService {
         const catalogText = available.map(c => `- ${c.id}: ${c.description}`).join('\n');
         let matchedId: string | null = null;
 
-        if (NvidiaAIService.isConfigured()) {
+        if (NvidiaAIService.isConfigured() || GeminiAIService.isConfigured()) {
             try {
-                const match = await NvidiaAIService.chat({
+                const match = await AIGateway.chat({
                     model: NVIDIA_MODELS.chat,
                     messages: [
                         { role: 'system', content: `You match a school-app user's question to exactly one query from this list, or none. Reply with ONLY the query id (e.g. "unpaid_fees") or the word "none" — nothing else.\n\nAvailable queries:\n${catalogText}` },
@@ -290,9 +292,9 @@ export class AskAIService {
         const result = await entry.run(ctx);
 
         let answer = result.summary;
-        if (NvidiaAIService.isConfigured()) {
+        if (NvidiaAIService.isConfigured() || GeminiAIService.isConfigured()) {
             try {
-                const phrasing = await NvidiaAIService.chat({
+                const phrasing = await AIGateway.chat({
                     model: NVIDIA_MODELS.chat,
                     messages: [
                         { role: 'system', content: 'You are a helpful school-management assistant. Write a short (2-4 sentence), warm, plain-English answer using ONLY the data given — never invent numbers or names not present in the data. If the data list is empty, say so positively.' },
