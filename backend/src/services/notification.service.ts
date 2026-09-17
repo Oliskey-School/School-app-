@@ -45,9 +45,13 @@ export class NotificationService {
             data: dataToCreate
         });
 
-        // Emit to specific user if targeted
+        // Emit to specific user if targeted. Room-scoped (not the global
+        // broadcast) — every connected client across every school used to
+        // receive this event object on every notification created anywhere
+        // on the platform; only the matching event-name listener (per user id)
+        // acted on it, but the transport itself broadcast to everyone.
         if (targetUserId) {
-            SocketService.emit(`user:${targetUserId}:notification`, notification);
+            SocketService.emitToUser(targetUserId, `user:${targetUserId}:notification`, notification);
         } else {
             // Emit to school if it's a broadcast
             SocketService.emitToSchool(schoolId, 'notification:received', notification);

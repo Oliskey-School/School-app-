@@ -176,20 +176,18 @@ export class ChatService {
         const participations = await prisma.chatParticipant.findMany({
             where: { user_id: userId }
         });
+        if (participations.length === 0) return 0;
 
-        let total = 0;
-        for (const p of participations) {
-            const count = await prisma.chatMessage.count({
-                where: {
+        return prisma.chatMessage.count({
+            where: {
+                sender_id: { not: userId },
+                is_deleted: false,
+                OR: participations.map(p => ({
                     room_id: p.room_id,
-                    sender_id: { not: userId },
-                    is_deleted: false,
                     ...(p.last_read_at ? { created_at: { gt: p.last_read_at } } : {})
-                }
-            });
-            total += count;
-        }
-        return total;
+                }))
+            }
+        });
     }
 
     async getRoleBasedContacts(userId: string, role: string, schoolId: string, branchId?: string) {

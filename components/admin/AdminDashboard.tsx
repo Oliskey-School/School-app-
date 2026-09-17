@@ -103,7 +103,7 @@ const UserAccountsScreen = lazyWithRetry(() => import('./UserAccountsScreen'));
 const PermissionSlips = lazyWithRetry(() => import('../shared/PermissionSlips'));
 const MentalHealthResources = lazyWithRetry(() => import('../shared/MentalHealthResources'));
 const AccessibilitySettings = lazyWithRetry(() => import('../shared/AccessibilitySettings'));
-const AppearancePanel = lazyWithRetry(() => import('../shared/LiquidGlassControl'));
+const AppearancePanel = lazyWithRetry(() => import('../shared/AppearancePanel'));
 const SMSLessonManager = lazyWithRetry(() => import('./SMSLessonManager'));
 const USSDWorkflow = lazyWithRetry(() => import('./USSDWorkflow'));
 const RadioContentScheduler = lazyWithRetry(() => import('./RadioContentScheduler'));

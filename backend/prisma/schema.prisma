@@ -658,6 +658,7 @@ model StudentEnrollment {
   deleted_at      DateTime?
 
   @@unique([student_id, class_id])
+  @@index([class_id, status])
 }
 
 model ClassTeacher {
@@ -854,6 +855,10 @@ model Payment {
   created_by     String?
   updated_by     String?
   deleted_at     DateTime?
+
+  @@index([school_id, branch_id])
+  @@index([school_id, student_id])
+  @@index([reference])
 }
 
 model Announcement {
@@ -1315,6 +1320,10 @@ model ExamResult {
   created_by String?
   updated_by String?
   deleted_at DateTime?
+
+  @@index([school_id, branch_id])
+  @@index([student_id, created_at])
+  @@index([exam_id])
 }
 
 model Timetable {
@@ -1927,6 +1936,9 @@ model Message {
   created_by  String?
   updated_by  String?
   deleted_at  DateTime?
+
+  @@index([school_id, receiver_id])
+  @@index([school_id, sender_id])
 }
 
 model CurriculumTopic {

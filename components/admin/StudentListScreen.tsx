@@ -533,7 +533,7 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
       return (
         <div className="space-y-3">
           {Object.entries(studentsByClass).map(([className, classStudents]) => (
-            <ClassAccordion key={className} title={className} count={classStudents.length} defaultOpen={true} forceOpen={isSearching}>
+            <ClassAccordion key={className} title={className} count={classStudents.length} forceOpen={isSearching}>
               {classStudents.map(s => <StudentRow key={s.id} student={s} onSelect={handleStudentSelect} onStatusChange={handleStatusChange} />)}
             </ClassAccordion>
           ))}

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { api } from '../../lib/api';
 import { DashboardType } from '../../types';
 import { useAuth } from '../../context/AuthContext';
-import { SchoolLogoIcon, THEME_CONFIG } from '../../constants';
+import { SchoolLogoIcon } from '../../components/shared/SchoolLogoIcon';
+import { THEME_CONFIG } from '../../lib/themeConfig';
 import { authenticateUser } from '../../lib/auth';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';

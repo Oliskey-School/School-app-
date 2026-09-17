@@ -3,7 +3,7 @@ import { Globe, Check, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { LANGUAGES } from '../../lib/i18n/languages';
 import { setAppLanguage } from '../../lib/i18n';
-import { api } from '../../lib/api';
+import * as api from '../../lib/api/eager';
 
 interface LanguageSwitcherProps {
   /** 'button' = compact globe pill (login/topbar); 'inline' = full-width settings row. */

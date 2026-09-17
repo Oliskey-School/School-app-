@@ -182,19 +182,13 @@ export class ExamService {
             whereClause.branch_id = branchId;
         }
 
+        // The results-entry grading view only reads student_id/score/grade off
+        // each row (components/teacher/ResultsEntryEnhanced.tsx) — the previous
+        // `include: { exam: { include: { results: { include: { student }}}}}`
+        // re-embedded the entire result set (with full student objects) inside
+        // every single row, an O(n^2) payload for an n-student exam.
         const results = await prisma.examResult.findMany({
-            where: whereClause,
-            include: {
-                exam: {
-                    include: {
-                        results: {
-                            include: {
-                                student: true
-                            }
-                        }
-                    }
-                }
-            } as any
+            where: whereClause
         });
 
         return results.map(r => {

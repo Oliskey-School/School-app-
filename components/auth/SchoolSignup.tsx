@@ -1,7 +1,8 @@
 import React, { useState, useCallback } from 'react';
 import { SchoolLogoIcon } from '../../constants';
 import { toast } from 'react-hot-toast';
-import { api } from '../../lib/api';
+// Core request pipeline only — see EmailVerificationScreen for why.
+import { apiCore as api } from '../../lib/api/core';
 
 interface SchoolSignupProps {
     onComplete: (email: string, role: string) => void;

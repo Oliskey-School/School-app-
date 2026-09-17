@@ -5,7 +5,9 @@ import { useAuth } from '../context/AuthContext';
 import { isDemoMode, backendFetch } from '../lib/database';
 import { ChevronDown, Building } from 'lucide-react';
 import { Branch, DashboardType } from '../types';
-import api from '../lib/api';
+// Lean eager module — see lib/api/core.ts for why the full client isn't
+// imported on the first-paint path.
+import * as api from '../lib/api/eager';
 import { offlineStorage } from '../lib/offlineStorage';
 
 interface BranchContextType {

@@ -3,7 +3,6 @@ import { DashboardType } from './types';
 import { OfflineIndicator } from './components/shared/OfflineIndicator';
 import { RealtimeStatusIndicator } from './components/shared/RealtimeStatusIndicator';
 import { AppearanceSync } from './components/shared/LiquidGlassControl';
-import { MotionConfig } from 'framer-motion';
 import { Toaster } from 'react-hot-toast';
 import PremiumLoader from './components/ui/PremiumLoader';
 import { runMigrations } from './lib/migrationManager';
@@ -15,7 +14,7 @@ import { setAIAllowed } from './lib/ai';
 import { useIdleKeepAlive } from './lib/hooks/useIdleKeepAlive';
 import { lazyWithRetry } from './lib/lazyRetry';
 import { APP_VERSION } from './lib/config';
-import { api } from './lib/api';
+import * as api from './lib/api/eager';
 import { maxVersion, isOutdated } from './lib/version';
 
 // Login and PremiumErrorPage are deliberately STATIC imports. They are the two
@@ -40,6 +39,21 @@ const MobileNavigationHandler = lazyWithRetry(() => import('./components/shared/
 const ContextualMarquee = lazyWithRetry(() => import('./components/shared/ContextualMarquee'));
 const UpdatePrompt = lazyWithRetry(() => import('./components/shared/UpdatePrompt'));
 const SubscriptionLockScreen = lazyWithRetry(() => import('./components/shared/SubscriptionLockScreen'));
+
+// framer-motion is used by ~250 lazy-loaded screens but essentially nothing
+// eager (Login has zero motion.* usage) — yet importing MotionConfig here
+// statically forced the entire library (339KB minified, the single largest
+// piece of the eager bundle) into every visitor's critical-path download
+// before the login page could even paint. Loading it the same way as every
+// other non-critical piece of this shell lets Rollup split it into its own
+// chunk instead. The Suspense fallback is the same content unwrapped (not a
+// spinner), so there's no visible loading state — just a few ms window,
+// usually already overlapped with other startup requests, where the
+// prefers-reduced-motion setting isn't applied yet.
+const LazyMotionConfig = lazyWithRetry(
+  () => import('framer-motion').then(m => ({ default: m.MotionConfig })),
+  'motion-config'
+);
 
 window.addEventListener('unhandledrejection', (event) => {
   const error = event.reason;
@@ -291,7 +305,7 @@ const App: React.FC = () => {
   }, []);
 
   return (
-    <MotionConfig reducedMotion="user">
+    <>
       <Toaster
         position="top-right"
         // react-hot-toast's own defaults are inconsistent (2s for success, 4s
@@ -310,8 +324,19 @@ const App: React.FC = () => {
         <div className="font-sans w-full min-h-screen bg-[#F0F2F5] flex flex-col overflow-x-hidden">
           <div className="relative w-full flex-1 flex flex-col overflow-x-hidden">
             <ErrorBoundary>
+              {/* AuthenticatedApp has never mounted yet the first time this
+                  Suspense resolves, so folding LazyMotionConfig's own chunk
+                  load into the SAME boundary (rather than a separate Suspense
+                  around already-mounted, stateful UI) costs nothing extra in
+                  practice — both chunks fetch in parallel — and can't cause
+                  a later remount. A MotionConfig swap placed around the
+                  already-interactive app shell instead (tried first) did
+                  cause one: Playwright caught it as the demo role tiles
+                  never appearing after the "Try Demo School" click. */}
               <Suspense fallback={<LoadingScreen />}>
-                <AuthenticatedApp />
+                <LazyMotionConfig reducedMotion="user">
+                  <AuthenticatedApp />
+                </LazyMotionConfig>
               </Suspense>
               {/* UpdatePrompt owns the ONLY service-worker registration
                   (useRegisterSW), so it stays mounted at the root, where it
@@ -325,7 +350,7 @@ const App: React.FC = () => {
           </div>
         </div>
       )}
-    </MotionConfig>
+    </>
   );
 };
 

@@ -1,7 +1,12 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { DashboardType, School } from '../types';
 import { DEMO_SCHOOL_ID, DEMO_BRANCH_ID } from '../lib/mockAuth';
-import { api } from '../lib/api';
+// Session restore / login run before first paint, so this path deliberately
+// imports only the lean eager module plus the shared core client — importing
+// the full `api` here put all ~600 of its domain methods on the initial
+// bundle, none of which this file calls.
+import * as api from '../lib/api/eager';
+import { apiCore } from '../lib/api/core';
 import { queryClient, idbPersister } from '../lib/react-query';
 import { offlineStorage } from '../lib/offlineStorage';
 
@@ -84,7 +89,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // shared device's next sign-in can't observe this tab's cached
         // responses (queued offline writes are separately isolated by
         // per-action user_scope in syncEngine.ts).
-        api.invalidateCache();
+        apiCore.invalidateCache();
 
         // queryClient.clear() below only empties the IN-MEMORY cache. It is
         // also persisted to IndexedDB (index.tsx's PersistQueryClientProvider
@@ -314,7 +319,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // that prior session/school would still be sitting in the in-memory + offline
         // caches and could render under the new school's admin until each entry
         // happened to be naturally refetched.
-        api.invalidateCache();
+        apiCore.invalidateCache();
         sessionStorage.removeItem('cached_user_profile');
         sessionStorage.removeItem('is_demo_mode');
 
@@ -388,7 +393,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 // survive into the new one. Without this, a user who owns multiple
                 // schools could see the previous school's data until each cache
                 // entry happened to be naturally refetched.
-                api.invalidateCache();
+                apiCore.invalidateCache();
                 sessionStorage.removeItem('cached_user_profile');
                 // No more window.location.reload(); to avoid full page reloads
                 // Instead, we'll refresh the user profile to get the new school context
@@ -435,7 +440,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 // incoming one. (Queued offline writes in sync_queue are
                 // separately protected by per-action user_scope stamping in
                 // syncEngine.ts, so they don't need clearing here.)
-                api.invalidateCache();
+                apiCore.invalidateCache();
                 sessionStorage.removeItem('cached_user_profile');
                 sessionStorage.removeItem('demo_role_token');
 

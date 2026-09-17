@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react';
-import { api } from '../api';
+// refreshToken lives on the shared core client; importing the full `api`
+// here would put all its domain methods on the first-paint bundle.
+import { apiCore as api } from '../api/core';
 
 /**
  * Idle session keep-alive.

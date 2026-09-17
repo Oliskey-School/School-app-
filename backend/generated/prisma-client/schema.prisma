@@ -453,6 +453,9 @@ model Teacher {
   department_id            String?
   department               Department?                   @relation("DepartmentTeachers", fields: [department_id], references: [id], onDelete: SetNull)
   headed_departments       Department[]                  @relation("DepartmentHead")
+
+  @@index([school_id, branch_id])
+  @@index([school_id, created_at])
 }
 
 model TeacherAttendance {
@@ -505,6 +508,9 @@ model Parent {
   pta_meeting_attendances PtaMeetingAttendee[]
   updated_by              String?
   deleted_at              DateTime?
+
+  @@index([school_id, branch_id])
+  @@index([school_id, created_at])
 }
 
 model ParentTeacherChatPermission {
@@ -561,6 +567,7 @@ model AcademicPerformance {
   deleted_at   DateTime?
 
   @@unique([school_id, student_id, subject, term, session])
+  @@index([school_id, branch_id])
 }
 
 model BehaviorNote {
@@ -581,6 +588,9 @@ model BehaviorNote {
   created_by     String?
   updated_by     String?
   deleted_at     DateTime?
+
+  @@index([school_id, branch_id])
+  @@index([school_id, created_at])
 }
 
 model SchoolMembership {
@@ -625,6 +635,9 @@ model Class {
   created_by     String?
   updated_by     String?
   deleted_at     DateTime?
+
+  @@index([school_id, branch_id])
+  @@index([school_id, created_at])
 }
 
 model StudentEnrollment {
@@ -645,6 +658,7 @@ model StudentEnrollment {
   deleted_at      DateTime?
 
   @@unique([student_id, class_id])
+  @@index([class_id, status])
 }
 
 model ClassTeacher {
@@ -778,6 +792,8 @@ model ReportCard {
   created_by              String?
   updated_by              String?
   deleted_at              DateTime?
+
+  @@index([school_id, branch_id])
 }
 
 model Fee {
@@ -816,6 +832,8 @@ model StudentFee {
   created_by  String?
   updated_by  String?
   deleted_at  DateTime?
+
+  @@index([school_id, branch_id])
 }
 
 model Payment {
@@ -837,6 +855,10 @@ model Payment {
   created_by     String?
   updated_by     String?
   deleted_at     DateTime?
+
+  @@index([school_id, branch_id])
+  @@index([school_id, student_id])
+  @@index([reference])
 }
 
 model Announcement {
@@ -1298,6 +1320,10 @@ model ExamResult {
   created_by String?
   updated_by String?
   deleted_at DateTime?
+
+  @@index([school_id, branch_id])
+  @@index([student_id, created_at])
+  @@index([exam_id])
 }
 
 model Timetable {
@@ -1327,6 +1353,8 @@ model Timetable {
   created_by             String?
   updated_by             String?
   deleted_at             DateTime?
+
+  @@index([school_id, branch_id])
 }
 
 // Physical classroom (per branch) with a permanent QR token used for teacher
@@ -1908,6 +1936,9 @@ model Message {
   created_by  String?
   updated_by  String?
   deleted_at  DateTime?
+
+  @@index([school_id, receiver_id])
+  @@index([school_id, sender_id])
 }
 
 model CurriculumTopic {

@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { toast } from 'react-hot-toast';
-import { api } from '../../lib/api';
+// Only the core request pipeline is needed here — importing the full `api`
+// client would pull all ~600 of its domain methods onto the first-paint
+// bundle, since this screen is statically reachable from Login.
+import { apiCore as api } from '../../lib/api/core';
 
 interface EmailVerificationScreenProps {
   email: string;

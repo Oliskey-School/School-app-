@@ -1,10 +1,10 @@
 import React from 'react';
-import { DashboardType } from './types';
 import { cn } from './lib/utils';
 
 // Icons
-export const SchoolLogoIcon = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" className={cn('h-6 w-6', className)} viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M22 9l-10 -4l-10 4l10 4l10 -4v6" /><path d="M6 10.6v5.4a6 3 0 0 0 12 0v-5.4" /></svg>;
-export const SchoolIcon = SchoolLogoIcon;
+// SchoolLogoIcon/SchoolIcon moved to components/shared/SchoolLogoIcon.tsx —
+// re-exported here for every existing caller (see that file's comment).
+export { SchoolLogoIcon, SchoolIcon } from './components/shared/SchoolLogoIcon';
 export const IdentificationIcon = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" className={cn('h-6 w-6', className)} viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M15 8h.01" /><path d="M6 13l2.644 -2.644a1.21 1.21 0 0 1 1.712 0l3.644 3.644" /><path d="M13 13l1.644 -1.644a1.21 1.21 0 0 1 1.712 0l1.644 1.644" /><path d="M4 6h16a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-16a2 2 0 0 1 -2 -2v-8a2 2 0 0 1 2 -2z" /></svg>;
 export const UserIcon = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" className={cn('h-6 w-6', className)} viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /><path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" /></svg>;
 export const LockIcon = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" className={cn('h-6 w-6', className)} viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M5 13a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v6a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-6z" /><path d="M11 16a1 1 0 1 0 2 0a1 1 0 0 0 -2 0" /><path d="M8 11v-4a4 4 0 1 1 8 0v4" /></svg>;
@@ -139,108 +139,10 @@ export const MusicNoteIcon = MusicIcon;
 
 
 // Theme Configuration
-export const THEME_CONFIG = {
-  [DashboardType.Admin]: {
-    mainBg: 'bg-gradient-to-br from-indigo-700 to-indigo-900',
-    activeNav: 'bg-indigo-100 text-indigo-800',
-    inactiveNav: 'text-gray-500 hover:text-gray-700',
-    cardBg: 'bg-white',
-    textColor: 'text-gray-800',
-    iconColor: 'text-indigo-700',
-    chartColor: '#312e81',
-    cardIconBg: 'bg-indigo-100',
-  },
-  [DashboardType.Teacher]: {
-    mainBg: 'bg-purple-700',
-    activeNav: 'bg-purple-100 text-purple-700',
-    inactiveNav: 'text-gray-500 hover:text-gray-700',
-    cardBg: 'bg-white',
-    textColor: 'text-gray-800',
-    iconColor: 'text-purple-600',
-    chartColor: '#7c3aed',
-    cardIconBg: 'bg-purple-100',
-  },
-  [DashboardType.Parent]: {
-    mainBg: 'bg-green-600',
-    activeNav: 'bg-green-100 text-green-700',
-    inactiveNav: 'text-gray-500 hover:text-gray-700',
-    cardBg: 'bg-white',
-    textColor: 'text-gray-800',
-    iconColor: 'text-green-600',
-    chartColor: '#16a34a',
-    cardIconBg: 'bg-green-100',
-  },
-  [DashboardType.Student]: {
-    mainBg: 'bg-orange-500',
-    activeNav: 'bg-orange-100 text-orange-700',
-    inactiveNav: 'text-gray-500 hover:text-gray-700',
-    cardBg: 'bg-white',
-    textColor: 'text-gray-800',
-    iconColor: 'text-orange-600',
-    chartColor: '#ea580c',
-    cardIconBg: 'bg-orange-100',
-  },
-  [DashboardType.SuperAdmin]: {
-    mainBg: 'bg-slate-900',
-    activeNav: 'bg-slate-100 text-slate-900',
-    inactiveNav: 'text-gray-500 hover:text-gray-700',
-    cardBg: 'bg-white',
-    textColor: 'text-gray-800',
-    iconColor: 'text-slate-700',
-    chartColor: '#0f172a',
-    cardIconBg: 'bg-slate-100',
-  },
-  [DashboardType.Inspector]: {
-    mainBg: 'bg-slate-700',
-    activeNav: 'bg-slate-100 text-slate-700',
-    inactiveNav: 'text-gray-500 hover:text-gray-700',
-    cardBg: 'bg-white',
-    textColor: 'text-gray-800',
-    iconColor: 'text-slate-600',
-    chartColor: '#475569',
-    cardIconBg: 'bg-slate-100',
-  },
-  [DashboardType.Proprietor]: {
-    mainBg: 'bg-blue-900',
-    activeNav: 'bg-blue-100 text-blue-800',
-    inactiveNav: 'text-gray-500 hover:text-gray-700',
-    cardBg: 'bg-white',
-    textColor: 'text-gray-800',
-    iconColor: 'text-blue-700',
-    chartColor: '#1e3a8a',
-    cardIconBg: 'bg-blue-100',
-  },
-  [DashboardType.ExamOfficer]: {
-    mainBg: 'bg-emerald-800',
-    activeNav: 'bg-emerald-100 text-emerald-800',
-    inactiveNav: 'text-gray-500 hover:text-gray-700',
-    cardBg: 'bg-white',
-    textColor: 'text-gray-800',
-    iconColor: 'text-emerald-700',
-    chartColor: '#065f46',
-    cardIconBg: 'bg-emerald-100',
-  },
-  [DashboardType.ComplianceOfficer]: {
-    mainBg: 'bg-teal-800',
-    activeNav: 'bg-teal-100 text-teal-800',
-    inactiveNav: 'text-gray-500 hover:text-gray-700',
-    cardBg: 'bg-white',
-    textColor: 'text-gray-800',
-    iconColor: 'text-teal-700',
-    chartColor: '#115e59',
-    cardIconBg: 'bg-teal-100',
-  },
-  [DashboardType.Counselor]: {
-    mainBg: 'bg-pink-700',
-    activeNav: 'bg-pink-100 text-pink-700',
-    inactiveNav: 'text-gray-500 hover:text-gray-700',
-    cardBg: 'bg-white',
-    textColor: 'text-gray-800',
-    iconColor: 'text-pink-600',
-    chartColor: '#be185d',
-    cardIconBg: 'bg-pink-100',
-  },
-};
+// Moved to lib/themeConfig.ts (re-exported here for every existing caller)
+// so Login's static import of THEME_CONFIG doesn't also pull in every icon
+// this file exports for lazy-loaded dashboards.
+export { THEME_CONFIG } from './lib/themeConfig';
 
 export const SUBJECT_COLORS: { [key: string]: string } = {
   'Mathematics': 'bg-blue-100 text-blue-800 border-blue-200',

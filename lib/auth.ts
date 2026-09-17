@@ -1,4 +1,7 @@
-import { api } from './api';
+// Namespace import of the lean eager module keeps the `api.login(...)` call
+// sites below unchanged while leaving the full client (and its ~600 domain
+// methods) off the first-paint bundle.
+import * as api from './api/eager';
 import { emailTemplates } from './emailTemplates';
 import bcrypt from 'bcryptjs';
 

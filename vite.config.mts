@@ -10,7 +10,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const packageJson = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf-8')) as { version?: string };
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(async ({ mode }) => {
   const env = loadEnv(mode, '.', '');
   // Set by `npm run build:vps` for low-RAM production hosts: skips the
   // brotli/gzip compression passes (each re-reads and compresses every
@@ -96,6 +96,12 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       react(),
+      ...(process.env.ANALYZE_BUNDLE === 'true' ? [(await import('rollup-plugin-visualizer')).visualizer({
+        filename: 'bundle-analysis.html',
+        template: 'treemap',
+        gzipSize: true,
+        brotliSize: true,
+      })] : []),
       ...(isLowResourceBuild ? [] : [
         viteCompression({
           algorithm: 'brotliCompress',

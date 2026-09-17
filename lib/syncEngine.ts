@@ -1,5 +1,8 @@
 import { offlineDB, SyncAction } from './dexie-db';
-import { api } from './api';
+// Offline replay runs on the first-paint path, so this imports the lean
+// eager surface + shared core client rather than the full api client.
+import * as api from './api/eager';
+import { apiCore } from './api/core';
 import { networkManager } from './networkManager';
 import { EventEmitter } from './EventEmitter';
 import { queryClient } from './react-query';
@@ -41,7 +44,7 @@ class SyncEngine extends EventEmitter {
     private async refreshAfterReconnect() {
         try {
             await offlineDB.roster_cache.clear();
-            api.invalidateCache();
+            apiCore.invalidateCache();
             await queryClient.invalidateQueries();
             window.dispatchEvent(new CustomEvent('app-data-refresh'));
         } catch (err) {
@@ -176,7 +179,7 @@ class SyncEngine extends EventEmitter {
             switch (action_type) {
                 case 'TABLE_OP':
                     if (!table || !operation) return false;
-                    const query = api.from(table);
+                    const query = apiCore.from(table);
                     let result;
                     
                     if (operation === 'create') {
@@ -212,10 +215,10 @@ class SyncEngine extends EventEmitter {
 
                 case 'HTTP_OP': {
                     // Generic replay path: every screen's writes get queued this way
-                    // by api.fetch() while offline, so this one case covers all of
+                    // by apiCore.fetch() while offline, so this one case covers all of
                     // them without a hand-written handler per screen/feature.
                     if (!action.endpoint || !action.method) return false;
-                    await api.fetch(action.endpoint, {
+                    await apiCore.fetch(action.endpoint, {
                         method: action.method,
                         body: action.method === 'DELETE' ? undefined : JSON.stringify(payload),
                     });
