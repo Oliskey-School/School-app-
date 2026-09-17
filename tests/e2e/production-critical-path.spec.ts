@@ -84,12 +84,23 @@ async function onboardThrowawaySchool(request: APIRequestContext, apiBase: strin
 test.describe('Production critical path', () => {
 
     test('Login', async ({ page, baseURL }) => {
+        // loginAsAdminWithHook alone waits up to 60s for window.ADMIN_NAVIGATE,
+        // on top of loginAsDemo's own up to 40s for the demo button + role tile
+        // — comfortably more than Playwright's 30s default test timeout, which
+        // this test (and several below) had relied on implicitly by getting
+        // lucky on faster/warmer environments. A slower CI runner + a genuinely
+        // fresh database makes the real end-to-end time exceed 30s, so the test
+        // was cut off mid-wait regardless of whether login would have actually
+        // succeeded. 'Student creation'/'Student editing' below already learned
+        // this the same way; giving every test here the same headroom.
+        test.setTimeout(90_000);
         await loginAsAdminWithHook(page, baseURL!);
         const hasNav = await page.evaluate(() => typeof (window as any).ADMIN_NAVIGATE === 'function');
         expect(hasNav).toBe(true);
     });
 
     test('Dashboard loading', async ({ page, baseURL }) => {
+        test.setTimeout(90_000);
         const serverErrors = trackServerErrors(page);
         await loginAsAdminWithHook(page, baseURL!);
         await navigateAdmin(page, 'dashboard');
@@ -252,7 +263,7 @@ test.describe('Production critical path', () => {
     });
 
     test('Student editing', async ({ page, baseURL }) => {
-        test.setTimeout(60_000);
+        test.setTimeout(90_000);
         await loginAsAdminWithHook(page, baseURL!);
         await navigateAdmin(page, 'studentList');
 
@@ -304,6 +315,7 @@ test.describe('Production critical path', () => {
     });
 
     test('Attendance', async ({ page, baseURL }) => {
+        test.setTimeout(90_000);
         await loginAsAdminWithHook(page, baseURL!);
         const views: string[] = await page.evaluate(() => (window as any).ADMIN_COMPONENTS || []);
         const attView = views.find((v) => /attendance/i.test(v));
@@ -314,6 +326,7 @@ test.describe('Production critical path', () => {
     });
 
     test('Results', async ({ page, baseURL }) => {
+        test.setTimeout(90_000);
         await loginAsAdminWithHook(page, baseURL!);
         const views: string[] = await page.evaluate(() => (window as any).ADMIN_COMPONENTS || []);
         const resultView = views.find((v) => /result/i.test(v));
@@ -324,6 +337,7 @@ test.describe('Production critical path', () => {
     });
 
     test('Logout', async ({ page, baseURL }) => {
+        test.setTimeout(90_000);
         await loginAsAdminWithHook(page, baseURL!);
         await page.evaluate(() => sessionStorage.clear());
         await page.goto(baseURL!, { waitUntil: 'domcontentloaded' });
@@ -331,6 +345,7 @@ test.describe('Production critical path', () => {
     });
 
     test('Role permissions — a teacher cannot reach admin-only data', async ({ page, baseURL }) => {
+        test.setTimeout(90_000);
         await loginAsDemo(page, baseURL!, 'teacher');
         await page.waitForTimeout(3000);
         const token = await page.evaluate(() => sessionStorage.getItem('auth_token'));
