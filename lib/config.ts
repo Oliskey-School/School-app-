@@ -18,8 +18,25 @@ const getBaseUrl = (type: 'api' | 'socket') => {
 
     if (!url) {
         if (isLocal) {
+            // Same-origin, same as the production branch below — NOT a hardcoded
+            // absolute http://host:5000 URL. Vite's dev server AND `vite preview`
+            // both proxy /api to the backend (see vite.config.mts, which resolves
+            // BACKEND_PORT || PORT || 5000 for that proxy's target), so a relative
+            // path here goes through that proxy and reaches the backend on
+            // whatever port it actually bound. A hardcoded absolute URL bypasses
+            // the proxy entirely (it's a direct cross-origin request to that exact
+            // port) and silently breaks the moment the backend runs on a
+            // different port than 5000 — which is exactly BACKEND_PORT=5099 in
+            // the E2E workflow: every API call died with net::ERR_CONNECTION_REFUSED
+            // against a nothing-listening port 5000, even though the proxy itself
+            // was already correctly pointed at 5099.
+            //
+            // Socket.IO cannot be proxied the same way a plain HTTP path can (its
+            // own client opens a fresh connection using this URL directly, not a
+            // browser-relative fetch), so it keeps the explicit host:port guess —
+            // only the api branch changes here.
             const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-            url = type === 'api' ? `http://${hostname}:5000/api` : `http://${hostname}:5000`;
+            url = type === 'api' ? '/api' : `http://${hostname}:5000`;
         } else {
             // Production default: served same-origin behind the reverse proxy (nginx).
             url = type === 'api' ? '/api' : '';
