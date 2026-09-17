@@ -107,6 +107,17 @@ const AuthenticatedApp: React.FC = () => {
 
   useIdleKeepAlive(!!user && !!role && !isDemo);
 
+  // Signed-in views are private: tell crawlers not to index whatever the SPA
+  // renders once a session exists (index.html ships "index, follow" for the
+  // public entry screens). Restored on sign-out. Not a security control.
+  useEffect(() => {
+    const meta = document.querySelector('meta[name="robots"]');
+    if (!meta) return;
+    const previous = meta.getAttribute('content');
+    if (user && role) meta.setAttribute('content', 'noindex, nofollow');
+    return () => { if (previous) meta.setAttribute('content', previous); };
+  }, [user, role]);
+
   useEffect(() => { setAIAllowed(subscriptionGate.isAIAllowed); }, [subscriptionGate.isAIAllowed]);
 
   const [latestRegistryVersion, setLatestRegistryVersion] = useState<string | null>(null);

@@ -1,9 +1,13 @@
+# app.oliskey.com is the application. Only the entry screens are public;
+# every other path is a signed-in view (dashboards, records, uploads).
+# This is guidance for crawlers, not access control — auth + RLS are.
 User-agent: *
-Allow: /
-Disallow: /api/
-Disallow: /admin/
-Disallow: /teacher/
-Disallow: /student/
-Disallow: /parent/
+Allow: /$
+Allow: /login
+Allow: /signup
+Allow: /demo
+Allow: /assets/
+Allow: /manifest.json
+Disallow: /
 
 Sitemap: https://app.oliskey.com/sitemap.xml

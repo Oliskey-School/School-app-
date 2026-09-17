@@ -182,7 +182,15 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
 
   useEffect(() => {
     const lastMode = localStorage.getItem('last_login_mode');
-    if (lastMode === 'demo' && view !== 'demo') {
+    // Deep links from the marketing site: app.oliskey.com/demo and /signup open
+    // the matching screen directly instead of landing on the login form first.
+    const path = window.location.pathname.replace(/\/+$/, '');
+    const wantsDemo = path === '/demo' || new URLSearchParams(window.location.search).get('demo') === '1';
+    if (wantsDemo && view !== 'demo') {
+      setView('demo');
+    } else if (path === '/signup' && view === 'login') {
+      setView('school_signup');
+    } else if (lastMode === 'demo' && view !== 'demo') {
       setView('demo');
     }
   }, []);
