@@ -19,7 +19,8 @@ import {
   ChevronLeftIcon,
   SchoolIcon
 } from '../../constants';
-import { RefreshCw as RefreshIcon, WifiOff } from 'lucide-react';
+import { RefreshCw as RefreshIcon, WifiOff, Sparkles } from 'lucide-react';
+import AppearancePanel from '../shared/AppearancePanel';
 import DataUsageSettings from '../shared/DataUsageSettings';
 import { useAuth } from '../../context/AuthContext';
 import EditParentProfileScreen from './EditParentProfileScreen';
@@ -49,7 +50,7 @@ interface ParentProfileScreenProps {
   students?: any[];
 }
 
-type SettingView = 'linkChild' | 'editParentProfile' | 'learningResources' | 'schoolPolicies' | 'ptaMeetings' | 'photoGallery' | 'volunteering' | 'permissionSlips' | 'feedback' | 'notificationSettings' | 'securitySettings' | 'dataUsage' | null;
+type SettingView = 'linkChild' | 'editParentProfile' | 'learningResources' | 'schoolPolicies' | 'ptaMeetings' | 'photoGallery' | 'volunteering' | 'permissionSlips' | 'feedback' | 'notificationSettings' | 'securitySettings' | 'dataUsage' | 'appearanceSettings' | null;
 
 const SettingsPlaceholder: React.FC = () => (
   <div className="flex-col items-center justify-center h-full text-center text-gray-500 bg-[#F0F2F5] border-l border-gray-300/80 hidden md:flex">
@@ -96,6 +97,7 @@ const ParentProfileScreen: React.FC<ParentProfileScreenProps> = ({ onLogout, nav
     { id: 'notificationSettings', icon: <NotificationIcon />, label: 'Notification Settings' },
     { id: 'securitySettings', icon: <SecurityIcon />, label: 'Security & Password' },
     { id: 'dataUsage', icon: <WifiOff className="h-5 w-5" />, label: 'Data Usage' },
+    { id: 'appearanceSettings', icon: <Sparkles className="h-5 w-5" />, label: 'Appearance & Theme' },
     { id: 'help', icon: <HelpIcon />, label: 'Help Center' },
   ];
 
@@ -140,6 +142,7 @@ const ParentProfileScreen: React.FC<ParentProfileScreenProps> = ({ onLogout, nav
       case 'notificationSettings': return <ParentNotificationSettingsScreen />;
       case 'securitySettings': return <ParentSecurityScreen navigateTo={navigateTo} />;
       case 'dataUsage': return <DataUsageSettings accent="green" />;
+      case 'appearanceSettings': return <AppearancePanel />;
       default: return <SettingsPlaceholder />;
     }
   };

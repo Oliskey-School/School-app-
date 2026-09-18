@@ -52,6 +52,7 @@ import TimetableScreen from '../shared/TimetableScreen';
 import PickupAuthorizationScreen from './PickupAuthorizationScreen';
 import ParentProfileScreen from './ParentProfileScreen';
 import EditParentProfileScreen from './EditParentProfileScreen';
+import AppearancePanel from '../shared/AppearancePanel';
 import FeedbackScreen from './FeedbackScreen';
 import ParentNotificationSettingsScreen from './ParentNotificationSettingsScreen';
 import ParentSecurityScreen from './ParentSecurityScreen';
@@ -645,6 +646,7 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
         timetable: (props: any) => <TimetableScreen {...props} context={{ userType: 'parent', userId: parentId || '' }} students={students} />,
         more: ParentProfileScreen,
         editParentProfile: EditParentProfileScreen,
+        appearanceSettings: AppearancePanel,
         feedback: FeedbackScreen,
         notificationSettings: ParentNotificationSettingsScreen,
         securitySettings: ParentSecurityScreen,

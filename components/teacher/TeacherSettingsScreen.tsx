@@ -19,7 +19,8 @@ import {
     DollarSignIcon,
     SchoolIcon
 } from '../../constants';
-import { RefreshCw as RefreshIcon, WifiOff } from 'lucide-react';
+import { RefreshCw as RefreshIcon, WifiOff, Sparkles } from 'lucide-react';
+import AppearancePanel from '../shared/AppearancePanel';
 import DataUsageSettings from '../shared/DataUsageSettings';
 import { useAuth } from '../../context/AuthContext';
 import { THEME_CONFIG } from '../../constants';
@@ -45,7 +46,7 @@ interface TeacherSettingsScreenProps {
     currentUserId?: string | null;
 }
 
-type SettingView = 'editTeacherProfile' | 'teacherNotificationSettings' | 'teacherSecurity' | 'professionalDevelopment' | 'cbtManagement' | 'dataUsage' | null;
+type SettingView = 'editTeacherProfile' | 'teacherNotificationSettings' | 'teacherSecurity' | 'professionalDevelopment' | 'cbtManagement' | 'dataUsage' | 'appearanceSettings' | null;
 
 const SettingsPlaceholder: React.FC = () => (
     <div className="flex-col items-center justify-center h-full text-center text-gray-500 bg-[#F0F2F5] border-l border-gray-300/80 hidden md:flex">
@@ -106,6 +107,7 @@ const TeacherSettingsScreen: React.FC<TeacherSettingsScreenProps> = ({
         { id: 'payslips', icon: <DollarSignIcon />, label: 'My Payslips', color: 'bg-amber-100 text-amber-500' },
         { id: 'teacherSecurity', icon: <SecurityIcon />, label: 'Security & Password', color: 'bg-orange-100 text-orange-500' },
         { id: 'dataUsage', icon: <WifiOff className="h-5 w-5" />, label: 'Data Usage', color: 'bg-teal-100 text-teal-500' },
+        { id: 'appearanceSettings', icon: <Sparkles className="h-5 w-5" />, label: 'Appearance & Theme', color: 'bg-indigo-100 text-indigo-500' },
         { id: 'help', icon: <HelpIcon />, label: 'Help & Support', color: 'bg-purple-100 text-purple-500' },
     ];
 
@@ -135,6 +137,8 @@ const TeacherSettingsScreen: React.FC<TeacherSettingsScreenProps> = ({
                 return <TeacherSecurityScreen navigateTo={navigateTo} teacherId={teacherId} userId={currentUser?.id || currentUserId} />;
             case 'dataUsage':
                 return <DataUsageSettings accent="purple" />;
+            case 'appearanceSettings':
+                return <AppearancePanel />;
             default:
                 return <SettingsPlaceholder />;
         }

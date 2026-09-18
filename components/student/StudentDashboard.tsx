@@ -53,6 +53,7 @@ const AchievementsScreen = lazyWithRetry(() => import('../student/AchievementsSc
 const StudentMessagesScreen = lazyWithRetry(() => import('../student/StudentMessagesScreen'));
 const StudentNewChatScreen = lazyWithRetry(() => import('../student/NewMessageScreen'));
 const EditProfileScreen = lazyWithRetry(() => import('../shared/EditProfileScreen'));
+const AppearancePanel = lazyWithRetry(() => import('../shared/AppearancePanel'));
 import StudentProfileEnhanced from './StudentProfileEnhanced';
 const VideoLessonScreen = lazyWithRetry(() => import('../student/VideoLessonScreen'));
 const AssignmentSubmissionScreen = lazyWithRetry(() => import('../student/AssignmentSubmissionScreen'));
@@ -745,6 +746,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
         newChat: StudentNewChatScreen,
         profile: StudentProfileEnhanced,
         editProfile: EditProfileScreen,
+        appearanceSettings: AppearancePanel,
         videoLesson: VideoLessonScreen,
         assignmentSubmission: AssignmentSubmissionScreen,
         assignmentFeedback: AssignmentFeedbackScreen,
