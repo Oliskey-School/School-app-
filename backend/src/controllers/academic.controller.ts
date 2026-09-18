@@ -216,7 +216,8 @@ export const getReportCardDetails = async (req: AuthRequest, res: Response) => {
             req.user.school_id,
             studentId as string,
             term as string,
-            session as string
+            session as string,
+            { id: req.user.id, role: req.user.role }
         );
         // Parents and students only ever see PUBLISHED report cards. The
         // roster/list endpoints already filtered, but this per-term detail
@@ -358,7 +359,7 @@ export const getReportCardByCriteria = async (req: AuthRequest, res: Response) =
             return res.status(403).json({ message: 'You do not have access to this student\'s report card' });
         }
 
-        const result = await AcademicService.getReportByCriteria(schoolId, studentId, term, session);
+        const result = await AcademicService.getReportByCriteria(schoolId, studentId, term, session, { id: req.user.id, role: req.user.role });
         if (result && !STAFF_ROLES.includes((req.user.role || '').toLowerCase()) && result.status !== 'Published') {
             return res.status(404).json({ message: 'This report card has not been published yet.' });
         }

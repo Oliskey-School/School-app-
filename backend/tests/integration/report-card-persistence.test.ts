@@ -81,27 +81,43 @@ describe('Report card persistence', () => {
             save(T2, 'TEACHER', [rec('English', 12, 14, 50)]),
         ]);
         expect([a.status, b.status]).toEqual([200, 200]);
-        expect(subjectsOf(await details(ADMIN, 'ADMIN'))).toBe('English=76,Mathematics=75');
+        // Both subjects are on the card (drafts are private, so read the row itself).
+        const card = await prisma.reportCard.findFirst({ where: { school_id: S, student_id: STUDENT_ROW, term: TERM, session: SESSION } });
+        const stored = ((card?.academic_records as any)?.grades || []).map((g: any) => `${g.subject}=${g.total}`).sort().join(',');
+        expect(stored).toBe('English=76,Mathematics=75');
+        // DRAFT PRIVACY: each teacher sees their own draft, not the other's; admin sees neither yet.
+        expect(subjectsOf(await details(T1, 'TEACHER'))).toBe('Mathematics=75');
+        expect(subjectsOf(await details(T2, 'TEACHER'))).toBe('English=76');
+        expect(subjectsOf(await details(ADMIN, 'ADMIN'))).toBe('');
+        expect((await details(ADMIN, 'ADMIN')).body.hidden_draft_subjects).toBe(2);
         const ap = await prisma.academicPerformance.findMany({ where: { school_id: S, student_id: STUDENT_ROW, term: TERM, session: SESSION } });
         expect(ap.map((r) => `${r.subject}=${r.score}`).sort()).toEqual(['English=76', 'Mathematics=75']);
     });
 
     it('a teacher cannot see another school-wide subject removed: only admin replaceAll removes subjects', async () => {
         expect((await save(T1, 'TEACHER', [rec('Mathematics', 15, 15, 45)], 'Draft', { replaceAll: true })).status).toBe(200);
-        expect(subjectsOf(await details(ADMIN, 'ADMIN'))).toBe('English=76,Mathematics=75'); // ignored for teachers
+        const card = await prisma.reportCard.findFirst({ where: { school_id: S, student_id: STUDENT_ROW, term: TERM, session: SESSION } });
+        expect(((card?.academic_records as any)?.grades || []).length).toBe(2); // replaceAll ignored for teachers
+        // a missing session resolves to the same card the save used
+        const noSession = await request(app).get(`/api/academic/report-card-details?studentId=${STUDENT_ROW}&term=${encodeURIComponent(TERM)}&session=undefined`).set('Authorization', `Bearer ${token(T1, 'TEACHER')}`);
+        expect(subjectsOf(noSession)).toBe('Mathematics=75');
     });
 
     it('parent and student get 404 while Draft/Submitted, and see it once Published', async () => {
         expect((await details(PARENT, 'PARENT')).status).toBe(404);
         expect((await details(STUDENT, 'STUDENT')).status).toBe(404);
         expect((await save(T2, 'TEACHER', [rec('English', 12, 14, 50)], 'Submitted')).status).toBe(200);
+        // submitted English is now visible to every staff member; Maths is still T1's private draft
+        expect(subjectsOf(await details(ADMIN, 'ADMIN'))).toBe('English=76');
+        expect(subjectsOf(await details(T1, 'TEACHER'))).toBe('English=76,Mathematics=75');
         expect((await details(PARENT, 'PARENT')).status).toBe(404);
         // a Draft save from the other teacher must not pull it back to Draft
         expect((await save(T1, 'TEACHER', [rec('Mathematics', 15, 15, 46)], 'Draft')).status).toBe(200);
         expect((await details(ADMIN, 'ADMIN')).body.status).toBe('Submitted');
-        // teacher cannot publish
+        // teacher cannot publish (capped to Submitted) — and that submits their subject
         expect((await save(T1, 'TEACHER', [rec('Mathematics', 15, 15, 46)], 'Published')).status).toBe(200);
         expect((await details(ADMIN, 'ADMIN')).body.status).toBe('Submitted');
+        expect(subjectsOf(await details(ADMIN, 'ADMIN'))).toBe('English=76,Mathematics=76');
         const card = await prisma.reportCard.findFirst({ where: { school_id: S, student_id: STUDENT_ROW } });
         const pub = await request(app).put(`/api/report-cards/${card!.id}/status`).set('Authorization', `Bearer ${token(ADMIN, 'ADMIN')}`).send({ status: 'Published' });
         expect(pub.status).toBe(200);

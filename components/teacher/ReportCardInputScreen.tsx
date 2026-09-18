@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { getAIClient, AI_MODEL_NAME } from '../../lib/ai';
@@ -58,7 +58,21 @@ const getScoreInputStyle = (scoreStr: string, maxScore: number): string => {
 };
 
 
-const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, term, session, handleBack, isAdmin = false, subjectContext }) => {
+const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, term, session: sessionProp, handleBack, isAdmin = false, subjectContext }) => {
+    // Never operate on session "undefined": resolve the school's current session
+    // when the caller did not pass one, so load, save and the local draft all
+    // agree on the same key (they used to disagree — see AdminSelectTermForReport).
+    const [session, setSession] = useState<string>(sessionProp && sessionProp !== 'undefined' ? sessionProp : '');
+    useEffect(() => {
+        if (session) return;
+        let active = true;
+        api.getAcademicTerms('').then((terms: any[]) => {
+            if (!active || !Array.isArray(terms)) return;
+            const current = terms.find((t) => t.is_current) || terms[0];
+            if (current?.academic_year) setSession(current.academic_year);
+        }).catch(() => { /* the server applies the same default on save */ });
+        return () => { active = false; };
+    }, [session]);
     const { user: authUser, currentSchool } = useAuth();
     const [academicData, setAcademicData] = useState<AcademicRecordState[]>([]);
     const [skills, setSkills] = useState<Record<string, Rating>>({});
@@ -74,12 +88,24 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
 
     const storageKey = `report_card_draft_${student?.id}_${term}_${session}`;
 
-    // Load draft from localStorage on mount (after initial data load)
-    const loadDraft = useCallback(() => {
+    // Unsaved edits are drafted to this browser so a refresh does not lose typing.
+    // Two rules keep the database the source of truth:
+    //  1. only USER EDITS are drafted (the autosave used to write an empty draft the
+    //     moment the screen opened);
+    //  2. a browser draft is applied only when it is NEWER than the server's copy —
+    //     a stale draft used to be laid over freshly loaded server values, which is
+    //     how saved scores showed up as blank inputs.
+    const dirtyRef = useRef(false);
+    const loadDraft = useCallback((serverUpdatedAt?: string | null) => {
         try {
             const saved = localStorage.getItem(storageKey);
             if (saved) {
                 const draft = JSON.parse(saved);
+                if (serverUpdatedAt && draft?.timestamp && new Date(draft.timestamp) <= new Date(serverUpdatedAt)) {
+                    localStorage.removeItem(storageKey);
+            dirtyRef.current = false; // server is newer — the draft is obsolete
+                    return false;
+                }
                 if (draft.academicData) setAcademicData(draft.academicData);
                 if (draft.skills) setSkills(draft.skills);
                 if (draft.psychomotor) setPsychomotor(draft.psychomotor);
@@ -96,8 +122,8 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
 
     // Save draft to localStorage whenever data changes
     useEffect(() => {
-        if (loading) return; // Don't save while initial loading is happening
-        
+        if (loading || !dirtyRef.current) return; // nothing the user typed yet
+
         const draft = {
             academicData,
             skills,
@@ -189,9 +215,9 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
     }, []);
 
     useEffect(() => {
-        if (!student?.id) return;
+        if (!student?.id || !session) return; // wait until the session is known
         loadData();
-    }, [student?.id, term, refreshTrigger]);
+    }, [student?.id, term, session, refreshTrigger]);
 
     // Auto-sync
     useAutoSync(['report_card_records', 'report_cards'], () => setRefreshTrigger(prev => prev + 1));
@@ -280,8 +306,9 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
                 setPrincipalComment(report.principal_comment || report.principalComment || '');
             }
 
-            // After loading from API, check if there's a newer local draft
-            loadDraft();
+            // After loading from API, apply a local draft only if it is newer than
+            // what the server holds (otherwise it is discarded).
+            dirtyRef.current = loadDraft(report?.updated_at || null);
 
         } catch (err) {
             console.error("Error loading report card data:", err);
@@ -292,6 +319,7 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
     };
 
     const handleAcademicChange = useCallback((index: number, field: keyof Omit<AcademicRecordState, 'total' | 'grade'>, value: string) => {
+        dirtyRef.current = true;
         setAcademicData(currentData => {
             const newData = [...currentData];
             const recordToUpdate = { ...newData[index] };
@@ -460,6 +488,11 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
                 </header>
 
                 <SectionHeader title="Academic Performance" />
+                {Number((existingReport as any)?.hidden_draft_subjects) > 0 && (
+                    <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-md px-3 py-2 mb-2">
+                        {(existingReport as any).hidden_draft_subjects} subject{(existingReport as any).hidden_draft_subjects > 1 ? 's have' : ' has'} unsubmitted draft scores saved by another staff member. Drafts are private until they are submitted.
+                    </p>
+                )}
                 <div className="overflow-x-auto">
                     <table className="min-w-full border-collapse border border-gray-200 rounded-xl overflow-hidden">
                         <thead className="bg-gray-50 text-gray-600 font-black uppercase tracking-wider text-xs">
@@ -549,18 +582,18 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
-                    <div><SectionHeader title="Skills & Behaviour" /><table className="w-full text-sm"><tbody>{SKILL_BEHAVIOUR_DOMAINS.map(skill => (<tr key={skill}><td className="py-1 text-gray-800">{skill}</td><td className="w-20"><RatingSelector disabled={!canEditGeneralSections || isLocked} value={(skills || {})[skill] || ''} onChange={val => setSkills(p => ({ ...p, [skill]: val }))} options={RATING_OPTIONS} /></td></tr>))}</tbody></table></div>
-                    <div><SectionHeader title="Psychomotor Skills" /><table className="w-full text-sm"><tbody>{PSYCHOMOTOR_SKILLS.map(skill => (<tr key={skill}><td className="py-1 text-gray-800">{skill}</td><td className="w-20"><RatingSelector disabled={!canEditGeneralSections || isLocked} value={(psychomotor || {})[skill] || ''} onChange={val => setPsychomotor(p => ({ ...p, [skill]: val }))} options={RATING_OPTIONS} /></td></tr>))}</tbody></table></div>
+                    <div><SectionHeader title="Skills & Behaviour" /><table className="w-full text-sm"><tbody>{SKILL_BEHAVIOUR_DOMAINS.map(skill => (<tr key={skill}><td className="py-1 text-gray-800">{skill}</td><td className="w-20"><RatingSelector disabled={!canEditGeneralSections || isLocked} value={(skills || {})[skill] || ''} onChange={val => { dirtyRef.current = true; setSkills(p => ({ ...p, [skill]: val })); }} options={RATING_OPTIONS} /></td></tr>))}</tbody></table></div>
+                    <div><SectionHeader title="Psychomotor Skills" /><table className="w-full text-sm"><tbody>{PSYCHOMOTOR_SKILLS.map(skill => (<tr key={skill}><td className="py-1 text-gray-800">{skill}</td><td className="w-20"><RatingSelector disabled={!canEditGeneralSections || isLocked} value={(psychomotor || {})[skill] || ''} onChange={val => { dirtyRef.current = true; setPsychomotor(p => ({ ...p, [skill]: val })); }} options={RATING_OPTIONS} /></td></tr>))}</tbody></table></div>
                 </div>
 
                 <SectionHeader title="Attendance Record" />
                 <div className="grid grid-cols-4 gap-4 text-sm">
-                    {Object.entries(attendance).map(([key, value]) => (<div key={key}><label className="capitalize text-xs text-gray-700">{key.replace(/([A-Z])/g, ' $1')}</label><input type="number" value={value} disabled={!canEditGeneralSections || isLocked} onChange={e => setAttendance(p => ({ ...p, [key]: e.target.value }))} className="w-full p-2 text-sm border border-gray-300 rounded bg-white text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed" /></div>))}
+                    {Object.entries(attendance).map(([key, value]) => (<div key={key}><label className="capitalize text-xs text-gray-700">{key.replace(/([A-Z])/g, ' $1')}</label><input type="number" value={value} disabled={!canEditGeneralSections || isLocked} onChange={e => { dirtyRef.current = true; setAttendance(p => ({ ...p, [key]: e.target.value })); }} className="w-full p-2 text-sm border border-gray-300 rounded bg-white text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed" /></div>))}
                 </div>
 
                 <div className="mt-6 space-y-4">
-                    <div><label className="font-semibold text-sm text-gray-900">Teacher's General Comment:</label><textarea value={teacherComment} disabled={!canEditGeneralSections || isLocked} onChange={e => setTeacherComment(e.target.value)} rows={3} className="w-full mt-1 p-2 border border-gray-300 rounded-md text-sm bg-white text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed"></textarea></div>
-                    <div><label className="font-semibold text-sm text-gray-900">Principal's Comment:</label><textarea value={principalComment} onChange={e => setPrincipalComment(e.target.value)} disabled={!isAdmin || isLocked} placeholder={isAdmin ? "Enter principal's comment..." : "Principal's comment (read-only)"} rows={2} className={`w-full mt-1 p-2 border border-gray-300 rounded-md text-sm text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed ${isAdmin ? 'bg-white' : 'bg-gray-100'}`}></textarea></div>
+                    <div><label className="font-semibold text-sm text-gray-900">Teacher's General Comment:</label><textarea value={teacherComment} disabled={!canEditGeneralSections || isLocked} onChange={e => { dirtyRef.current = true; setTeacherComment(e.target.value); }} rows={3} className="w-full mt-1 p-2 border border-gray-300 rounded-md text-sm bg-white text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed"></textarea></div>
+                    <div><label className="font-semibold text-sm text-gray-900">Principal's Comment:</label><textarea value={principalComment} onChange={e => { dirtyRef.current = true; setPrincipalComment(e.target.value); }} disabled={!isAdmin || isLocked} placeholder={isAdmin ? "Enter principal's comment..." : "Principal's comment (read-only)"} rows={2} className={`w-full mt-1 p-2 border border-gray-300 rounded-md text-sm text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed ${isAdmin ? 'bg-white' : 'bg-gray-100'}`}></textarea></div>
                 </div>
 
                 <div className="pt-6 mt-4 border-t">

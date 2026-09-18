@@ -394,7 +394,27 @@ export class AcademicService {
         return performance;
     }
 
-    static async getReportCardDetails(schoolId: string, studentId: string, term: string, session: string) {
+    /**
+     * The academic session a save or read refers to. Both paths MUST resolve a
+     * missing/blank/"undefined" session the same way: the admin report editor
+     * used to open without a session, so its reads looked for session
+     * "undefined" while its saves were stored under the real one — it could
+     * never see what it had just written.
+     */
+    static resolveSession(input: unknown): string {
+        const v = typeof input === 'string' ? input.trim() : '';
+        if (v && v !== 'undefined' && v !== 'null') return v;
+        const now = new Date();
+        const startYear = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+        return `${startYear}/${startYear + 1}`;
+    }
+
+    /** Who is looking at a report card — decides which per-subject drafts they may see. */
+    static isStaffRole(role?: string) { return ['teacher', 'admin', 'proprietor', 'superadmin', 'super_admin'].includes((role || '').toLowerCase()); }
+    static isAdminRole(role?: string) { return ['admin', 'proprietor', 'superadmin', 'super_admin'].includes((role || '').toLowerCase()); }
+
+    static async getReportCardDetails(schoolId: string, studentId: string, term: string, sessionInput: string, viewer?: { id?: string; role?: string }) {
+        const session = this.resolveSession(sessionInput);
         const settings = await this.getCurriculumSettings(schoolId);
 
         // 1. Get basic ReportCard record if it exists
@@ -409,7 +429,20 @@ export class AcademicService {
 
         // 2. Get detailed records from the JSON blob first
         const academicData = reportBase?.academic_records as any || {};
-        const storedGrades = academicData.grades || [];
+        const allStoredGrades: any[] = Array.isArray(academicData.grades) ? academicData.grades : [];
+        // DRAFT PRIVACY. A subject saved as a draft is visible only to the person
+        // who saved it; a submitted subject is visible to every staff member; once
+        // the card is published everyone entitled sees everything. (Rows saved
+        // before per-subject tracking existed carry no status and are treated as
+        // submitted so nothing already entered disappears.)
+        const cardPublished = reportBase?.status === 'Published' || !!reportBase?.is_published;
+        const viewerId = viewer?.id ? String(viewer.id) : null;
+        const storedGrades = cardPublished || !viewer ? allStoredGrades : allStoredGrades.filter((g: any) => {
+            const st = String(g?.status || 'Submitted');
+            if (st !== 'Draft') return true;
+            return !!viewerId && String(g?.entered_by || '') === viewerId;
+        });
+        const hiddenDraftCount = allStoredGrades.length - storedGrades.length;
 
         // 3. Get Academic Performance (Grades) from table as fallback
         const grades = await prisma.academicPerformance.findMany({
@@ -423,7 +456,7 @@ export class AcademicService {
 
         // 4. Format academic records
         // If we have detailed stored grades, use them and ensure they have 'ca' field
-        const academicRecords = storedGrades.length > 0 ? storedGrades.map((g: any) => ({
+        const academicRecords = (storedGrades.length > 0 || allStoredGrades.length > 0) ? storedGrades.map((g: any) => ({
             ...g,
             ca: g.ca || (Number(g.test1 || 0) + Number(g.test2 || 0)),
             exam: g.exam || 0,
@@ -454,6 +487,8 @@ export class AcademicService {
             term,
             session,
             status: reportBase?.status || (reportBase?.is_published ? 'Published' : 'Draft'),
+            hidden_draft_subjects: hiddenDraftCount,
+            updated_at: reportBase?.updated_at || null,
             position: reportBase?.position_in_class,
             total_students: reportBase?.total_students_in_class,
             academic_records: academicRecords,
@@ -494,9 +529,9 @@ export class AcademicService {
         });
     }
 
-    static async getReportByCriteria(schoolId: string, studentId: string, term: string, session: string) {
+    static async getReportByCriteria(schoolId: string, studentId: string, term: string, session: string, viewer?: { id?: string; role?: string }) {
         // Use the existing logic from getReportCardDetails to ensure consistency
-        return await this.getReportCardDetails(schoolId, studentId, term, session);
+        return await this.getReportCardDetails(schoolId, studentId, term, session, viewer);
     }
 
     static async getAcademicTerms(schoolId: string, branchId?: string) {
@@ -573,9 +608,7 @@ export class AcademicService {
     static async upsertReportCard(studentId: string, schoolId: string, data: any, actor?: { id?: string; role?: string }) {
         const { academicRecords, status, attendance, skills, psychomotor, teacherComment, principalComment } = data;
         const term = data.term || 'First Term';
-        const now = new Date();
-        const startYear = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
-        const session = data.session || `${startYear}/${startYear + 1}`;
+        const session = this.resolveSession(data.session);
         const actorId = actor?.id || null;
         const actorRole = (actor?.role || '').toLowerCase();
         const isAdminActor = ['admin', 'proprietor', 'superadmin', 'super_admin'].includes(actorRole);
@@ -627,9 +660,23 @@ export class AcademicService {
             const stored = (existingRC?.academic_records as any) || {};
             const previousGrades: any[] = Array.isArray(stored.grades) ? stored.grades : [];
             const merged: any[] = replaceAll ? [] : previousGrades.map((g) => ({ ...g }));
+            // Each subject remembers who entered it and whether it is still a private
+            // draft or has been submitted (see getReportCardDetails for visibility).
+            const subjectStatus = nextStatus === 'Submitted' || nextStatus === 'Published' ? 'Submitted' : 'Draft';
+            const stampedAt = new Date().toISOString();
             for (const rec of incoming) {
                 const i = merged.findIndex((g) => g.subject === rec.subject);
-                if (i >= 0) merged[i] = { ...merged[i], ...rec }; else merged.push(rec);
+                const prev = i >= 0 ? merged[i] : null;
+                const stamped = {
+                    ...(prev || {}), ...rec,
+                    entered_by: actorId || prev?.entered_by || null,
+                    entered_by_role: actorRole || prev?.entered_by_role || null,
+                    // Once submitted a subject stays submitted; a later draft save by the
+                    // same person edits the submitted value rather than hiding it again.
+                    status: prev?.status === 'Submitted' ? 'Submitted' : subjectStatus,
+                    updated_at: stampedAt,
+                };
+                if (i >= 0) merged[i] = stamped; else merged.push(stamped);
             }
             if (replaceAll) {
                 await tx.academicPerformance.deleteMany({

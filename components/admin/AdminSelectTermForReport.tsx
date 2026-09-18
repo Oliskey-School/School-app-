@@ -1,5 +1,6 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { api } from '../../lib/api';
 import { motion } from 'framer-motion';
 import { Student } from '../../types';
 import { ChevronRightIcon, DocumentTextIcon } from '../../constants';
@@ -12,9 +13,24 @@ interface AdminSelectTermForReportProps {
 const AdminSelectTermForReport: React.FC<AdminSelectTermForReportProps> = ({ student, navigateTo }) => {
   const terms = ["First Term", "Second Term", "Third Term"];
 
+  // The editor keys everything (load, save, local draft) by term + SESSION. This
+  // screen used to open it without a session, so it read "session=undefined"
+  // (nothing) while its saves went under the real session — the admin could
+  // never see what they had just saved. Resolve the school's current session.
+  const [session, setSession] = useState<string>('');
+  useEffect(() => {
+    let active = true;
+    api.getAcademicTerms('').then((terms: any[]) => {
+      if (!active || !Array.isArray(terms)) return;
+      const current = terms.find((t) => t.is_current) || terms[0];
+      if (current?.academic_year) setSession(current.academic_year);
+    }).catch(() => { /* falls back to the server default on save/load */ });
+    return () => { active = false; };
+  }, []);
+
   const handleSelectTerm = (term: string) => {
     // Navigate to the reusable ReportCardInputScreen, aliased as 'adminReportCardInput' in the dashboard
-    navigateTo('adminReportCardInput', `Edit Report: ${student?.name || 'Student'}`, { student, term, isAdmin: true });
+    navigateTo('adminReportCardInput', `Edit Report: ${student?.name || 'Student'}`, { student, term, session: session || undefined, isAdmin: true });
   };
 
   if (!student) {
