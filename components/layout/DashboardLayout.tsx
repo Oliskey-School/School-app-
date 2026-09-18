@@ -199,7 +199,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
     };
 
     const isAdmin = role === DashboardType.Admin || role === DashboardType.SuperAdmin || role === DashboardType.Proprietor;
-    // Hard lock: app blocked for all roles when term 3+ payment is overdue. Demo schools are exempt.
+    // Hard lock: app blocked for all roles when term 2+ payment is overdue. Demo schools are exempt.
     const isLocked = planStatus.app_locked && !isDemo;
 
     const theme = role ? THEME_CONFIG[role as keyof typeof THEME_CONFIG] : THEME_CONFIG[DashboardType.Admin];

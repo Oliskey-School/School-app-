@@ -30,7 +30,7 @@ const USER_AI_PRICE = 2000; // ₦ (Advanced − Basic) per term, per user
 const AIFeatureLock: React.FC<AIFeatureLockProps> = ({ featureName = 'AI feature', children }) => {
     const gate = useSubscriptionGate();
     const navigate = useNavigate();
-    const { user, role, refreshCurrentSchool } = useAuth() as any;
+    const { user, role, refreshCurrentSchool, isDemo } = useAuth() as any;
     const [paying, setPaying] = useState(false);
 
     const email = user?.email || '';
@@ -47,7 +47,9 @@ const AIFeatureLock: React.FC<AIFeatureLockProps> = ({ featureName = 'AI feature
     if (gate.isAIAllowed) return <>{children}</>;
 
     const isStaffOrFamily = role === DashboardType.Teacher || role === DashboardType.Student || role === DashboardType.Parent;
-    const canSelfPay = isStaffOrFamily && gate.plan === 'basic';
+    // Demo visitors never reach real Paystack: they switch to the Admin role and
+    // "pay" for Advanced in the Demo Checkout instead.
+    const canSelfPay = isStaffOrFamily && gate.plan === 'basic' && !isDemo;
 
     const handleSelfPay = () => {
         if (!email || !publicKey) { toast.error('Online payment is not configured. Please contact your school.'); return; }

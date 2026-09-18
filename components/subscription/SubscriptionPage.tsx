@@ -7,6 +7,7 @@ import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { usePlanStatus } from '../../lib/hooks/usePlanStatus';
 import { Check, Users, ArrowLeft, Sparkles, Clock, AlertTriangle, Plus, Minus, CheckCircle, Lock, Zap } from 'lucide-react';
+import DemoCheckoutModal from './DemoCheckoutModal';
 
 type PlanKey = 'free' | 'basic' | 'advanced';
 
@@ -35,10 +36,13 @@ interface SubscriptionPageProps {
 }
 
 const SubscriptionPage: React.FC<SubscriptionPageProps> = ({ navigateTo, handleBack, onBack }) => {
-    const { user, currentSchool, refreshCurrentSchool } = useAuth() as any;
+    const { user, currentSchool, refreshCurrentSchool, isDemo } = useAuth() as any;
     const { currentBranch } = useBranch();
     const { planStatus } = usePlanStatus();
     const currentPlanKey = (currentSchool?.plan_type as PlanKey) || 'free';
+    // The demo shows the plain pay-to-unlock flow: no free period, fake money.
+    const freePeriodActive = planStatus.is_term1_free && !isDemo;
+    const [demoCheckoutOpen, setDemoCheckoutOpen] = useState(false);
 
     const [selectedPlan, setSelectedPlan] = useState<PlanKey>(
         currentPlanKey === 'free' ? 'basic' : currentPlanKey
@@ -125,6 +129,7 @@ const SubscriptionPage: React.FC<SubscriptionPageProps> = ({ navigateTo, handleB
             });
             const planLabel = selectedPlan === 'basic' ? 'Basic' : selectedPlan === 'advanced' ? 'Advanced' : 'Free';
             toast.success(`${planLabel} activated for Term ${term?.term ?? '—'}.`);
+            setDemoCheckoutOpen(false);
             await refreshCurrentSchool?.();
         } catch (err: any) {
             toast.error(err.message || 'Activation failed. Contact support with your payment reference.');
@@ -133,13 +138,22 @@ const SubscriptionPage: React.FC<SubscriptionPageProps> = ({ navigateTo, handleB
         }
     };
 
+    const selectedPlanLabel = selectedPlan === 'basic' ? 'Basic' : selectedPlan === 'advanced' ? 'Advanced' : 'Free';
+
     const handlePay = () => {
         if (selectedPlan === 'free') {
-            if (planStatus.is_term1_free) {
+            if (freePeriodActive) {
                 toast('You are already on the free period — all features except AI are active at no cost.', { icon: '✅' });
                 return;
             }
             activateOnBackend('FREE');
+            return;
+        }
+        if (studentCount <= 0) { toast.error('Enter the number of students to bill.'); return; }
+        if (isDemo) {
+            // Demo money: the Demo Checkout stands in for Paystack. The backend
+            // accepts a DEMO-* reference only for the demo school.
+            setDemoCheckoutOpen(true);
             return;
         }
         if (!import.meta.env.VITE_PAYSTACK_PUBLIC_KEY) {
@@ -147,7 +161,6 @@ const SubscriptionPage: React.FC<SubscriptionPageProps> = ({ navigateTo, handleB
             return;
         }
         if (!term) { toast.error('No active academic term configured. Contact support.'); return; }
-        if (studentCount <= 0) { toast.error('Enter the number of students to bill.'); return; }
         if (studentCount < minStudents) {
             toast.error(`You have ${minStudents} students — bill for at least ${minStudents}.`);
             setStudentCount(minStudents);
@@ -162,12 +175,13 @@ const SubscriptionPage: React.FC<SubscriptionPageProps> = ({ navigateTo, handleB
     const ctaLabel = (() => {
         if (loading) return 'Processing…';
         if (selectedPlan === 'free') {
-            return planStatus.is_term1_free ? 'Already on Free Period' : 'Switch to Free Plan';
+            return freePeriodActive ? 'Already on Free Period' : 'Switch to Free Plan';
         }
+        if (isDemo) return `Pay ${formatNaira(total)} for ${selectedPlanLabel} — Demo`;
         if (!term) return 'No active term configured';
-        if (planStatus.is_term1_free) {
+        if (freePeriodActive) {
             if (selectedPlan === 'advanced') return `Unlock AI Now — ${formatNaira(total)}`;
-            return `Lock in Basic for Term 3 — ${formatNaira(total)}`;
+            return `Lock in Basic for Term 2 — ${formatNaira(total)}`;
         }
         return `Pay ${formatNaira(total)} for Term ${term.term}`;
     })();
@@ -195,17 +209,17 @@ const SubscriptionPage: React.FC<SubscriptionPageProps> = ({ navigateTo, handleB
                 )}
 
                 {/* Free period banner */}
-                {planStatus.is_term1_free && (
+                {freePeriodActive && (
                     <div className="mb-6 rounded-2xl bg-emerald-50 border border-emerald-200 px-4 py-4 flex items-start gap-3">
                         <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
                         <div className="flex-1 min-w-0">
                             <p className="font-bold text-emerald-900 text-sm">
-                                Free Period Active — Term {planStatus.current_term} of 2
+                                Free Period Active — Term 1
                             </p>
                             <p className="text-xs text-emerald-700 mt-1 leading-relaxed">
-                                All features are available at no cost through Term 2 —{' '}
+                                All features are available at no cost during Term 1 —{' '}
                                 <strong>except AI tools</strong>, which require the Advanced plan.
-                                Payment is required from Term 3 onwards.
+                                Payment is required from Term 2 onwards.
                             </p>
                             <div className="mt-2.5 flex items-center gap-1.5 text-xs font-semibold text-emerald-800">
                                 <Zap className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
@@ -293,17 +307,17 @@ const SubscriptionPage: React.FC<SubscriptionPageProps> = ({ navigateTo, handleB
                         <p className="text-2xl font-extrabold text-slate-600 mt-1">Free</p>
                         <p className="text-[11px] text-slate-400 mt-0.5">forever</p>
                         <p className="text-xs text-slate-400 mt-3 leading-relaxed">
-                            Try with a small school. Limited to 10 students.
+                            Every core feature for any number of users. No AI tools.
                         </p>
                         <ul className="mt-3 space-y-1.5">
-                            {['Max 10 students', 'Max 10 teachers', 'No AI tools'].map(f => (
+                            {['Unlimited students', 'Unlimited teachers', 'No AI tools'].map(f => (
                                 <li key={f} className="flex items-center gap-1.5 text-xs text-slate-400">
                                     <Check className="w-3 h-3 text-slate-300 flex-shrink-0" />
                                     {f}
                                 </li>
                             ))}
                         </ul>
-                        {planStatus.is_term1_free ? (
+                        {freePeriodActive ? (
                             <span className="mt-4 inline-flex rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-700">
                                 Free Period Active
                             </span>
@@ -393,7 +407,7 @@ const SubscriptionPage: React.FC<SubscriptionPageProps> = ({ navigateTo, handleB
                             <p className="text-[11px] text-slate-500 leading-relaxed">
                                 Study Buddy · Timetable AI · Quiz Generator · Parenting Tips
                             </p>
-                            {planStatus.is_term1_free && (
+                            {freePeriodActive && (
                                 <div className="mt-2 flex items-center gap-1.5 rounded-xl bg-indigo-500/20 px-2.5 py-1.5">
                                     <Zap className="w-3 h-3 text-indigo-300 flex-shrink-0" />
                                     <p className="text-[10px] font-bold text-indigo-300">
@@ -499,7 +513,7 @@ const SubscriptionPage: React.FC<SubscriptionPageProps> = ({ navigateTo, handleB
                     whileHover={!loading ? { scale: 1.01 } : {}} whileTap={!loading ? { scale: 0.98 } : {}}
                     type="button"
                     onClick={handlePay}
-                    disabled={loading || (selectedPlan !== 'free' && !term && !planStatus.is_term1_free)}
+                    disabled={loading || (selectedPlan !== 'free' && !term && !freePeriodActive)}
                     className="w-full py-4 rounded-2xl bg-indigo-600 text-white font-bold text-base hover:bg-indigo-700 transition-all duration-150 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed shadow-lg shadow-indigo-100 mb-3"
                 >
                     {ctaLabel}
@@ -532,6 +546,17 @@ const SubscriptionPage: React.FC<SubscriptionPageProps> = ({ navigateTo, handleB
                 )}
 
             </div>
+
+            <DemoCheckoutModal
+                open={demoCheckoutOpen}
+                planLabel={selectedPlanLabel}
+                amountLabel={formatNaira(total)}
+                termLabel={term?.label ?? 'Current term'}
+                studentCount={studentCount}
+                processing={loading}
+                onConfirm={() => activateOnBackend(`DEMO-${Date.now()}`)}
+                onClose={() => setDemoCheckoutOpen(false)}
+            />
         </div>
     );
 };

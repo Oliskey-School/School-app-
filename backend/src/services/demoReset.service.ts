@@ -1,6 +1,6 @@
 import prisma from '../config/database';
 import { AuthService } from './auth.service';
-import { DemoSeederService } from './demoSeeder.service';
+import { DemoSeederService, restoreDemoPlanBaseline } from './demoSeeder.service';
 
 /**
  * DemoResetService - Periodically resets the demo environment to its original state.
@@ -29,7 +29,7 @@ export class DemoResetService {
             return;
         }
 
-        console.log(`🕒 [DemoReset] Service initialized. Reset scheduled every 24 hours.`);
+        console.log(`🕒 [DemoReset] Service initialized. Reset scheduled daily at 00:00 Africa/Lagos.`);
         this.isRunning = true;
 
         // setInterval only starts counting from THIS process's own boot, not
@@ -43,9 +43,24 @@ export class DemoResetService {
         // startup and is safe to run again right after this.
         setTimeout(() => this.executeReset(), 60 * 1000);
 
-        setInterval(() => {
-            this.executeReset();
-        }, this.INTERVAL_MS);
+        // Then every day at 12:00 am Nigeria time: what a visitor added during the
+        // day (users, plan changes) is gone at midnight, whatever time the server
+        // last booted. A fixed 24h interval drifted with each redeploy instead.
+        const scheduleMidnight = () => {
+            setTimeout(async () => {
+                await this.executeReset();
+                scheduleMidnight();
+            }, this.msUntilNextLagosMidnight());
+        };
+        scheduleMidnight();
+    }
+
+    /** Milliseconds until the next 00:00 in Africa/Lagos (UTC+1, no DST). */
+    static msUntilNextLagosMidnight(now: Date = new Date()): number {
+        const LAGOS_OFFSET_MS = 60 * 60 * 1000;
+        const lagosNow = now.getTime() + LAGOS_OFFSET_MS;
+        const nextMidnightLagos = (Math.floor(lagosNow / this.INTERVAL_MS) + 1) * this.INTERVAL_MS;
+        return nextMidnightLagos - lagosNow;
     }
 
     /**
@@ -154,6 +169,9 @@ export class DemoResetService {
             // already proven safe to re-run repeatedly (server.ts calls it on
             // every boot).
             await DemoSeederService.ensureDemoData();
+
+            // Any plan a visitor "bought" with demo money goes back to Basic.
+            await restoreDemoPlanBaseline();
 
             console.log('✅ [DemoReset] Environment successfully restored to baseline.');
         } catch (error: any) {

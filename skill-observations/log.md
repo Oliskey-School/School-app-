@@ -29,3 +29,25 @@ the hook to require graphify once per task phase rather than before every read.
 **Principle:** Enforcement hooks should be calibrated to when the underlying
 tool adds signal; blanket per-call enforcement of a low-precision tool trains
 the agent to treat it as a ritual instead of a source of truth.
+
+### Observation 2: Date-bounded seed data silently breaks features after the seed window ends
+
+**Date:** 2026-09-18
+**Status:** OPEN
+**Session context:** Demo pricing page + real Paystack activation
+**Skill:** deploy-check
+**Type:** open-source
+**Phase/Area:** pre-flight data audit
+
+**Issue:** The academic calendar was seeded for one session (2025/2026) only. Once
+that session closed, `getCurrentTerm()` returned null and EVERY paid plan
+activation failed with "No active academic term configured" — for live schools
+too — with no test or checklist item catching it. Found only by querying the DB
+while building an unrelated feature.
+
+**Suggested improvement:** Add a deploy-check item: "for every date-bounded
+seed/config table (calendars, pricing windows, term dates, holiday lists), verify
+a row covers today AND the next 90 days, or that the code auto-extends it."
+
+**Principle:** Seed data with an expiry is a time bomb; audits must check
+coverage against the current date, not just row existence.

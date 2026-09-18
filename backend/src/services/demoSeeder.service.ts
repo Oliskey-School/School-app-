@@ -4,6 +4,20 @@ import { AuthService } from './auth.service';
 import { VersionService, RUNNING_VERSION } from './version.service';
 
 /**
+ * The plan the shared demo school starts on and is put back on by every reset.
+ * Basic = every core feature open, AI locked — so a visitor experiences the
+ * "upgrade to Advanced" prompt and unlocks it with fake money in the Demo Checkout.
+ */
+export const DEMO_PLAN_BASELINE = { plan_type: 'basic', subscription_status: 'active' } as const;
+
+export async function restoreDemoPlanBaseline(): Promise<void> {
+    await prisma.school.update({
+        where: { id: AuthService.DEMO_SCHOOL_ID },
+        data: { ...DEMO_PLAN_BASELINE, paystack_auth_code: null, paystack_customer_code: null },
+    });
+}
+
+/**
  * Service responsible for ensuring Demo Accounts exist in the PostgreSQL Database.
  * This binds the frontend's mock demo tokens to actual DB referential integrity,
  * allowing Admin, Teacher, and Parent screens to see these generic Demo users natively.
@@ -33,7 +47,7 @@ export class DemoSeederService {
                     name: 'Oliskey School App',
                     code: 'OLISKEY',
                     slug: 'global-demo-school',
-                    subscription_status: 'active',
+                    ...DEMO_PLAN_BASELINE,
                     is_active: true,
                     is_onboarded: true,
                 }

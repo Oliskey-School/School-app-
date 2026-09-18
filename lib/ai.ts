@@ -3,7 +3,7 @@ export const GEMINI_MODEL_NAME = "gemini-2.0-flash";
 export const AI_MODEL_NAME = GEMINI_MODEL_NAME;
 
 // ── AI plan gate ─────────────────────────────────────────────────────────────
-// AI tools are an ADVANCED-plan feature (demo schools count as Advanced). The app
+// AI tools are an ADVANCED-plan feature (the demo school follows its own plan). The app
 // sets this from useSubscriptionGate. It defaults to FALSE so AI can never run for a
 // Free/Basic school — every AI call funnels through GeminiClient.generateContent below,
 // which short-circuits when AI isn't allowed.
