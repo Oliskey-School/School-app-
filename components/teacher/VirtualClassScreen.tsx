@@ -519,7 +519,7 @@ const VirtualClassScreen: React.FC = () => {
 
     const handleEndClass = async () => {
         if (activeSessionId) {
-            try { await api.endVirtualClassSession(activeSessionId); } catch (e) { console.error('Failed to end session', e); }
+            try { await api.endVirtualClassSession(activeSessionId); } catch (e) { console.error('Failed to end session', e); toast.error('The session could not be marked as ended — students may still see it as live.'); }
         }
         setActiveSession(null);
         setActiveSessionId(null);

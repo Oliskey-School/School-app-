@@ -1,3 +1,4 @@
+import { toast } from 'react-hot-toast';
 import React, { useState, useEffect } from 'react';
 import { MailIcon, BellIcon, NotificationIcon, ShieldCheckIcon } from '../../constants';
 import { api } from '../../lib/api';
@@ -66,7 +67,8 @@ const TeacherNotificationSettingsScreen: React.FC<TeacherNotificationSettingsScr
             await api.updateTeacher(teacherId, { notification_preferences: newSettings });
         } catch (err) {
             console.error('Error updating settings:', err);
-            setSettings(settings);
+            setSettings(settings); // roll the switch back — it was never saved
+            toast.error('Could not save this setting. Please try again.');
         }
     };
 
