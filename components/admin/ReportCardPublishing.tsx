@@ -46,6 +46,14 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
   const [activeTab, setActiveTab] = useState<ReportCard['status'] | 'All'>('All');
   const [showPreview, setShowPreview] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<StudentReportInfo | null>(null);
+  // Audit history modal: every save/submit/publish for one report card.
+  const [history, setHistory] = useState<{ student: TermStudent; entries: any[] | null } | null>(null);
+  const openHistory = async (student: TermStudent) => {
+    if (!student.activeReportId) { toast('No report card saved yet for this student.'); return; }
+    setHistory({ student, entries: null });
+    try { setHistory({ student, entries: await api.getReportCardHistory(student.activeReportId) }); }
+    catch (e: any) { toast.error(e?.message || 'Could not load history'); setHistory(null); }
+  };
 
   // Drill-down: Class -> Year -> Term -> Student. `selectedClassKey` is
   // `${grade}|${section}`; null means we're on the class-picker landing page.
@@ -569,6 +577,16 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
                       Preview
                     </button>
 
+                    {student.hasReport && (
+                      <button
+                        onClick={() => openHistory(student)}
+                        title="Who entered, changed, submitted and published this report card"
+                        className="p-2.5 md:p-3 text-[9px] md:text-xs font-black uppercase tracking-widest text-gray-500 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 hover:text-gray-900 transition-all flex items-center justify-center gap-2 active:scale-95"
+                      >
+                        <ClockIcon className="w-3 md:w-4 h-3 md:h-4" />
+                        History
+                      </button>
+                    )}
                     {student.status === 'Submitted' && (
                       <button
                         onClick={() => handlePublish(student.id, student.activeReportId as string)}
@@ -634,7 +652,53 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
           )
         )}
       </main>
-    </div>
+          {history && (
+        <div className="fixed inset-0 z-[70] bg-black/50 flex items-end md:items-center justify-center p-0 md:p-6" onClick={() => setHistory(null)}>
+          <div className="bg-white w-full md:max-w-2xl max-h-[85vh] rounded-t-3xl md:rounded-3xl shadow-2xl overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="p-5 border-b border-gray-100 flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Report card history</p>
+                <h3 className="text-lg font-black text-gray-900">{history.student.name}</h3>
+                <p className="text-xs text-gray-500">{selectedClassKey || ''} · {selectedTerm || ''} {selectedYear || ''}</p>
+              </div>
+              <button onClick={() => setHistory(null)} className="p-2 rounded-full hover:bg-gray-100" aria-label="Close"><XCircleIcon className="w-5 h-5 text-gray-400" /></button>
+            </div>
+            <div className="overflow-y-auto p-5 space-y-3">
+              {history.entries === null && <p className="text-sm text-gray-500">Loading…</p>}
+              {history.entries && history.entries.length === 0 && <p className="text-sm text-gray-500">No changes have been recorded for this report card yet.</p>}
+              {history.entries && history.entries.map((h: any) => {
+                const grades = (h.new_values && h.new_values.grades) || {};
+                const before = (h.old_values && h.old_values.grades) || {};
+                const who = h.user?.full_name || h.metadata?.actor_role || 'Unknown';
+                const when = new Date(h.performed_at || h.created_at).toLocaleString();
+                const label = String(h.action || '').replace('report_card.', '').replace(/_/g, ' ');
+                return (
+                  <div key={h.id} className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600">{label}</span>
+                      <span className="text-[11px] text-gray-500">{when}</span>
+                    </div>
+                    <p className="text-sm font-semibold text-gray-900 mt-1">{who}{h.user?.role ? ` · ${String(h.user.role).toLowerCase()}` : ''}</p>
+                    {h.old_values?.status !== h.new_values?.status && (
+                      <p className="text-xs text-gray-600 mt-1">Status: {h.old_values?.status || '—'} → <strong>{h.new_values?.status}</strong></p>
+                    )}
+                    {Object.keys(grades).length > 0 && (
+                      <ul className="mt-2 space-y-1">
+                        {Object.keys(grades).map((subject) => {
+                          const b = before[subject]; const a = grades[subject];
+                          const fmt = (g: any) => g ? `${g.total ?? '—'} (${g.grade ?? '—'})` : 'none';
+                          return <li key={subject} className="text-xs text-gray-700"><span className="font-semibold">{subject}</span>: {fmt(b)} → <strong>{fmt(a)}</strong></li>;
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+</div>
   );
 };
 
