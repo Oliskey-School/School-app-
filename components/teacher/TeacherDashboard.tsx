@@ -17,6 +17,7 @@ const GlobalSearchScreen = lazyWithRetry(() => import('../shared/GlobalSearchScr
 // Keep the overview in the initial teacher chunk for immediate first paint.
 // Other screens are fetched when opened, preserving the existing view registry.
 import TeacherOverview from './TeacherOverview';
+const AppearancePanel = lazyWithRetry(() => import('../shared/AppearancePanel'));
 const ClassDetailScreen = lazyWithRetry(() => import('./ClassDetailScreen'));
 const StudentProfileScreen = lazyWithRetry(() => import('./StudentProfileScreen'));
 const TeacherExamManagement = lazyWithRetry(() => import('./TeacherExamManagement'));
@@ -299,6 +300,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     helpSupport: HelpSupportScreen,
     editTeacherProfile: (props: any) => <EditTeacherProfileScreen {...props} onProfileUpdate={fetchProfile} />,
     teacherNotificationSettings: (props: any) => <TeacherNotificationSettingsScreen {...props} teacherId={teacherId} />,
+    appearanceSettings: () => <AppearancePanel />,
     teacherSecurity: (props: any) => <TeacherSecurityScreen {...props} teacherId={teacherId} userId={currentUserId} />,
     teacherChangePassword: TeacherChangePasswordScreen,
     lessonPlanner: LessonPlannerScreen,

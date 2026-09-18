@@ -120,7 +120,7 @@ const ParentProfileScreen: React.FC<ParentProfileScreenProps> = ({ onLogout, nav
       const isMobile = window.innerWidth < 768;
       const item = menuItems.find(i => i.id === id);
       
-      if (isMobile && item) {
+      if ((isMobile || id === 'appearanceSettings') && item) {
         navigateTo(id, item.label);
       } else {
         setActiveSetting(id as SettingView);

@@ -118,6 +118,10 @@ const TeacherSettingsScreen: React.FC<TeacherSettingsScreenProps> = ({
             navigateTo('leaveRequest', 'My Leaves', { teacherId });
         } else if (id === 'payslips') {
             navigateTo('payslips', 'My Payslips', { teacherId });
+        } else if (id === 'appearanceSettings') {
+            // Full page with the standard header, same as the admin's — not the
+            // narrow inline column.
+            navigateTo('appearanceSettings', 'Appearance & Theme');
         } else {
             setActiveSetting(id as SettingView);
         }
