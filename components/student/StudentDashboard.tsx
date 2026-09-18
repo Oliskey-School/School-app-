@@ -7,7 +7,7 @@ import { useDashboardRouting } from '../../hooks/useDashboardRouting';
 import { api } from '../../lib/api';
 import { DashboardType, Student, StudentAssignment } from '../../types';
 import { formatSchoolId } from '../../utils/idFormatter';
-import { THEME_CONFIG, ClockIcon, ClipboardListIcon, BellIcon, ChartBarIcon, ChevronRightIcon, SUBJECT_COLORS, BookOpenIcon, MegaphoneIcon, AttendanceSummaryIcon, CalendarIcon, ElearningIcon, StudyBuddyIcon, SparklesIcon, ReceiptIcon, AwardIcon, HelpIcon, GameControllerIcon, VideoIcon, GlobeIcon, getFormattedClassName } from '../../constants';
+import { THEME_CONFIG, ClockIcon, ClipboardListIcon, BellIcon, ChartBarIcon, ChevronRightIcon, SUBJECT_COLORS, BookOpenIcon, MegaphoneIcon, AttendanceSummaryIcon, CalendarIcon, ElearningIcon, StudyBuddyIcon, SparklesIcon, ReceiptIcon, AwardIcon, HelpIcon, GameControllerIcon, VideoIcon, GlobeIcon, ShieldCheckIcon, HeartIcon, getFormattedClassName } from '../../constants';
 import Header from '../ui/Header';
 import AIInsightsPanel from '../shared/AIInsightsPanel';
 import { StudentBottomNav } from '../ui/DashboardBottomNav';
@@ -322,6 +322,9 @@ const Overview: React.FC<{
         // sidebar and the mobile bottom nav.
         { label: 'Learning Hub', icon: <ElearningIcon />, action: () => navigateTo('learningHub', 'Learning Hub') },
         { label: 'Free Resources', icon: <GlobeIcon />, action: () => navigateTo('freeLearningResources', 'Free Learning Resources') },
+        // Reporting channels — owner asked for them here (2026-09-18).
+        { label: 'Report a Concern', icon: <ShieldCheckIcon />, action: () => navigateTo('anonymousReporting', 'Report a Concern') },
+        { label: 'Discreet Support', icon: <HeartIcon />, action: () => navigateTo('discreetReporting', 'Discreet Support') },
     ];
 
     const aiTools = [
