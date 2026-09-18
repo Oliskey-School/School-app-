@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import prisma, { getRawPrisma } from '../../src/config/database';
+import { PrismaClient } from '../../generated/prisma-client';
 
 /**
  * Regression gate for the multi-tenant boundary. This is NOT a full
@@ -101,12 +102,22 @@ describe('Multi-tenant security regression gate', () => {
 
     describe('the RLS session context is set inside the SAME transaction as the query', () => {
         it('GUCs set with is_local=true do not leak to the next transaction', async () => {
-            const raw = getRawPrisma() as any;
-            await raw.$transaction([
-                raw.$executeRaw`SELECT set_config('app.current_school_id', 'gate-test-marker', true)`,
-            ]);
-            const after: { v: string }[] = await raw.$queryRaw`SELECT current_setting('app.current_school_id', true) AS v`;
-            expect(after[0]?.v, 'a tenant GUC survived past its transaction — it could leak into an unrelated request on a pooled connection').toBe('');
+            // A dedicated single-connection client: the "next transaction" must run on
+            // the SAME connection for this to test anything. With the shared pool the
+            // follow-up query could land on a fresh connection (current_setting → NULL)
+            // and the assertion flipped at random (seen in CI 2026-09-18).
+            const url = new URL(process.env.DATABASE_URL as string);
+            url.searchParams.set('connection_limit', '1');
+            const one = new PrismaClient({ datasources: { db: { url: url.toString() } } }) as any;
+            try {
+                await one.$transaction([
+                    one.$executeRaw`SELECT set_config('app.current_school_id', 'gate-test-marker', true)`,
+                ]);
+                const after: { v: string }[] = await one.$queryRaw`SELECT current_setting('app.current_school_id', true) AS v`;
+                expect(after[0]?.v, 'a tenant GUC survived past its transaction — it could leak into an unrelated request on a pooled connection').toBe('');
+            } finally {
+                await one.$disconnect();
+            }
         });
     });
 
