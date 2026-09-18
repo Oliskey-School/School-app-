@@ -1,4 +1,4 @@
-import { PrismaClient } from '../../generated/prisma-client';
+import { Prisma, PrismaClient } from '../../generated/prisma-client';
 import { getTenantContext } from '../lib/tenantContext';
 
 // Recursively deletes credential fields from a Prisma result, mutating in place.
@@ -243,6 +243,35 @@ export function getRawPrisma(): PrismaClient {
 const dbUrl = process.env.DATABASE_URL || '';
 const finalObfuscatedUrl = dbUrl.replace(/\/\/.*:.*@/, '//****:****@');
 console.log('📦 [Prisma] Status:', dbUrl ? 'CONNECTED (CONFIGURED)' : 'DISCONNECTED (FALLBACK)', '-', finalObfuscatedUrl);
+
+/**
+ * A REAL database transaction, scoped to one tenant.
+ *
+ * `prisma.$transaction(async (tx) => ...)` on the extended client above is NOT
+ * atomic: the RLS extension dispatches every model call as its own batch on
+ * the base client, on whatever pooled connection is free, so nothing inside
+ * the callback shares a connection — row locks, SET LOCAL and rollback all
+ * silently stop working. This helper runs the callback on the plain client
+ * inside one interactive transaction, sets the tenant session variables on
+ * that same connection first (so RLS still applies), and hands back a `tx`
+ * whose queries genuinely share the transaction. Use it for anything that
+ * must be atomic or must lock a row (SELECT ... FOR UPDATE).
+ */
+export async function withTenantTransaction<T>(
+  scope: { schoolId: string; branchId?: string | null; userId?: string | null; branchIds?: string[] },
+  fn: (tx: Prisma.TransactionClient) => Promise<T>,
+  options: { maxWait?: number; timeout?: number } = {},
+): Promise<T> {
+  if (!globalThis.__rawPrisma) prismaClientSingleton();
+  const base = globalThis.__rawPrisma!;
+  return base.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT set_config('app.current_school_id', ${scope.schoolId}, true)`;
+    if (scope.branchId) await tx.$executeRaw`SELECT set_config('app.current_branch_id', ${scope.branchId}, true)`;
+    if (scope.userId) await tx.$executeRaw`SELECT set_config('app.current_user_id', ${scope.userId}, true)`;
+    await tx.$executeRaw`SELECT set_config('app.current_branch_ids', ${(scope.branchIds || []).join(',')}, true)`;
+    return fn(tx);
+  }, { maxWait: options.maxWait ?? 10000, timeout: options.timeout ?? 20000 });
+}
 
 export default prisma;
 
