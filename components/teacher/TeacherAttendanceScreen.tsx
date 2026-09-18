@@ -57,6 +57,9 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
     const { branches } = useBranch();
     const [students, setStudents] = useState<Student[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    // Each student's days this term (school days / present / absent / late) from
+    // the register — the same numbers that appear on their report card.
+    const [termDays, setTermDays] = useState<{ term: string; students: Record<string, { total: number; present: number; absent: number; late: number }> } | null>(null);
     const now = new Date();
     const [selectedDate, setSelectedDate] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`);
     const [selectedCurriculum, setSelectedCurriculum] = useState<'All' | 'Nigerian' | 'British'>('All');
@@ -127,6 +130,9 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
 
             setStudents(studentsWithAttendance);
 
+            const summary = await api.getAttendanceTermSummary({ classId: classInfo.id });
+            setTermDays(summary ? { term: summary.term, students: summary.students || {} } : null);
+
         } catch (err) {
             console.error("Error fetching attendance data:", err);
             toast.error("Failed to load attendance data.");
@@ -196,6 +202,10 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
         try {
             await api.saveAttendance(upsertData);
             toast.success(`Attendance for ${selectedDate} saved successfully!`);
+            // the term day counts under each name include today's marks now
+            api.getAttendanceTermSummary({ classId: classInfo.id }).then(summary => {
+                if (summary) setTermDays({ term: summary.term, students: summary.students || {} });
+            });
         } catch (err) {
             // A classroom is exactly where the signal is worst. Rather than losing
             // the whole register (it previously lived only in component state and
@@ -335,6 +345,9 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
                                     <div>
                                         <p className="font-bold text-gray-800">{student.name}</p>
                                         <p className="text-xs text-gray-500">Status: {student.attendanceStatus}</p>
+                                        {termDays?.students[student.id] && (
+                                            <p className="text-xs text-gray-500">{termDays.term}: {termDays.students[student.id].present} present · {termDays.students[student.id].absent} absent · {termDays.students[student.id].late} late of {termDays.students[student.id].total} days</p>
+                                        )}
                                     </div>
                                 </div>
                                 <AttendanceStatusButtons status={student.attendanceStatus} onStatusChange={(newStatus) => handleStatusChange(student.id, newStatus)} />

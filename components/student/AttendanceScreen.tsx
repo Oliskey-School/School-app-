@@ -71,6 +71,9 @@ const AttendanceScreen: React.FC<AttendanceScreenProps> = ({ studentId }) => {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [attendanceData, setAttendanceData] = useState<StudentAttendance[]>([]);
     const [loading, setLoading] = useState(true);
+    // The student's day counts for the current term, from the same register
+    // summary the report card and the teacher's class list use.
+    const [termSummary, setTermSummary] = useState<{ term: string; session: string; total: number; present: number; absent: number; late: number; percentage: number } | null>(null);
 
     const fetchAttendance = useCallback(async () => {
         if (!currentSchool?.id) return;
@@ -80,9 +83,14 @@ const AttendanceScreen: React.FC<AttendanceScreenProps> = ({ studentId }) => {
             // the studentId prop — fetch THAT student's attendance. Only a student
             // viewing their own record falls back to the "me" endpoint (which a
             // parent has no student profile for, and which used to 500).
-            const data = studentId
-                ? await api.getStudentAttendance(String(studentId))
-                : await api.getMyAttendance();
+            // The term summary is fetched alongside (never blocked by) the day list,
+            // so the day counts still show when the calendar data fails to load.
+            const [data, summary] = await Promise.all([
+                studentId ? api.getStudentAttendance(String(studentId)) : api.getMyAttendance(),
+                api.getAttendanceTermSummary(studentId ? { studentId: String(studentId) } : {}),
+            ]);
+            const mine = summary && (studentId ? summary.students?.[String(studentId)] : Object.values(summary.students || {})[0]);
+            setTermSummary(summary && mine ? { term: summary.term, session: summary.session, total: mine.total, present: mine.present, absent: mine.absent, late: mine.late, percentage: mine.percentage } : null);
 
             if (data) {
                 const formatted: StudentAttendance[] = data.map((d: any) => ({
@@ -243,14 +251,25 @@ const AttendanceScreen: React.FC<AttendanceScreenProps> = ({ studentId }) => {
                 className="bg-white rounded-xl shadow-sm p-4"
             >
                 <div className="flex justify-between items-center mb-2">
-                    <h3 className="font-bold text-gray-800">Term Attendance Trend</h3>
+                    <div>
+                        <h3 className="font-bold text-gray-800">Term Attendance Trend</h3>
+                        {termSummary && <p className="text-xs text-gray-500">{termSummary.term} · {termSummary.session}</p>}
+                    </div>
                     <div className="relative">
-                        <DonutChart percentage={termStats.percentage} color="#FF9800" size={60} strokeWidth={7} />
+                        <DonutChart percentage={termSummary ? termSummary.percentage : termStats.percentage} color="#FF9800" size={60} strokeWidth={7} />
                         <div className="absolute inset-0 flex flex-col items-center justify-center">
-                            <span className="text-lg font-bold text-gray-800">{termStats.percentage}%</span>
+                            <span className="text-lg font-bold text-gray-800">{termSummary ? termSummary.percentage : termStats.percentage}%</span>
                         </div>
                     </div>
                 </div>
+                {termSummary && (
+                    <div className="grid grid-cols-4 gap-2 text-center mb-3">
+                        <div className="bg-gray-50 rounded-lg p-2"><p className="font-bold text-gray-800">{termSummary.total}</p><p className="text-xs text-gray-500">School days</p></div>
+                        <div className="bg-green-50 rounded-lg p-2"><p className="font-bold text-green-600">{termSummary.present}</p><p className="text-xs text-gray-500">Present</p></div>
+                        <div className="bg-red-50 rounded-lg p-2"><p className="font-bold text-red-600">{termSummary.absent}</p><p className="text-xs text-gray-500">Absent</p></div>
+                        <div className="bg-blue-50 rounded-lg p-2"><p className="font-bold text-blue-600">{termSummary.late}</p><p className="text-xs text-gray-500">Late</p></div>
+                    </div>
+                )}
                 <SimpleLineChart data={termStats.trendData} color="#FF9800" />
             </motion.div>
         </div>

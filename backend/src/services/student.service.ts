@@ -5,6 +5,7 @@ import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import { Role } from '@prisma/client';
 import { SocketService } from './socket.service';
+import { AcademicService } from './academic.service';
 
 // Every scalar Student column — used by getAllStudents' `select` so it
 // returns exactly what `include: { user: true }` used to return for the
@@ -1131,8 +1132,16 @@ export class StudentService {
         });
     }
 
+    /**
+     * A student's PUBLISHED report cards in the shape the results screens read.
+     * The row stores everything in one JSON blob (`academic_records =
+     * { grades, skills, psychomotor, attendance }`) and the comments in
+     * `teacher_remark` / `principal_remark`; the screens used to read the raw
+     * row as if `academic_records` were the subject list — so a published card
+     * showed no subjects, no skills, no psychomotor and no attendance.
+     */
     static async getReportCards(schoolId: string, branchId: string | undefined, studentId: string) {
-        return await prisma.reportCard.findMany({
+        const rows = await prisma.reportCard.findMany({
             where: { 
                 student_id: studentId, 
                 school_id: schoolId,
@@ -1140,6 +1149,38 @@ export class StudentService {
             },
             orderBy: { created_at: 'desc' }
         });
+        const out: any[] = [];
+        for (const row of rows) {
+            const blob: any = (row.academic_records && typeof row.academic_records === 'object' && !Array.isArray(row.academic_records)) ? row.academic_records : {};
+            const grades: any[] = Array.isArray(blob.grades) ? blob.grades : (Array.isArray(row.academic_records) ? (row.academic_records as any[]) : []);
+            let attendance = AcademicService.hasAttendanceFigures(blob.attendance) ? blob.attendance : null;
+            if (!attendance) {
+                // cards published before attendance was snapshotted: show the register's days
+                const reg = await AcademicService.getRegisterAttendance(schoolId, row.branch_id, studentId, row.term, row.session);
+                attendance = reg ? { total: reg.total, present: reg.present, absent: reg.absent, late: reg.late } : { total: row.attendance_count || 0, present: row.attendance_count || 0, absent: 0, late: 0 };
+            }
+            out.push({
+                ...row,
+                academic_records: grades.map((g: any) => ({
+                    subject: g.subject,
+                    test1: Number(g.test1) || 0,
+                    test2: Number(g.test2) || 0,
+                    ca: Number(g.ca ?? ((Number(g.test1) || 0) + (Number(g.test2) || 0))) || 0,
+                    exam: Number(g.exam) || 0,
+                    total: Number(g.total) || 0,
+                    grade: g.grade,
+                    remark: g.remark,
+                })),
+                skills: blob.skills && typeof blob.skills === 'object' ? blob.skills : {},
+                psychomotor: blob.psychomotor && typeof blob.psychomotor === 'object' ? blob.psychomotor : {},
+                attendance,
+                teacher_comment: row.teacher_remark || '',
+                principal_comment: row.principal_remark || '',
+                position: row.position_in_class,
+                total_students: row.total_students_in_class,
+            });
+        }
+        return out;
     }
 
     static async linkGuardian(schoolId: string, branchId: string | undefined, data: any) {

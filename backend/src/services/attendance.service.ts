@@ -1,5 +1,6 @@
-﻿import prisma from '../config/database';
+import prisma from '../config/database';
 import { SocketService } from './socket.service';
+import { resolveTermWindow } from './academicSettings.service';
 
 export class AttendanceService {
     static async getAttendance(schoolId: string, branchId: string | undefined, classId: string, date: string) {
@@ -166,5 +167,89 @@ export class AttendanceService {
                 }
             }
         });
+    }
+
+    /**
+     * Day counts for a term, derived from the attendance register — the ONE
+     * source every screen uses (report card "Attendance Record", the teacher's
+     * class list, the parent/student attendance page), so they never disagree.
+     *
+     *  - total   = days school opened for the student's class in the term window
+     *              (distinct dates on which that class was marked);
+     *  - present / absent / late / leave = the student's own marks;
+     *  - percentage = (present + late) / total.
+     *
+     * Pass `classId` to summarise a whole class in one query, or `studentIds`
+     * for specific students (their class is taken from their own marks).
+     */
+    static async getTermSummary(
+        schoolId: string,
+        branchId: string | undefined,
+        opts: { term: string; session: string; studentIds?: string[]; classId?: string }
+    ) {
+        const window = await resolveTermWindow(schoolId, branchId && branchId !== 'all' ? branchId : null, opts.term, opts.session);
+        const scope: any[] = [];
+        if (opts.classId) scope.push({ class_id: opts.classId });
+        if (opts.studentIds?.length) scope.push({ student_id: { in: opts.studentIds } });
+        const empty = { term: window.name, session: opts.session, from: window.start, to: window.end, window_source: window.source, students: {} as Record<string, any> };
+        if (scope.length === 0) return empty;
+
+        const rows = await prisma.attendance.findMany({
+            where: {
+                school_id: schoolId,
+                branch_id: branchId && branchId !== 'all' ? branchId : undefined,
+                date: { gte: window.start, lte: window.end },
+                OR: scope,
+            },
+            select: { student_id: true, class_id: true, date: true, status: true },
+        });
+
+        // Days school opened, per class, within the window.
+        const openDays = new Map<string, Set<string>>();
+        // A student's marks may come from a class we only scoped by student id —
+        // count that class's open days too, in a second cheap query.
+        const classesSeen = new Set(rows.map(r => r.class_id).filter(Boolean) as string[]);
+        const extraClasses = [...classesSeen].filter(c => c !== opts.classId);
+        const classRows = extraClasses.length
+            ? await prisma.attendance.findMany({
+                where: { school_id: schoolId, class_id: { in: extraClasses }, date: { gte: window.start, lte: window.end } },
+                select: { class_id: true, date: true },
+            })
+            : [];
+        for (const r of [...rows, ...classRows]) {
+            const key = String(r.class_id || '');
+            if (!openDays.has(key)) openDays.set(key, new Set());
+            openDays.get(key)!.add(new Date(r.date).toISOString().slice(0, 10));
+        }
+
+        const students: Record<string, { total: number; present: number; absent: number; late: number; leave: number; marked: number; percentage: number; class_id: string | null }> = {};
+        const ensure = (id: string) => (students[id] ||= { total: 0, present: 0, absent: 0, late: 0, leave: 0, marked: 0, percentage: 0, class_id: null });
+        for (const id of opts.studentIds || []) ensure(id);
+        const classCount = new Map<string, Map<string, number>>();
+        for (const r of rows) {
+            const st = ensure(r.student_id);
+            const s = String(r.status || '').toLowerCase();
+            if (s === 'present') st.present++;
+            else if (s === 'absent') st.absent++;
+            else if (s === 'late') st.late++;
+            else if (s === 'leave' || s === 'excused') st.leave++;
+            else st.present++; // unknown value: the register treats it as attended
+            st.marked++;
+            const byClass = classCount.get(r.student_id) || new Map<string, number>();
+            byClass.set(String(r.class_id || ''), (byClass.get(String(r.class_id || '')) || 0) + 1);
+            classCount.set(r.student_id, byClass);
+        }
+        for (const [id, st] of Object.entries(students)) {
+            const byClass = classCount.get(id);
+            let cls = opts.classId || null;
+            if (!cls && byClass?.size) cls = [...byClass.entries()].sort((a, b) => b[1] - a[1])[0][0];
+            st.class_id = cls;
+            st.total = cls ? (openDays.get(cls)?.size || 0) : 0;
+            // The student can never have more marks than days open (e.g. marks in a
+            // class outside the scope): keep the counts self-consistent.
+            if (st.total < st.marked) st.total = st.marked;
+            st.percentage = st.total > 0 ? Math.round(((st.present + st.late) / st.total) * 100) : 0;
+        }
+        return { ...empty, students };
     }
 }

@@ -78,6 +78,18 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
     const [skills, setSkills] = useState<Record<string, Rating>>({});
     const [psychomotor, setPsychomotor] = useState<Record<string, Rating>>({});
     const [attendance, setAttendance] = useState({ total: '115', present: '', absent: '', late: '' });
+    // The student's days for this term as marked in the attendance register.
+    // The server fills the inputs from it until real figures are saved; the
+    // note below the inputs shows it so staff can see where the numbers came from.
+    const [registerAttendance, setRegisterAttendance] = useState<{ total: number; present: number; absent: number; late: number; leave?: number; percentage?: number } | null>(null);
+    const registerDiffers = !!registerAttendance && (
+        String(registerAttendance.total) !== attendance.total || String(registerAttendance.present) !== attendance.present ||
+        String(registerAttendance.absent) !== attendance.absent || String(registerAttendance.late) !== attendance.late);
+    const useRegisterFigures = () => {
+        if (!registerAttendance) return;
+        dirtyRef.current = true;
+        setAttendance({ total: String(registerAttendance.total), present: String(registerAttendance.present), absent: String(registerAttendance.absent), late: String(registerAttendance.late) });
+    };
     const [teacherComment, setTeacherComment] = useState('');
     const [principalComment, setPrincipalComment] = useState('');
     const [generatingRemarkIndex, setGeneratingRemarkIndex] = useState<number | null>(null);
@@ -296,6 +308,7 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
             if (report) {
                 setSkills(report.skills || {});
                 setPsychomotor(report.psychomotor || {});
+                setRegisterAttendance(report.attendance_register || null);
                 setAttendance({
                     total: (report.attendance?.total ?? '115').toString(),
                     present: (report.attendance?.present ?? '').toString(),
@@ -426,6 +439,16 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
             teacherComment,
             principalComment,
         };
+        // Skills, psychomotor, attendance and the comments belong to the class
+        // teacher / admin. A subject teacher (inputs disabled) must not send them
+        // back, or a stale copy would overwrite what the class teacher saved.
+        if (!canEditGeneralSections) {
+            delete (newReportCard as any).skills;
+            delete (newReportCard as any).psychomotor;
+            delete (newReportCard as any).attendance;
+            delete (newReportCard as any).teacherComment;
+        }
+        if (!isAdmin) delete (newReportCard as any).principalComment;
 
         // The full-card editor is the only place a subject can be REMOVED; the
         // server honours that only for admins (replaceAll). Teachers' saves are
@@ -590,6 +613,11 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
                 <div className="grid grid-cols-4 gap-4 text-sm">
                     {Object.entries(attendance).map(([key, value]) => (<div key={key}><label className="capitalize text-xs text-gray-700">{key.replace(/([A-Z])/g, ' $1')}</label><input type="number" value={value} disabled={!canEditGeneralSections || isLocked} onChange={e => { dirtyRef.current = true; setAttendance(p => ({ ...p, [key]: e.target.value })); }} className="w-full p-2 text-sm border border-gray-300 rounded bg-white text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed" /></div>))}
                 </div>
+                <p className="text-xs text-gray-500 mt-2">
+                    {registerAttendance
+                        ? <>Attendance register this term: <span className="font-semibold text-gray-700">{registerAttendance.total}</span> school days · {registerAttendance.present} present · {registerAttendance.absent} absent · {registerAttendance.late} late{registerDiffers && canEditGeneralSections && !isLocked && (<> · <button type="button" onClick={useRegisterFigures} className="font-semibold text-purple-700 hover:underline">Use register figures</button></>)}</>
+                        : 'No attendance has been marked for this student this term yet — the figures above are typed in.'}
+                </p>
 
                 <div className="mt-6 space-y-4">
                     <div><label className="font-semibold text-sm text-gray-900">Teacher's General Comment:</label><textarea value={teacherComment} disabled={!canEditGeneralSections || isLocked} onChange={e => { dirtyRef.current = true; setTeacherComment(e.target.value); }} rows={3} className="w-full mt-1 p-2 border border-gray-300 rounded-md text-sm bg-white text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed"></textarea></div>

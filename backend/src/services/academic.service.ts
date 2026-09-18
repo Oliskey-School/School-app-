@@ -1,6 +1,7 @@
 import prisma, { withTenantTransaction } from '../config/database';
 import { SocketService } from './socket.service';
 import { AcademicSettingsService } from './academicSettings.service';
+import { AttendanceService } from './attendance.service';
 
 export class AcademicService {
     private static async getCurriculumSettings(schoolId: string, branchId?: string) {
@@ -413,6 +414,25 @@ export class AcademicService {
     static isStaffRole(role?: string) { return ['teacher', 'admin', 'proprietor', 'superadmin', 'super_admin'].includes((role || '').toLowerCase()); }
     static isAdminRole(role?: string) { return ['admin', 'proprietor', 'superadmin', 'super_admin'].includes((role || '').toLowerCase()); }
 
+    /** True when a saved attendance block holds real figures (not the empty/zero placeholder). */
+    static hasAttendanceFigures(a: any): boolean {
+        if (!a || typeof a !== 'object') return false;
+        return ['total', 'present', 'absent', 'late'].some(k => Number(a[k]) > 0);
+    }
+
+    /** The student's day counts for the term straight from the attendance register (null when nothing was marked). */
+    static async getRegisterAttendance(schoolId: string, branchId: string | null | undefined, studentId: string, term: string, session: string) {
+        try {
+            const summary = await AttendanceService.getTermSummary(schoolId, branchId || undefined, { term, session, studentIds: [studentId] });
+            const st = summary.students[studentId];
+            if (!st || st.marked === 0) return null;
+            return { total: st.total, present: st.present, absent: st.absent, late: st.late, leave: st.leave, percentage: st.percentage, from: summary.from, to: summary.to };
+        } catch (e) {
+            console.warn('[AcademicService] register attendance unavailable:', (e as Error).message);
+            return null;
+        }
+    }
+
     static async getReportCardDetails(schoolId: string, studentId: string, term: string, sessionInput: string, viewer?: { id?: string; role?: string }) {
         const session = this.resolveSession(sessionInput);
         const settings = await this.getCurriculumSettings(schoolId);
@@ -481,6 +501,16 @@ export class AcademicService {
             };
         });
 
+        // ATTENDANCE DAYS come from the register, not from typing. The card keeps
+        // its own snapshot once someone has saved real figures; until then the
+        // live register numbers fill the "Attendance Record" so every report card
+        // shows the student's days without anyone having to count them.
+        const register = await this.getRegisterAttendance(schoolId, reportBase?.branch_id, studentId, term, session);
+        const storedAttendance = this.hasAttendanceFigures(academicData.attendance) ? academicData.attendance : null;
+        const attendance = storedAttendance
+            || (register ? { total: register.total, present: register.present, absent: register.absent, late: register.late } : null)
+            || { total: reportBase?.attendance_count || 0, present: reportBase?.attendance_count || 0, absent: 0, late: 0 };
+
         return {
             id: reportBase?.id || 'temp-id',
             student_id: studentId,
@@ -492,12 +522,9 @@ export class AcademicService {
             position: reportBase?.position_in_class,
             total_students: reportBase?.total_students_in_class,
             academic_records: academicRecords,
-            attendance: academicData.attendance || {
-                total: reportBase?.attendance_count || 0,
-                present: reportBase?.attendance_count || 0,
-                absent: 0,
-                late: 0
-            },
+            attendance,
+            attendance_source: storedAttendance ? 'saved' : (register ? 'register' : 'none'),
+            attendance_register: register,
             teacher_comment: reportBase?.teacher_remark || '', 
             principal_comment: reportBase?.principal_remark || '',
             skills: academicData.skills || {}, 
@@ -698,11 +725,21 @@ export class AcademicService {
 
             const totalScore = merged.reduce((acc: number, r: any) => acc + (Number(r.total) || 0), 0);
             const avgScore = merged.length > 0 ? totalScore / merged.length : 0;
+            // Attendance: real typed figures win; otherwise keep what the card has;
+            // otherwise snapshot the register so the saved card carries the
+            // student's days even if nobody opened that section.
+            let attendanceJson = this.hasAttendanceFigures(attendance) ? attendance
+                : this.hasAttendanceFigures(stored.attendance) ? stored.attendance
+                : (attendance ?? stored.attendance ?? {});
+            if (!this.hasAttendanceFigures(attendanceJson)) {
+                const register = await this.getRegisterAttendance(schoolId, branchId, studentId, term, session);
+                if (register) attendanceJson = { total: register.total, present: register.present, absent: register.absent, late: register.late };
+            }
             const academicRecordsJson = {
                 grades: merged,
                 skills: skills ?? stored.skills ?? {},
                 psychomotor: psychomotor ?? stored.psychomotor ?? {},
-                attendance: attendance ?? stored.attendance ?? {},
+                attendance: attendanceJson,
             };
             const teacherRemark = teacherComment ?? data.teacher_remark ?? existingRC?.teacher_remark ?? null;
             const principalRemark = principalComment ?? data.principal_remark ?? existingRC?.principal_remark ?? null;
@@ -717,7 +754,7 @@ export class AcademicService {
                         total_score: totalScore,
                         average_score: avgScore,
                         academic_records: academicRecordsJson as any,
-                        attendance_count: (attendance ?? stored.attendance)?.present ?? existingRC.attendance_count ?? 0,
+                        attendance_count: Number((attendanceJson as any)?.present) || existingRC.attendance_count || 0,
                         principal_remark: principalRemark,
                         teacher_remark: teacherRemark,
                         position_in_class: data.position ?? existingRC.position_in_class,
@@ -732,7 +769,7 @@ export class AcademicService {
                         is_published: nextStatus === 'Published',
                         total_score: totalScore, average_score: avgScore,
                         academic_records: academicRecordsJson as any,
-                        attendance_count: attendance?.present || 0,
+                        attendance_count: Number((attendanceJson as any)?.present) || 0,
                         principal_remark: principalRemark, teacher_remark: teacherRemark,
                         position_in_class: data.position, total_students_in_class: data.total_students,
                         created_by: actorId, updated_by: actorId,

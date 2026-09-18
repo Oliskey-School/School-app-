@@ -325,10 +325,16 @@ const BehaviorTab = ({ student }: { student: Student }) => {
 const AttendanceTab = ({ student }: { student: Student }) => {
     const [attendance, setAttendance] = useState<StudentAttendance[]>([]);
     const [loading, setLoading] = useState(true);
+    // This term's day counts from the register (same figures as the report card).
+    const [termDays, setTermDays] = useState<{ term: string; total: number; present: number; absent: number; late: number } | null>(null);
     
     const fetchAttendance = useCallback(async () => {
         setLoading(true);
         try {
+            api.getAttendanceTermSummary({ studentId: String(student.id) }).then(summary => {
+                const mine = summary?.students?.[String(student.id)];
+                setTermDays(summary && mine ? { term: summary.term, total: mine.total, present: mine.present, absent: mine.absent, late: mine.late } : null);
+            });
             const data = await api.getAttendanceByStudent(student.id);
             if (data) setAttendance(data.map((a: any) => ({
                 id: a.id,
@@ -418,6 +424,14 @@ const AttendanceTab = ({ student }: { student: Student }) => {
                 <span className="flex items-center"><div className="w-3 h-3 rounded-full bg-red-400 mr-1.5"></div>Absent</span>
                 <span className="flex items-center"><div className="w-3 h-3 rounded-full bg-blue-400 mr-1.5"></div>Late</span>
             </div>
+            {termDays && (
+                <div className="grid grid-cols-4 gap-2 text-center mt-4">
+                    <div className="bg-gray-50 rounded-lg p-2"><p className="font-bold text-gray-800">{termDays.total}</p><p className="text-xs text-gray-500">School days</p></div>
+                    <div className="bg-green-50 rounded-lg p-2"><p className="font-bold text-green-600">{termDays.present}</p><p className="text-xs text-gray-500">Present</p></div>
+                    <div className="bg-red-50 rounded-lg p-2"><p className="font-bold text-red-600">{termDays.absent}</p><p className="text-xs text-gray-500">Absent</p></div>
+                    <div className="bg-blue-50 rounded-lg p-2"><p className="font-bold text-blue-600">{termDays.late}</p><p className="text-xs text-gray-500">Late</p></div>
+                </div>
+            )}
         </div>
     );
 };

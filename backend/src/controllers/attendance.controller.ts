@@ -1,6 +1,8 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { AttendanceService } from '../services/attendance.service';
+import { AcademicService } from '../services/academic.service';
+import { resolveCurrentTerm } from '../services/academicSettings.service';
 import prisma from '../config/database';
 import { getEffectiveBranchId } from '../utils/branchScope';
 import { sendError } from '../utils/httpError';
@@ -199,6 +201,47 @@ export const bulkFetchAttendance = async (req: AuthRequest, res: Response) => {
 
         const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
         const result = await AttendanceService.getAttendanceByStudentIds(req.user.school_id, branchId, safeStudentIds, startDate, endDate);
+        res.json(result);
+    } catch (error: any) {
+        sendError(res, error, 'attendance.controller.ts');
+    }
+};
+
+/**
+ * GET /attendance/summary?term=&session=&studentId=|classId=
+ * Day counts for a term from the register (see AttendanceService.getTermSummary).
+ * Students and parents only ever get their own / their children's numbers.
+ */
+export const getAttendanceTermSummary = async (req: AuthRequest, res: Response) => {
+    try {
+        let term = String(req.query.term || '').trim();
+        let session = String(req.query.session || '').trim();
+        if (session === 'undefined' || session === 'null') session = '';
+        const branchId = getEffectiveBranchId(req.user, (req.query.branch_id || req.query.branchId) as string);
+        if (!term) {
+            // no term given → the term today falls in (dashboards)
+            const current = await resolveCurrentTerm(req.user.school_id, branchId && branchId !== 'all' ? branchId : null);
+            term = current.term;
+            session = session || current.session;
+        }
+        const classId = req.query.classId ? String(req.query.classId) : undefined;
+        const requested = String(req.query.studentId || req.query.studentIds || '').split(',').map(s => s.trim()).filter(Boolean);
+
+        const allowed = await getAuthorizedStudentIds(req);
+        let studentIds = requested;
+        if (allowed) {
+            studentIds = (requested.length ? requested : allowed).filter(id => allowed.includes(id));
+            if (studentIds.length === 0) return res.status(403).json({ message: 'You do not have access to this attendance' });
+        }
+        if (!classId && studentIds.length === 0) return res.status(400).json({ message: 'studentId or classId is required' });
+
+        const result = await AttendanceService.getTermSummary(req.user.school_id, branchId, {
+            term,
+            session: session || AcademicService.resolveSession(''),
+            studentIds: studentIds.length ? studentIds : undefined,
+            // a restricted viewer never gets a whole class
+            classId: allowed ? undefined : classId,
+        });
         res.json(result);
     } catch (error: any) {
         sendError(res, error, 'attendance.controller.ts');

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getAttendance, saveAttendance, getAttendanceByStudent, bulkFetchAttendance } from '../controllers/attendance.controller';
+import { getAttendance, saveAttendance, getAttendanceByStudent, bulkFetchAttendance, getAttendanceTermSummary } from '../controllers/attendance.controller';
 import { authenticate } from '../middleware/auth.middleware';
 
 const router = Router();
@@ -7,6 +7,7 @@ const router = Router();
 router.use(authenticate);
 
 router.post('/bulk-fetch', bulkFetchAttendance);
+router.get('/summary', getAttendanceTermSummary);
 router.get('/', getAttendance);
 router.post('/', saveAttendance);
 router.get('/student/:studentId', getAttendanceByStudent);

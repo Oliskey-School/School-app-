@@ -2012,6 +2012,28 @@ class ExpressApiClient {
         return this.post('/attendance', { records: data });
     }
 
+    /**
+     * Day counts for a term from the attendance register (school days, present,
+     * absent, late per student). Omit term/session for the term today falls in.
+     */
+    async getAttendanceTermSummary(params: { studentId?: string; studentIds?: string[]; classId?: string; term?: string; session?: string }): Promise<{
+        term: string; session: string; from: string; to: string;
+        students: Record<string, { total: number; present: number; absent: number; late: number; leave: number; marked: number; percentage: number }>;
+    } | null> {
+        const q = new URLSearchParams();
+        if (params.studentId) q.set('studentId', String(params.studentId));
+        if (params.studentIds?.length) q.set('studentIds', params.studentIds.join(','));
+        if (params.classId) q.set('classId', params.classId);
+        if (params.term) q.set('term', params.term);
+        if (params.session && params.session !== 'undefined') q.set('session', params.session);
+        try {
+            return await this.get(`/attendance/summary?${q.toString()}`);
+        } catch (err) {
+            console.warn('[api] attendance summary unavailable:', err);
+            return null;
+        }
+    }
+
     async getStudentAttendance(studentId: string): Promise<any[]> {
         try {
             return await this.get(`/attendance/student/${studentId}`);
