@@ -145,8 +145,11 @@ const start = async () => {
 
                 // Always seed the academic calendar — tiny table, runs once.
                 try {
-                    const { seedAcademicCalendarIfEmpty } = require('./services/term.service');
+                    const { seedAcademicCalendarIfEmpty, ensureAcademicCalendarCoversDate } = require('./services/term.service');
                     await seedAcademicCalendarIfEmpty();
+                    // The seeded session ends every July; without the next one no
+                    // school can pay for a term (activation needs a current term).
+                    await ensureAcademicCalendarCoversDate(new Date());
                 } catch (calErr: any) {
                     console.warn('⚠️ [TermService] Calendar seed skipped:', calErr.message);
                 }

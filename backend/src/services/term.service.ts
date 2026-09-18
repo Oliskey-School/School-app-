@@ -92,6 +92,44 @@ export async function seedAcademicCalendarIfEmpty(): Promise<void> {
 }
 
 /**
+ * Standard Lagos-style term windows for the session that starts in September of
+ * `startYear`. Used only when the calendar has no rows covering a date, so a
+ * school can never be blocked from paying because nobody has typed in next
+ * year's dates yet. SuperAdmin can still edit the generated rows afterwards.
+ */
+function standardSessionTerms(startYear: number) {
+    const y = startYear, n = startYear + 1;
+    const lagos = (d: string, end = false) => new Date(`${d}T${end ? '23:59:59' : '00:00:00'}+01:00`);
+    return [
+        { session: `${y}/${n}`, term: 1, resumption_date: lagos(`${y}-09-14`), closing_date: lagos(`${y}-12-18`, true) },
+        { session: `${y}/${n}`, term: 2, resumption_date: lagos(`${n}-01-11`), closing_date: lagos(`${n}-04-16`, true) },
+        { session: `${y}/${n}`, term: 3, resumption_date: lagos(`${n}-05-03`), closing_date: lagos(`${n}-07-23`, true) },
+    ];
+}
+
+/**
+ * Make sure the calendar has a term at (or after) `date`. Without this, the day
+ * the last seeded session closes every paid activation fails with "No active
+ * academic term configured" until someone adds the next session by hand.
+ * Generates the standard windows for the session containing `date` (Sept → July)
+ * when neither an in-term nor an upcoming row exists. Safe to call repeatedly.
+ */
+export async function ensureAcademicCalendarCoversDate(date: Date = new Date()): Promise<void> {
+    if (await getCurrentTerm(date)) return;
+
+    // A session starts in September: Jan–Aug belongs to the session that began the previous year.
+    const startYear = date.getUTCMonth() >= 8 ? date.getUTCFullYear() : date.getUTCFullYear() - 1;
+    const terms = standardSessionTerms(startYear);
+    const session = terms[0].session;
+
+    const existing = await prisma.academicCalendar.count({ where: { session } });
+    if (existing > 0) return; // rows exist but are inactive/edited — leave SuperAdmin's choice alone
+
+    await prisma.academicCalendar.createMany({ data: terms, skipDuplicates: true });
+    console.log(`🌱 [TermService] Calendar had no term covering ${date.toISOString().slice(0, 10)} — generated standard ${session} session.`);
+}
+
+/**
  * List all terms in the active calendar — used by SuperAdmin UI to edit dates.
  */
 export async function listAllTerms() {

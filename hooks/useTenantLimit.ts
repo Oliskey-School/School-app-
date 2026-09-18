@@ -17,7 +17,6 @@ export const useTenantLimit = (entity: 'users' | 'students' | 'teachers' = 'user
     const [count, setCount] = useState(0);
     const [loading, setLoading] = useState(true);
 
-    const FREE_TIER_LIMIT = 10;
     const OLISKEY_DEMO_SCHOOL_ID = 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
     const subscriptionStatus = (currentSchool as any)?.subscription_status;
     const isOnTrial = subscriptionStatus === 'trial';
@@ -25,9 +24,9 @@ export const useTenantLimit = (entity: 'users' | 'students' | 'teachers' = 'user
     const isPremium = currentSchool?.is_premium || isDemoSchool;
     const planType = isDemoSchool ? 'premium' : (currentSchool?.plan_type || 'free');
 
-    // Schools on free trial have unlimited access — no seat caps, no upgrade prompts.
-    // Paid plans (basic/advanced) are billed PER STUDENT, so the student cap is exactly
-    // what the school PAID for (school.student_count). Free tier caps at 10.
+    // There is no user cap on any plan (the old "10 users on Free" rule is gone).
+    // Paid plans (basic/advanced) are billed PER STUDENT, so the only cap is the
+    // number of students the school PAID for (school.student_count).
     //
     // The demo school is a sandbox, not a billed tenant, so it is uncapped too.
     // It was already flagged premium above, but the per-student branch below then
@@ -40,7 +39,7 @@ export const useTenantLimit = (entity: 'users' | 'students' | 'teachers' = 'user
         ? Infinity
         : (entity === 'students' && isPremium)
             ? (PAID_STUDENT_CAPACITY > 0 ? PAID_STUDENT_CAPACITY : Infinity)
-            : (isPremium ? Infinity : FREE_TIER_LIMIT);
+            : Infinity;
 
     const fetchCount = useCallback(async () => {
         if (!isAuthenticated || !currentSchool?.id) return;

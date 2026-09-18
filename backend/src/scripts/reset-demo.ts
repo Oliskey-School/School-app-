@@ -11,6 +11,7 @@
  */
 import prisma from '../config/database';
 import { config } from '../config/env';
+import { restoreDemoPlanBaseline } from '../services/demoSeeder.service';
 
 const DEMO_SCHOOL_ID = config.demoSchoolId || 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
 
@@ -22,6 +23,9 @@ async function resetDemo() {
         select: { id: true, email: true, role: true, school_generated_id: true },
     });
     console.log(`   Found ${targets.length} visitor-created account(s) to remove.`);
+    // Whatever plan a visitor "bought" with demo money goes back to Basic.
+    await restoreDemoPlanBaseline();
+
     if (targets.length === 0) {
         console.log('✅ Demo already clean.');
         return { removed: 0 };

@@ -1,9 +1,21 @@
 import prisma from '../config/database';
+import { config } from '../config/env';
 import { getCurrentTerm } from './term.service';
 import { SubscriptionEmailService } from './subscriptionEmail.service';
 import { generateInvoicePdf } from './subscriptionInvoice.service';
 
 const PAYSTACK_BASE = 'https://api.paystack.co';
+
+/**
+ * Demo checkout references look like `DEMO-<timestamp>`. Only the shared demo
+ * school may activate a paid plan with one (fake money, no Paystack call) —
+ * a live school sending it is treated as an ordinary reference and fails
+ * Paystack verification.
+ */
+export const DEMO_REFERENCE_PREFIX = 'DEMO-';
+export function isDemoPaymentReference(schoolId: string, reference: string | undefined): boolean {
+    return schoolId === config.demoSchoolId && typeof reference === 'string' && reference.startsWith(DEMO_REFERENCE_PREFIX);
+}
 
 export const PLAN_RATES: Record<'free' | 'basic' | 'advanced', number> = {
     free: 0,
@@ -147,7 +159,9 @@ export async function activateSubscription(input: ActivateInput) {
     let customerCode: string | null = null;
     let amountPaid = 0;
 
-    if (plan_type !== 'free') {
+    if (plan_type !== 'free' && isDemoPaymentReference(school_id, reference)) {
+        // Demo school: the visitor "paid" in the Demo Checkout popup. Nothing to verify.
+    } else if (plan_type !== 'free') {
         if (!reference) throw new Error('reference is required for paid plans');
         const tx = await verifyPaystackTransaction(reference);
         authCode = tx!.authorization?.authorization_code || null;
@@ -186,7 +200,7 @@ export async function activateSubscription(input: ActivateInput) {
 
     // Fire-and-forget receipt email with invoice PDF attached. We do NOT await
     // so a transient email failure can't roll back the activation.
-    if (plan_type !== 'free' && termInfo && updated.contact_email) {
+    if (plan_type !== 'free' && termInfo && updated.contact_email && !isDemoPaymentReference(school_id, reference)) {
         try {
             const pdf = generateInvoicePdf({
                 school: { name: updated.name, address: updated.address, contact_email: updated.contact_email },

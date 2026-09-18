@@ -8,7 +8,7 @@ interface PlanLockScreenProps {
 }
 
 /**
- * Shown to all roles when the school's subscription has expired (term 3+ unpaid).
+ * Shown to all roles when the school's subscription has expired (term 2+ unpaid).
  * Admin: sees the subscription payment page inline so they can pay immediately.
  * All other roles: sees a locked-out message directing them to contact admin.
  */

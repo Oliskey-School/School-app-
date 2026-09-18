@@ -26,7 +26,7 @@ export interface PlanStatus {
     can_add_teacher: boolean;
     // Term-based billing
     current_term: 1 | 2 | 3;
-    is_term1_free: boolean;      // true for terms 1 AND 2 (both are free)
+    is_term1_free: boolean;      // true only in Term 1 — payment starts from Term 2
     days_until_exam_block: number | null;
     exam_block_active: boolean;
     app_locked: boolean;         // hard lock — all roles blocked until admin pays
@@ -51,7 +51,7 @@ const DEFAULT_STATUS: PlanStatus = {
     app_locked: false,
 };
 
-function calcTermFields(
+export function calcTermFields(
     currentSchool: any,
     termInfo: { closing_date?: string } | null,
     planData: Partial<PlanStatus>
@@ -63,8 +63,8 @@ function calcTermFields(
         const termIndex = Math.min(Math.max(Math.floor(daysSinceStart / 150), 0), 2);
         const current_term = (termIndex + 1) as 1 | 2 | 3;
 
-        // Terms 1 AND 2 are free — payment only required from Term 3
-        const is_term1_free = current_term <= 2;
+        // Term 1 is free — payment is required from Term 2 onwards
+        const is_term1_free = current_term <= 1;
 
         const closingDate = termInfo?.closing_date ? new Date(termInfo.closing_date) : null;
         const daysUntilClosing = closingDate
@@ -74,16 +74,16 @@ function calcTermFields(
         const hasPaidSubscription =
             planData.subscription_status === 'active' && planData.plan_type !== 'free';
 
-        // Hard lock: term 3+ with no paid sub and closing date passed (or 16+ months with no term config)
+        // Hard lock: term 2+ with no paid sub and closing date passed (or 16+ months with no term config)
         const exam_block_active =
-            current_term >= 3 &&
+            current_term >= 2 &&
             !hasPaidSubscription &&
             (daysUntilClosing !== null ? daysUntilClosing <= 0 : daysSinceStart >= 480);
 
-        // Soft warning: 30 days before closing in term 3+
+        // Soft warning: 30 days before closing in term 2+
         const days_until_exam_block =
             !exam_block_active &&
-            current_term >= 3 &&
+            current_term >= 2 &&
             !hasPaidSubscription &&
             daysUntilClosing !== null &&
             daysUntilClosing <= 30
