@@ -41,23 +41,13 @@ const FREE_GATE: SubscriptionGate = {
     isAIAllowed: false,
 };
 
-const DEMO_SCHOOL_ID = 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
-
 export function useSubscriptionGate(): SubscriptionGate {
-    const { currentSchool, isDemo, user } = useAuth() as any;
+    const { currentSchool, user } = useAuth() as any;
 
     return useMemo<SubscriptionGate>(() => {
-        // Demo school always gets Advanced privileges — visitors should see the full product.
-        if (isDemo || currentSchool?.id === DEMO_SCHOOL_ID) {
-            return {
-                ...FREE_GATE,
-                plan: 'advanced',
-                status: 'active',
-                isFree: false,
-                isAIAllowed: true,
-            };
-        }
-
+        // The demo school follows its real plan like any school: it starts on
+        // Basic (AI locked) and the visitor unlocks AI by "paying" for Advanced
+        // in the Demo Checkout — the upgrade journey is the point of the demo.
         const plan = (currentSchool?.plan_type as PlanType) || 'free';
         const status = (currentSchool?.subscription_status as SubscriptionStatus) || 'free';
         const closing = currentSchool?.term_closing_date || null;
@@ -102,5 +92,5 @@ export function useSubscriptionGate(): SubscriptionGate {
             needsRenewal,
             isAIAllowed,
         };
-    }, [currentSchool, isDemo, user?.id]);
+    }, [currentSchool, user?.id]);
 }

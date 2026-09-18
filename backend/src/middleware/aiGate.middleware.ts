@@ -1,7 +1,6 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from './auth.middleware';
 import prisma from '../config/database';
-import { config } from '../config/env';
 
 /**
  * Server-side mirror of hooks/useSubscriptionGate.ts's isAIAllowed check.
@@ -13,9 +12,9 @@ export const requireAIAllowed = async (req: AuthRequest, res: Response, next: Ne
     const user = req.user;
     if (!user?.school_id) return res.status(401).json({ message: 'Unauthorized' });
 
-    // Demo school always gets Advanced privileges, matching the frontend gate.
-    if (user.school_id === config.demoSchoolId) return next();
-
+    // The demo school follows its real plan like everyone else: it starts on
+    // Basic (AI locked) and visitors unlock AI by "paying" for Advanced in the
+    // Demo Checkout — that's the flow the demo exists to show.
     const school = await prisma.school.findUnique({
         where: { id: user.school_id },
         select: { plan_type: true, subscription_status: true, settings: true, current_term: true, academic_session: true },
