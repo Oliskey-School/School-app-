@@ -162,7 +162,15 @@ export const uploadFile = async (req: AuthRequest, res: Response) => {
             relativePath = `${schoolId}/${folder ? folder + '/' : ''}${randomName}${ext}`;
         }
 
-        const { publicUrl } = await storeUploadedFile(uploadBuffer, uploadMime, bucket, relativePath);
+        const stored = await storeUploadedFile(uploadBuffer, uploadMime, bucket, relativePath);
+        // Avatars overwrite a FIXED per-user object, so a re-upload yields the exact
+        // same URL as before. Every <img src> that already showed the old photo then
+        // keeps its cached bytes and the new picture "goes back" to the old one —
+        // reproduced on production 2026-09-18 (URL before == URL after upload).
+        // A version query makes each upload a distinct URL; Storage ignores the
+        // query when serving the object, and the ownership check in
+        // UserService.isOwnedAvatarUrl matches on path segments, not equality.
+        const publicUrl = isAvatar ? `${stored.publicUrl}?v=${Date.now()}` : stored.publicUrl;
         res.json({ publicUrl });
     } catch (error: any) {
         console.error('[POST /media/upload] File upload failed:', error);
