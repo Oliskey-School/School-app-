@@ -57,17 +57,21 @@ const StudentCBTListScreen: React.FC<StudentCBTListScreenProps> = ({ studentId, 
                 // valid quiz if the class fields weren't shaped exactly as expected.
                 const quizzesData = await api.getQuizzes(studentData.school_id);
 
+                // The API row carries `class` / `subject` as objects ({id, name}) and
+                // the question count under `_count`. Reading `q.subject` as text put an
+                // object into the page and crashed the screen ("Objects are not valid
+                // as a React child"); `q.classes` / `q.subjects` never existed.
                 const formattedTests: CBTTest[] = (quizzesData || []).map((q: any) => ({
                     id: q.id,
                     title: q.title,
-                    type: (q.description === 'Exam' ? 'Exam' : 'Test'),
-                    className: q.classes ? `Grade ${q.classes.grade}${q.classes.section}` : 'General',
-                    subject: q.subjects?.name || q.subject || 'General',
-                    duration: q.duration_minutes || q.durationMinutes || 60,
+                    type: (String(q.type || q.description || '').toUpperCase() === 'EXAM' ? 'Exam' : 'Test'),
+                    className: q.class?.name || (q.class?.grade != null ? `Grade ${q.class.grade}${q.class.section || ''}` : 'General'),
+                    subject: q.subject?.name || q.subjects?.name || (typeof q.subject === 'string' ? q.subject : '') || 'General',
+                    duration: q.time_limit || q.duration_minutes || q.durationMinutes || 60,
                     attempts: 0,
                     totalMarks: q.total_marks || q.totalMarks || 100,
                     fileName: 'Question Bank',
-                    questionsCount: q.questionsCount || 0,
+                    questionsCount: q._count?.questions ?? q.questionsCount ?? 0,
                     questions: [],
                     createdAt: q.created_at || q.createdAt,
                     isPublished: q.is_published || q.isPublished,

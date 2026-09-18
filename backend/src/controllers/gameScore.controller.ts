@@ -8,12 +8,16 @@ export const submitScore = async (req: Request, res: Response) => {
         const { game_id, game_name, score, metadata } = req.body;
         // Trust the authenticated tenant, never a client-supplied school id.
         const schoolId = (req as any).user?.school_id || (req as any).school_id;
+        if (!game_id || !game_name || !Number.isFinite(Number(score))) {
+            return res.status(400).json({ message: 'game_id, game_name and a numeric score are required' });
+        }
+        if (!schoolId) return res.status(400).json({ message: 'No school on this session' });
 
         const result = await GameScoreService.submitScore({
             game_id,
             game_name,
             player_id: userId,
-            score,
+            score: Math.round(Number(score)),
             school_id: schoolId,
             metadata,
         });
