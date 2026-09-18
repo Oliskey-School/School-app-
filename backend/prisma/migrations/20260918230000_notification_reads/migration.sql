@@ -10,6 +10,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS "NotificationRead_notification_id_user_id_key"
 CREATE INDEX IF NOT EXISTS "NotificationRead_school_id_user_id_idx" ON "NotificationRead" ("school_id", "user_id");
 
 ALTER TABLE "NotificationRead" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "NotificationRead" FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation ON "NotificationRead";
 CREATE POLICY tenant_isolation ON "NotificationRead"
   USING (school_id = (select current_setting('app.current_school_id', true)) OR (select coalesce(current_setting('app.bypass_rls', true), '')) = 'on')
