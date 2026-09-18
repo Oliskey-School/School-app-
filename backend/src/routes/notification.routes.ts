@@ -31,19 +31,18 @@ router.put('/:id/read', markAsRead);
 // Bulk mark-read — frontend sends PUT /notifications/mark-read { ids: [...] }
 router.put('/mark-read', async (req: any, res) => {
     try {
-        const { default: prisma } = await import('../config/database');
+        const { NotificationService } = await import('../services/notification.service');
         const { ids = [] } = req.body;
         if (!Array.isArray(ids) || ids.length === 0) return res.json({ updated: 0 });
-        const result = await (prisma as any).notification.updateMany({
-            where: {
-                id: { in: ids.map(String) },
-                school_id: req.user?.school_id,
-                user_id: req.user?.id,
-            },
-            data: { is_read: true },
-        }).catch(() => ({ count: 0 }));
-        res.json({ updated: result.count ?? ids.length });
-    } catch (e: any) { res.json({ updated: 0 }); }
+        // Shared (audience) notifications used to be skipped here (only rows
+        // owned by the user were updated), so a school-wide notice could never
+        // be marked read and the badge never cleared.
+        const updated = await NotificationService.markReadForUser(req.user?.school_id, req.user?.id, ids);
+        res.json({ updated });
+    } catch (e: any) {
+        // never pretend it worked
+        res.status(500).json({ message: e?.message || 'Could not mark notifications as read' });
+    }
 });
 
 // Platform Notifications (SaaS)

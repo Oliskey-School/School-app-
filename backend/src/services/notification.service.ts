@@ -61,7 +61,7 @@ export class NotificationService {
     }
 
     static async getNotificationsForUser(schoolId: string, branchId: string | undefined, userId: string, audience: string[]) {
-        return await prisma.notification.findMany({
+        const rows = await prisma.notification.findMany({
             where: {
                 school_id: schoolId,
                 branch_id: branchId && branchId !== 'all' ? branchId : undefined,
@@ -73,18 +73,52 @@ export class NotificationService {
             },
             orderBy: { created_at: 'desc' }
         });
+        // A personal notification carries its own flag; a shared (audience) one is
+        // "read" for THIS user only when this user has a read mark for it.
+        const sharedIds = rows.filter(r => r.user_id !== userId).map(r => r.id);
+        const reads = sharedIds.length
+            ? await prisma.notificationRead.findMany({ where: { school_id: schoolId, user_id: userId, notification_id: { in: sharedIds } }, select: { notification_id: true } })
+            : [];
+        const readSet = new Set(reads.map(r => r.notification_id));
+        return rows.map(r => (r.user_id === userId ? r : { ...r, is_read: readSet.has(r.id) }));
     }
 
-    static async markAsRead(schoolId: string, branchId: string | undefined, notificationId: string) {
-        const updated = await prisma.notification.updateMany({
+    /**
+     * Mark notifications read for ONE user. Personal rows flip their own flag;
+     * shared rows get a per-user read mark (never touching other readers).
+     * Returns how many of the requested ids were marked.
+     */
+    static async markReadForUser(schoolId: string, userId: string, ids: string[]): Promise<number> {
+        const clean = Array.from(new Set(ids.map(String).filter(Boolean)));
+        if (clean.length === 0) return 0;
+        const rows = await prisma.notification.findMany({ where: { id: { in: clean }, school_id: schoolId }, select: { id: true, user_id: true } });
+        const own = rows.filter(r => r.user_id === userId).map(r => r.id);
+        const shared = rows.filter(r => r.user_id !== userId).map(r => r.id);
+        if (own.length) await prisma.notification.updateMany({ where: { id: { in: own } }, data: { is_read: true } });
+        for (const id of shared) {
+            await prisma.notificationRead.upsert({
+                where: { notification_id_user_id: { notification_id: id, user_id: userId } },
+                update: { read_at: new Date() },
+                create: { school_id: schoolId, notification_id: id, user_id: userId },
+            });
+        }
+        return own.length + shared.length;
+    }
+
+    static async markAsRead(schoolId: string, branchId: string | undefined, notificationId: string, userId?: string) {
+        const existing = await prisma.notification.findFirst({
             where: { id: notificationId, school_id: schoolId, ...(branchId && branchId !== 'all' ? { branch_id: branchId } : {}) },
-            data: { is_read: true }
         });
-        if (updated.count === 0) throw new Error('Notification not found in your school/branch');
+        if (!existing) throw new Error('Notification not found in your school/branch');
+        if (userId) {
+            await this.markReadForUser(schoolId, userId, [notificationId]);
+        } else {
+            await prisma.notification.update({ where: { id: notificationId }, data: { is_read: true } });
+        }
         const result = await prisma.notification.findUniqueOrThrow({ where: { id: notificationId } });
 
         SocketService.emitToSchool(schoolId, 'notification:updated', { action: 'mark_read', notificationId });
-        return result;
+        return { ...result, is_read: true };
     }
 
     // Platform Notifications (Global/SaaS)

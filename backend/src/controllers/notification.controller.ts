@@ -41,7 +41,11 @@ export const createNotification = async (req: AuthRequest, res: Response) => {
 
 export const getMyNotifications = async (req: AuthRequest, res: Response) => {
     try {
-        const audience = [req.user.role];
+        // Audience values are stored in whatever case the sender used
+        // ('student' from the app, 'STUDENT' from the token). Matching only the
+        // token's spelling hid every school-wide notice from students.
+        const role = String(req.user.role || '');
+        const audience = Array.from(new Set([role, role.toLowerCase(), role.toUpperCase(), role.charAt(0).toUpperCase() + role.slice(1).toLowerCase()].filter(Boolean)));
         const branchId = getEffectiveBranchId(req.user, (req.query.branchId || req.query.branch_id) as string);
         const result = await NotificationService.getNotificationsForUser(req.user.school_id, branchId, req.user.id, audience);
         res.json(result);
@@ -53,7 +57,7 @@ export const getMyNotifications = async (req: AuthRequest, res: Response) => {
 export const markAsRead = async (req: AuthRequest, res: Response) => {
     try {
         const branchId = getEffectiveBranchId(req.user, req.body.branch_id || req.body.branchId);
-        const result = await NotificationService.markAsRead(req.user.school_id, branchId, req.params.id as string);
+        const result = await NotificationService.markAsRead(req.user.school_id, branchId, req.params.id as string, req.user.id);
         res.json(result);
     } catch (error: any) {
         sendError(res, error, 'notification.controller.ts');
