@@ -80,7 +80,15 @@ class ExpressApiClient {
 
 
     async submitGameScore(data: any): Promise<any> {
-        return this.post('/gamification/scores', data);
+        try {
+            return await this.post('/gamification/scores', data);
+        } catch (err: any) {
+            // Every game only logs this to the console, so a lost score was
+            // invisible to the student. Say it once, here, for all 23 games.
+            const { toast } = await import('react-hot-toast');
+            toast.error(`Your score could not be saved${err?.message ? `: ${err.message}` : ''}. Check your connection and finish the game again.`, { duration: 6000 });
+            throw err;
+        }
     }
 
     /** Fresh, class/subject/age-appropriate AI questions for a quiz-style game,
@@ -2446,6 +2454,23 @@ class ExpressApiClient {
 
     async createAnonymousReport(data: any): Promise<any> {
         return this.post('/anonymous-reports', data);
+    }
+
+    // Staff side of the two student reporting channels (admin / counselor / nurse).
+    // Until these existed a student's report was written and never read by anyone.
+    async getAnonymousReports(): Promise<any[]> {
+        const r = await this.get<any>('/anonymous-reports');
+        return Array.isArray(r) ? r : r?.data || [];
+    }
+    async updateAnonymousReportStatus(id: string, status: string, adminNotes?: string): Promise<any> {
+        return this.put(`/anonymous-reports/${id}/status`, { status, admin_notes: adminNotes });
+    }
+    async getDiscreetRequests(): Promise<any[]> {
+        const r = await this.get<any>('/student-reports/discreet');
+        return Array.isArray(r) ? r : r?.data || [];
+    }
+    async updateDiscreetRequestStatus(id: string, status: 'pending' | 'ready' | 'collected' | 'closed'): Promise<any> {
+        return this.patch(`/student-reports/discreet/${id}`, { status });
     }
 
     async createDiscreetRequest(data: any, _options?: { useBackend?: boolean }): Promise<any> {

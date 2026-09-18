@@ -38,6 +38,8 @@ const AdventureQuestHost = lazyWithRetry(() => import('../student/adventure/Adve
 const ExamSchedule = lazyWithRetry(() => import('../shared/ExamSchedule'));
 const NoticeboardScreen = lazyWithRetry(() => import('../shared/NoticeboardScreen'));
 const CalendarScreen = lazyWithRetry(() => import('../shared/CalendarScreen'));
+const AnonymousReporting = lazyWithRetry(() => import('./AnonymousReporting'));
+const DiscreetReporting = lazyWithRetry(() => import('./DiscreetReporting'));
 const LibraryScreen = lazyWithRetry(() => import('../shared/LibraryScreen'));
 const CurriculumScreen = lazyWithRetry(() => import('../shared/CurriculumScreen'));
 const TimetableScreen = lazyWithRetry(() => import('../shared/TimetableScreen'));
@@ -730,6 +732,10 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
         examSchedule: ExamSchedule,
         noticeboard: NoticeboardScreen,
         calendar: CalendarScreen,
+        // Reporting channels (screens existed but were not registered, so no
+        // navigation could reach them). Entry points are added on request.
+        anonymousReporting: AnonymousReporting,
+        discreetReporting: DiscreetReporting,
         library: LibraryScreen,
         curriculum: CurriculumScreen,
         timetable: TimetableScreen,

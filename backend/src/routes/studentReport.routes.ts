@@ -1,11 +1,12 @@
 import { Router } from 'express';
-import { createAnonymousReport, createDiscreetRequest, getStudentReports } from '../controllers/studentReport.controller';
+import { createAnonymousReport, createDiscreetRequest, getStudentReports, getDiscreetRequests, updateDiscreetRequestStatus } from '../controllers/studentReport.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { requireTenant, requireRole } from '../middleware/tenant.middleware';
 
 const router = Router();
 
 const ADMIN_ROLES = ['admin', 'proprietor', 'superadmin', 'super_admin'];
+const STAFF_READ_ROLES = [...ADMIN_ROLES, 'counselor', 'nurse'];
 
 router.use(authenticate);
 router.use(requireTenant);
@@ -18,6 +19,9 @@ router.use(requireTenant);
 router.get('/', requireRole(ADMIN_ROLES), getStudentReports);
 router.post('/anonymous', createAnonymousReport);
 router.post('/discreet', createDiscreetRequest);
+// The nurse / counselor / admin side of a discreet request — nothing read these before.
+router.get('/discreet', requireRole(STAFF_READ_ROLES), getDiscreetRequests);
+router.patch('/discreet/:id', requireRole(STAFF_READ_ROLES), updateDiscreetRequestStatus);
 
 // Student report stats for TeacherReports screen
 router.get('/:studentId/stats', async (req: any, res) => {

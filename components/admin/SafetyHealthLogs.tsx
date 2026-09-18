@@ -22,7 +22,7 @@ import {
     ChevronLeft
 } from 'lucide-react';
 
-type TabType = 'incidents' | 'drills' | 'safeguarding';
+type TabType = 'incidents' | 'drills' | 'safeguarding' | 'reports';
 
 interface Incident {
     id: string;
@@ -483,6 +483,99 @@ const PolicyTab = ({ policies, setIsAdding }: PolicyTabProps) => (
     </div>
 );
 
+
+// Anonymous safety reports and discreet support requests sent by students.
+// Same card language as the incident list; a status can be moved forward so
+// nothing a student sends sits unseen.
+const REPORT_STATUSES = ['New', 'Investigating', 'Resolved', 'Dismissed'];
+const REQUEST_STATUSES: Array<'pending' | 'ready' | 'collected' | 'closed'> = ['pending', 'ready', 'collected', 'closed'];
+interface StudentReportsTabProps {
+    reports: any[];
+    requests: any[];
+    onReportStatus: (id: string, status: string) => void;
+    onRequestStatus: (id: string, status: 'pending' | 'ready' | 'collected' | 'closed') => void;
+}
+const StudentReportsTab = ({ reports, requests, onReportStatus, onRequestStatus }: StudentReportsTabProps) => (
+    <div className="space-y-8">
+        <section className="space-y-4">
+            <div className="flex items-center justify-between">
+                <h3 className="text-lg font-bold text-gray-800">Anonymous Safety Reports</h3>
+                <span className="text-xs font-bold text-gray-400">{reports.filter(r => r.status === 'New').length} new</span>
+            </div>
+            <div className="grid grid-cols-1 gap-4">
+                {reports.length === 0 ? (
+                    <div className="text-center py-16 bg-white rounded-3xl border border-dashed border-gray-200">
+                        <ShieldCheck className="w-12 h-12 text-gray-200 mx-auto mb-4" />
+                        <p className="text-gray-400 font-medium">No anonymous reports have been submitted.</p>
+                    </div>
+                ) : reports.map((r, i) => (
+                    <motion.div key={r.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(i, 15) * 0.03 }} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-start space-x-4 hover:shadow-md transition-shadow">
+                        <div className={`p-3 rounded-full ${r.severity === 'Critical' || r.severity === 'High' ? 'bg-red-100 text-red-600' : r.severity === 'Medium' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>
+                            <AlertCircle className="w-6 h-6" />
+                        </div>
+                        <div className="flex-grow min-w-0">
+                            <div className="flex justify-between gap-3">
+                                <h3 className="font-bold text-gray-900">{r.category}{r.location ? ` — ${r.location}` : ''}</h3>
+                                <span className="text-xs font-bold text-gray-400 whitespace-nowrap">{new Date(r.created_at).toLocaleString()}</span>
+                            </div>
+                            <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{r.description_encrypted || r.description}</p>
+                            <div className="flex flex-wrap items-center gap-3 mt-3">
+                                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${r.severity === 'Critical' || r.severity === 'High' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}`}>{r.severity}</span>
+                                <span className="text-xs font-bold text-gray-400">Tracking code {r.track_code}</span>
+                                <select
+                                    value={r.status}
+                                    onChange={(e) => onReportStatus(r.id, e.target.value)}
+                                    className="ml-auto text-xs font-bold bg-gray-50 border-none rounded-xl px-3 py-1.5 focus:ring-2 focus:ring-indigo-500 outline-none text-gray-800"
+                                >
+                                    {REPORT_STATUSES.map(st => <option key={st} value={st}>{st}</option>)}
+                                </select>
+                            </div>
+                        </div>
+                    </motion.div>
+                ))}
+            </div>
+        </section>
+
+        <section className="space-y-4">
+            <div className="flex items-center justify-between">
+                <h3 className="text-lg font-bold text-gray-800">Discreet Support Requests</h3>
+                <span className="text-xs font-bold text-gray-400">{requests.filter(r => r.status === 'pending').length} waiting</span>
+            </div>
+            <div className="grid grid-cols-1 gap-4">
+                {requests.length === 0 ? (
+                    <div className="text-center py-16 bg-white rounded-3xl border border-dashed border-gray-200">
+                        <Activity className="w-12 h-12 text-gray-200 mx-auto mb-4" />
+                        <p className="text-gray-400 font-medium">No discreet support requests yet.</p>
+                    </div>
+                ) : requests.map((q, i) => (
+                    <motion.div key={q.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(i, 15) * 0.03 }} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-start space-x-4 hover:shadow-md transition-shadow">
+                        <div className={`p-3 rounded-full ${q.status === 'pending' ? 'bg-pink-100 text-pink-600' : 'bg-green-100 text-green-600'}`}>
+                            <User className="w-6 h-6" />
+                        </div>
+                        <div className="flex-grow min-w-0">
+                            <div className="flex justify-between gap-3">
+                                <h3 className="font-bold text-gray-900">{q.request_type || 'Support items'} × {q.quantity ?? 1}{q.pickup_location ? ` — collect at ${q.pickup_location}` : ''}</h3>
+                                <span className="text-xs font-bold text-gray-400 whitespace-nowrap">{new Date(q.created_at).toLocaleString()}</span>
+                            </div>
+                            {q.notes && <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{q.notes}</p>}
+                            <div className="flex flex-wrap items-center gap-3 mt-3">
+                                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">{q.is_anonymous ? 'Anonymous' : 'Named request'}</span>
+                                <select
+                                    value={q.status}
+                                    onChange={(e) => onRequestStatus(q.id, e.target.value as any)}
+                                    className="ml-auto text-xs font-bold bg-gray-50 border-none rounded-xl px-3 py-1.5 focus:ring-2 focus:ring-indigo-500 outline-none text-gray-800 capitalize"
+                                >
+                                    {REQUEST_STATUSES.map(st => <option key={st} value={st}>{st}</option>)}
+                                </select>
+                            </div>
+                        </div>
+                    </motion.div>
+                ))}
+            </div>
+        </section>
+    </div>
+);
+
 const SafetyHealthLogs = () => {
     const { currentSchool, currentBranchId } = useAuth();
     const [activeTab, setActiveTab] = useState<TabType>('incidents');
@@ -490,6 +583,8 @@ const SafetyHealthLogs = () => {
     const [incidents, setIncidents] = useState<any[]>([]);
     const [drills, setDrills] = useState<any[]>([]);
     const [policies, setPolicies] = useState<any[]>([]);
+    const [studentReports, setStudentReports] = useState<any[]>([]);
+    const [supportRequests, setSupportRequests] = useState<any[]>([]);
     const [isAdding, setIsAdding] = useState(false);
     const [students, setStudents] = useState<{ id: string, name: string }[]>([]);
     const [formData, setFormData] = useState<any>({});
@@ -518,6 +613,10 @@ const SafetyHealthLogs = () => {
             } else if (activeTab === 'drills') {
                 const data = await api.getEmergencyDrills(currentSchool.id);
                 setDrills(data || []);
+            } else if (activeTab === 'reports') {
+                const [reports, requests] = await Promise.all([api.getAnonymousReports(), api.getDiscreetRequests()]);
+                setStudentReports(reports);
+                setSupportRequests(requests);
             } else if (activeTab === 'safeguarding') {
                 const data = await api.getSafeguardingPolicies(currentSchool.id);
                 setPolicies(data || []);
@@ -611,6 +710,13 @@ const SafetyHealthLogs = () => {
                                 <span className="relative flex items-center gap-2"><Flame className="w-4 h-4" /><span>Drills</span></span>
                             </button>
                             <button
+                                onClick={() => setActiveTab('reports')}
+                                className={`relative flex items-center space-x-2 px-6 py-2 rounded-xl transition-colors font-bold ${activeTab === 'reports' ? 'text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
+                            >
+                                {activeTab === 'reports' && <motion.div layoutId="safetyTab" className="absolute inset-0 bg-white rounded-xl shadow-sm" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />}
+                                <span className="relative flex items-center gap-2"><AlertCircle className="w-4 h-4" /><span>Student Reports</span></span>
+                            </button>
+                            <button
                                 onClick={() => setActiveTab('safeguarding')}
                                 className={`relative flex items-center space-x-2 px-6 py-2 rounded-xl transition-colors font-bold ${activeTab === 'safeguarding' ? 'text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
                             >
@@ -628,6 +734,20 @@ const SafetyHealthLogs = () => {
                             {activeTab === 'incidents' && <IncidentTab incidents={incidents} setIsAdding={setIsAdding} />}
                             {activeTab === 'drills' && <DrillTab drills={drills} setIsAdding={setIsAdding} />}
                             {activeTab === 'safeguarding' && <PolicyTab policies={policies} setIsAdding={setIsAdding} />}
+                            {activeTab === 'reports' && (
+                                <StudentReportsTab
+                                    reports={studentReports}
+                                    requests={supportRequests}
+                                    onReportStatus={async (id, status) => {
+                                        try { await api.updateAnonymousReportStatus(id, status); setStudentReports(prev => prev.map(r => r.id === id ? { ...r, status } : r)); toast.success('Report status updated'); }
+                                        catch (e: any) { toast.error(`Could not update the report: ${e?.message || 'try again'}`); }
+                                    }}
+                                    onRequestStatus={async (id, status) => {
+                                        try { await api.updateDiscreetRequestStatus(id, status); setSupportRequests(prev => prev.map(r => r.id === id ? { ...r, status } : r)); toast.success('Request status updated'); }
+                                        catch (e: any) { toast.error(`Could not update the request: ${e?.message || 'try again'}`); }
+                                    }}
+                                />
+                            )}
                         </motion.div>
                         </AnimatePresence>
                     )}

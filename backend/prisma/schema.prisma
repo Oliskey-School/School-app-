@@ -976,6 +976,20 @@ model Notification {
   @@index([school_id, created_at])
 }
 
+/// Per-user "read" mark for a shared (audience) notification. A broadcast row
+/// has ONE is_read flag, so one reader used to mark it read for everyone —
+/// or, through the bulk endpoint, nobody could mark it read at all.
+model NotificationRead {
+  id              String   @id @default(uuid())
+  school_id       String
+  notification_id String
+  user_id         String
+  read_at         DateTime @default(now())
+
+  @@unique([notification_id, user_id])
+  @@index([school_id, user_id])
+}
+
 model Appointment {
   id          String    @id @default(uuid())
   school_id   String
@@ -1660,13 +1674,16 @@ model AnonymousReport {
 }
 
 model MenstrualSupportRequest {
-  id           String    @id @default(uuid())
-  school_id    String
-  branch_id    String?
-  student_id   String?
-  is_anonymous Boolean   @default(true)
-  status       String    @default("pending")
-  notes        String?
+  id              String    @id @default(uuid())
+  school_id       String
+  branch_id       String?
+  student_id      String?
+  is_anonymous    Boolean   @default(true)
+  status          String    @default("pending")
+  notes           String?
+  request_type    String?
+  quantity        Int?
+  pickup_location String?
   created_at   DateTime  @default(now())
   updated_at   DateTime  @updatedAt
   created_by   String?
