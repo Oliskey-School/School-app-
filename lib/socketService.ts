@@ -32,6 +32,12 @@ class SocketService {
     private schoolId: string | null = null;
     private status: RealtimeStatus = 'connecting';
     private statusListeners = new Set<(status: RealtimeStatus) => void>();
+    // "Reconnecting…" is only true if there was a live connection to get back.
+    // A socket that never connected (serverless host, health probe that failed
+    // during a cold start, blocked websocket) has nothing to reconnect to — the
+    // app polls instead, and users must not see a permanent orange banner.
+    private everConnected = false;
+    private lostConnection(): RealtimeStatus { return this.everConnected ? 'disconnected' : 'unavailable'; }
 
     private setStatus(status: RealtimeStatus) {
         if (this.status === status) return;
@@ -101,6 +107,7 @@ class SocketService {
 
         this.socket.on('connect', () => {
             console.log('🔌 [SocketService] WebSocket Connected');
+            this.everConnected = true;
             this.setStatus('connected');
             this.socket?.emit('join-school');
             this.socket?.emit('register-user');
@@ -115,12 +122,12 @@ class SocketService {
 
         this.socket.io.on('reconnect_failed', () => {
             console.warn('🔌 [SocketService] Reconnection attempts exhausted — giving up until next initialize().');
-            this.setStatus('disconnected');
+            this.setStatus(this.lostConnection());
         });
 
         this.socket.on('connect_error', (err) => {
             console.warn('🔌 [SocketService] Connect error:', err.message);
-            this.setStatus('disconnected');
+            this.setStatus(this.lostConnection());
         });
 
         this.socket.on('teacher:updated', (data) => {
@@ -277,7 +284,9 @@ class SocketService {
             this.socket.disconnect();
             this.socket = null;
         }
-        this.setStatus('disconnected');
+        // Deliberate (Low Data Mode, logout): nothing is trying to reconnect,
+        // so this is "no live channel", not a connection problem to report.
+        this.setStatus('unavailable');
     }
 
     /** Ensure a connection exists (used by features like Class Battle). */
