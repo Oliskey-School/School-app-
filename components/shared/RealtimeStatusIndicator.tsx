@@ -25,7 +25,10 @@ export function RealtimeStatusIndicator({ className = '' }: { className?: string
     }, []);
 
     useEffect(() => {
-        if (status === 'connected') {
+        // 'unavailable' means this deployment has no realtime server (see
+        // lib/socketService.ts) — the app polls instead, so there is nothing
+        // to reconnect to and nothing to tell the user.
+        if (status === 'connected' || status === 'unavailable') {
             setShowBanner(false);
             setDismissed(false);
             return;

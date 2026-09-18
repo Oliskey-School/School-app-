@@ -1,10 +1,31 @@
 import { io, Socket } from 'socket.io-client';
-import { SOCKET_URL } from './config';
+import { SOCKET_URL, API_BASE_URL } from './config';
 import { toast } from 'react-hot-toast';
 
 // The backend URL - adjust if different from API base
 
-export type RealtimeStatus = 'connected' | 'connecting' | 'disconnected';
+/** 'unavailable' = this deployment has no realtime server at all (serverless
+ *  hosting). Not an error and not something a reconnect can fix, so the UI
+ *  must not show "reconnecting" — the app refreshes by polling instead. */
+export type RealtimeStatus = 'connected' | 'connecting' | 'disconnected' | 'unavailable';
+
+// Capability probe, cached for the session. The Vercel deployment answers
+// /socket.io/ with the SPA's index.html, so socket.io-client fails, retries
+// ten times and every user saw a permanent "Live updates unavailable —
+// reconnecting…" banner. Ask the API once instead of guessing from failures.
+let realtimeSupported: boolean | null = null;
+let probe: Promise<boolean> | null = null;
+export function isRealtimeSupported(): Promise<boolean> {
+    if (realtimeSupported !== null) return Promise.resolve(realtimeSupported);
+    if (!probe) {
+        probe = fetch(`${API_BASE_URL}/health`, { cache: 'no-store' })
+            .then((r) => r.json())
+            .then((j) => (realtimeSupported = j?.realtime !== false))
+            .catch(() => (realtimeSupported = true)) // unknown → let the socket try, as before
+            .finally(() => { probe = null; });
+    }
+    return probe;
+}
 
 class SocketService {
     private socket: Socket | null = null;
@@ -30,7 +51,19 @@ class SocketService {
 
     initialize(schoolId: string) {
         if (this.socket?.connected && this.schoolId === schoolId) return;
-        
+        this.schoolId = schoolId;
+        isRealtimeSupported().then((supported) => {
+            if (this.schoolId !== schoolId) return; // re-initialised meanwhile
+            if (!supported) {
+                if (this.socket) { this.socket.disconnect(); this.socket = null; }
+                this.setStatus('unavailable');
+                return;
+            }
+            this.connect(schoolId);
+        });
+    }
+
+    private connect(schoolId: string) {
         if (this.socket) {
             this.socket.disconnect();
         }

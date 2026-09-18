@@ -67,6 +67,7 @@ import calendarRoutes from './calendar.routes';
 import auditRoutes from './audit.routes';
 import governanceRoutes from './governance.routes';
 import healthRoutes from './health.routes';
+import { SocketService } from '../services/socket.service';
 import payrollRoutes from './payroll.routes';
 import communityRoutes from './community.routes';
 import verificationRoutes from './verification.routes';
@@ -110,7 +111,11 @@ const router = Router();
 
 // Public health check for the API prefix
 router.get('/health', (req, res) => {
-    res.json({ status: 'ok', service: 'School SaaS API' });
+    // `realtime` tells the app whether THIS deployment runs a Socket.IO server.
+    // server.ts starts one (VPS); the Vercel serverless entry (api/index.js)
+    // cannot, so there the client must not attempt to connect or show a
+    // "reconnecting" banner — it polls instead.
+    res.json({ status: 'ok', service: 'School SaaS API', realtime: !!SocketService.getIO() });
 });
 
 // Branch-aware Global ID for the active branch. Mounted OUTSIDE '/auth' on purpose:

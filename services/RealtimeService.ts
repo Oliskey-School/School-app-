@@ -29,7 +29,33 @@ class RealtimeService {
             else socketService.initialize(schoolId);
         });
         if (this.interval) clearInterval(this.interval);
-        this.interval = setInterval(() => this.pollUpdates(), this.pollIntervalMs());
+        this.interval = setInterval(() => { this.pollUpdates(); this.refreshScreensIfNoSocket(); }, this.pollIntervalMs());
+        if (!this.visibilityListener && typeof document !== 'undefined') {
+            // Coming back to the tab is the moment stale data is most visible.
+            this.visibilityListener = () => { if (document.visibilityState === 'visible') this.refreshScreensIfNoSocket(true); };
+            document.addEventListener('visibilitychange', this.visibilityListener);
+        }
+    }
+
+    private lastScreenRefresh = 0;
+    private visibilityListener: (() => void) | null = null;
+
+    /**
+     * Without a live socket (serverless hosting, Low Data Mode, or a socket
+     * that is down) nothing would ever tell open screens that data changed.
+     * Fire the same global refresh signal a socket event would — every
+     * useAutoSync consumer re-fetches — but only while the tab is visible and
+     * at most once per poll interval, so background tabs cost nothing.
+     */
+    private refreshScreensIfNoSocket(onReturn = false) {
+        if (typeof document === 'undefined' || document.visibilityState !== 'visible') return;
+        import('../lib/socketService').then(({ socketService }) => {
+            if (socketService.getStatus() === 'connected') return;
+            const minGap = onReturn ? 15_000 : this.pollIntervalMs() - 1000;
+            if (Date.now() - this.lastScreenRefresh < minGap) return;
+            this.lastScreenRefresh = Date.now();
+            window.dispatchEvent(new CustomEvent('realtime-update', { detail: { table: '__all__', reason: onReturn ? 'tab-visible' : 'poll' } }));
+        });
     }
 
     initialize(userId: string, schoolId: string, branchId?: string) {
@@ -106,6 +132,10 @@ class RealtimeService {
         if (this.interval) {
             clearInterval(this.interval);
             this.interval = null;
+        }
+        if (this.visibilityListener && typeof document !== 'undefined') {
+            document.removeEventListener('visibilitychange', this.visibilityListener);
+            this.visibilityListener = null;
         }
         if (this.lowDataListener && typeof window !== 'undefined') {
             window.removeEventListener(LOW_DATA_EVENT, this.lowDataListener);
