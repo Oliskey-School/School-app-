@@ -60,7 +60,12 @@ const EditTeacherProfileScreen: React.FC<EditTeacherProfileScreenProps> = ({ onP
             setPhone(profile.phone || '');
             setAvatar(profile.avatar_url || 'https://i.pravatar.cc/150?u=teacher');
         }
-    }, [profile]);
+        // Seed only when the PERSON changes, not on every refresh of the profile
+        // object: ProfileContext re-fetches on every realtime "users" event and on
+        // auth keep-alive, and re-seeding then wiped the photo/name/phone the user
+        // had just chosen but not yet saved.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [profile?.id]);
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];

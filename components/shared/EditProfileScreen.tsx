@@ -124,7 +124,10 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack, navigateT
             if (user.avatarUrl) setAvatar(user.avatarUrl);
             if (user.email) setEmail(user.email);
         }
-    }, [user]);
+        // Seed only when the person changes, never on a parent re-render that
+        // passes a fresh object with the same data — that reset unsaved edits.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?.id]);
 
     const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];

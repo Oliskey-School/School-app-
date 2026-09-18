@@ -23,7 +23,10 @@ const EditProfileScreen: React.FC = () => {
             setPhone(profile.phone || '');
             setAvatar(profile.avatarUrl || '');
         }
-    }, [profile]);
+        // Seed only when the person changes — see EditTeacherProfileScreen for why
+        // re-seeding on every profile refresh discarded unsaved edits.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [profile?.id]);
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];

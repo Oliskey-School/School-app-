@@ -18,7 +18,11 @@ const BrandingSettingsScreen: React.FC = () => {
             // Assuming settings JSON contains primaryColor
             setPrimaryColor((currentSchool as any).settings?.primaryColor || currentSchool.primaryColor || '#4f46e5');
         }
-    }, [currentSchool]);
+        // Seed only when the SCHOOL changes: AuthContext refreshes currentSchool in
+        // the background, and re-seeding then replaced a freshly chosen logo with
+        // the old one before the admin could press Save.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentSchool?.id]);
 
     const handleSave = async () => {
         if (!currentSchool?.id) return;
@@ -29,8 +33,12 @@ const BrandingSettingsScreen: React.FC = () => {
 
             // If a new file was uploaded, upload it first
             if (logoFile) {
-                const uploadResult = await api.uploadAvatar(logoFile);
-                finalLogoUrl = uploadResult.url;
+                // Not uploadAvatar: that writes to the signed-in admin's OWN
+                // fixed profile-photo object, so saving a school logo replaced the
+                // admin's photo (and vice versa). The logo gets its own random-named
+                // object under the school's branding folder.
+                const uploadResult = await api.uploadFile('general', 'branding/', logoFile);
+                finalLogoUrl = uploadResult.publicUrl || uploadResult.url || '';
             }
 
             await api.updateSchool(currentSchool.id, {
