@@ -608,6 +608,10 @@ const ClassGradebookScreen: React.FC<{
                     console.error(`Failed to save grades for student ${entry.studentId}`, e);
                     if (e?.status === 409 || /published/i.test(e?.message || '')) {
                         toast.error(`${entry.studentName || 'A student'}'s report card is already published — ask an admin to unpublish it first.`);
+                    } else {
+                        // Never fail silently: the teacher must see WHY a row did not save.
+                        const reason = (e?.message && !/failed to fetch|network/i.test(e.message)) ? e.message : 'connection problem';
+                        toast.error(`${entry.studentName || 'A student'}: ${reason}`, { duration: 6000 });
                     }
                     return null;
                 }

@@ -644,12 +644,21 @@ export class AcademicService {
         // Scoped to the caller's school: a foreign student id must not resolve.
         const studentRow = await prisma.student.findFirst({
             where: { id: studentId, school_id: schoolId },
-            select: { branch_id: true }
+            select: { branch_id: true, grade: true, section: true, enrollments: { where: { status: 'Active', deleted_at: null }, select: { class_id: true }, take: 1 } }
         });
         if (!studentRow) throw Object.assign(new Error('Student not found in this school'), { status: 404 });
         const branchId = (data.branchId && data.branchId !== 'all')
             ? data.branchId
             : (studentRow.branch_id ?? null);
+        // The class the card belongs to — needed by class rankings (position in
+        // class) which cards saved here never carried, so positions stayed empty.
+        const classId: string | null = data.classId || data.class_id
+            || studentRow.enrollments[0]?.class_id
+            || (studentRow.grade != null ? (await prisma.class.findFirst({
+                where: { school_id: schoolId, grade: studentRow.grade, ...(studentRow.section ? { section: studentRow.section } : {}), ...(branchId ? { OR: [{ branch_id: branchId }, { branch_id: null }] } : {}) },
+                select: { id: true }, orderBy: { created_at: 'asc' },
+            }))?.id : null)
+            || null;
 
         const incoming: any[] = (academicRecords || [])
             .filter((r: any) => r && typeof r.subject === 'string' && r.subject.trim())
@@ -749,6 +758,7 @@ export class AcademicService {
                     where: { id: existingRC.id },
                     data: {
                         branch_id: existingRC.branch_id ?? branchId,
+                        class_id: existingRC.class_id ?? classId,
                         status: nextStatus,
                         is_published: nextStatus === 'Published',
                         total_score: totalScore,
@@ -764,7 +774,7 @@ export class AcademicService {
                 })
                 : await tx.reportCard.create({
                     data: {
-                        school_id: schoolId, branch_id: branchId, student_id: studentId, term, session,
+                        school_id: schoolId, branch_id: branchId, class_id: classId, student_id: studentId, term, session,
                         status: nextStatus,
                         is_published: nextStatus === 'Published',
                         total_score: totalScore, average_score: avgScore,

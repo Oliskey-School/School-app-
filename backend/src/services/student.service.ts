@@ -724,6 +724,33 @@ export class StudentService {
     }
 
     /**
+     * The ids of every student on a class's roster — decided by EXACTLY the
+     * same rule as getAllStudents(classId) (enrollment register, or the
+     * grade/section fallback when the class has no register). Permission
+     * checks must use this, never a raw enrollment lookup: the gradebook used
+     * to list a student through the fallback and then 403 when the teacher
+     * saved their score ("You are not assigned to this student's class"),
+     * because the save re-checked membership with enrollment rows only.
+     */
+    static async getClassRosterIds(schoolId: string, classId: string): Promise<string[]> {
+        const rows = await this.getAllStudents(schoolId, undefined, classId, 'all');
+        return rows.map((r: any) => r.id);
+    }
+
+    /**
+     * Every student a teacher may see and write results for: the union of the
+     * rosters of the classes they are assigned to (ClassTeacher). Empty when
+     * the teacher has no classes.
+     */
+    static async getStudentIdsForTeacher(schoolId: string, teacherId: string): Promise<string[]> {
+        const classes = await prisma.classTeacher.findMany({ where: { teacher_id: teacherId }, select: { class_id: true } });
+        const classIds = Array.from(new Set(classes.map(c => c.class_id)));
+        if (classIds.length === 0) return [];
+        const rosters = await Promise.all(classIds.map(id => this.getClassRosterIds(schoolId, id)));
+        return Array.from(new Set(rosters.flat()));
+    }
+
+    /**
      * Per-class-group headcounts for the admin Student List, so it can render
      * every stage/class header (with counts and status badges) from a payload of
      * a few hundred bytes and fetch a section's actual students only when the

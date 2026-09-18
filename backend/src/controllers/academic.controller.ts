@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { AcademicService } from '../services/academic.service';
+import { StudentService } from '../services/student.service';
 import prisma from '../config/database';
 import { getEffectiveBranchId } from '../utils/branchScope';
 import { sendError } from '../utils/httpError';
@@ -28,14 +29,8 @@ async function getAuthorizedStudentIds(req: AuthRequest): Promise<string[] | nul
     if (role === 'teacher') {
         const teacher = await prisma.teacher.findUnique({ where: { user_id: req.user.id }, select: { id: true } });
         if (!teacher) return [];
-        const classTeacherRows = await prisma.classTeacher.findMany({ where: { teacher_id: teacher.id }, select: { class_id: true } });
-        const classIds = classTeacherRows.map(c => c.class_id);
-        if (classIds.length === 0) return [];
-        const enrollments = await prisma.studentEnrollment.findMany({
-            where: { class_id: { in: classIds }, school_id: req.user.school_id, status: 'Active' },
-            select: { student_id: true }
-        });
-        return enrollments.map(e => e.student_id);
+        // Same roster rule the class screens use (see StudentService.getClassRosterIds).
+        return StudentService.getStudentIdsForTeacher(req.user.school_id, teacher.id);
     }
     if (role === 'student') {
         const student = await prisma.student.findUnique({ where: { user_id: req.user.id }, select: { id: true } });
@@ -307,15 +302,11 @@ export const upsertReportCard = async (req: AuthRequest, res: Response) => {
         if (role === 'teacher') {
             const teacher = await prisma.teacher.findUnique({ where: { user_id: req.user.id }, select: { id: true } });
             if (!teacher) return res.status(403).json({ message: 'Teacher profile not found' });
-            const enrollment = await prisma.studentEnrollment.findFirst({
-                where: { student_id: studentId, school_id: finalSchoolId, status: 'Active' },
-                select: { class_id: true }
-            });
-            const access = enrollment
-                ? await prisma.classTeacher.findFirst({ where: { teacher_id: teacher.id, class_id: enrollment.class_id } })
-                : null;
-            if (!access) {
-                return res.status(403).json({ message: 'You are not assigned to this student\'s class' });
+            // "In the class" must mean the same thing here as on the class list the
+            // teacher is looking at — the roster rule, not a raw enrollment lookup.
+            const allowed = await StudentService.getStudentIdsForTeacher(finalSchoolId, teacher.id);
+            if (!allowed.includes(String(studentId))) {
+                return res.status(403).json({ message: "You are not assigned to this student's class" });
             }
         }
 
@@ -423,10 +414,10 @@ export const calculateClassRankings = async (req: AuthRequest, res: Response) =>
             if (!access) return res.status(403).json({ message: 'You are not assigned to this class' });
         }
 
-        const enrollments = await prisma.studentEnrollment.findMany({
-            where: { class_id: classId, school_id: req.user.school_id, status: 'Active' },
-            select: { student_id: true }
-        });
+        // Rank the class as the class screens see it (roster rule, not
+        // enrollment rows only — a class without a register ranked nobody).
+        const rosterIds = await StudentService.getClassRosterIds(req.user.school_id, classId);
+        const enrollments = rosterIds.map(student_id => ({ student_id }));
 
         if (enrollments.length === 0) return res.json([]);
 
@@ -455,7 +446,9 @@ export const calculateClassRankings = async (req: AuthRequest, res: Response) =>
         await prisma.$transaction(
             ranked.map(({ studentId, totalScore, position_in_class }) =>
                 prisma.reportCard.updateMany({
-                    where: { student_id: studentId, class_id: classId, term, session, school_id: req.user.school_id },
+                    // by student, not class_id: the ids come from this class's roster,
+                    // and older cards were saved without a class_id at all
+                    where: { student_id: studentId, term, session, school_id: req.user.school_id, deleted_at: null },
                     data: { position_in_class, total_students_in_class: totalStudents, total_score: totalScore }
                 })
             )
