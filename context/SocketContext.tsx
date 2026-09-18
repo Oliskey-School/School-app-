@@ -38,6 +38,12 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // visitor can never use, since the guard above already means no socket is
     // opened without a session.
     void (async () => {
+      // Same gate as lib/socketService: a serverless deployment has no socket
+      // server, so opening one here only produced endless failed websocket
+      // handshakes (console errors, reconnect traffic) — chat, notifications
+      // and roster refreshes already fall back to polling.
+      const { isRealtimeSupported } = await import('../lib/socketService');
+      if (!(await isRealtimeSupported())) return;
       const { io } = await import('socket.io-client');
       // The user may have logged out while the chunk was in flight.
       if (cancelled) return;
