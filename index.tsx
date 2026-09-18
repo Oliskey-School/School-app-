@@ -4,11 +4,13 @@ import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client
 import { queryClient, idbPersister } from './lib/react-query';
 import App from './App';
 import './index.css';
+import './styles/dark-theme.css'; // generated: scripts/generate-dark-theme.mjs
 import { i18nReady } from './lib/i18n'; // initialize app-wide translations + RTL before first render
 import { startAutoTranslate } from './lib/i18n/autoTranslate'; // whole-app live translation
 import { initSentry } from './lib/sentry';
 import { initLiquidGlass } from './components/shared/LiquidGlassControl';
 import { applyRememberedSchoolBranding } from './lib/pwaBranding';
+import { watchSystemScheme } from './lib/uiPreferences';
 // @ts-ignore
 // import { registerSW } from 'virtual:pwa-register';
 
@@ -22,6 +24,7 @@ if (typeof window !== 'undefined') {
   // browser evaluates installability, so "Download app" carries that school's
   // logo and name (see lib/pwaBranding.ts).
   applyRememberedSchoolBranding();
+  watchSystemScheme();
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     (window as any).__deferredInstallPrompt = e;

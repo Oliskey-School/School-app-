@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Sun, Moon } from 'lucide-react';
-import { PREFERENCES_APPLIED_EVENT, syncUiPreference } from '../../lib/uiPreferences';
+import { PREFERENCES_APPLIED_EVENT, applyColorScheme } from '../../lib/uiPreferences';
 
 const DarkModeToggle = () => {
     const [isDark, setIsDark] = useState(() => {
@@ -27,7 +27,7 @@ const DarkModeToggle = () => {
     const toggle = () => {
         const next = !isDark;
         setIsDark(next);
-        syncUiPreference({ darkMode: next }); // follows the user to their next device
+        applyColorScheme(next ? 'dark' : 'light', { sync: true }); // one source of truth, follows the account
     };
 
     return (

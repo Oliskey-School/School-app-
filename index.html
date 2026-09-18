@@ -65,9 +65,20 @@
   }
   </script>
 
-  <!-- Force light mode to prevent dark mode color issues -->
-  <script>document.documentElement.classList.remove('dark');</script>
-  <meta name="color-scheme" content="light only">
+  <!-- Colour scheme, applied before first paint so there is no flash. The
+       choice ("light" | "dark" | "system") is saved per device and to the
+       account (lib/uiPreferences.ts); the dark palette itself is one generated
+       stylesheet (styles/dark-theme.css) that covers every screen. -->
+  <script>
+    (function () {
+      try {
+        var s = localStorage.getItem('colorScheme') || (localStorage.getItem('darkMode') === 'true' ? 'dark' : 'light');
+        var dark = s === 'dark' || (s === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.classList.toggle('dark', dark);
+      } catch (e) { document.documentElement.classList.remove('dark'); }
+    })();
+  </script>
+  <meta name="color-scheme" content="light dark">
   <style>
     :root {
       color-scheme: light only;

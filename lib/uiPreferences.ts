@@ -13,10 +13,45 @@
  */
 import { api } from './api';
 
+export type ColorScheme = 'light' | 'dark' | 'system';
+
 export interface UiPreferences {
+    /** Legacy boolean kept for older saved copies; colorScheme wins when present. */
     darkMode?: boolean;
+    colorScheme?: ColorScheme;
     appearance?: Record<string, unknown>;
     updated_at?: string;
+}
+
+const SCHEME_KEY = 'colorScheme';
+const systemDark = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+
+export function getColorScheme(): ColorScheme {
+    try {
+        const s = localStorage.getItem(SCHEME_KEY);
+        if (s === 'light' || s === 'dark' || s === 'system') return s;
+        return localStorage.getItem('darkMode') === 'true' ? 'dark' : 'light';
+    } catch { return 'light'; }
+}
+
+/** Resolve + apply a scheme on this device (html.dark drives styles/dark-theme.css). */
+export function applyColorScheme(scheme: ColorScheme, opts: { sync?: boolean } = {}): void {
+    const dark = scheme === 'dark' || (scheme === 'system' && systemDark());
+    document.documentElement.classList.toggle('dark', dark);
+    try {
+        localStorage.setItem(SCHEME_KEY, scheme);
+        localStorage.setItem('darkMode', String(dark));
+    } catch { /* storage unavailable */ }
+    if (opts.sync) syncUiPreference({ colorScheme: scheme, darkMode: dark });
+    window.dispatchEvent(new CustomEvent(PREFERENCES_APPLIED_EVENT, { detail: { colorScheme: scheme } }));
+}
+
+let systemListener: MediaQueryList | null = null;
+/** Keep "system" in step with the OS while the app is open. */
+export function watchSystemScheme(): void {
+    if (systemListener || typeof window === 'undefined' || !window.matchMedia) return;
+    systemListener = window.matchMedia('(prefers-color-scheme: dark)');
+    systemListener.addEventListener('change', () => { if (getColorScheme() === 'system') applyColorScheme('system'); });
 }
 
 // "Applied" marker is kept PER appearance scope (user + role). A single global
@@ -55,9 +90,10 @@ export function applyAccountPreferences(prefs: UiPreferences | null | undefined,
     const lastApplied = localStorage.getItem(appliedKey(appearanceScope));
     if (lastApplied && lastApplied >= prefs.updated_at) return false;
 
-    if (typeof prefs.darkMode === 'boolean') {
-        localStorage.setItem('darkMode', String(prefs.darkMode));
-        document.documentElement.classList.toggle('dark', prefs.darkMode);
+    if (prefs.colorScheme === 'light' || prefs.colorScheme === 'dark' || prefs.colorScheme === 'system') {
+        applyColorScheme(prefs.colorScheme);
+    } else if (typeof prefs.darkMode === 'boolean') {
+        applyColorScheme(prefs.darkMode ? 'dark' : 'light');
     }
     if (prefs.appearance && typeof prefs.appearance === 'object') {
         // Same storage the appearance control reads, keyed per user+role.

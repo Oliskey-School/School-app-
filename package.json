@@ -4,7 +4,7 @@
   "scripts": {
     "dev": "vite",
     "prebuild": "node scripts/check-env.mjs",
-    "build": "vite build",
+    "build": "node scripts/generate-dark-theme.mjs && vite build",
     "prebuild:vps": "node scripts/check-env.mjs",
     "build:vps": "cross-env LOW_RESOURCE_BUILD=true NODE_OPTIONS=--max-old-space-size=1536 vite build",
     "build:vercel": "npx prisma migrate deploy --schema=backend/prisma/schema.prisma && npm run build && npm run build:backend && rm -rf backend/dist/backend/generated && mkdir -p backend/dist/backend/generated && cp -R backend/generated/prisma-client backend/dist/backend/generated/prisma-client",
@@ -33,7 +33,8 @@
     "start:all": "concurrently \"npm run dev\" \"npm run server\"",
     "prestart:all": "npm run kill-ports",
     "clean": "npx rimraf node_modules/.vite .vite",
-    "setup": "npm install && echo '\nâœ… Dependencies installed!\n\nNext steps:\n1. Run: npm run db:migrate\n2. Run: npm run db:seed\n3. Run: npm run start:all\n4. Visit: http://localhost:5173\n'"
+    "setup": "npm install && echo '\n\u00e2\u0153\u2026 Dependencies installed!\n\nNext steps:\n1. Run: npm run db:migrate\n2. Run: npm run db:seed\n3. Run: npm run start:all\n4. Visit: http://localhost:5173\n'",
+    "dark-theme": "node scripts/generate-dark-theme.mjs"
   },
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"
