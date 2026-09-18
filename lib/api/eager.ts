@@ -99,6 +99,9 @@ export async function updateMyProfile(data: { full_name?: string; name?: string;
 export async function updatePreferredLanguage(language: string): Promise<any> {
     return apiCore.put('/auth/language', { language });
 }
+export async function updateUiPreferences(ui_preferences: Record<string, unknown>): Promise<any> {
+    return apiCore.put('/auth/preferences', { ui_preferences });
+}
 
 export async function getAppVersions(): Promise<any[]> {
     return apiCore.get('/versions');

@@ -390,19 +390,51 @@ export const getMe = async (req: Request, res: Response) => {
         // The Security Settings screen needs it from the server — it previously
         // read 2FA state from localStorage, so "enabled" was a per-browser fiction.
         let two_factor_enabled = false;
+        let ui_preferences: any = null;
         try {
             if (user?.id && !user?.is_demo) {
                 const row = await prisma.user.findUnique({
                     where: { id: user.id },
-                    select: { preferred_language: true, two_factor_enabled: true },
+                    select: { preferred_language: true, two_factor_enabled: true, ui_preferences: true },
                 });
                 preferred_language = (row as any)?.preferred_language ?? null;
                 two_factor_enabled = (row as any)?.two_factor_enabled ?? false;
+                ui_preferences = (row as any)?.ui_preferences ?? null;
             }
         } catch { /* column may not be migrated yet — ignore */ }
-        res.json({ ...user, preferred_language, two_factor_enabled });
+        res.json({ ...user, preferred_language, two_factor_enabled, ui_preferences });
     } catch (error: any) {
         res.status(401).json({ message: 'Unauthorized' });
+    }
+};
+
+// Saves account-level UI preferences (dark mode, appearance, ...) so they follow
+// the user to a new device. Shallow-merged into what is stored, stamped with
+// updated_at so a device can tell whether the account copy is newer than its
+// own. Demo sessions are virtual users with no row to write — acknowledged, not
+// stored.
+const MAX_PREFERENCES_BYTES = 8 * 1024;
+export const updatePreferences = async (req: Request, res: Response) => {
+    try {
+        const user = (req as any).user;
+        const patch = req.body?.ui_preferences;
+        if (!user?.id) return res.status(401).json({ message: 'Unauthorized' });
+        if (!patch || typeof patch !== 'object' || Array.isArray(patch)) {
+            return res.status(400).json({ message: 'ui_preferences object is required' });
+        }
+        if (JSON.stringify(patch).length > MAX_PREFERENCES_BYTES) {
+            return res.status(413).json({ message: 'ui_preferences is too large' });
+        }
+        const updated_at = new Date().toISOString();
+        if (user.is_demo) return res.json({ success: true, ui_preferences: { ...patch, updated_at }, persisted: false });
+
+        const row = await prisma.user.findUnique({ where: { id: user.id }, select: { ui_preferences: true } });
+        const current = (row?.ui_preferences && typeof row.ui_preferences === 'object') ? row.ui_preferences as Record<string, unknown> : {};
+        const merged = { ...current, ...patch, updated_at };
+        await prisma.user.update({ where: { id: user.id }, data: { ui_preferences: merged } });
+        res.json({ success: true, ui_preferences: merged, persisted: true });
+    } catch (error: any) {
+        res.status(500).json({ message: error?.message || 'Failed to save preferences' });
     }
 };
 

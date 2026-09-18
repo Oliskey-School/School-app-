@@ -231,6 +231,9 @@ model User {
   two_factor_enabled     Boolean                @default(false)
   two_factor_secret      String?
   preferred_language     String?
+  // Account-level UI settings (dark mode, appearance) so they follow the
+  // user to a new device. Small JSON, written by PUT /auth/preferences.
+  ui_preferences         Json?
   created_at             DateTime               @default(now())
   updated_at             DateTime               @updatedAt
   initial_password       String?

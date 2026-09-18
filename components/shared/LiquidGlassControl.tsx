@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { applyAccountPreferences, syncUiPreference } from '../../lib/uiPreferences';
 import { useAuth } from '../../context/AuthContext';
 
 /**
@@ -67,6 +68,8 @@ export function loadAppearance(scope: string): Appearance {
 
 export function saveAppearance(a: Appearance, scope: string) {
   try { localStorage.setItem(scopeKey(scope), JSON.stringify(a)); } catch { /* ignore */ }
+  // Follow the user to their next device.
+  syncUiPreference({ appearance: a as unknown as Record<string, unknown> });
 }
 
 /** Apply one specific user's saved look. */
@@ -91,6 +94,13 @@ export function useScope(): string {
  *  it whenever the user (or role) changes — so each person only sees their own look. */
 export const AppearanceSync: React.FC = () => {
   const scope = useScope();
-  useEffect(() => { applyScopedAppearance(scope); }, [scope]);
+  const auth = useAuth() as any;
+  const accountPrefs = auth?.user?.ui_preferences;
+  useEffect(() => {
+    // A newer account copy (saved from another device) lands in localStorage
+    // first, then the scoped look is applied as before.
+    applyAccountPreferences(accountPrefs, scope);
+    applyScopedAppearance(scope);
+  }, [scope, accountPrefs]);
   return null;
 };

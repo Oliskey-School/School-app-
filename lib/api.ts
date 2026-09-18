@@ -52,6 +52,10 @@ class ExpressApiClient {
     async updatePreferredLanguage(language: string): Promise<any> {
         return this.put('/auth/language', { language });
     }
+    /** Persist account-level UI settings (dark mode, appearance) — shallow-merged server-side. */
+    async updateUiPreferences(ui_preferences: Record<string, unknown>): Promise<any> {
+        return this.put('/auth/preferences', { ui_preferences });
+    }
 
     // The Global ID the user carries in their CURRENTLY ACTIVE branch (sent via the
     // X-Branch-Id header). Drives the live, branch-aware ID badge in the header.
