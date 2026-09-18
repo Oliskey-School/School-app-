@@ -111,9 +111,10 @@ const AuthenticatedApp: React.FC = () => {
   // Install branding follows the signed-in school: the manifest and touch icon
   // point at /api/schools/<id>/..., which serves the school's logo as the app
   // icon, or the default Oliskey icons when the school has none.
+  const schoolLogo = (currentSchool as any)?.logo_url || currentSchool?.logoUrl || null;
   useEffect(() => {
-    applySchoolBranding(user && currentSchool?.id ? String(currentSchool.id) : null);
-  }, [user, currentSchool?.id]);
+    applySchoolBranding(user && currentSchool?.id ? String(currentSchool.id) : null, schoolLogo);
+  }, [user, currentSchool?.id, schoolLogo]);
 
   // Signed-in views are private: tell crawlers not to index whatever the SPA
   // renders once a session exists (index.html ships "index, follow" for the

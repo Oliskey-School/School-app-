@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import sharp from 'sharp';
+import crypto from 'crypto';
 import prisma from '../config/database';
 
 /**
@@ -37,15 +38,21 @@ export const schoolManifest = async (req: Request, res: Response) => {
     const base = { start_url: '/', id: '/', scope: '/', display: 'standalone', orientation: 'portrait', background_color: '#ffffff', theme_color: '#4F46E5' };
     const name = school?.name?.trim() || 'Oliskey School App';
     const hasLogo = !!school && usableLogo(school.logo_url);
+    // The icon URL carries a version derived from the logo URL. A changed logo
+    // is therefore a NEW icon URL: neither the browser cache nor the CDN can
+    // serve the old picture, and the installed-app update check (which compares
+    // manifests) sees a real change instead of a same-URL cached image.
+    const version = hasLogo ? crypto.createHash('sha1').update(school!.logo_url!).digest('hex').slice(0, 10) : '';
     const icon = (size: number, purpose: string) => ({
-        src: hasLogo ? `/api/schools/${school!.id}/icon/${size}` : DEFAULT_ICON(size),
+        src: hasLogo ? `/api/schools/${school!.id}/icon/${size}?v=${version}` : DEFAULT_ICON(size),
         sizes: `${size}x${size}`,
         type: 'image/png',
         purpose,
     });
     res.setHeader('Content-Type', 'application/manifest+json');
-    // Short-lived so a newly uploaded logo shows on the next install.
-    res.setHeader('Cache-Control', 'public, max-age=300');
+    // Always revalidated: it is tiny, and a changed logo/name must be visible to
+    // the browser's next manifest check, not five minutes later.
+    res.setHeader('Cache-Control', 'no-cache');
     res.json({
         ...base,
         name,

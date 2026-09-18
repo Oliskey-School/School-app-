@@ -19,11 +19,20 @@ const setLink = (rel: string, href: string) => {
     if (link.getAttribute('href') !== href) link.setAttribute('href', href);
 };
 
-export function applySchoolBranding(schoolId: string | null | undefined): void {
+// Cheap stable hash so a changed logo yields a different manifest / icon URL:
+// the browser then re-reads them instead of trusting a cached copy.
+const hashOf = (value: string) => {
+    let h = 5381;
+    for (let i = 0; i < value.length; i++) h = ((h << 5) + h + value.charCodeAt(i)) | 0;
+    return (h >>> 0).toString(36);
+};
+
+export function applySchoolBranding(schoolId: string | null | undefined, logoUrl?: string | null): void {
     if (typeof document === 'undefined') return;
     const id = schoolId && /^[A-Za-z0-9_-]{1,64}$/.test(schoolId) ? schoolId : null;
-    setLink('manifest', id ? `/api/schools/${id}/manifest.webmanifest` : DEFAULT_MANIFEST);
-    setLink('apple-touch-icon', id ? `/api/schools/${id}/icon/180` : DEFAULT_TOUCH_ICON);
+    const v = logoUrl ? `?v=${hashOf(logoUrl)}` : '';
+    setLink('manifest', id ? `/api/schools/${id}/manifest.webmanifest${v}` : DEFAULT_MANIFEST);
+    setLink('apple-touch-icon', id ? `/api/schools/${id}/icon/180${v}` : DEFAULT_TOUCH_ICON);
     try {
         if (id) localStorage.setItem(LAST_SCHOOL_KEY, id);
         else localStorage.removeItem(LAST_SCHOOL_KEY);
