@@ -19,14 +19,20 @@ export interface UiPreferences {
     updated_at?: string;
 }
 
-const SYNCED_AT_KEY = 'oliskey:prefs_synced_at';
+// "Applied" marker is kept PER appearance scope (user + role). A single global
+// marker was set by the first, role-less run of the sign-in effect and then
+// blocked the real (user:role) run — so a new device silently stayed on the
+// defaults even though the account held the saved look.
+const appliedKey = (scope: string) => `oliskey:prefs_applied_at:${scope || 'guest'}`;
 export const PREFERENCES_APPLIED_EVENT = 'oliskey:preferences-applied';
 
 let pending: Record<string, unknown> = {};
 let timer: number | undefined;
+let currentScope = '';
 
 /** Merge a change into the account copy (debounced). Safe to call often. */
-export function syncUiPreference(patch: UiPreferences): void {
+export function syncUiPreference(patch: UiPreferences, scope?: string): void {
+    if (scope) currentScope = scope;
     pending = { ...pending, ...patch };
     if (timer !== undefined) window.clearTimeout(timer);
     timer = window.setTimeout(async () => {
@@ -34,16 +40,20 @@ export function syncUiPreference(patch: UiPreferences): void {
         try {
             const res = await api.updateUiPreferences(body);
             const at = res?.ui_preferences?.updated_at;
-            if (at) localStorage.setItem(SYNCED_AT_KEY, at);
+            // This device already shows what it just saved: mark it applied so the
+            // next sign-in doesn't needlessly re-apply the same values.
+            if (at && currentScope) localStorage.setItem(appliedKey(currentScope), at);
         } catch { /* offline or signed out — the local copy still applies */ }
     }, 600);
 }
 
-/** Apply the account copy on this device if it is newer than what we last synced. */
+/** Apply the account copy on this device if this scope has not applied that version yet. */
 export function applyAccountPreferences(prefs: UiPreferences | null | undefined, appearanceScope: string): boolean {
     if (!prefs || typeof prefs !== 'object' || !prefs.updated_at) return false;
-    const lastSynced = localStorage.getItem(SYNCED_AT_KEY);
-    if (lastSynced && lastSynced >= prefs.updated_at) return false;
+    if (!appearanceScope || appearanceScope.endsWith(':')) return false; // role not known yet — wait for the real scope
+    currentScope = appearanceScope;
+    const lastApplied = localStorage.getItem(appliedKey(appearanceScope));
+    if (lastApplied && lastApplied >= prefs.updated_at) return false;
 
     if (typeof prefs.darkMode === 'boolean') {
         localStorage.setItem('darkMode', String(prefs.darkMode));
@@ -53,7 +63,7 @@ export function applyAccountPreferences(prefs: UiPreferences | null | undefined,
         // Same storage the appearance control reads, keyed per user+role.
         try { localStorage.setItem(`oliskey:appearance:${appearanceScope || 'guest'}`, JSON.stringify(prefs.appearance)); } catch { /* ignore */ }
     }
-    localStorage.setItem(SYNCED_AT_KEY, prefs.updated_at);
+    localStorage.setItem(appliedKey(appearanceScope), prefs.updated_at);
     window.dispatchEvent(new CustomEvent(PREFERENCES_APPLIED_EVENT, { detail: prefs }));
     return true;
 }

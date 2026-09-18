@@ -69,7 +69,7 @@ export function loadAppearance(scope: string): Appearance {
 export function saveAppearance(a: Appearance, scope: string) {
   try { localStorage.setItem(scopeKey(scope), JSON.stringify(a)); } catch { /* ignore */ }
   // Follow the user to their next device.
-  syncUiPreference({ appearance: a as unknown as Record<string, unknown> });
+  syncUiPreference({ appearance: a as unknown as Record<string, unknown> }, scope);
 }
 
 /** Apply one specific user's saved look. */
