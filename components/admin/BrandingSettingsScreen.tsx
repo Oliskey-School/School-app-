@@ -8,13 +8,19 @@ import { toast } from 'react-hot-toast';
 const BrandingSettingsScreen: React.FC = () => {
     const { currentSchool, refreshCurrentSchool } = useAuth();
     const [logo, setLogo] = useState<string | null>(null);
-    const [logoFile, setLogoFile] = useState<File | null>(null);
+    // The logo URL as it was when the form was seeded. Save only sends logo_url
+    // when it differs — re-sending the seeded value wrote an OLD logo back over
+    // a newer one saved elsewhere (seen on a real school, 2026-09-18).
+    const [seededLogo, setSeededLogo] = useState<string | null>(null);
+    const [uploading, setUploading] = useState(false);
     const [primaryColor, setPrimaryColor] = useState('#4f46e5');
     const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
         if (currentSchool) {
-            setLogo((currentSchool as any).logo_url || currentSchool.logoUrl || null);
+            const current = (currentSchool as any).logo_url || currentSchool.logoUrl || null;
+            setLogo(current);
+            setSeededLogo(current);
             // Assuming settings JSON contains primaryColor
             setPrimaryColor((currentSchool as any).settings?.primaryColor || currentSchool.primaryColor || '#4f46e5');
         }
@@ -26,30 +32,25 @@ const BrandingSettingsScreen: React.FC = () => {
 
     const handleSave = async () => {
         if (!currentSchool?.id) return;
+        if (uploading) { toast.error('Please wait for the logo to finish uploading.'); return; }
 
         setIsLoading(true);
         try {
-            let finalLogoUrl = logo;
-
-            // If a new file was uploaded, upload it first
-            if (logoFile) {
-                // Not uploadAvatar: that writes to the signed-in admin's OWN
-                // fixed profile-photo object, so saving a school logo replaced the
-                // admin's photo (and vice versa). The logo gets its own random-named
-                // object under the school's branding folder.
-                const uploadResult = await api.uploadFile('general', 'branding/', logoFile);
-                finalLogoUrl = uploadResult.publicUrl || uploadResult.url || '';
-            }
-
-            await api.updateSchool(currentSchool.id, {
-                logo_url: finalLogoUrl,
+            const updates: Record<string, unknown> = {
                 settings: {
                     ...((currentSchool as any).settings || {}),
                     primaryColor: primaryColor
                 }
-            });
+            };
+            // Only a NEW logo is sent. The seeded value is never re-sent, so this
+            // screen can no longer overwrite a logo saved from another screen or
+            // device with a stale copy.
+            if (logo && logo !== seededLogo) updates.logo_url = logo;
+
+            await api.updateSchool(currentSchool.id, updates);
 
             await refreshCurrentSchool();
+            if (updates.logo_url) setSeededLogo(logo);
             toast.success('Branding settings saved successfully');
         } catch (error: any) {
             toast.error(`Failed to save: ${error.message}`);
@@ -58,11 +59,35 @@ const BrandingSettingsScreen: React.FC = () => {
         }
     };
 
-    const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            const file = e.target.files[0];
-            setLogoFile(file);
-            setLogo(URL.createObjectURL(file));
+    // Upload the moment a file is chosen (same pattern as profile photos): the
+    // admin sees a preview, then a clear success or failure, and Save only ever
+    // stores a URL that already exists in storage. Uploading at Save time meant a
+    // picked file that never made it into state left the OLD logo saved with no
+    // error shown.
+    const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        e.target.value = ''; // allow re-picking the same file
+        if (!file) return;
+        const preview = URL.createObjectURL(file);
+        setLogo(preview);
+        setUploading(true);
+        const toastId = toast.loading('Uploading logo...');
+        try {
+            // Not uploadAvatar: that writes to the signed-in admin's OWN fixed
+            // profile-photo object, so saving a school logo replaced the admin's
+            // photo (and vice versa). The logo gets its own random-named object
+            // under the school's branding folder.
+            const uploadResult = await api.uploadFile('general', 'branding/', file);
+            const url = uploadResult.publicUrl || uploadResult.url || '';
+            if (!url) throw new Error('No file address was returned');
+            setLogo(url);
+            toast.success('Logo uploaded — press Save to apply it', { id: toastId });
+        } catch (error: any) {
+            setLogo(seededLogo);
+            toast.error(`Logo upload failed: ${error?.message || 'please try again'}`, { id: toastId });
+        } finally {
+            setUploading(false);
+            URL.revokeObjectURL(preview);
         }
     };
 
@@ -92,7 +117,7 @@ const BrandingSettingsScreen: React.FC = () => {
             <motion.button
                 whileHover={!isLoading ? { scale: 1.01 } : {}} whileTap={!isLoading ? { scale: 0.98 } : {}}
                 onClick={handleSave}
-                disabled={isLoading}
+                disabled={isLoading || uploading}
                 className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-indigo-700 transition disabled:opacity-50"
             >
                 {isLoading ? 'Saving...' : 'Save Branding Settings'}

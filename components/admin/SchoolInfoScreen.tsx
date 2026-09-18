@@ -45,7 +45,10 @@ const SchoolInfoScreen: React.FC = () => {
                 hero_image_url: (currentSchool as any).settings?.hero_image_url || ''
             });
         }
-    }, [currentSchool]);
+        // Seed only when the school changes, not on every background refresh —
+        // otherwise typed-but-unsaved edits were wiped.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentSchool?.id]);
 
     useAutoSync(['schools', 'school_settings'], () => {
         console.log('🔄 [SchoolInfo] Real-time auto-sync triggered');
@@ -58,9 +61,12 @@ const SchoolInfoScreen: React.FC = () => {
         setIsSaving(true);
 
         try {
+            const currentLogo = currentSchool?.logoUrl || (currentSchool as any)?.logo_url || '';
             await api.updateSchool(schoolId, {
                 name: info.name,
-                logo_url: info.logo_url,
+                // Only send the logo when this screen actually changed it, so a copy
+                // loaded earlier can never overwrite a logo saved elsewhere.
+                ...(info.logo_url !== currentLogo ? { logo_url: info.logo_url } : {}),
                 settings: {
                     ...((currentSchool as any).settings || {}),
                     anthem: info.anthem,
