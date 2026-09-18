@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
+import { api } from '../../lib/api';
 import { Submission, Assignment } from '../../types';
 import { SparklesIcon, AIIcon, FileDocIcon, FilePdfIcon, FileImageIcon, DocumentTextIcon } from '../../constants';
 
@@ -28,10 +29,29 @@ const MicrophoneIcon = ({ className }: { className?: string }) => <svg xmlns="ht
 interface GradeSubmissionScreenProps {
   submission: Submission;
   assignment: Assignment;
-  onGrade: (submissionId: string, grade: number, feedback: string) => void;
+  onGrade?: (submissionId: string, grade: number, feedback: string) => void;
+  handleBack?: () => void;
 }
 
-const GradeSubmissionScreen: React.FC<GradeSubmissionScreenProps> = ({ submission, assignment, onGrade }) => {
+const GradeSubmissionScreen: React.FC<GradeSubmissionScreenProps> = ({ submission, assignment, onGrade, handleBack }) => {
+  const [saving, setSaving] = useState(false);
+  // `onGrade` is a function handed over by the submissions screen. After a page
+  // reload only the plain data survives (functions cannot be stored), so this
+  // screen must be able to save on its own — otherwise pressing Save did nothing.
+  const saveGrade = async (submissionId: string, numericGrade: number, text: string) => {
+    if (onGrade) return onGrade(submissionId, numericGrade, text);
+    setSaving(true);
+    try {
+      await api.gradeSubmission(submissionId, { grade: numericGrade, feedback: text, status: 'Graded' });
+      toast.success('Grade saved successfully');
+      handleBack?.();
+    } catch (err: any) {
+      console.error('Error saving grade:', err);
+      toast.error(err?.message ? `Failed to save grade: ${err.message}` : 'Failed to save grade');
+    } finally {
+      setSaving(false);
+    }
+  };
   const [grade, setGrade] = useState<string>(submission?.grade?.toString() || '');
   const [feedback, setFeedback] = useState<string>(submission?.feedback || '');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -139,7 +159,7 @@ const GradeSubmissionScreen: React.FC<GradeSubmissionScreenProps> = ({ submissio
       toast.error('Please enter a valid grade between 0 and 100.');
       return;
     }
-    onGrade(submission.id, numericGrade, feedback);
+    saveGrade(submission.id, numericGrade, feedback);
   };
 
   if (!submission) return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Select a submission to grade.</div>;
@@ -315,9 +335,10 @@ const GradeSubmissionScreen: React.FC<GradeSubmissionScreenProps> = ({ submissio
             whileHover={{ scale: 1.01 }}
             whileTap={{ scale: 0.98 }}
             type="submit"
-            className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+            disabled={saving}
+            className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-60"
           >
-            Submit Grade
+            {saving ? 'Saving…' : 'Submit Grade'}
           </motion.button>
         </div>
       </form>

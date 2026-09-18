@@ -64,6 +64,7 @@ test_output_utf8.txt
 !hooks/**/*.ts
 !types/**/*.ts
 !utils/**/*.ts
+!shared/**/*.ts
 !services/**/*.ts
 !services/**/*.tsx
 !api/**/*.ts

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
+import { subjectAllowed } from '../../shared/utils/subjectMatch';
 import { Submission, Assignment, Student } from '../../types';
 import { CheckCircleIcon, ClockIcon, MailIcon, TrashIcon } from '../../constants';
 import { useAutoSync } from '../../hooks/useAutoSync';
@@ -104,18 +105,25 @@ const AssignmentSubmissionsScreen: React.FC<AssignmentSubmissionsScreenProps> = 
             // 1. Fetch Students in the class using new enrollment logic
             let classStudents: Student[] = [];
 
-            if (assignment.classId) {
-                classStudents = await fetchStudentsByClassId(assignment.classId);
-            } else if (assignment.className) {
+            // The assignment may arrive as the UI shape (classId/className) or the
+            // raw API row (class_id/class_name) — the Overview passes the raw row.
+            // Reading only `classId` sent the raw row down the name-parsing
+            // fallback, which turned "SSS 1" into grade 1 / section "S" and showed
+            // the teacher an EMPTY class with no submissions.
+            const classId = (assignment as any).classId || (assignment as any).class_id;
+            const className = (assignment as any).className || (assignment as any).class_name;
+            if (classId) {
+                classStudents = await fetchStudentsByClassId(classId);
+            } else if (className) {
                 // Fallback to legacy grade/section match if classId is missing
                 const data = await api.getStudents(schoolId);
-                const gradeMatch = assignment.className.match(/\d+/);
-                const sectionMatch = assignment.className.match(/[A-Z]/);
+                const gradeMatch = String(className).match(/\d+/);
+                const sectionMatch = String(className).trim().match(/\s([A-Z])$/);
 
                 classStudents = data || [];
                 if (gradeMatch && sectionMatch) {
                     const grade = parseInt(gradeMatch[0]);
-                    const section = sectionMatch[0];
+                    const section = sectionMatch[1];
                     classStudents = classStudents.filter(s => s.grade === grade && s.section === section);
                 }
             } else {
@@ -128,11 +136,9 @@ const AssignmentSubmissionsScreen: React.FC<AssignmentSubmissionsScreenProps> = 
             // list for a student when set (see Student model); an empty list means
             // "no override — inherit every subject offered to the class", so those
             // students still show for any subject rather than being hidden.
-            if (assignment.subject) {
-                classStudents = classStudents.filter((s: any) => {
-                    const assigned: string[] = s.assigned_subjects || s.assignedSubjects || [];
-                    return assigned.length === 0 || assigned.includes(assignment.subject);
-                });
+            const subjectName = (assignment as any).subject;
+            if (subjectName) {
+                classStudents = classStudents.filter((s: any) => subjectAllowed(subjectName, s.assigned_subjects || s.assignedSubjects || []));
             }
 
             setAllClassStudents(classStudents);
@@ -193,10 +199,11 @@ const AssignmentSubmissionsScreen: React.FC<AssignmentSubmissionsScreenProps> = 
         // fallback above does — used only to detect a submitter who has since
         // moved to a different class, so their history can be labeled instead
         // of looking like the roster and the submission list disagree.
-        const gradeMatch = assignment.className?.match(/\d+/);
-        const sectionMatch = assignment.className?.match(/[A-Z]/);
+        const ownClassName = String((assignment as any).className || (assignment as any).class_name || '');
+        const gradeMatch = ownClassName.match(/\d+/);
+        const sectionMatch = ownClassName.trim().match(/\s([A-Z])$/);
         const assignmentGrade = gradeMatch ? parseInt(gradeMatch[0]) : undefined;
-        const assignmentSection = sectionMatch ? sectionMatch[0] : undefined;
+        const assignmentSection = sectionMatch ? sectionMatch[1] : undefined;
 
         // Built from the submissions themselves, not from allClassStudents: a
         // student who already submitted must stay visible for grading even if

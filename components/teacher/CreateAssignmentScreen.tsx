@@ -77,7 +77,11 @@ const CreateAssignmentScreen: React.FC<CreateAssignmentScreenProps> = ({ classIn
           label: `${getFormattedClassName(cls.grade, cls.section)} - ${sub.name}`,
         };
       })
-      .filter((o): o is { key: string; classId: string; subjectId: string; label: string } => !!o);
+      .filter((o): o is { key: string; classId: string; subjectId: string; label: string } => !!o)
+      // one option per (class, subject): a teacher can hold several assignment
+      // rows for the same pair (class-teacher + subject-teacher), which produced
+      // duplicate <option>s and duplicate React keys
+      .filter((o, i, arr) => arr.findIndex(x => x.key === o.key) === i);
   }, [rawAssignments, availableClasses, dbSubjects]);
 
   useEffect(() => {

@@ -21,6 +21,8 @@ const TeacherAssignmentsListScreen: React.FC<TeacherAssignmentsListScreenProps> 
     const [loading, setLoading] = useState(true);
 
     const fetchAssignments = useCallback(async () => {
+        // No teacher id yet (profile still loading) → keep the loader, but never
+        // silently: the dashboard re-renders us with the id the moment it has it.
         if (!teacherId) return;
         setLoading(true);
         try {
@@ -50,6 +52,7 @@ const TeacherAssignmentsListScreen: React.FC<TeacherAssignmentsListScreenProps> 
             title: item.title,
             description: item.description,
             className: item.class_name,
+            classId: item.class_id, // the submissions screen needs the real class, not a parsed name
             subject: item.subject,
             dueDate: item.due_date,
             totalStudents: item.total_students || 0,

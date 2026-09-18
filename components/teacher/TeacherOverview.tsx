@@ -400,7 +400,7 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
                   whileHover={{ y: -2 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => navigateTo('assignmentSubmissions', `Submissions: ${a.title}`, {
-                    assignment: a, schoolId, teacherId, branchId: currentBranchId
+                    assignment: { ...a, classId: a.classId || a.class_id, className: a.className || a.class_name, dueDate: a.dueDate || a.due_date }, schoolId, teacherId, branchId: currentBranchId
                   })}
                   className="w-full text-left bg-white p-3 rounded-xl shadow-sm hover:shadow-md transition-shadow flex justify-between items-center"
                 >

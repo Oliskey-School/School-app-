@@ -1,4 +1,5 @@
 import prisma from '../config/database';
+import { subjectAllowed } from '../utils/subjectMatch';
 import { SocketService } from './socket.service';
 
 export class AssignmentService {
@@ -28,9 +29,10 @@ export class AssignmentService {
         // Restrict to a specific set of subjects. Used for students, who should only
         // see work for the subjects they actually take — a class's full assignment
         // list can span subjects a given student isn't enrolled in.
-        if (subjects && subjects.length > 0) {
-            where.subject = { in: subjects };
-        }
+        // (applied after the query, leniently — see utils/subjectMatch: exact
+        // name equality hid every assignment from a student whose list said
+        // "General Mathematics" while the teacher's subject was "Mathematics")
+        const subjectFilter = subjects && subjects.length > 0 ? subjects : null;
 
         const assignments = await prisma.assignment.findMany({
             where,
@@ -49,14 +51,16 @@ export class AssignmentService {
             }
         });
 
-        return assignments.map((a: any) => ({
-            ...a,
-            classId: a.class_id,
-            class_name: a.class?.name,
-            className: a.class?.name,
-            total_students: a.class?._count?.enrollments || 0,
-            submissions_count: a.submissions?.length || 0
-        }));
+        return assignments
+            .filter((a: any) => !subjectFilter || subjectAllowed(a.subject, subjectFilter))
+            .map((a: any) => ({
+                ...a,
+                classId: a.class_id,
+                class_name: a.class?.name,
+                className: a.class?.name,
+                total_students: a.class?._count?.enrollments || 0,
+                submissions_count: a.submissions?.length || 0
+            }));
     }
 
     static async createAssignment(schoolId: string, branchId: string | undefined, assignmentData: any) {

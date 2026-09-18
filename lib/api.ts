@@ -1851,7 +1851,13 @@ class ExpressApiClient {
     // ASSIGNMENTS
     // ============================================
     async getAssignments(schoolId?: string, filters: any = {}): Promise<any[]> {
-        const queryParams = new URLSearchParams(schoolId ? { ...filters, schoolId } : filters);
+        // URLSearchParams turns an undefined value into the string "undefined"
+        // (…&branchId=undefined), which the server then treats as a real branch id.
+        const clean: Record<string, string> = {};
+        for (const [k, v] of Object.entries({ ...filters, ...(schoolId ? { schoolId } : {}) })) {
+            if (v !== undefined && v !== null && v !== '') clean[k] = String(v);
+        }
+        const queryParams = new URLSearchParams(clean);
         try {
             return await this.get(`/assignments?${queryParams.toString()}`);
         } catch (err) {

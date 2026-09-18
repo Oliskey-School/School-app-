@@ -253,7 +253,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     quickAttendance: QuickAttendance,
     classDetail: ClassDetailScreen,
     studentProfile: StudentProfileScreen,
-    examManagement: TeacherExamManagement,
+    examManagement: (props: any) => <TeacherExamManagement {...props} schoolId={props.schoolId || effectiveSchoolId} teacherId={props.teacherId ?? teacherId} branchId={props.branchId ?? currentBranchId} />,
     selectClassForAttendance: TeacherSelectClassForAttendance,
     markAttendance: TeacherMarkAttendanceScreen,
     teacherSelfAttendance: TeacherSelfAttendance,
@@ -274,7 +274,9 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     calendar: CalendarScreen,
     addExam: AddExamScreen,
     assignmentCreator: CreateAssignmentScreen,
-    assignmentsList: TeacherAssignmentsListScreen,
+    // Always carries the teacher's id: the Overview opened this screen with no
+    // props, so it sat on "Loading assignments…" for ever.
+    assignmentsList: (props: any) => <TeacherAssignmentsListScreen {...props} teacherId={props.teacherId || teacherId} branchId={props.branchId || currentBranchId} />,
     classAssignments: ClassAssignmentsScreen,
     assignmentSubmissions: AssignmentSubmissionsScreen,
     gradeSubmission: GradeSubmissionScreen,
