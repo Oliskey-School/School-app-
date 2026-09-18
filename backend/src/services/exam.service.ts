@@ -159,7 +159,8 @@ export class ExamService {
                         exam_id,
                         student_id,
                         school_id: schoolId,
-                        branch_id: branchId ?? null,
+                        // 'all' is the admin's "every branch" view, not a branch id.
+                        branch_id: branchId && branchId !== 'all' ? branchId : null,
                         score: total_score ?? 0,
                         grade: grade ?? null,
                         remarks,

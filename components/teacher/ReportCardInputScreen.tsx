@@ -399,7 +399,10 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
             principalComment,
         };
 
-        const success = await api.upsertReportCard(student.id, newReportCard, student.schoolId || '');
+        // The full-card editor is the only place a subject can be REMOVED; the
+        // server honours that only for admins (replaceAll). Teachers' saves are
+        // merged per subject so they can never wipe another teacher's subject.
+        const success = await api.upsertReportCard(student.id, { ...newReportCard, replaceAll: isAdmin }, student.schoolId || '');
 
         if (success) {
             toast.success(`Report card has been ${status === 'Draft' ? 'saved as a draft' : 'submitted for review'}.`);

@@ -116,7 +116,7 @@ export const saveGrade = async (req: AuthRequest, res: Response) => {
 
 export const getGrades = async (req: AuthRequest, res: Response) => {
     try {
-        const { studentIds, subject, term } = req.body;
+        const { studentIds, subject, term, session } = req.body;
 
         if ((req.user.role || '').toLowerCase() === 'teacher') {
             const teacher = await prisma.teacher.findUnique({
@@ -154,7 +154,7 @@ export const getGrades = async (req: AuthRequest, res: Response) => {
         }
 
         const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
-        const result = await AcademicService.getGrades(req.user.school_id, branchId, safeStudentIds, subject, term);
+        const result = await AcademicService.getGrades(req.user.school_id, branchId, safeStudentIds, subject, term, session);
         res.json(result);
     } catch (error: any) {
         sendError(res, error, 'academic.controller.ts');
@@ -218,6 +218,13 @@ export const getReportCardDetails = async (req: AuthRequest, res: Response) => {
             term as string,
             session as string
         );
+        // Parents and students only ever see PUBLISHED report cards. The
+        // roster/list endpoints already filtered, but this per-term detail
+        // endpoint returned Draft/Submitted grades to a parent who asked for
+        // them directly (verified on production 2026-09-18).
+        if (!STAFF_ROLES.includes((req.user.role || '').toLowerCase()) && result.status !== 'Published') {
+            return res.status(404).json({ message: 'This report card has not been published yet.' });
+        }
         res.json(result);
     } catch (error: any) {
         sendError(res, error, 'academic.controller.ts');
@@ -311,7 +318,7 @@ export const upsertReportCard = async (req: AuthRequest, res: Response) => {
             }
         }
 
-        const result = await AcademicService.upsertReportCard(studentId as string, finalSchoolId, data);
+        const result = await AcademicService.upsertReportCard(studentId as string, finalSchoolId, data, { id: req.user.id, role });
         res.json(result);
     } catch (error: any) {
         sendError(res, error, 'academic.controller.ts');
@@ -352,6 +359,9 @@ export const getReportCardByCriteria = async (req: AuthRequest, res: Response) =
         }
 
         const result = await AcademicService.getReportByCriteria(schoolId, studentId, term, session);
+        if (result && !STAFF_ROLES.includes((req.user.role || '').toLowerCase()) && result.status !== 'Published') {
+            return res.status(404).json({ message: 'This report card has not been published yet.' });
+        }
         res.json(result);
     } catch (error: any) {
         sendError(res, error, 'academic.controller.ts');
@@ -451,6 +461,17 @@ export const calculateClassRankings = async (req: AuthRequest, res: Response) =>
         );
 
         res.json(ranked);
+    } catch (error: any) {
+        sendError(res, error, 'academic.controller.ts');
+    }
+};
+
+// Admin review: who entered / changed / submitted / published what, and when.
+export const getReportCardHistory = async (req: AuthRequest, res: Response) => {
+    try {
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can view report card history' });
+        const history = await AcademicService.getReportCardHistory(req.user.school_id, String(req.params.id));
+        res.json(history);
     } catch (error: any) {
         sendError(res, error, 'academic.controller.ts');
     }

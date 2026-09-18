@@ -580,12 +580,13 @@ const ClassGradebookScreen: React.FC<{
             const targets = students.filter(s => s.offersSubject && (s.isDirty || status === 'Submitted'));
             const results = await Promise.all(targets.map(async (entry) => {
                 try {
-                    const rc = await api.getReportCard(entry.studentId, currentTerm?.name, currentSession, currentBranchId);
-
-                    const academicRecords = rc?.academic_records || [];
-
-                    // Update or Add current subject/record
-                    const recordIndex = academicRecords.findIndex((r: any) => r.subject === selectedSubject);
+                    // Send ONLY this subject. The server merges it into the student's
+                    // card and keeps every other subject as it is. The old
+                    // read-modify-write (fetch the card, splice this subject in, send
+                    // the whole array back) let two subject teachers saving the same
+                    // student at the same time silently overwrite each other —
+                    // reproduced on production 2026-09-18 (both got 200, one subject
+                    // vanished). Comments/attendance/skills are untouched when omitted.
                     const newRecord = {
                         subject: selectedSubject,
                         test1: parseInt(entry.test1 || '0', 10),
@@ -595,31 +596,19 @@ const ClassGradebookScreen: React.FC<{
                         grade: entry.grade,
                         remark: entry.remark
                     };
-
-                    if (recordIndex >= 0) {
-                        academicRecords[recordIndex] = newRecord;
-                    } else {
-                        academicRecords.push(newRecord);
-                    }
-
                     const reportCardToSave = {
                         term_id: currentTerm?.id,
                         term: currentTerm?.name,
                         session: currentSession,
                         status: status,
-                        attendance: rc?.attendance || { total: 0, present: 0, absent: 0, late: 0 },
-                        skills: rc?.skills || {},
-                        psychomotor: rc?.psychomotor || {},
-                        // The API returns these in snake_case; reading only camelCase here
-                        // silently wiped existing comments on every grade save. Preserve them.
-                        teacherComment: rc?.teacherComment ?? rc?.teacher_comment ?? '',
-                        principalComment: rc?.principalComment ?? rc?.principal_comment ?? '',
-                        academicRecords
+                        academicRecords: [newRecord]
                     };
-
                     return await api.upsertReportCard(entry.studentId, reportCardToSave, currentSchool?.id || schoolId, currentBranchId);
-                } catch (e) {
+                } catch (e: any) {
                     console.error(`Failed to save grades for student ${entry.studentId}`, e);
+                    if (e?.status === 409 || /published/i.test(e?.message || '')) {
+                        toast.error(`${entry.studentName || 'A student'}'s report card is already published — ask an admin to unpublish it first.`);
+                    }
                     return null;
                 }
             }));

@@ -93,7 +93,7 @@ export const updateStatus = async (req: AuthRequest, res: Response) => {
             return res.status(403).json({ message: 'Only an admin can publish report cards.' });
         }
         const branchId = getEffectiveBranchId(req.user, req.body.branch_id || req.body.branchId);
-        const result = await ReportCardService.updateStatus(req.user.school_id, branchId, req.params.id as string, req.body.status);
+        const result = await ReportCardService.updateStatus(req.user.school_id, branchId, req.params.id as string, req.body.status, { id: req.user.id, role: req.user.role });
         res.json(result);
     } catch (error: any) {
         sendError(res, error, 'reportCard.controller.ts');
@@ -110,7 +110,7 @@ export const publishReportCards = async (req: AuthRequest, res: Response) => {
             return res.status(400).json({ message: 'Term and session are required' });
         }
         const branchId = getEffectiveBranchId(req.user, req.body.branch_id || req.body.branchId);
-        const result = await ReportCardService.publishReportCards(req.user.school_id, branchId, term, session);
+        const result = await ReportCardService.publishReportCards(req.user.school_id, branchId, term, session, { id: req.user.id, role: req.user.role });
         res.json(result);
     } catch (error: any) {
         sendError(res, error, 'reportCard.controller.ts');

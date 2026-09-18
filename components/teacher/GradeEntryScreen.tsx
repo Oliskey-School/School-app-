@@ -128,6 +128,7 @@ const GradeEntryScreen: React.FC<GradeEntryScreenProps> = ({ exam, handleBack })
                     currentTerm.name,
                     currentSchool.id,
                     currentSchool.branch_id,
+                    (currentTerm as any).academic_year || (currentTerm as any).session,
                     { useBackend: true }
                 );
 

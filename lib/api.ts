@@ -651,11 +651,12 @@ class ExpressApiClient {
         return this.get('/students/me/performance');
     }
 
-    async getGrades(studentIds: (string | number)[], subject: string, term: string, schoolId?: string, branchId?: string, ...args: any[]): Promise<any[]> {
+    async getGrades(studentIds: (string | number)[], subject: string, term: string, schoolId?: string, branchId?: string, session?: string, ...args: any[]): Promise<any[]> {
         return this.post('/academic/grades', {
             studentIds,
             subject,
             term,
+            session,
             schoolId,
             branchId
         });
@@ -1656,6 +1657,10 @@ class ExpressApiClient {
 
     async updateReportCardStatus(reportCardId: string | number, status: string): Promise<any> {
         return this.put(`/report-cards/${reportCardId}/status`, { status });
+    }
+    /** Admin: full change history of one report card (who entered/edited/submitted/published what, when). */
+    async getReportCardHistory(reportCardId: string | number): Promise<any[]> {
+        return this.get(`/academic/report-cards/${reportCardId}/history`);
     }
 
     // ============================================

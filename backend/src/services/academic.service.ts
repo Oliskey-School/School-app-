@@ -1,4 +1,4 @@
-import prisma from '../config/database';
+import prisma, { withTenantTransaction } from '../config/database';
 import { SocketService } from './socket.service';
 import { AcademicSettingsService } from './academicSettings.service';
 
@@ -122,7 +122,7 @@ export class AcademicService {
         return result;
     }
 
-    static async getGrades(schoolId: string, branchId: string | undefined, studentIds: (string | number)[], subject: string, term: string) {
+    static async getGrades(schoolId: string, branchId: string | undefined, studentIds: (string | number)[], subject: string, term: string, session?: string) {
         if (!studentIds || studentIds.length === 0) return [];
 
         const ids = studentIds.map(String);
@@ -133,6 +133,9 @@ export class AcademicService {
                 branch_id: branchId && branchId !== 'all' ? branchId : undefined,
                 subject: subject,
                 term: term,
+                // Without the session, "First Term" matched every year's First Term
+                // and the grade screen could show a previous session's score.
+                ...(session ? { session } : {}),
                 student_id: { in: ids }
             },
             select: {
@@ -545,138 +548,201 @@ export class AcademicService {
         return result;
     }
 
-    static async upsertReportCard(studentId: string, schoolId: string, data: any) {
+    /**
+     * Save results into a student's report card for one term.
+     *
+     * PERSISTENCE RULES (each one exists because production lost data without it):
+     *  - PER-SUBJECT MERGE. `academicRecords` is the set of subjects the caller
+     *    is writing; every other subject already on the card is kept. The old
+     *    code replaced the whole grades array with whatever the caller had read
+     *    moments earlier, so two subject teachers saving the same student at
+     *    the same time silently lost one subject (both got HTTP 200) — and
+     *    `deleteMany` then erased that subject's AcademicPerformance row too.
+     *    Only an admin sending `replaceAll: true` (the full-card editor) may
+     *    remove subjects.
+     *  - ROW LOCK. The card row is locked (SELECT … FOR UPDATE) for the length
+     *    of the transaction so concurrent saves queue instead of interleaving;
+     *    a first-save race that used to 500 now retries.
+     *  - STATUS NEVER GOES BACKWARDS BY ACCIDENT. A Draft save from one
+     *    teacher cannot pull a Submitted card back to Draft; a Published card
+     *    is read-only for teachers (409) — admins may still correct it, and the
+     *    correction is audited.
+     *  - EVERY CHANGE IS TRACEABLE. created_by/updated_by are stamped and an
+     *    AuditLog row records who changed which subject from what to what.
+     */
+    static async upsertReportCard(studentId: string, schoolId: string, data: any, actor?: { id?: string; role?: string }) {
         const { academicRecords, status, attendance, skills, psychomotor, teacherComment, principalComment } = data;
-        // session/term are REQUIRED on AcademicPerformance — default them when the
-        // caller omits them so the save never 500s. Nigerian sessions start in September.
         const term = data.term || 'First Term';
         const now = new Date();
         const startYear = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
         const session = data.session || `${startYear}/${startYear + 1}`;
+        const actorId = actor?.id || null;
+        const actorRole = (actor?.role || '').toLowerCase();
+        const isAdminActor = ['admin', 'proprietor', 'superadmin', 'super_admin'].includes(actorRole);
+        const replaceAll = isAdminActor && data.replaceAll === true;
 
-        // Resolve the branch — explicit from the caller, else the student's own.
-        // Untagged report cards vanish from branch-scoped views (strict isolation),
-        // so a branch admin would never see what their teachers submitted.
-        const studentRow = await prisma.student.findUnique({
-            where: { id: studentId },
+        // Scoped to the caller's school: a foreign student id must not resolve.
+        const studentRow = await prisma.student.findFirst({
+            where: { id: studentId, school_id: schoolId },
             select: { branch_id: true }
         });
+        if (!studentRow) throw Object.assign(new Error('Student not found in this school'), { status: 404 });
         const branchId = (data.branchId && data.branchId !== 'all')
             ? data.branchId
-            : (studentRow?.branch_id ?? null);
+            : (studentRow.branch_id ?? null);
 
-        return await prisma.$transaction(async (tx) => {
-            // 0. Clean up existing AcademicPerformance records for this term/session that are NOT in the new list
-            // This ensures consistency if subjects are removed from a student's curriculum
-            const newSubjects = academicRecords.map((r: any) => r.subject);
-            await tx.academicPerformance.deleteMany({
-                where: {
-                    school_id: schoolId,
-                    student_id: studentId,
-                    term,
-                    session,
-                    subject: { notIn: newSubjects }
+        const incoming: any[] = (academicRecords || [])
+            .filter((r: any) => r && typeof r.subject === 'string' && r.subject.trim())
+            .map((r: any) => ({ ...r, subject: r.subject.trim(), total: Number(r.total ?? 0) }));
+
+        // withTenantTransaction, not prisma.$transaction: only the former runs
+        // every query below on ONE connection inside ONE transaction, so the
+        // FOR UPDATE lock and the rollback-on-error are real.
+        const run = () => withTenantTransaction({ schoolId, branchId: branchId ?? null, userId: actorId }, async (tx) => {
+            // Serialise writers on this card. The (school, student, term, session)
+            // key is also unique at the DB level (migration 20260918030000).
+            const locked: any[] = await tx.$queryRaw`
+                SELECT id, status, is_published, academic_records, branch_id, class_id, attendance_count, position_in_class, total_students_in_class, principal_remark, teacher_remark
+                FROM "ReportCard"
+                WHERE school_id = ${schoolId} AND student_id = ${studentId} AND term = ${term} AND session = ${session} AND deleted_at IS NULL
+                FOR UPDATE`;
+            const existingRC = locked[0] || null;
+
+            // ---- status rules ----
+            const currentStatus: string = existingRC?.status || 'Draft';
+            let nextStatus: string = status || currentStatus;
+            if (!isAdminActor) {
+                if (currentStatus === 'Published') {
+                    throw Object.assign(new Error('This report card is published. Ask an admin to unpublish it before making changes.'), { status: 409 });
                 }
-            });
+                if (nextStatus === 'Published') nextStatus = 'Submitted';
+                if (currentStatus === 'Submitted' && nextStatus === 'Draft') nextStatus = 'Submitted';
+            } else if (currentStatus === 'Published' && nextStatus !== 'Published') {
+                // An admin correcting a live card keeps it live; taking it down is an
+                // explicit, separately audited Unpublish (PUT /report-cards/:id/status).
+                nextStatus = 'Published';
+            }
 
-            // 1. Upsert individual grades into AcademicPerformance
-            for (const record of academicRecords) {
-                const existing = await tx.academicPerformance.findFirst({
-                    where: {
-                        school_id: schoolId,
-                        student_id: studentId,
-                        subject: record.subject,
-                        term,
-                        session
-                    }
+            // ---- per-subject merge ----
+            const stored = (existingRC?.academic_records as any) || {};
+            const previousGrades: any[] = Array.isArray(stored.grades) ? stored.grades : [];
+            const merged: any[] = replaceAll ? [] : previousGrades.map((g) => ({ ...g }));
+            for (const rec of incoming) {
+                const i = merged.findIndex((g) => g.subject === rec.subject);
+                if (i >= 0) merged[i] = { ...merged[i], ...rec }; else merged.push(rec);
+            }
+            if (replaceAll) {
+                await tx.academicPerformance.deleteMany({
+                    where: { school_id: schoolId, student_id: studentId, term, session, subject: { notIn: merged.map((r) => r.subject) } }
                 });
-
+            }
+            for (const rec of incoming) {
+                const existing = await tx.academicPerformance.findFirst({
+                    where: { school_id: schoolId, student_id: studentId, subject: rec.subject, term, session }
+                });
                 if (existing) {
-                    await tx.academicPerformance.update({
-                        where: { id: existing.id },
-                        data: {
-                            score: record.total, // Using total as the canonical score for now
-                            last_updated: new Date()
-                        }
-                    });
+                    await tx.academicPerformance.update({ where: { id: existing.id }, data: { score: rec.total, last_updated: new Date(), updated_by: actorId } });
                 } else {
                     await tx.academicPerformance.create({
-                        data: {
-                            school_id: schoolId,
-                            branch_id: branchId,
-                            student_id: studentId,
-                            subject: record.subject,
-                            term,
-                            session,
-                            score: record.total,
-                            last_updated: new Date()
-                        }
+                        data: { school_id: schoolId, branch_id: branchId, student_id: studentId, subject: rec.subject, term, session, score: rec.total, last_updated: new Date(), created_by: actorId, updated_by: actorId }
                     });
                 }
             }
 
-            // 2. Upsert the ReportCard summary record
-            const existingRC = await tx.reportCard.findFirst({
-                where: { school_id: schoolId, student_id: studentId, term, session }
-            });
-
-            // Calculate summary scores from academicRecords if they were sent
-            const totalScore = academicRecords.reduce((acc: number, r: any) => acc + (r.total || 0), 0);
-            const avgScore = academicRecords.length > 0 ? totalScore / academicRecords.length : 0;
-
-            // Prepare the structured JSON for academic_records to include everything
+            const totalScore = merged.reduce((acc: number, r: any) => acc + (Number(r.total) || 0), 0);
+            const avgScore = merged.length > 0 ? totalScore / merged.length : 0;
             const academicRecordsJson = {
-                grades: academicRecords,
-                skills: skills || {},
-                psychomotor: psychomotor || {},
-                attendance: attendance || {} // Ensure attendance is included
+                grades: merged,
+                skills: skills ?? stored.skills ?? {},
+                psychomotor: psychomotor ?? stored.psychomotor ?? {},
+                attendance: attendance ?? stored.attendance ?? {},
             };
+            const teacherRemark = teacherComment ?? data.teacher_remark ?? existingRC?.teacher_remark ?? null;
+            const principalRemark = principalComment ?? data.principal_remark ?? existingRC?.principal_remark ?? null;
 
             const result = existingRC
                 ? await tx.reportCard.update({
                     where: { id: existingRC.id },
                     data: {
-                        // Backfill the branch on legacy untagged rows
                         branch_id: existingRC.branch_id ?? branchId,
-                        status: status || existingRC.status || 'Draft',
-                        is_published: status === 'Published',
+                        status: nextStatus,
+                        is_published: nextStatus === 'Published',
                         total_score: totalScore,
                         average_score: avgScore,
                         academic_records: academicRecordsJson as any,
-                        attendance_count: attendance?.present || 0,
-                        principal_remark: principalComment || data.principal_remark,
-                        teacher_remark: teacherComment || data.teacher_remark,
+                        attendance_count: (attendance ?? stored.attendance)?.present ?? existingRC.attendance_count ?? 0,
+                        principal_remark: principalRemark,
+                        teacher_remark: teacherRemark,
                         position_in_class: data.position ?? existingRC.position_in_class,
-                        total_students_in_class: data.total_students ?? existingRC.total_students_in_class
+                        total_students_in_class: data.total_students ?? existingRC.total_students_in_class,
+                        updated_by: actorId,
                     }
                 })
                 : await tx.reportCard.create({
                     data: {
-                        school_id: schoolId,
-                        branch_id: branchId,
-                        student_id: studentId,
-                        term,
-                        session,
-                        status: status || 'Draft',
-                        is_published: status === 'Published',
-                        total_score: totalScore,
-                        average_score: avgScore,
+                        school_id: schoolId, branch_id: branchId, student_id: studentId, term, session,
+                        status: nextStatus,
+                        is_published: nextStatus === 'Published',
+                        total_score: totalScore, average_score: avgScore,
                         academic_records: academicRecordsJson as any,
                         attendance_count: attendance?.present || 0,
-                        principal_remark: principalComment || data.principal_remark,
-                        teacher_remark: teacherComment || data.teacher_remark,
-                        position_in_class: data.position,
-                        total_students_in_class: data.total_students
+                        principal_remark: principalRemark, teacher_remark: teacherRemark,
+                        position_in_class: data.position, total_students_in_class: data.total_students,
+                        created_by: actorId, updated_by: actorId,
                     }
                 });
 
-            SocketService.emitToSchool(schoolId, 'report-card:updated', { 
-                studentId,
-                term,
-                session
-            });
-
+            // ---- audit: one row per save, with the per-subject before/after ----
+            const changes: Record<string, { before: any; after: any }> = {};
+            for (const rec of incoming) {
+                const before = previousGrades.find((g) => g.subject === rec.subject) || null;
+                const after = merged.find((g) => g.subject === rec.subject) || null;
+                if (JSON.stringify(before) !== JSON.stringify(after)) changes[rec.subject] = { before, after };
+            }
+            if (replaceAll) for (const g of previousGrades) if (!merged.some((m) => m.subject === g.subject)) changes[g.subject] = { before: g, after: null };
+            const statusChanged = currentStatus !== nextStatus;
+            if (Object.keys(changes).length || statusChanged || !existingRC) {
+                await tx.auditLog.create({
+                    data: {
+                        school_id: schoolId, branch_id: branchId, user_id: actorId,
+                        action: !existingRC ? 'report_card.create' : statusChanged ? `report_card.${nextStatus.toLowerCase()}` : 'report_card.update',
+                        action_type: 'RESULT',
+                        action_description: `${actorRole || 'user'} ${!existingRC ? 'created' : statusChanged ? `set status ${currentStatus} → ${nextStatus} on` : 'updated'} report card: ${Object.keys(changes).join(', ') || 'no score change'}`,
+                        entity_type: 'ReportCard', entity_id: result.id,
+                        old_values: { status: currentStatus, grades: Object.fromEntries(Object.entries(changes).map(([k, v]) => [k, v.before])) } as any,
+                        new_values: { status: nextStatus, grades: Object.fromEntries(Object.entries(changes).map(([k, v]) => [k, v.after])) } as any,
+                        metadata: { student_id: studentId, term, session, class_id: result.class_id, subjects: Object.keys(changes), actor_role: actorRole } as any,
+                        is_sensitive: false, risk_level: 'Low',
+                    }
+                });
+            }
             return result;
+        });
+
+        // A first save for a brand-new card can still collide before the lock exists
+        // (there is no row to lock yet); the unique index rejects the loser, which we retry.
+        let result: any;
+        for (let attempt = 1; ; attempt++) {
+            try { result = await run(); break; }
+            catch (err: any) {
+                const retryable = err?.code === 'P2002' || err?.code === 'P2034' || /deadlock|could not serialize/i.test(err?.message || '');
+                if (!retryable || attempt >= 3) throw err;
+                await new Promise((r) => setTimeout(r, 50 * attempt));
+            }
+        }
+
+        SocketService.emitToSchool(schoolId, 'report-card:updated', { studentId, term, session });
+        return result;
+    }
+
+    /** Full change history for one report card (admin review screen). */
+    static async getReportCardHistory(schoolId: string, reportCardId: string) {
+        const card = await prisma.reportCard.findFirst({ where: { id: reportCardId, school_id: schoolId }, select: { id: true } });
+        if (!card) return [];
+        return prisma.auditLog.findMany({
+            where: { school_id: schoolId, entity_type: 'ReportCard', entity_id: reportCardId },
+            orderBy: { performed_at: 'asc' },
+            include: { user: { select: { id: true, full_name: true, role: true, school_generated_id: true } } },
         });
     }
 
