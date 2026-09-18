@@ -53,11 +53,45 @@ export interface DashboardRouting {
  * contains a function (several callers pass callbacks like `onSave` in
  * props). Only a small, always-cloneable `navId` key goes into `state`;
  * the actual props object is looked up from the ref map by that key. This
- * has the same practical ceiling the old sessionStorage-persisted view
- * stacks had (JSON.stringify silently dropped functions there too): a
- * fresh page load / cross-tab deep link restores the correct VIEW, but not
- * props from a navigation that only exists in this one tab's memory.
+ * survives a RELOAD too: the JSON-safe part of the props (functions dropped)
+ * is mirrored into this tab's sessionStorage under the same navId, so a
+ * refresh — or the reload "Update Now" performs — reopens the screen with
+ * the same student/record instead of "No student selected". Callbacks are
+ * not restorable, but every dashboard re-supplies those itself. Storage is
+ * per tab, capped, pruned, and cleared when the tab closes.
  */
+const NAV_PROPS_PREFIX = 'nav_props:';
+const NAV_PROPS_KEEP = 40;
+const NAV_PROPS_MAX_BYTES = 200_000;
+
+/** JSON-safe copy of props: functions/symbols dropped, cycles tolerated. */
+function persistNavProps(navId: string, props: any) {
+    try {
+        const seen = new WeakSet();
+        const json = JSON.stringify(props, (_k, v) => {
+            if (typeof v === 'function' || typeof v === 'symbol') return undefined;
+            if (v && typeof v === 'object') { if (seen.has(v)) return undefined; seen.add(v); }
+            return v;
+        });
+        if (!json || json === '{}' || json.length > NAV_PROPS_MAX_BYTES) return;
+        sessionStorage.setItem(NAV_PROPS_PREFIX + navId, json);
+        // Keep the tab's storage bounded: drop the oldest entries beyond the cap.
+        const keys = Object.keys(sessionStorage).filter((k) => k.startsWith(NAV_PROPS_PREFIX)).sort();
+        for (const k of keys.slice(0, Math.max(0, keys.length - NAV_PROPS_KEEP))) sessionStorage.removeItem(k);
+    } catch { /* storage full or unavailable — in-memory props still work for this page load */ }
+}
+
+function restoreNavProps(navId: string): any | undefined {
+    try {
+        const raw = sessionStorage.getItem(NAV_PROPS_PREFIX + navId);
+        return raw ? JSON.parse(raw) : undefined;
+    } catch { return undefined; }
+}
+
+// Unique per page load, and sortable so pruning drops the oldest first. A
+// plain per-mount counter restarted at n1 on every reload, so an old history
+// entry's "n1" could silently pick up a NEW navigation's props.
+const NAV_ID_PREFIX = Date.now().toString(36);
 export function useDashboardRouting(defaultView: string, defaultTitle: string): DashboardRouting {
     const navigate = useNavigate();
     const location = useLocation();
@@ -72,7 +106,9 @@ export function useDashboardRouting(defaultView: string, defaultTitle: string): 
 
     const navState = (location.state as DashboardNavigationState | null) || null;
     const title = navState?.title ?? defaultTitle;
-    const props = (navState?.navId ? propsMapRef.current.get(navState.navId) : undefined) ?? {};
+    const props = (navState?.navId
+        ? (propsMapRef.current.get(navState.navId) ?? restoreNavProps(navState.navId))
+        : undefined) ?? {};
 
     // The History API exposes no "how deep is this session's stack" query —
     // only whether the transition that just happened was a PUSH, POP or
@@ -108,16 +144,18 @@ export function useDashboardRouting(defaultView: string, defaultTitle: string): 
     // screen component is exactly the kind of update React docs recommend
     // deprioritizing so the click/tap itself still feels instant.
     const navigateTo = useCallback((nextView: string, nextTitle: string = '', nextProps: any = {}) => {
-        const navId = `n${++navIdCounterRef.current}`;
+        const navId = `${NAV_ID_PREFIX}-${String(++navIdCounterRef.current).padStart(4, '0')}`;
         propsMapRef.current.set(navId, nextProps);
+        persistNavProps(navId, nextProps);
         React.startTransition(() => {
             navigate(`/${nextView}`, { state: { title: nextTitle, navId } });
         });
     }, [navigate]);
 
     const replaceView = useCallback((nextView: string, nextTitle: string = '', nextProps: any = {}) => {
-        const navId = `n${++navIdCounterRef.current}`;
+        const navId = `${NAV_ID_PREFIX}-${String(++navIdCounterRef.current).padStart(4, '0')}`;
         propsMapRef.current.set(navId, nextProps);
+        persistNavProps(navId, nextProps);
         React.startTransition(() => {
             navigate(`/${nextView}`, { state: { title: nextTitle, navId }, replace: true });
         });
