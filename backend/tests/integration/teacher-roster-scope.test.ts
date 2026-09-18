@@ -15,9 +15,10 @@ import { app } from '../../src/app';
 import prisma from '../../src/config/database';
 import { config } from '../../src/config/env';
 
-const S = 'trs-school', B = 'trs-main';
+const S = '7d5f1c1e-1111-4111-8111-111111111111', B = 'trs-main'; // S must be a UUID: the enroll validator checks the format
 const CLASS_NO_REGISTER = 'trs-class-fallback';   // no StudentEnrollment rows
 const CLASS_OTHER = 'trs-class-other';            // a class this teacher does not teach
+const CLASS_ENROLL = 'trs-class-enroll';          // a second class of T1, filled through the admin enrol form
 const T1 = 'trs-teacher-1', T2 = 'trs-teacher-2', TEACHER1 = 'trs-tch-1', TEACHER2 = 'trs-tch-2';
 const S_FALLBACK = 'trs-stu-fallback', S_OTHER = 'trs-stu-other', U1 = 'trs-u-1', U2 = 'trs-u-2';
 const TERM = 'First Term', SESSION = '2026/2027';
@@ -45,6 +46,7 @@ describe('Teacher roster scope', () => {
         await prisma.branch.create({ data: { id: B, school_id: S, name: 'Main', code: 'TRSMAIN', is_main: true } as any });
         await prisma.class.create({ data: { id: CLASS_NO_REGISTER, school_id: S, branch_id: B, name: 'SSS 3', grade: 12, section: 'A' } as any });
         await prisma.class.create({ data: { id: CLASS_OTHER, school_id: S, branch_id: B, name: 'JSS 1', grade: 7, section: 'A' } as any });
+        await prisma.class.create({ data: { id: CLASS_ENROLL, school_id: S, branch_id: B, name: 'SSS 3 B', grade: 12, section: 'B' } as any });
         for (const [uid, name] of [[T1, 'English Teacher'], [T2, 'Other Teacher'], [U1, 'Amaka'], [U2, 'Other Pupil']]) {
             await prisma.user.create({ data: { id: uid, email: `${uid}@x.com`, password_hash: 'x', full_name: name, role: (uid.startsWith('trs-teacher') ? 'TEACHER' : 'STUDENT') as any, school_id: S, branch_id: B } as any });
         }
@@ -57,6 +59,7 @@ describe('Teacher roster scope', () => {
         await prisma.studentEnrollment.create({ data: { student_id: S_OTHER, class_id: CLASS_OTHER, school_id: S, branch_id: B, status: 'Active' } as any });
         await prisma.classTeacher.create({ data: { class_id: CLASS_NO_REGISTER, teacher_id: TEACHER1, school_id: S } as any });
         await prisma.classTeacher.create({ data: { class_id: CLASS_OTHER, teacher_id: TEACHER2, school_id: S } as any });
+        await prisma.classTeacher.create({ data: { class_id: CLASS_ENROLL, teacher_id: TEACHER1, school_id: S } as any });
     }, 60000);
     afterAll(cleanup, 60000);
 
@@ -74,6 +77,21 @@ describe('Teacher roster scope', () => {
         const g = await request(app).post('/api/academic/grades').set(auth(T1)).send({ studentIds: [S_FALLBACK], subject: 'English Language', term: TERM, session: SESSION });
         expect(g.status).toBe(200);
         expect(Array.isArray(g.body) ? g.body.length : 0).toBeGreaterThan(0);
+    });
+
+    it('a student enrolled through the admin form (validator lower-cases status) is on the roster and saveable', async () => {
+        const ADMIN = 'trs-admin';
+        await prisma.user.create({ data: { id: ADMIN, email: `${ADMIN}@x.com`, password_hash: 'x', full_name: 'Admin', role: 'ADMIN' as any, school_id: S, branch_id: B } as any });
+        const created = await request(app).post('/api/students/enroll').set(auth(ADMIN, 'ADMIN'))
+            .send({ school_id: S, firstName: 'Probe', lastName: 'Gradebook', grade: 12, section: 'B', gender: 'female', status: 'active', classId: CLASS_ENROLL });
+        expect([200, 201], JSON.stringify(created.body)).toContain(created.status);
+        const sid = created.body.studentId || created.body.id || created.body.student?.id;
+        expect(sid).toBeTruthy();
+        const stu = await prisma.student.findUnique({ where: { id: sid }, select: { status: true } });
+        expect(stu?.status).toBe('Active');
+        const roster = await request(app).get(`/api/students/class/${CLASS_ENROLL}`).set(auth(T1));
+        expect(roster.body.map((s: any) => s.id)).toContain(sid);
+        expect((await save(T1, sid)).status).toBe(200);
     });
 
     it('a teacher still cannot save for a student outside their classes', async () => {

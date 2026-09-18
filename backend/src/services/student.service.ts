@@ -71,7 +71,16 @@ export class StudentService {
 
         const roleString = (creatorRole || '').toUpperCase();
         const isTeacherAdded = roleString === 'TEACHER';
-        const initialStatus = isTeacherAdded ? 'Pending' : (enrollmentData.status || 'Active');
+        // Canonical case. The request validator lower-cases `status` ('active'),
+        // but every roster / permission / attendance query compares against
+        // 'Active' — a student enrolled through this route was stored as
+        // 'active' and vanished from their class list (teacher could not save
+        // their results: "You are not assigned to this student's class").
+        const canonicalStatus = (v: unknown) => {
+            const t = String(v || '').trim();
+            return t ? t.charAt(0).toUpperCase() + t.slice(1).toLowerCase() : 'Active';
+        };
+        const initialStatus = isTeacherAdded ? 'Pending' : canonicalStatus(enrollmentData.status);
 
         const fullName = `${firstName} ${lastName}`;
         const studentEmail = enrollmentData.email?.toLowerCase() || `${firstName.toLowerCase()}.${lastName.toLowerCase()}${Date.now()}@student.school.com`;
@@ -644,7 +653,7 @@ export class StudentService {
             const enrollmentCond: any = {
                 some: {
                     class_id: classId,
-                    status: 'Active',
+                    status: { equals: 'Active', mode: 'insensitive' }, // tolerate legacy 'active' rows
                 }
             };
             // When the class HAS an enrollment register, the register IS the
