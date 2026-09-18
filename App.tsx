@@ -16,6 +16,7 @@ import { lazyWithRetry } from './lib/lazyRetry';
 import { APP_VERSION } from './lib/config';
 import * as api from './lib/api/eager';
 import { maxVersion, isOutdated } from './lib/version';
+import { applySchoolBranding } from './lib/pwaBranding';
 
 // Login and PremiumErrorPage are deliberately STATIC imports. They are the two
 // screens that have to render when the lazy-chunk pipeline itself is broken
@@ -106,6 +107,13 @@ const AuthenticatedApp: React.FC = () => {
   const subscriptionGate = useSubscriptionGate();
 
   useIdleKeepAlive(!!user && !!role && !isDemo);
+
+  // Install branding follows the signed-in school: the manifest and touch icon
+  // point at /api/schools/<id>/..., which serves the school's logo as the app
+  // icon, or the default Oliskey icons when the school has none.
+  useEffect(() => {
+    applySchoolBranding(user && currentSchool?.id ? String(currentSchool.id) : null);
+  }, [user, currentSchool?.id]);
 
   // Signed-in views are private: tell crawlers not to index whatever the SPA
   // renders once a session exists (index.html ships "index, follow" for the

@@ -1,11 +1,15 @@
 import { Router } from 'express';
 import * as SchoolController from '../controllers/school.controller';
+import { schoolManifest, schoolIcon } from '../controllers/schoolBranding.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { requireRole } from '../middleware/tenant.middleware';
 
 const router = Router();
 
 router.get('/public', SchoolController.listPublicSchools);
+// PWA install branding — fetched by the browser without auth (see controller).
+router.get('/:id/manifest.webmanifest', schoolManifest);
+router.get('/:id/icon/:size', schoolIcon); // Express 5 path syntax (no inline regex); size is validated in the controller
 router.post('/', SchoolController.createSchool); // Public registration
 router.post('/onboard', SchoolController.onboardSchool);
 

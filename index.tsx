@@ -8,6 +8,7 @@ import { i18nReady } from './lib/i18n'; // initialize app-wide translations + RT
 import { startAutoTranslate } from './lib/i18n/autoTranslate'; // whole-app live translation
 import { initSentry } from './lib/sentry';
 import { initLiquidGlass } from './components/shared/LiquidGlassControl';
+import { applyRememberedSchoolBranding } from './lib/pwaBranding';
 // @ts-ignore
 // import { registerSW } from 'virtual:pwa-register';
 
@@ -17,6 +18,10 @@ import { initLiquidGlass } from './components/shared/LiquidGlassControl';
 // the install button can fire the REAL native install later. Without this eager
 // capture the event is missed entirely and "Install" never installs anything.
 if (typeof window !== 'undefined') {
+  // Point the manifest / touch icon at the last signed-in school BEFORE the
+  // browser evaluates installability, so "Download app" carries that school's
+  // logo and name (see lib/pwaBranding.ts).
+  applyRememberedSchoolBranding();
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     (window as any).__deferredInstallPrompt = e;
