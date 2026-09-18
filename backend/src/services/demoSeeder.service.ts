@@ -648,6 +648,14 @@ export class DemoSeederService {
                     });
 
                     for (const a of assignments) {
+                        // Idempotent: the seeder runs on every boot/reset and used to
+                        // add another copy each time (a demo class ended up with 100+
+                        // identical "Statistics Project" rows).
+                        const already = await tx.assignment.findFirst({
+                            where: { class_id: sss1ClassId, teacher_id: teacherProfile.id, title: a.title, deleted_at: null },
+                            select: { id: true },
+                        });
+                        if (already) continue;
                         await tx.assignment.create({
                             data: {
                                 school_id: schoolId,
