@@ -2,10 +2,27 @@ import React from 'react';
 import { APP_VERSION } from '../../lib/config';
 import { useAuth } from '../../context/AuthContext';
 
+/** true when `a` is an older release than `b` (numeric, segment by segment). */
+export function isOlderVersion(a: string, b: string): boolean {
+    const pa = String(a).split('.').map(n => parseInt(n, 10) || 0);
+    const pb = String(b).split('.').map(n => parseInt(n, 10) || 0);
+    for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+        const x = pa[i] || 0, y = pb[i] || 0;
+        if (x !== y) return x < y;
+    }
+    return false;
+}
+
 export default function VersionStatusCard() {
     const { currentSchool } = useAuth();
     const schoolVersion = currentSchool?.platform_version;
-    const isMismatch = schoolVersion && schoolVersion !== APP_VERSION;
+    // Only an app that is BEHIND the school's target needs updating. The old
+    // "any difference" rule flagged every newer release as "Update Pending"
+    // against a stale lock (demo school: target 0.5.38 vs app 0.7.x) — for ever.
+    const isMismatch = !!schoolVersion && isOlderVersion(APP_VERSION, schoolVersion);
+
+    // Nothing to do → nothing to show. The card only appears while an update is due.
+    if (!isMismatch) return null;
 
     return (
         <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
