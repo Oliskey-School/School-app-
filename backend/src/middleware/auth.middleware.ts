@@ -141,6 +141,8 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
             branchId: effectiveBranchId,
             userId: user.id,
             allowedBranchIds: entitledBranches,
+            // The platform owner's account has no school of its own.
+            platform: roleUpper === 'SUPER_ADMIN',
         }, next);
     } catch (error: any) {
         if (error.name === 'TokenExpiredError') {

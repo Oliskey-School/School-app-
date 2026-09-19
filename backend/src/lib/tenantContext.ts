@@ -26,14 +26,50 @@ export interface TenantContext {
      * everyone in the school.
      */
     allowedBranchIds?: string[] | null;
+    /**
+     * Platform-level work that legitimately spans schools: sign-in by email,
+     * onboarding a new school, demo seeding, payment webhooks, scheduled jobs.
+     * ONLY code that runs inside runAsPlatform()/platformContext gets the RLS
+     * bypass; a query with no context at all now runs with RLS fully applied
+     * (and sees nothing tenant-owned) instead of silently bypassing it.
+     */
+    platform?: boolean;
 }
 
 const storage = new AsyncLocalStorage<TenantContext>();
 
-export function runWithTenantContext<T>(context: TenantContext, fn: () => T): T {
-    return storage.run(context, fn);
+/**
+ * Prisma operations are LAZY: the query runs when the promise is awaited, and
+ * that happens after `fn` has returned. Awaiting inside the store keeps the
+ * execution — and therefore the tenant scope — inside the context. (Passing a
+ * synchronous `next` from Express is fine: it simply resolves to undefined.)
+ */
+export function runWithTenantContext<T>(context: TenantContext, fn: () => T): Promise<any> {
+    return storage.run(context, async () => (await fn()) as Awaited<T>);
 }
 
 export function getTenantContext(): TenantContext | undefined {
     return storage.getStore();
+}
+
+/** Run `fn` as platform-level (cross-school) work. Keep the body minimal. */
+export function runAsPlatform<T>(fn: () => T): Promise<any> {
+    return storage.run({ platform: true }, async () => (await fn()) as Awaited<T>);
+}
+
+/** Express middleware form of runAsPlatform for public / cross-school routers. */
+export function platformContext(_req: any, _res: any, next: () => void) {
+    return storage.run({ platform: true }, next);
+}
+
+/**
+ * TEST HARNESS ONLY. Marks the current async flow (a vitest worker running a
+ * test file) as platform-level so fixture setup / direct assertions can read
+ * and write any school. Requests made through the Express app still go
+ * through `authenticate`, whose runWithTenantContext() overrides this scope —
+ * so the API is exercised with real tenant isolation.
+ */
+export function enterPlatformScopeForTests() {
+    if (process.env.NODE_ENV === 'production') throw new Error('enterPlatformScopeForTests is for tests only');
+    storage.enterWith({ platform: true });
 }

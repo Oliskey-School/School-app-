@@ -107,13 +107,12 @@ describe('Cross-tenant (cross-school) data isolation', () => {
             const res = await request(app).get(`/api/students/${bStudentId}`).set('Authorization', `Bearer ${asAAdmin()}`);
             expect(res.status).toBe(404);
         });
-        it('School A admin cannot GET School B teacher by id (no data leaks even though status is 200)', async () => {
+        it('School A admin cannot GET School B teacher by id (404, no School B data)', async () => {
             const res = await request(app).get(`/api/teachers/${bTeacherId}`).set('Authorization', `Bearer ${asAAdmin()}`);
-            // KNOWN BUG (non-critical): getTeacherById controller calls res.json(result) with
-            // no null check, so a cross-tenant lookup returns 200 with a `null` body instead of
-            // 404 like the student endpoint does. Assert on the property that actually matters:
-            // no School B data is present in the response.
-            expect(res.body).toBeFalsy();
+            // With RLS actually enforced the row is invisible to School A: the
+            // endpoint answers 404 (previously it leaked a 200 with a null body).
+            expect(res.status).toBe(404);
+            expect(res.body?.id).toBeUndefined();
             expect(JSON.stringify(res.body)).not.toMatch(/SECRET/);
         });
         it('School A admin cannot GET School B fee by id (no data leaks even though status is 200)', async () => {

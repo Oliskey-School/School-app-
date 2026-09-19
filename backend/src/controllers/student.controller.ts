@@ -88,9 +88,6 @@ export const approveStudent = async (req: AuthRequest, res: Response) => {
 // hand-out screens legitimately display it.
 function stripStudentCredentials(result: any): any {
     const scrub = (student: any) => {
-        if (student && student.user && 'initial_password' in student.user) {
-            delete student.user.initial_password;
-        }
         return student;
     };
     return Array.isArray(result) ? result.map(scrub) : scrub(result);

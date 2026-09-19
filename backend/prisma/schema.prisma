@@ -221,6 +221,10 @@ model User {
   allowed_branch_ids     String[]               @default([])
   email_verified         Boolean                @default(false)
   is_active              Boolean                @default(true)
+  // Demo accounts (Prisma-side twin of migration 20260909120000). Read by
+  // auth.service to put the is_demo claim onto the JWT; the auth middleware
+  // trusts that claim to route demo traffic through the sandbox branch path.
+  is_demo                Boolean                @default(false)
   school_generated_id    String?                @unique
   avatar_url             String?
   phone                  String?
@@ -229,7 +233,6 @@ model User {
   preferred_language     String?
   created_at             DateTime               @default(now())
   updated_at             DateTime               @updatedAt
-  initial_password       String?
   audit_logs             AuditLog[]
   sent_chat_messages     ChatMessage[]
   chat_participants      ChatParticipant[]

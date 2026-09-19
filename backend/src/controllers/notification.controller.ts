@@ -93,7 +93,7 @@ export const getMyPlatformNotifications = async (req: AuthRequest, res: Response
 export const getNotificationSettings = async (req: AuthRequest, res: Response) => {
     try {
         const userId = req.user.id;
-        const result = await NotificationService.getSettingsByUserId(userId);
+        const result = await NotificationService.getSettingsByUserId(userId, req.user.school_id, req.user.branch_id ?? null);
         res.json(result.categories);
     } catch (error: any) {
         sendError(res, error, 'notification.controller.ts');

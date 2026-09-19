@@ -1,8 +1,11 @@
 import { Router } from 'express';
+import { platformContext } from '../lib/tenantContext';
 import rateLimit from 'express-rate-limit';
 import { translate, collect, progress } from '../controllers/translate.controller';
 
 const router = Router();
+// Public / cross-school endpoints: explicit platform scope (see lib/tenantContext.ts).
+router.use(platformContext);
 
 // Generous limit — a single screen warm-up sends a handful of batches, and the
 // server cache absorbs repeats. Guards against a runaway client looping.

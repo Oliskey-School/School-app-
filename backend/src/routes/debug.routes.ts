@@ -1,8 +1,11 @@
 import { Router } from 'express';
+import { platformContext } from '../lib/tenantContext';
 import { TestOTPStore } from '../services/test-otp.store';
 import prisma from '../config/database';
 
 const router = Router();
+// Public / cross-school endpoints: explicit platform scope (see lib/tenantContext.ts).
+router.use(platformContext);
 
 // 🚨 TESTING ONLY: This route is only registered in non-production environments
 router.get('/latest-otp/:email', (req, res) => {

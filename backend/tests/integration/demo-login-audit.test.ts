@@ -23,7 +23,9 @@ describe('Demo login funnel', () => {
     for (const ip of ips) {
       const res: any = await AuthService.generateDemoToken('admin', ip);
       expect(res?.token).toBeTruthy();
-      expect(res?.user?.id).toContain('_ADM_'); // readable MAIN-coded id
+      // The account may live under a UUID row id (prisma/seed.ts) — what must be
+      // readable and stable is the GLOBAL ID every screen shows.
+      expect(res?.user?.school_generated_id).toContain('_ADM_');
     }
   }, 120000);
 

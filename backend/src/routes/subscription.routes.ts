@@ -9,6 +9,8 @@ import {
 } from '../controllers/subscription.controller';
 
 const router = Router();
+// Mounted behind authenticate + requireTenant (routes/index.ts): every handler
+// runs in the caller's tenant scope. Never widen it to platform scope here.
 
 router.get('/current-term', getCurrentTermController);
 router.get('/quote', getQuoteController);

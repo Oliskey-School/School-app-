@@ -135,12 +135,17 @@ export class NotificationService {
     }
 
     // Notification Settings
-    static async getSettingsByUserId(userId: string) {
+    static async getSettingsByUserId(userId: string, schoolId?: string, branchId?: string | null) {
         let settings = await prisma.notificationSetting.findUnique({
             where: { user_id: userId }
         });
 
         if (!settings) {
+            // Defaults are created in the caller's own school. (They used to be
+            // written under a fake 'GLOBAL' tenant, which only ever worked with a
+            // superuser connection — RLS correctly refuses that row.)
+            const sid = schoolId || (await prisma.user.findUnique({ where: { id: userId }, select: { school_id: true } }))?.school_id;
+            if (!sid) throw Object.assign(new Error('School context required for notification settings'), { status: 400 });
             // Initialize with defaults if not exists
             const defaultCategories = {
                 emailAlerts: true,
@@ -156,8 +161,8 @@ export class NotificationService {
                     user_id: userId,
                     categories: defaultCategories,
                     digest_time: '19:00',
-                    school_id: 'GLOBAL', // Fallback for demo
-                    branch_id: 'GLOBAL'
+                    school_id: sid,
+                    branch_id: branchId ?? null
                 }
             });
         }

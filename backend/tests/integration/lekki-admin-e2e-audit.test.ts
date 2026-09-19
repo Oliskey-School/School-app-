@@ -338,9 +338,9 @@ beforeAll(async () => {
   }});
   EXTRA_M_ID = extraM.id;
 
-  /* ── Counseling Appointments (Lekki only — no branch filter in API) ── */
+  /* ── Counseling Appointments (Lekki only — the API scopes by the caller's branch) ── */
   const counsel = await (prisma as any).counselingAppointment.create({ data: {
-    school_id: S, student_id: STU_L_ID, counselor_id: TCH_L_ID,
+    school_id: S, branch_id: L, student_id: STU_L_ID, counselor_id: TCH_L_ID,
     requested_date: new Date(Date.now() + 86400000),
     appointment_type: 'Initial Consultation', status: 'Pending'
   }});

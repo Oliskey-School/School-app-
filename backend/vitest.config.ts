@@ -18,6 +18,7 @@ export default defineConfig({
   root: __dirname,
   test: {
     include: ['tests/integration/**/*.test.ts'],
+    setupFiles: ['tests/setup/platformScope.ts'],
     environment: 'node',
     globals: true,
     testTimeout: 120000,

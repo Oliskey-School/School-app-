@@ -63,7 +63,6 @@ export class StudentService {
                     school_id: schoolId,
                     branch_id: branchId || null,
                     email_verified: true, // System created accounts should be pre-verified
-                    initial_password: isTeacherAdded ? null : generatedPassword,
                     avatar_url: incomingAvatar,
                     updated_at: new Date()
                 }
@@ -170,7 +169,6 @@ export class StudentService {
                             school_id: schoolId,
                             branch_id: branchId || null,
                             email_verified: true,
-                            initial_password: parentPass,
                             updated_at: new Date()
                         } as any
                     });
@@ -470,8 +468,7 @@ export class StudentService {
                 data: {
                     password_hash: hashedPassword,
                     school_generated_id: schoolGeneratedId,
-                    email_verified: true,
-                    initial_password: generatedPassword
+                    email_verified: true
                 }
             });
 

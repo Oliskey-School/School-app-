@@ -36,7 +36,9 @@ jobs:
           --health-retries 5
 
     env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/school_app_test
+      # The app connects as the NOBYPASSRLS role the migration creates, so tenant
+      # isolation is actually enforced in CI; migrations run as the superuser.
+      DATABASE_URL: postgresql://oliskey_app:oliskey_app@localhost:5432/school_app_test
       DIRECT_URL: postgresql://postgres:postgres@localhost:5432/school_app_test
       JWT_SECRET: ci-only-jwt-signing-key-not-used-anywhere-real
       REFRESH_TOKEN_SECRET: ci-only-refresh-signing-key-not-used-for-real
@@ -48,21 +50,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Align Prisma demo field before client generation
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          path = Path('backend/prisma/schema.prisma')
-          text = path.read_text()
-          marker = '  is_active              Boolean                @default(true)\n'
-          field = '  is_demo                Boolean                @default(false)\n'
-          if field not in text:
-              if marker not in text:
-                  raise SystemExit('User.is_active marker not found in backend Prisma schema')
-              text = text.replace(marker, marker + field, 1)
-              path.write_text(text)
-          PY
-
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -73,9 +60,18 @@ jobs:
 
       - name: Apply database migrations
         run: npx prisma migrate deploy --schema=backend/prisma/schema.prisma
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/school_app_test
 
       - name: Seed demo data
         run: npm run db:seed
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/school_app_test
+
+      # The migration creates the NOBYPASSRLS app role without a login; each
+      # environment grants login with its own secret. CI's is throwaway.
+      - name: Enable the app role login for CI
+        run: PGPASSWORD=postgres psql -h localhost -U postgres -d school_app_test -v ON_ERROR_STOP=1 -c "ALTER ROLE oliskey_app LOGIN PASSWORD 'oliskey_app';"
 
       - name: Build frontend
         run: npm run build

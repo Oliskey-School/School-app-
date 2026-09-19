@@ -124,6 +124,45 @@ export class DemoSeederService {
     private static cachedPasswordHash: string | null = null;
 
     /**
+     * Create or adopt a demo user WITHOUT ever inserting a duplicate global ID.
+     *
+     * Root cause of the CI/production seed failure ("User_school_generated_id_key
+     * OLISKEY_MAIN_ADM_0001 already exists"): prisma/seed.ts creates the demo
+     * admin with a random UUID `id` and a hand-written school_generated_id, while
+     * this seeder keyed its upsert on a DERIVED `id` (SCHOOL_BRANCH_ROLE_0001).
+     * The derived id was never found, so the seeder INSERTed a second row with
+     * the same school_generated_id, the whole seed transaction rolled back, the
+     * sandbox stayed empty, and every demo login answered 503 — and re-fired
+     * the failing seed.
+     *
+     * The global ID is the business key (unique). Whoever already holds it — or
+     * the same email — is updated in place; a row is created only when neither
+     * exists.
+     */
+    private static async upsertDemoUser(tx: any, u: { id: string; genId: string; email: string; name: string; role: string; schoolId: string; branchId: string; passwordHash: string }) {
+        const existing = await tx.user.findFirst({
+            where: { OR: [{ school_generated_id: u.genId }, { id: u.id }, { email: u.email }] },
+            orderBy: { created_at: 'asc' },
+        });
+        const data = {
+            full_name: u.name, role: u.role as any, school_id: u.schoolId, branch_id: u.branchId,
+            school_generated_id: u.genId, email_verified: true, is_active: true,
+        };
+        if (existing) {
+            // Another row holding this email (but not the ID) would collide on the
+            // unique email when we adopt it — retire that row's email first.
+            const emailClash = await tx.user.findFirst({ where: { email: u.email, NOT: { id: existing.id } }, select: { id: true } });
+            if (emailClash) await tx.user.update({ where: { id: emailClash.id }, data: { email: `retired-${emailClash.id}@demo.invalid` } });
+            return tx.user.update({ where: { id: existing.id }, data: { ...data, email: u.email } });
+        }
+        return tx.user.create({ data: { id: u.id, email: u.email, password_hash: u.passwordHash, ...data } });
+    }
+
+    /** Guard against re-running a seed that keeps failing: one attempt per minute per sandbox. */
+    private static lastFailedSeedAt = new Map<string, number>();
+
+
+    /**
      * In-flight guard for background sandbox seeds. Multiple concurrent demo
      * logins arriving while the sandbox is empty must trigger exactly ONE seed,
      * not one per request — the seed is idempotent but expensive (~600 statements).
@@ -138,9 +177,12 @@ export class DemoSeederService {
     static seedSandboxInBackground(schoolId: string, branchId: string, ipHash: string) {
         const key = `${schoolId}:${branchId}`;
         if (this.inFlightSeeds.has(key)) return;
+        const failedAt = this.lastFailedSeedAt.get(key) || 0;
+        if (Date.now() - failedAt < 60_000) return; // the failure is logged; do not hammer the database
         console.log(`🏗️ [Seeder] Background seeding demo sandbox ${branchId} (login-requested).`);
         const run = this.seedBranchData(schoolId, branchId, ipHash)
-            .catch((err) => console.error(`❌ [Seeder] Background demo sandbox seed failed for ${branchId}:`, err))
+            .then(() => { this.lastFailedSeedAt.delete(key); })
+            .catch((err) => { this.lastFailedSeedAt.set(key, Date.now()); console.error(`❌ [Seeder] Background demo sandbox seed failed for ${branchId}:`, err); })
             .finally(() => this.inFlightSeeds.delete(key));
         this.inFlightSeeds.set(key, run);
     }
@@ -209,32 +251,15 @@ export class DemoSeederService {
                     ...extraStudents.map(s => ({ email: s.email, id: getPersistenceId('STUDENT', s.index) })),
                     ...extraTeachers.map(t => ({ email: t.email, id: getPersistenceId('TEACHER', t.index) })),
                 ];
-                for (const u of seedIdentities) {
-                    const existing = await tx.user.findFirst({ where: { email: u.email } });
-                    if (existing && existing.id !== u.id) {
-                        await tx.user.delete({ where: { id: existing.id } });
-                    }
-                }
+                // (Rows that already hold one of these identities are ADOPTED by
+                // upsertDemoUser below — deleting them here used to wipe the
+                // CI-seeded admin together with everything linked to it.)
+                void seedIdentities;
 
                 // 2b. Create Primary Users and Profiles
                 const createdUsers = [];
                 for (const u of demoUsers) {
-                    const user = await tx.user.upsert({
-                        where: { id: u.id },
-                        update: { full_name: u.name, branch_id: branchId, email: u.email },
-                        create: {
-                            id: u.id,
-                            email: u.email,
-                            password_hash: passwordHash,
-                            full_name: u.name,
-                            role: u.role as any,
-                            school_id: schoolId,
-                            branch_id: branchId,
-                            school_generated_id: u.genId,
-                            email_verified: true,
-                            is_active: true
-                        }
-                    });
+                    const user = await DemoSeederService.upsertDemoUser(tx, { id: u.id, genId: u.genId, email: u.email, name: u.name, role: u.role, schoolId, branchId, passwordHash });
 
                     const profileData = {
                         user_id: user.id,
@@ -260,22 +285,7 @@ export class DemoSeederService {
                 const extraStudentProfiles = [];
                 for (const s of extraStudents) {
                     const id = getPersistenceId('STUDENT', s.index);
-                    const user = await tx.user.upsert({
-                        where: { id },
-                        update: { full_name: s.name, branch_id: branchId, email: s.email },
-                        create: {
-                            id,
-                            email: s.email,
-                            password_hash: passwordHash,
-                            full_name: s.name,
-                            role: 'STUDENT',
-                            school_id: schoolId,
-                            branch_id: branchId,
-                            school_generated_id: id,
-                            email_verified: true,
-                            is_active: true
-                        }
-                    });
+                    const user = await DemoSeederService.upsertDemoUser(tx, { id, genId: id, email: s.email, name: s.name, role: 'STUDENT', schoolId, branchId, passwordHash });
 
                     const profile = await tx.student.upsert({
                         where: { user_id: user.id },
@@ -300,22 +310,7 @@ export class DemoSeederService {
                 const extraTeacherProfiles: Record<string, any> = {};
                 for (const t of extraTeachers) {
                     const id = getPersistenceId('TEACHER', t.index);
-                    const user = await tx.user.upsert({
-                        where: { id },
-                        update: { full_name: t.name, branch_id: branchId, email: t.email },
-                        create: {
-                            id,
-                            email: t.email,
-                            password_hash: passwordHash,
-                            full_name: t.name,
-                            role: 'TEACHER',
-                            school_id: schoolId,
-                            branch_id: branchId,
-                            school_generated_id: id,
-                            email_verified: true,
-                            is_active: true
-                        }
-                    });
+                    const user = await DemoSeederService.upsertDemoUser(tx, { id, genId: id, email: t.email, name: t.name, role: 'TEACHER', schoolId, branchId, passwordHash });
                     const profile = await tx.teacher.upsert({
                         where: { user_id: user.id },
                         create: {
