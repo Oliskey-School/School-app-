@@ -244,11 +244,39 @@ export class RiskService {
         if (studentIds.length === 0) return [];
 
         const flags = await (prisma as any).studentRiskFlag.findMany({ where: { school_id: schoolId, student_id: { in: studentIds }, status: 'Active' } });
-        return flags.map((f: any) => ({
-            student_id: f.student_id,
-            student_name: children.find(c => c.student_id === f.student_id)?.student.full_name,
-            message: 'Your child may need some extra support this term — please check in with their teacher.',
-        }));
+        // Parents are told about ACADEMIC difficulty only (low scores across
+        // subjects, or in the core subjects) — not fees, lateness or behaviour
+        // notes, which have their own channels. The message names the subjects
+        // so the note carries weight instead of being a vague nudge.
+        const CORE = /math|english/i;
+        return flags
+            .map((f: any) => {
+                const reasons: any[] = Array.isArray(f.reasons) ? f.reasons : [];
+                const academic = reasons.find(r => r?.category === 'Academic');
+                if (!academic) return null;
+                const m = /Low scores in (.+)$/i.exec(String(academic.detail || ''));
+                const subjects = m ? m[1].split(',').map(x => x.trim()).filter(Boolean) : [];
+                const core = subjects.filter(x => CORE.test(x));
+                const first = (children.find(c => c.student_id === f.student_id)?.student.full_name || 'Your child').split(' ')[0];
+                let message: string;
+                if (core.length && subjects.length <= core.length + 1) {
+                    message = `${first} is struggling in ${core.join(' and ')} this term. These are core subjects — please talk to the teacher about extra support soon.`;
+                } else if (subjects.length >= 3 || /\d+ subjects?$/.test(String(academic.detail || ''))) {
+                    message = `${first}'s scores are low in most subjects this term${subjects.length ? ` (${subjects.slice(0, 3).join(', ')}${subjects.length > 3 ? ' and more' : ''})` : ''}. Please check in with the class teacher — early support makes the biggest difference.`;
+                } else {
+                    message = `${first} is finding ${subjects.join(' and ') || 'some subjects'} difficult this term. A quick word with the teacher now can help before the exams.`;
+                }
+                return {
+                    student_id: f.student_id,
+                    student_name: children.find(c => c.student_id === f.student_id)?.student.full_name,
+                    level: f.level,
+                    subjects,
+                    core_subjects: core,
+                    computed_at: f.computed_at,
+                    message,
+                };
+            })
+            .filter(Boolean);
     }
 
     static async resolveFlag(schoolId: string, flagId: string, actorId: string) {
