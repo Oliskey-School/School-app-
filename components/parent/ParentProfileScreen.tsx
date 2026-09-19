@@ -155,9 +155,9 @@ const ParentProfileScreen: React.FC<ParentProfileScreenProps> = ({ onLogout, nav
         <div className="flex-grow p-4 space-y-4 overflow-y-auto">
           <div className="flex items-center p-4 space-x-4 bg-white rounded-xl shadow-sm">
             <img src={profile.avatar_url || 'https://i.pravatar.cc/150?u=parent'} alt="Parent Avatar" className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-md flex-shrink-0 aspect-square" />
-            <div>
-              <h3 className="text-xl font-bold text-gray-800">{profile.full_name}</h3>
-              <p className="text-sm text-gray-500 mb-1">{profile.email}</p>
+            <div className="min-w-0">
+              <h3 className="text-xl font-bold text-gray-800 truncate" title={profile.full_name}>{profile.full_name}</h3>
+              <p className="text-sm text-gray-500 mb-1 truncate" title={profile.email}>{profile.email}</p>
               <div
                 className="inline-flex items-center gap-2 px-2 py-1 bg-gray-100 text-gray-600 rounded border border-gray-200 cursor-pointer hover:bg-gray-200 transition-colors"
                 onClick={() => {

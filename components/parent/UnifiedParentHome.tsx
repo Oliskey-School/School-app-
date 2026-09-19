@@ -158,20 +158,20 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
         <div className="bg-gray-50 min-h-screen pb-20">
             {/* Header with Child Switcher */}
             <div className="bg-white p-6 border-b sticky top-0 z-20">
-                <div className="flex justify-between items-start mb-4">
-                    <div className="relative">
-                        <h1 className="text-gray-500 text-sm">Good morning, {user?.user_metadata?.full_name || 'Parent'}</h1>
+                <div className="flex justify-between items-start gap-3 mb-4">
+                    <div className="relative min-w-0 flex-1">
+                        <h1 className="text-gray-500 text-sm truncate">Good morning, {user?.user_metadata?.full_name || 'Parent'}</h1>
                         <button 
                             onClick={() => children.length > 1 && setIsSwitcherOpen(!isSwitcherOpen)}
-                            className="flex items-center gap-2 mt-1 hover:bg-gray-50 px-2 py-1 -ml-2 rounded-lg transition-colors"
+                            className="flex items-center gap-2 mt-1 hover:bg-gray-50 px-2 py-1 -ml-2 rounded-lg transition-colors max-w-full"
                         >
-                            <h2 className="text-xl font-bold text-gray-900">{child.name}</h2>
+                            <h2 className="text-xl font-bold text-gray-900 truncate min-w-0" title={child.name}>{child.name}</h2>
                             {students[activeChildIndex]?.curriculum_type && (
-                                <span className="text-xs font-semibold text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">
+                                <span className="text-xs font-semibold text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full flex-shrink-0">
                                     {students[activeChildIndex].curriculum_type}
                                 </span>
                             )}
-                            {children.length > 1 && <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isSwitcherOpen ? 'rotate-180' : ''}`} />}
+                            {children.length > 1 && <ChevronDown className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${isSwitcherOpen ? 'rotate-180' : ''}`} />}
                         </button>
                         
                         <AnimatePresence>
@@ -219,13 +219,19 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
                             {child.grade} {child.school_name ? `· ${child.school_name}` : ''}
                         </p>
                     </div>
-                    <div className="bg-gray-100 w-10 h-10 rounded-full flex items-center justify-center border-2 border-white shadow-sm overflow-hidden">
-                        {user?.user_metadata?.avatar_url ? (
-                            <img src={user.user_metadata.avatar_url} alt="Profile" className="w-full h-full object-cover" />
+                    {/* The selected child's photo — tap to open their full profile */}
+                    <button
+                        type="button"
+                        onClick={() => navigateTo('childDetail', child.name, { student: students[activeChildIndex], studentId: child.id })}
+                        aria-label={`Open ${child.name}'s profile`}
+                        className="bg-gray-100 w-10 h-10 rounded-full flex items-center justify-center border-2 border-white shadow-sm overflow-hidden flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                    >
+                        {(students[activeChildIndex] as any)?.avatarUrl || (students[activeChildIndex] as any)?.avatar_url ? (
+                            <img src={(students[activeChildIndex] as any).avatarUrl || (students[activeChildIndex] as any).avatar_url} alt={child.name} className="w-full h-full object-cover" />
                         ) : (
                             <CircleUser className="w-8 h-8 text-gray-400" />
                         )}
-                    </div>
+                    </button>
                 </div>
             </div>
 

@@ -34,6 +34,8 @@ interface DashboardLayoutProps {
     stickyFooterLayout?: boolean;
     hideBottomNav?: boolean;
     onLogout?: () => void;
+    /** Opens the signed-in person's profile from the header avatar menu. */
+    onProfileClick?: () => void;
     // Identifies the screen currently being shown (e.g. `${view}::${JSON.stringify(props)}`).
     // Scroll position is remembered per key for the life of the session: the first time a
     // key is seen the page opens at the top; returning to a key already visited (back
@@ -44,7 +46,7 @@ interface DashboardLayoutProps {
 import { useProfile } from '../../context/ProfileContext';
 import { useAutoSync } from '../../hooks/useAutoSync';
 
-const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBack, activeScreen = 'home', setActiveScreen = () => { }, hideHeader = false, hideSidebar = false, hidePadding = false, stickyFooterLayout = false, hideBottomNav = false, onLogout, scrollKey }) => {
+const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBack, activeScreen = 'home', setActiveScreen = () => { }, hideHeader = false, hideSidebar = false, hidePadding = false, stickyFooterLayout = false, hideBottomNav = false, onLogout, onProfileClick, scrollKey }) => {
     const { t } = useTranslation();
     const scrollContainerRef = React.useRef<HTMLDivElement>(null);
     // Persists for the life of the tab (not across reloads) — a fresh session always
@@ -280,6 +282,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
                         avatarUrl={profile?.avatar_url || user?.avatar_url || user?.user_metadata?.avatar_url || ''}
                         bgColor={theme?.mainBg || 'bg-blue-700'}
                         onLogout={handleLogout}
+                        onProfileClick={onProfileClick}
                         onBack={onBack}
                         onMenuClick={() => setIsMobileMenuOpen(true)}
                         notificationCount={notificationCount}

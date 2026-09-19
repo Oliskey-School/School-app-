@@ -20,9 +20,11 @@ interface HeaderProps {
   className?: string; // Allow custom classes
   customId?: string;
   userName?: string; // Add this
+  /** Opens the signed-in person's full profile (shown as the first item of the avatar menu). */
+  onProfileClick?: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ title, avatarUrl, bgColor, onLogout, onBack, onMenuClick, onNotificationClick, notificationCount, onSearchClick, className = '', customId, userName }) => {
+const Header: React.FC<HeaderProps> = ({ title, avatarUrl, bgColor, onLogout, onBack, onMenuClick, onNotificationClick, notificationCount, onSearchClick, className = '', customId, userName, onProfileClick }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = React.useRef<HTMLDivElement>(null);
   const buttonRef = React.useRef<HTMLButtonElement>(null);
@@ -142,6 +144,21 @@ const Header: React.FC<HeaderProps> = ({ title, avatarUrl, bgColor, onLogout, on
           aria-orientation="vertical"
           aria-labelledby="user-menu-button"
         >
+          {onProfileClick && (
+            <button
+              onClick={() => { setIsDropdownOpen(false); onProfileClick(); }}
+              className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 border-b border-gray-100"
+              role="menuitem"
+            >
+              <span className="mr-3 h-8 w-8 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center flex-shrink-0">
+                {avatarUrl ? <img src={avatarUrl} alt="" className="h-full w-full object-cover" /> : <span className="text-xs font-bold text-gray-500">{(userName || 'U').charAt(0)}</span>}
+              </span>
+              <span className="min-w-0">
+                <span className="block font-semibold text-gray-900 truncate">{userName || 'My Profile'}</span>
+                <span className="block text-xs text-gray-500">View my profile</span>
+              </span>
+            </button>
+          )}
           <div className="flex justify-center py-2 border-b border-gray-100">
             <BranchSwitcher align="right" />
           </div>

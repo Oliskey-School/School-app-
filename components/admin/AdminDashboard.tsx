@@ -692,6 +692,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
             scrollKey={scrollKey}
             activeScreen={activeBottomNav}
             setActiveScreen={handleBottomNavClick}
+            onProfileClick={() => navigateTo('profileSettings', 'Profile Settings')}
             hideHeader={hideLayoutNav}
             hideSidebar={hideLayoutNav}
             hidePadding={hidePadding}
