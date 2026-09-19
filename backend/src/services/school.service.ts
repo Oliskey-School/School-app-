@@ -2,7 +2,7 @@ import prisma from '../config/database';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { config } from '../config/env';
-import { Role } from '@prisma/client';
+import { Role } from '../../generated/prisma-client';
 import { EmailService } from './email.service';
 import { OnboardingService } from './onboarding.service';
 import { SocketService } from './socket.service';

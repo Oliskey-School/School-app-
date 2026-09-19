@@ -1,13 +1,14 @@
 import request from 'supertest';
 import { app } from '../../src/app';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import prismaMock from '../../src/config/database'; // the mocked client (see vi.mock below)
 
 // ============================================================
 // MOCK EXTERNAL DEPENDENCIES
 // ============================================================
 
 // Mutable config so per-test overrides work (vi.mock factory captures ref)
-const _auth = { role: 'teacher' };
+const _auth = { role: 'TEACHER' }; // the auth middleware sets the Prisma Role enum value
 
 vi.mock('../../src/middleware/auth.middleware', () => ({
     authenticate: (req: any, res: any, next: any) => {
@@ -157,7 +158,9 @@ vi.mock('../../src/config/database', () => {
                 teacher_id: 't1',
                 school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1',
                 due_date: '2026-04-10',
-                created_at: '2026-04-01'
+                created_at: '2026-04-01',
+                class: { id: 'c1', school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1', branch_id: 'test-branch-id' },
+                submissions: []
             }),
             create: vi.fn().mockResolvedValue({
                 id: 'a-new',
@@ -195,7 +198,8 @@ vi.mock('../../src/config/database', () => {
                 student_id: 's1',
                 status: 'submitted',
                 score: null,
-                feedback: null
+                feedback: null,
+                assignment: { id: 'a1', teacher_id: 't1', class_id: 'c1', school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1', class: { id: 'c1', school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1', branch_id: 'test-branch-id' } }
             }),
             upsert: vi.fn().mockResolvedValue({
                 id: 'sub1',
@@ -576,6 +580,11 @@ vi.mock('../../src/config/database', () => {
         },
 
         // Appointment
+        chatParticipant: {
+            findUnique: vi.fn().mockResolvedValue({ id: 'cp1', room_id: 'cr1', user_id: 'test-user-id' }),
+            findFirst: vi.fn().mockResolvedValue({ id: 'cp1', room_id: 'cr1', user_id: 'test-user-id' }),
+            findMany: vi.fn().mockResolvedValue([{ id: 'cp1', room_id: 'cr1', user_id: 'test-user-id' }]),
+        },
         appointment: {
             findMany: vi.fn().mockResolvedValue([{
                 id: 'apt1',
@@ -645,6 +654,7 @@ vi.mock('../../src/config/database', () => {
 
         // Chat
         chatRoom: {
+            findUnique: vi.fn().mockResolvedValue({ id: 'cr1', name: 'Math Dept', school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1', branch_id: 'test-branch-id' }),
             findMany: vi.fn().mockResolvedValue([{
                 id: 'cr1',
                 name: 'Math Dept',
@@ -752,7 +762,8 @@ vi.mock('../../src/config/database', () => {
                 modules: [{ id: 1, title: 'Module 1', order_index: 1 }]
             })
         },
-        pdEnrollment: {
+        pDEnrollment: { // Prisma's accessor for model PDEnrollment
+            findUnique: vi.fn().mockResolvedValue({ id: 'e1', teacher_id: 't1', course_id: 1, progress: 0 }),
             findMany: vi.fn().mockResolvedValue([{
                 id: 'pe1',
                 teacher_id: 't1',
@@ -970,9 +981,22 @@ vi.mock('../../src/config/database', () => {
         return m;
     };
 
+    // A model that IS defined above but lacks a method the service now calls
+    // (e.g. class.findFirst, classTeacher.findFirst) must fall back to the same
+    // safe defaults instead of throwing "not a function" → 500.
+    const withDefaults = (model: any) => (model.__withDefaults ??= new Proxy(model, {
+        get(t: any, k: any) {
+            if (k in t) return t[k];
+            if (typeof k !== 'string' || k === 'then' || !(k in DEFAULTS)) return undefined;
+            // Ownership checks look the entity up with findFirst; answer with the
+            // same record the model's findUnique mock describes.
+            if (k === 'findFirst' && typeof t.findUnique === 'function') { t.findFirst = t.findUnique; return t.findFirst; }
+            const f = vi.fn().mockResolvedValue(DEFAULTS[k]); t[k] = f; return f;
+        }
+    }));
     const prismaProxy: any = new Proxy(mockPrisma, {
         get(target: any, prop: any) {
-            if (prop in target) return target[prop];
+            if (prop in target) return (typeof target[prop] === 'object' && target[prop] && !Array.isArray(target[prop]) && typeof prop === 'string' && !prop.startsWith('$')) ? withDefaults(target[prop]) : target[prop];
             if (typeof prop !== 'string' || prop === 'then') return undefined;
             if (prop.startsWith('$')) { const f = vi.fn().mockResolvedValue([]); target[prop] = f; return f; }
             const m = makeModelMock(); target[prop] = m; return m;
@@ -1007,24 +1031,24 @@ describe('Teacher Backend E2E Tests', () => {
     describe('Teacher Profile & CRUD', () => {
         it('GET /api/teachers/me - Should return teacher profile', async () => {
             const res = await request(app).get('/api/teachers/me');
-            expect(res.status).toBe(200);
+            expect(res.status, JSON.stringify(res.body)).toBe(200);
             expect(res.body).toHaveProperty('id');
         });
 
         it('GET /api/teachers - Should list all teachers', async () => {
             const res = await request(app).get('/api/teachers');
-            expect(res.status).toBe(200);
+            expect(res.status, JSON.stringify(res.body)).toBe(200);
             expect(Array.isArray(res.body)).toBe(true);
         });
 
         it('GET /api/teachers/:id - Should get teacher by ID', async () => {
             const res = await request(app).get('/api/teachers/t1');
-            expect(res.status).toBe(200);
+            expect(res.status, JSON.stringify(res.body)).toBe(200);
             expect(res.body).toHaveProperty('id');
         });
 
         it('POST /api/teachers - Should create a new teacher', async () => {
-            _auth.role = 'admin';
+            _auth.role = 'ADMIN';
             const res = await request(app)
                 .post('/api/teachers')
                 .send({
@@ -1033,26 +1057,26 @@ describe('Teacher Backend E2E Tests', () => {
                     subject: 'Science',
                     branch_id: 'test-branch-id'
                 });
-            _auth.role = 'teacher';
-            expect(res.status).toBe(201);
+            _auth.role = 'TEACHER';
+            expect(res.status, JSON.stringify(res.body)).toBe(201);
             expect(res.body).toHaveProperty('id');
         });
 
         it('PUT /api/teachers/:id - Should update teacher', async () => {
-            _auth.role = 'admin';
+            _auth.role = 'ADMIN';
             const res = await request(app)
                 .put('/api/teachers/t1')
                 .send({ full_name: 'Updated Name' });
-            _auth.role = 'teacher';
-            expect(res.status).toBe(200);
+            _auth.role = 'TEACHER';
+            expect(res.status, JSON.stringify(res.body)).toBe(200);
             expect(res.body).toHaveProperty('id');
         });
 
         it('DELETE /api/teachers/:id - Should delete teacher', async () => {
-            _auth.role = 'admin';
+            _auth.role = 'ADMIN';
             const res = await request(app).delete('/api/teachers/t1');
-            _auth.role = 'teacher';
-            expect([200, 204, 500]).toContain(res.status);
+            _auth.role = 'TEACHER';
+            expect([200, 204, 500], JSON.stringify(res.body)).toContain(res.status);
         });
     });
 
@@ -1062,12 +1086,12 @@ describe('Teacher Backend E2E Tests', () => {
     describe('Teacher Self Attendance', () => {
         it('POST /api/teachers/me/attendance - Should submit teacher attendance', async () => {
             const res = await request(app).post('/api/teachers/me/attendance');
-            expect([200, 201, 500]).toContain(res.status);
+            expect([200, 201, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('GET /api/teachers/me/attendance - Should get attendance history', async () => {
             const res = await request(app).get('/api/teachers/me/attendance');
-            expect(res.status).toBe(200);
+            expect(res.status, JSON.stringify(res.body)).toBe(200);
             expect(Array.isArray(res.body)).toBe(true);
         });
     });
@@ -1078,11 +1102,11 @@ describe('Teacher Backend E2E Tests', () => {
     describe('Teacher Attendance Management', () => {
         it('GET /api/teachers/attendance - Should get teacher attendance records', async () => {
             const res = await request(app).get('/api/teachers/attendance');
-            expect(res.status).toBe(200);
+            expect(res.status, JSON.stringify(res.body)).toBe(200);
         });
 
         it('POST /api/teachers/attendance - Should save teacher attendance', async () => {
-            _auth.role = 'admin';
+            _auth.role = 'ADMIN';
             const res = await request(app)
                 .post('/api/teachers/attendance')
                 .send({
@@ -1093,17 +1117,17 @@ describe('Teacher Backend E2E Tests', () => {
                         date: '2026-04-01'
                     }]
                 });
-            _auth.role = 'teacher';
-            expect([200, 201, 500]).toContain(res.status);
+            _auth.role = 'TEACHER';
+            expect([200, 201, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('PUT /api/teachers/attendance/:id/approve - Should approve attendance', async () => {
-            _auth.role = 'admin';
+            _auth.role = 'ADMIN';
             const res = await request(app)
                 .put('/api/teachers/attendance/att1/approve')
                 .send({ status: 'approved' });
-            _auth.role = 'teacher';
-            expect([200, 500]).toContain(res.status);
+            _auth.role = 'TEACHER';
+            expect([200, 500], JSON.stringify(res.body)).toContain(res.status);
         });
     });
 
@@ -1113,7 +1137,7 @@ describe('Teacher Backend E2E Tests', () => {
     describe('Student Attendance', () => {
         it('GET /api/attendance - Should get attendance records', async () => {
             const res = await request(app).get('/api/attendance');
-            expect([200, 400]).toContain(res.status);
+            expect([200, 400], JSON.stringify(res.body)).toContain(res.status);
             if (res.status === 200) {
                 expect(Array.isArray(res.body)).toBe(true);
             }
@@ -1130,7 +1154,7 @@ describe('Teacher Backend E2E Tests', () => {
                         date: '2026-04-01'
                     }]
                 });
-            expect(res.status).toBe(200);
+            expect(res.status, JSON.stringify(res.body)).toBe(200);
         });
 
         it('POST /api/attendance/bulk-fetch - Should bulk fetch attendance', async () => {
@@ -1141,12 +1165,12 @@ describe('Teacher Backend E2E Tests', () => {
                     startDate: '2026-04-01',
                     endDate: '2026-04-30'
                 });
-            expect([200, 400, 500]).toContain(res.status);
+            expect([200, 400, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('GET /api/attendance/student/:studentId - Should get attendance by student', async () => {
             const res = await request(app).get('/api/attendance/student/s1');
-            expect(res.status).toBe(200);
+            expect(res.status, JSON.stringify(res.body)).toBe(200);
         });
     });
 
@@ -1156,7 +1180,7 @@ describe('Teacher Backend E2E Tests', () => {
     describe('Assignment Management', () => {
         it('GET /api/assignments - Should list assignments', async () => {
             const res = await request(app).get('/api/assignments');
-            expect(res.status).toBe(200);
+            expect(res.status, JSON.stringify(res.body)).toBe(200);
             expect(Array.isArray(res.body)).toBe(true);
             expect(res.body.length).toBeGreaterThan(0);
         });
@@ -1170,13 +1194,13 @@ describe('Teacher Backend E2E Tests', () => {
                     class_id: 'c1',
                     due_date: '2026-04-15'
                 });
-            expect(res.status).toBe(201);
+            expect(res.status, JSON.stringify(res.body)).toBe(201);
             expect(res.body).toHaveProperty('id');
         });
 
         it('GET /api/assignments/:id/submissions - Should get submissions', async () => {
             const res = await request(app).get('/api/assignments/a1/submissions');
-            expect(res.status).toBe(200);
+            expect(res.status, JSON.stringify(res.body)).toBe(200);
             expect(Array.isArray(res.body)).toBe(true);
         });
 
@@ -1188,7 +1212,7 @@ describe('Teacher Backend E2E Tests', () => {
                     content: 'My submission',
                     status: 'submitted'
                 });
-            expect([200, 201, 500]).toContain(res.status);
+            expect([200, 201, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('PUT /api/assignments/submissions/:id/grade - Should grade submission', async () => {
@@ -1199,7 +1223,7 @@ describe('Teacher Backend E2E Tests', () => {
                     feedback: 'Good work',
                     status: 'graded'
                 });
-            expect([200, 500]).toContain(res.status);
+            expect([200, 500], JSON.stringify(res.body)).toContain(res.status);
         });
     });
 
@@ -1209,7 +1233,7 @@ describe('Teacher Backend E2E Tests', () => {
     describe('Exam Management', () => {
         it('GET /api/exams - Should list exams', async () => {
             const res = await request(app).get('/api/exams');
-            expect(res.status).toBe(200);
+            expect(res.status, JSON.stringify(res.body)).toBe(200);
             expect(Array.isArray(res.body)).toBe(true);
         });
 
@@ -1225,7 +1249,7 @@ describe('Teacher Backend E2E Tests', () => {
                     term: 'Second Term',
                     session: '2025/2026'
                 });
-            expect(res.status).toBe(201);
+            expect(res.status, JSON.stringify(res.body)).toBe(201);
             expect(res.body).toHaveProperty('id');
         });
 
@@ -1233,17 +1257,17 @@ describe('Teacher Backend E2E Tests', () => {
             const res = await request(app)
                 .put('/api/exams/e1')
                 .send({ title: 'Updated Exam' });
-            expect([200, 500]).toContain(res.status);
+            expect([200, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('DELETE /api/exams/:id - Should delete exam', async () => {
             const res = await request(app).delete('/api/exams/e1');
-            expect([200, 204, 500]).toContain(res.status);
+            expect([200, 204, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('GET /api/exams/:id/results - Should get exam results', async () => {
             const res = await request(app).get('/api/exams/e1/results');
-            expect([200, 500]).toContain(res.status);
+            expect([200, 500], JSON.stringify(res.body)).toContain(res.status);
         });
     });
 
@@ -1253,7 +1277,7 @@ describe('Teacher Backend E2E Tests', () => {
     describe('Quiz Management', () => {
         it('GET /api/quizzes - Should list quizzes', async () => {
             const res = await request(app).get('/api/quizzes');
-            expect(res.status).toBe(200);
+            expect(res.status, JSON.stringify(res.body)).toBe(200);
             expect(Array.isArray(res.body)).toBe(true);
         });
 
@@ -1271,10 +1295,11 @@ describe('Teacher Backend E2E Tests', () => {
                         { question: 'What is 3x3?', options: ['6', '9', '12', '15'], correct_answer: '9', marks: 5 }
                     ]
                 });
-            expect([200, 201, 400, 500]).toContain(res.status);
+            expect([200, 201, 400, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
-        it('POST /api/quizzes/submit - Should submit quiz result', async () => {
+        it('POST /api/quizzes/submit - a teacher cannot submit a quiz result (student-only, score computed server-side)', async () => {
+            (prismaMock.student.findUnique as any).mockResolvedValueOnce(null); // the caller has no student record
             const res = await request(app)
                 .post('/api/quizzes/submit')
                 .send({
@@ -1284,19 +1309,19 @@ describe('Teacher Backend E2E Tests', () => {
                     score: 45,
                     total_marks: 50
                 });
-            expect([200, 201, 500]).toContain(res.status);
+            expect(res.status, JSON.stringify(res.body)).toBe(403);
         });
 
         it('PUT /api/quizzes/:id/status - Should update quiz status', async () => {
             const res = await request(app)
                 .put('/api/quizzes/q1/status')
                 .send({ status: 'published' });
-            expect([200, 500]).toContain(res.status);
+            expect([200, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('DELETE /api/quizzes/:id - Should delete quiz', async () => {
             const res = await request(app).delete('/api/quizzes/q1');
-            expect([200, 204, 500]).toContain(res.status);
+            expect([200, 204, 500], JSON.stringify(res.body)).toContain(res.status);
         });
     });
 
@@ -1306,7 +1331,7 @@ describe('Teacher Backend E2E Tests', () => {
     describe('Lesson Plan Management', () => {
         it('GET /api/lesson-plans - Should list lesson plans', async () => {
             const res = await request(app).get('/api/lesson-plans');
-            expect(res.status).toBe(200);
+            expect(res.status, JSON.stringify(res.body)).toBe(200);
             expect(Array.isArray(res.body)).toBe(true);
         });
 
@@ -1320,7 +1345,7 @@ describe('Teacher Backend E2E Tests', () => {
                     objectives: 'Learn algebra basics',
                     content: 'Detailed lesson content'
                 });
-            expect(res.status).toBe(201);
+            expect(res.status, JSON.stringify(res.body)).toBe(201);
             expect(res.body).toHaveProperty('id');
         });
 
@@ -1328,12 +1353,12 @@ describe('Teacher Backend E2E Tests', () => {
             const res = await request(app)
                 .put('/api/lesson-plans/lp1')
                 .send({ title: 'Updated Plan' });
-            expect([200, 500]).toContain(res.status);
+            expect([200, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('DELETE /api/lesson-plans/:id - Should delete lesson plan', async () => {
             const res = await request(app).delete('/api/lesson-plans/lp1');
-            expect([200, 204, 500]).toContain(res.status);
+            expect([200, 204, 500], JSON.stringify(res.body)).toContain(res.status);
         });
     });
 
@@ -1349,7 +1374,7 @@ describe('Teacher Backend E2E Tests', () => {
                     exam_id: 'e1',
                     subject: 'Mathematics'
                 });
-            expect([200, 500]).toContain(res.status);
+            expect([200, 500], JSON.stringify(res.body)).toContain(res.status);
             if (res.status === 200) {
                 expect(Array.isArray(res.body)).toBe(true);
             }
@@ -1359,44 +1384,44 @@ describe('Teacher Backend E2E Tests', () => {
             const res = await request(app)
                 .put('/api/academic/grade')
                 .send({
-                    student_id: 's1',
+                    studentId: 's1',
                     exam_id: 'e1',
                     subject: 'Mathematics',
                     score: 85,
                     grade: 'A',
                     term: 'Second Term'
                 });
-            expect([200, 500]).toContain(res.status);
+            expect([200, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('GET /api/academic/subjects - Should get subjects', async () => {
             const res = await request(app).get('/api/academic/subjects');
-            expect([200, 500]).toContain(res.status);
+            expect([200, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('GET /api/academic/analytics - Should get analytics', async () => {
             const res = await request(app).get('/api/academic/analytics');
-            expect([200, 500]).toContain(res.status);
+            expect([200, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('GET /api/academic/performance - Should get performance', async () => {
             const res = await request(app).get('/api/academic/performance');
-            expect([200, 500]).toContain(res.status);
+            expect([200, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('GET /api/academic/report-card-details - Should get report card details', async () => {
-            const res = await request(app).get('/api/academic/report-card-details');
-            expect([200, 500]).toContain(res.status);
+            const res = await request(app).get('/api/academic/report-card-details?studentId=s1');
+            expect([200, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('GET /api/academic/curricula - Should get curricula', async () => {
             const res = await request(app).get('/api/academic/curricula');
-            expect([200, 500]).toContain(res.status);
+            expect([200, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('GET /api/academic/tracks - Should get academic tracks', async () => {
             const res = await request(app).get('/api/academic/tracks');
-            expect([200, 500]).toContain(res.status);
+            expect([200, 500], JSON.stringify(res.body)).toContain(res.status);
         });
     });
 
@@ -1406,22 +1431,22 @@ describe('Teacher Backend E2E Tests', () => {
     describe('Report Cards', () => {
         it('GET /api/report-cards - Should list report cards', async () => {
             const res = await request(app).get('/api/report-cards');
-            expect(res.status).toBe(200);
+            expect(res.status, JSON.stringify(res.body)).toBe(200);
             expect(Array.isArray(res.body)).toBe(true);
         });
 
         it('GET /api/report-cards/:id - Should get report card', async () => {
             const res = await request(app).get('/api/report-cards/rc1');
-            expect([200, 404, 500]).toContain(res.status);
+            expect([200, 404, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('PUT /api/report-cards/:id/status - Should update report card status', async () => {
-            _auth.role = 'admin';
+            _auth.role = 'ADMIN';
             const res = await request(app)
                 .put('/api/report-cards/rc1/status')
                 .send({ status: 'published' });
-            _auth.role = 'teacher';
-            expect([200, 500]).toContain(res.status);
+            _auth.role = 'TEACHER';
+            expect([200, 500], JSON.stringify(res.body)).toContain(res.status);
         });
     });
 
@@ -1431,28 +1456,28 @@ describe('Teacher Backend E2E Tests', () => {
     describe('Classes & Students', () => {
         it('GET /api/classes - Should list classes', async () => {
             const res = await request(app).get('/api/classes');
-            expect([200, 500]).toContain(res.status);
+            expect([200, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('GET /api/classes/subjects - Should get class subjects', async () => {
             const res = await request(app).get('/api/classes/subjects');
-            expect([200, 400, 500]).toContain(res.status);
+            expect([200, 400, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('GET /api/students - Should list students', async () => {
             const res = await request(app).get('/api/students');
-            expect(res.status).toBe(200);
+            expect(res.status, JSON.stringify(res.body)).toBe(200);
             expect(Array.isArray(res.body)).toBe(true);
         });
 
         it('GET /api/students/class/:classId - Should get students by class', async () => {
             const res = await request(app).get('/api/students/class/c1');
-            expect([200, 404, 500]).toContain(res.status);
+            expect([200, 404, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('GET /api/students/:id - Should get student by ID', async () => {
             const res = await request(app).get('/api/students/s1');
-            expect([200, 500]).toContain(res.status);
+            expect([200, 500], JSON.stringify(res.body)).toContain(res.status);
         });
     });
 
@@ -1462,7 +1487,7 @@ describe('Teacher Backend E2E Tests', () => {
     describe('Teacher Appointments', () => {
         it('GET /api/teachers/me/appointments - Should get my appointments', async () => {
             const res = await request(app).get('/api/teachers/me/appointments');
-            expect(res.status).toBe(200);
+            expect(res.status, JSON.stringify(res.body)).toBe(200);
             expect(Array.isArray(res.body)).toBe(true);
         });
 
@@ -1470,21 +1495,20 @@ describe('Teacher Backend E2E Tests', () => {
             const res = await request(app)
                 .put('/api/teachers/appointments/apt1/status')
                 .send({ status: 'confirmed' });
-            expect([200, 500]).toContain(res.status);
+            expect([200, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
-        it('GET /api/teachers/appointments/:id - Should get single appointment', async () => {
-            const res = await request(app).get('/api/teachers/appointments/apt1');
-            expect(res.status).toBe(200);
-            expect(res.body).toHaveProperty('id');
+        it('GET /api/teachers/me/appointments - lists the caller\'s appointments (there is no per-id GET)', async () => {
+            const res = await request(app).get('/api/teachers/me/appointments');
+            expect(res.status, JSON.stringify(res.body)).toBe(200);
+            expect(Array.isArray(res.body)).toBe(true);
         });
 
-        it('PUT /api/teachers/appointments/:id - Should update appointment', async () => {
+        it('PUT /api/teachers/appointments/:id - free-form edits are not an endpoint; only the status transition is', async () => {
             const res = await request(app)
                 .put('/api/teachers/appointments/apt1')
                 .send({ title: 'Updated Meeting' });
-            expect(res.status).toBe(200);
-            expect(res.body).toHaveProperty('id');
+            expect(res.status, JSON.stringify(res.body)).toBe(404);
         });
 
         it('POST /api/teachers/appointments - Should create appointment', async () => {
@@ -1496,14 +1520,13 @@ describe('Teacher Backend E2E Tests', () => {
                     time: '10:00',
                     teacher_id: 't1'
                 });
-            expect(res.status).toBe(201);
+            expect(res.status, JSON.stringify(res.body)).toBe(201);
             expect(res.body).toHaveProperty('id');
         });
 
-        it('GET /api/teachers/:id/appointments - Should get teacher appointments', async () => {
+        it('GET /api/teachers/:id/appointments - another teacher\'s appointments are not readable by id', async () => {
             const res = await request(app).get('/api/teachers/t1/appointments');
-            expect(res.status).toBe(200);
-            expect(Array.isArray(res.body)).toBe(true);
+            expect(res.status, JSON.stringify(res.body)).toBe(404);
         });
     });
 
@@ -1513,7 +1536,7 @@ describe('Teacher Backend E2E Tests', () => {
     describe('Teacher My Students', () => {
         it('GET /api/teachers/me/students - Should get my students with credentials', async () => {
             const res = await request(app).get('/api/teachers/me/students');
-            expect([200, 404, 500]).toContain(res.status);
+            expect([200, 404, 500], JSON.stringify(res.body)).toContain(res.status);
         });
     });
 
@@ -1523,7 +1546,7 @@ describe('Teacher Backend E2E Tests', () => {
     describe('Parents', () => {
         it('GET /api/parents/by-class/:classId - Should get parents by class', async () => {
             const res = await request(app).get('/api/parents/by-class/c1');
-            expect([200, 404, 500]).toContain(res.status);
+            expect([200, 404, 500], JSON.stringify(res.body)).toContain(res.status);
         });
     });
 
@@ -1533,14 +1556,14 @@ describe('Teacher Backend E2E Tests', () => {
     describe('Forum & Communication', () => {
         it('GET /api/forum/data - Should get forum data', async () => {
             const res = await request(app).get('/api/forum/data');
-            expect(res.status).toBe(200);
+            expect(res.status, JSON.stringify(res.body)).toBe(200);
             expect(res.body).toHaveProperty('categories');
             expect(res.body).toHaveProperty('threads');
         });
 
         it('GET /api/forum/topics - Should get forum topics', async () => {
             const res = await request(app).get('/api/forum/topics');
-            expect([200, 500]).toContain(res.status);
+            expect([200, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('POST /api/forum/topics - Should create forum topic', async () => {
@@ -1551,12 +1574,12 @@ describe('Teacher Backend E2E Tests', () => {
                     content: 'Topic content',
                     category_id: 1
                 });
-            expect([200, 201, 500]).toContain(res.status);
+            expect([200, 201, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('GET /api/forum/topics/:id/posts - Should get posts', async () => {
             const res = await request(app).get('/api/forum/topics/ft1/posts');
-            expect([200, 500]).toContain(res.status);
+            expect([200, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('POST /api/forum/posts - Should create post', async () => {
@@ -1566,7 +1589,7 @@ describe('Teacher Backend E2E Tests', () => {
                     thread_id: 'ft1',
                     content: 'New post content'
                 });
-            expect([200, 201, 500]).toContain(res.status);
+            expect([200, 201, 500], JSON.stringify(res.body)).toContain(res.status);
         });
     });
 
@@ -1576,31 +1599,31 @@ describe('Teacher Backend E2E Tests', () => {
     describe('Chat', () => {
         it('GET /api/chat/rooms - Should get chat rooms', async () => {
             const res = await request(app).get('/api/chat/rooms');
-            expect(res.status).toBe(200);
+            expect(res.status, JSON.stringify(res.body)).toBe(200);
         });
 
         it('GET /api/chat/rooms/:roomId/messages - Should get messages', async () => {
             const res = await request(app).get('/api/chat/rooms/cr1/messages');
-            expect(res.status).toBe(200);
+            expect(res.status, JSON.stringify(res.body)).toBe(200);
         });
 
         it('POST /api/chat/rooms/:roomId/messages - Should send message', async () => {
             const res = await request(app)
                 .post('/api/chat/rooms/cr1/messages')
                 .send({ content: 'Hello everyone' });
-            expect([200, 201, 500]).toContain(res.status);
+            expect([200, 201, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('GET /api/chat/contacts - Should get chat contacts', async () => {
             const res = await request(app).get('/api/chat/contacts');
-            expect([200, 500]).toContain(res.status);
+            expect([200, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('POST /api/chat/direct - Should get or create direct chat', async () => {
             const res = await request(app)
                 .post('/api/chat/direct')
                 .send({ recipient_id: 't2' });
-            expect([200, 400, 500]).toContain(res.status);
+            expect([200, 400, 500], JSON.stringify(res.body)).toContain(res.status);
         });
     });
 
@@ -1610,27 +1633,27 @@ describe('Teacher Backend E2E Tests', () => {
     describe('Payroll & Leave', () => {
         it('GET /api/payroll/payslips - Should get payslips', async () => {
             const res = await request(app).get('/api/payroll/payslips');
-            expect([200, 400, 500]).toContain(res.status);
+            expect([200, 400, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('GET /api/payroll/transactions - Should get transactions', async () => {
             const res = await request(app).get('/api/payroll/transactions');
-            expect([200, 400, 500]).toContain(res.status);
+            expect([200, 400, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('GET /api/payroll/salary-profile - Should get salary profile', async () => {
             const res = await request(app).get('/api/payroll/salary-profile');
-            expect([200, 400, 500]).toContain(res.status);
+            expect([200, 400, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('GET /api/payroll/payment-history - Should get payment history', async () => {
             const res = await request(app).get('/api/payroll/payment-history');
-            expect([200, 400, 500]).toContain(res.status);
+            expect([200, 400, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('GET /api/payroll/leave-requests - Should get leave requests', async () => {
             const res = await request(app).get('/api/payroll/leave-requests');
-            expect(res.status).toBe(200);
+            expect(res.status, JSON.stringify(res.body)).toBe(200);
             expect(Array.isArray(res.body)).toBe(true);
         });
 
@@ -1643,24 +1666,24 @@ describe('Teacher Backend E2E Tests', () => {
                     end_date: '2026-04-17',
                     reason: 'Family event'
                 });
-            expect([200, 201, 500]).toContain(res.status);
+            expect([200, 201, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('GET /api/payroll/leave-types - Should get leave types', async () => {
             const res = await request(app).get('/api/payroll/leave-types');
-            expect(res.status).toBe(200);
+            expect(res.status, JSON.stringify(res.body)).toBe(200);
             expect(Array.isArray(res.body)).toBe(true);
         });
 
-        it('GET /api/teachers/:id/payslips - Should get teacher payslips', async () => {
-            const res = await request(app).get('/api/teachers/t1/payslips');
-            expect(res.status).toBe(200);
+        it('GET /api/payslips?teacherId= - Should get the caller\'s own payslips', async () => {
+            const res = await request(app).get('/api/payslips?teacherId=t1');
+            expect(res.status, JSON.stringify(res.body)).toBe(200);
             expect(Array.isArray(res.body)).toBe(true);
         });
 
         it('GET /api/teachers/:id/salary-profile - Should get teacher salary profile', async () => {
             const res = await request(app).get('/api/teachers/t1/salary-profile');
-            expect([200, 500]).toContain(res.status);
+            expect([200, 500], JSON.stringify(res.body)).toContain(res.status);
         });
     });
 
@@ -1670,31 +1693,31 @@ describe('Teacher Backend E2E Tests', () => {
     describe('Professional Development', () => {
         it('GET /api/pd/courses - Should get PD courses', async () => {
             const res = await request(app).get('/api/pd/courses');
-            expect([200, 500]).toContain(res.status);
+            expect([200, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('GET /api/pd/my-enrollments - Should get my enrollments', async () => {
             const res = await request(app).get('/api/pd/my-enrollments');
-            expect([200, 500]).toContain(res.status);
+            expect([200, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('POST /api/pd/enroll - Should enroll in course', async () => {
             const res = await request(app)
                 .post('/api/pd/enroll')
-                .send({ course_id: 1 });
-            expect([200, 201, 500]).toContain(res.status);
+                .send({ courseId: 1 });
+            expect([200, 201, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('PUT /api/pd/progress - Should update progress', async () => {
             const res = await request(app)
                 .put('/api/pd/progress')
-                .send({ course_id: 1, module_id: 1, is_completed: true });
-            expect([200, 500]).toContain(res.status);
+                .send({ enrollmentId: 'e1', progress: 50 });
+            expect([200, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('GET /api/teachers/me/pd-courses - Should get my PD courses', async () => {
             const res = await request(app).get('/api/teachers/me/pd-courses');
-            expect(res.status).toBe(200);
+            expect(res.status, JSON.stringify(res.body)).toBe(200);
             expect(Array.isArray(res.body)).toBe(true);
         });
     });
@@ -1705,29 +1728,29 @@ describe('Teacher Backend E2E Tests', () => {
     describe('Teacher Engagement', () => {
         it('GET /api/teachers/me/badges - Should get my badges', async () => {
             const res = await request(app).get('/api/teachers/me/badges');
-            expect([200, 500]).toContain(res.status);
+            expect([200, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('GET /api/teachers/me/recognitions - Should get my recognitions', async () => {
             const res = await request(app).get('/api/teachers/me/recognitions');
-            expect([200, 500]).toContain(res.status);
+            expect([200, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('GET /api/teachers/me/mentoring - Should get my mentoring matches', async () => {
             const res = await request(app).get('/api/teachers/me/mentoring');
-            expect([200, 500]).toContain(res.status);
+            expect([200, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('POST /api/teachers/me/mentoring - Should create mentoring match', async () => {
             const res = await request(app)
                 .post('/api/teachers/me/mentoring')
                 .send({ mentor_id: 't2' });
-            expect([200, 201, 500]).toContain(res.status);
+            expect([200, 201, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('GET /api/teachers/:id/certificates - Should get teacher certificates', async () => {
             const res = await request(app).get('/api/teachers/t1/certificates');
-            expect([200, 500]).toContain(res.status);
+            expect([200, 500], JSON.stringify(res.body)).toContain(res.status);
         });
     });
 
@@ -1737,32 +1760,32 @@ describe('Teacher Backend E2E Tests', () => {
     describe('Substitute Teachers', () => {
         it('GET /api/teachers/substitutes - Should list substitute teachers', async () => {
             const res = await request(app).get('/api/teachers/substitutes');
-            expect(res.status).toBe(200);
+            expect(res.status, JSON.stringify(res.body)).toBe(200);
             expect(Array.isArray(res.body)).toBe(true);
         });
 
-        it('GET /api/teachers/substitutes/requests - Should get substitute requests', async () => {
-            const res = await request(app).get('/api/teachers/substitutes/requests');
-            expect(res.status).toBe(200);
+        it('GET /api/teachers/me/substitutes - Should get substitute requests', async () => {
+            const res = await request(app).get('/api/teachers/me/substitutes');
+            expect(res.status, JSON.stringify(res.body)).toBe(200);
             expect(Array.isArray(res.body)).toBe(true);
         });
 
-        it('POST /api/teachers/substitutes/requests - Should create substitute request', async () => {
+        it('POST /api/teachers/me/substitutes - Should create substitute request', async () => {
             const res = await request(app)
-                .post('/api/teachers/substitutes/requests')
+                .post('/api/teachers/me/substitutes')
                 .send({
                     substitute_teacher_id: 't1',
                     original_teacher_id: 't2',
                     class_id: 'c1',
                     date: '2026-04-10'
                 });
-            expect(res.status).toBe(201);
+            expect(res.status, JSON.stringify(res.body)).toBe(201);
             expect(res.body).toHaveProperty('id');
         });
 
         it('GET /api/teachers/me/substitutes - Should get my substitute requests', async () => {
             const res = await request(app).get('/api/teachers/me/substitutes');
-            expect([200, 500]).toContain(res.status);
+            expect([200, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('POST /api/teachers/me/substitutes - Should create my substitute request', async () => {
@@ -1773,7 +1796,7 @@ describe('Teacher Backend E2E Tests', () => {
                     class_id: 'c1',
                     date: '2026-04-10'
                 });
-            expect([200, 201, 500]).toContain(res.status);
+            expect([200, 201, 500], JSON.stringify(res.body)).toContain(res.status);
         });
     });
 
@@ -1783,7 +1806,7 @@ describe('Teacher Backend E2E Tests', () => {
     describe('Timetable', () => {
         it('GET /api/timetable - Should get timetable', async () => {
             const res = await request(app).get('/api/timetable');
-            expect([200, 404]).toContain(res.status);
+            expect([200, 404], JSON.stringify(res.body)).toContain(res.status);
             if (res.status === 200) expect(Array.isArray(res.body)).toBe(true);
         });
     });
@@ -1794,7 +1817,7 @@ describe('Teacher Backend E2E Tests', () => {
     describe('Virtual Class', () => {
         it('GET /api/virtual-classes - Should get virtual class sessions', async () => {
             const res = await request(app).get('/api/virtual-classes');
-            expect([200, 500]).toContain(res.status);
+            expect([200, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('POST /api/virtual-classes - Should create virtual class session', async () => {
@@ -1805,7 +1828,7 @@ describe('Teacher Backend E2E Tests', () => {
                     title: 'Virtual Math Class',
                     scheduled_at: '2026-04-10T10:00:00Z'
                 });
-            expect([200, 201, 500]).toContain(res.status);
+            expect([200, 201, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('POST /api/virtual-classes/attendance - Should record virtual attendance', async () => {
@@ -1816,7 +1839,7 @@ describe('Teacher Backend E2E Tests', () => {
                     student_id: 's1',
                     status: 'present'
                 });
-            expect([200, 201, 400, 500]).toContain(res.status);
+            expect([200, 201, 400, 500], JSON.stringify(res.body)).toContain(res.status);
         });
     });
 
@@ -1826,7 +1849,7 @@ describe('Teacher Backend E2E Tests', () => {
     describe('Resources', () => {
         it('GET /api/resources - Should get resources', async () => {
             const res = await request(app).get('/api/resources');
-            expect(res.status).toBe(200);
+            expect(res.status, JSON.stringify(res.body)).toBe(200);
             expect(Array.isArray(res.body)).toBe(true);
         });
 
@@ -1838,12 +1861,12 @@ describe('Teacher Backend E2E Tests', () => {
                     type: 'document',
                     url: '/uploads/new.pdf'
                 });
-            expect([200, 201, 500]).toContain(res.status);
+            expect([200, 201, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('GET /api/resources/courses - Should get PD courses via resources', async () => {
             const res = await request(app).get('/api/resources/courses');
-            expect(res.status).toBe(200);
+            expect(res.status, JSON.stringify(res.body)).toBe(200);
             expect(Array.isArray(res.body)).toBe(true);
         });
     });
@@ -1854,7 +1877,7 @@ describe('Teacher Backend E2E Tests', () => {
     describe('Gallery', () => {
         it('GET /api/gallery - Should get photos', async () => {
             const res = await request(app).get('/api/gallery');
-            expect([200, 500]).toContain(res.status);
+            expect([200, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('POST /api/gallery - Should add photo', async () => {
@@ -1864,7 +1887,7 @@ describe('Teacher Backend E2E Tests', () => {
                     title: 'New Photo',
                     url: '/uploads/new.jpg'
                 });
-            expect([200, 201, 500]).toContain(res.status);
+            expect([200, 201, 500], JSON.stringify(res.body)).toContain(res.status);
         });
     });
 
@@ -1874,7 +1897,7 @@ describe('Teacher Backend E2E Tests', () => {
     describe('Dashboard Stats', () => {
         it('GET /api/dashboard/stats - Should get dashboard stats', async () => {
             const res = await request(app).get('/api/dashboard/stats');
-            expect([200, 500]).toContain(res.status);
+            expect([200, 500], JSON.stringify(res.body)).toContain(res.status);
         });
     });
 
@@ -1891,12 +1914,12 @@ describe('Teacher Backend E2E Tests', () => {
                     message: 'This is a test',
                     type: 'info'
                 });
-            expect([200, 201, 404, 500]).toContain(res.status);
+            expect([200, 201, 404, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('GET /api/notifications/me - Should get my notifications', async () => {
             const res = await request(app).get('/api/notifications/me');
-            expect([200, 500]).toContain(res.status);
+            expect([200, 500], JSON.stringify(res.body)).toContain(res.status);
         });
     });
 
@@ -1906,7 +1929,7 @@ describe('Teacher Backend E2E Tests', () => {
     describe('Games', () => {
         it('GET /api/games - Should get games', async () => {
             const res = await request(app).get('/api/games');
-            expect([200, 500]).toContain(res.status);
+            expect([200, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('POST /api/games/scores - Should submit game score', async () => {
@@ -1917,17 +1940,17 @@ describe('Teacher Backend E2E Tests', () => {
                     student_id: 's1',
                     score: 100
                 });
-            expect([200, 201, 400, 500]).toContain(res.status);
+            expect([200, 201, 400, 500], JSON.stringify(res.body)).toContain(res.status);
         });
 
         it('GET /api/games/scores/leaderboard/:gameId - Should get leaderboard', async () => {
             const res = await request(app).get('/api/games/scores/leaderboard/g1');
-            expect(res.status).toBe(200);
+            expect(res.status, JSON.stringify(res.body)).toBe(200);
         });
 
         it('GET /api/games/scores/me - Should get my game scores', async () => {
             const res = await request(app).get('/api/games/scores/me');
-            expect(res.status).toBe(200);
+            expect(res.status, JSON.stringify(res.body)).toBe(200);
         });
     });
 
@@ -1937,7 +1960,7 @@ describe('Teacher Backend E2E Tests', () => {
     describe('Teacher Workload', () => {
         it('GET /api/teachers/:id/workload - Should get teacher workload', async () => {
             const res = await request(app).get('/api/teachers/t1/workload');
-            expect(res.status).toBe(200);
+            expect(res.status, JSON.stringify(res.body)).toBe(200);
         });
     });
 
@@ -1947,7 +1970,7 @@ describe('Teacher Backend E2E Tests', () => {
     describe('Student Reports', () => {
         it('GET /api/student-reports/:studentId/stats - Should get student report stats', async () => {
             const res = await request(app).get('/api/student-reports/s1/stats');
-            expect(res.status).toBe(200);
+            expect(res.status, JSON.stringify(res.body)).toBe(200);
             expect(res.body).toHaveProperty('avgScore');
             expect(res.body).toHaveProperty('attendancePct');
         });
@@ -1959,7 +1982,7 @@ describe('Teacher Backend E2E Tests', () => {
     describe('Pending Students', () => {
         it('GET /api/teachers/pending-students - Should get pending students', async () => {
             const res = await request(app).get('/api/teachers/pending-students');
-            expect(res.status).toBe(200);
+            expect(res.status, JSON.stringify(res.body)).toBe(200);
             expect(Array.isArray(res.body)).toBe(true);
         });
     });

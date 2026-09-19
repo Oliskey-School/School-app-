@@ -1,4 +1,5 @@
 import prisma from '../config/database';
+import { runAsPlatform } from '../lib/tenantContext';
 import { SubscriptionEmailService } from './subscriptionEmail.service';
 import { getCurrentTerm } from './term.service';
 
@@ -158,7 +159,7 @@ export function startSubscriptionCron() {
 
     // 00:00 Africa/Lagos. node-cron supports timezone option natively.
     cron.schedule('0 0 * * *', () => {
-        runSubscriptionCron().catch(e => console.error('[SubscriptionCron] crashed:', e));
+        runAsPlatform(() => runSubscriptionCron()).catch(e => console.error('[SubscriptionCron] crashed:', e));
     }, { timezone: 'Africa/Lagos' });
 
     console.log('🕛 [SubscriptionCron] Scheduled daily at 00:00 Africa/Lagos');

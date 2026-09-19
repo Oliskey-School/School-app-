@@ -1,5 +1,6 @@
 import { Sentry, sentryEnabled } from './config/instrument'; // MUST be first — sets up Sentry before app/express load
 import { app } from './app';
+import { runAsPlatform } from './lib/tenantContext';
 import http from 'http';
 import { config } from './config/env';
 
@@ -137,7 +138,7 @@ const start = async () => {
                 const shouldSeedDemo = process.env.RUN_DEMO_SEEDER !== 'false';
                 if (shouldSeedDemo) {
                     const { DemoSeederService } = require('./services/demoSeeder.service');
-                    await DemoSeederService.ensureDemoData();
+                    await runAsPlatform(() => DemoSeederService.ensureDemoData());
                     console.log('✅ [Database] Connected and demo data verified.');
                 } else {
                     console.log('🚫 [Database] Connected. Demo seeder skipped — RUN_DEMO_SEEDER=false is set.');
@@ -146,10 +147,10 @@ const start = async () => {
                 // Always seed the academic calendar — tiny table, runs once.
                 try {
                     const { seedAcademicCalendarIfEmpty, ensureAcademicCalendarCoversDate } = require('./services/term.service');
-                    await seedAcademicCalendarIfEmpty();
+                    await runAsPlatform(() => seedAcademicCalendarIfEmpty());
                     // The seeded session ends every July; without the next one no
                     // school can pay for a term (activation needs a current term).
-                    await ensureAcademicCalendarCoversDate(new Date());
+                    await runAsPlatform(() => ensureAcademicCalendarCoversDate(new Date()));
                 } catch (calErr: any) {
                     console.warn('⚠️ [TermService] Calendar seed skipped:', calErr.message);
                 }
@@ -185,7 +186,7 @@ const start = async () => {
                 try {
                     const { LessonAttendanceService } = require('./services/lessonAttendance.service');
                     setInterval(() => {
-                        LessonAttendanceService.autoCloseStale().catch((err: any) =>
+                        runAsPlatform(() => LessonAttendanceService.autoCloseStale()).catch((err: any) =>
                             console.warn('⚠️ [LessonAttendance] auto-close failed:', err.message));
                     }, 5 * 60 * 1000);
                 } catch (lessonErr: any) {

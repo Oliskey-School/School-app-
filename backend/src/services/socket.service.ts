@@ -1,4 +1,5 @@
 import { Server as SocketIOServer, Socket } from 'socket.io';
+import { runWithTenantContext } from '../lib/tenantContext';
 import { Server as HTTPServer } from 'http';
 import jwt from 'jsonwebtoken';
 import { registerClassBattle } from './classBattleSocket';
@@ -119,10 +120,14 @@ export class SocketService {
       // conversation in any school.
       socket.on('join-chat-room', async (roomId: string) => {
         try {
-          const participant = await prisma.chatParticipant.findFirst({
-            where: { room_id: roomId, user_id: authedUser.id },
-            select: { id: true },
-          });
+          // Socket events run outside any HTTP request, so the socket's own
+          // verified identity supplies the tenant scope for RLS.
+          const participant = await runWithTenantContext(
+            { schoolId: authedUser.schoolId, branchId: authedUser.branchId ?? null, userId: authedUser.id },
+            () => prisma.chatParticipant.findFirst({
+              where: { room_id: roomId, user_id: authedUser.id },
+              select: { id: true },
+            }));
           if (!participant) {
             console.warn(`🚨 [Socket] User ${authedUser.id} tried to join chat room ${roomId} without membership`);
             return;

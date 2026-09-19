@@ -24,12 +24,20 @@ export default defineConfig({
   test: {
     include: ['tests/integration/**/*.test.ts', 'tests/unit/**/*.test.ts'],
     environment: 'node',
+    // Fixtures are created directly through Prisma; give the test process an
+    // explicit platform scope (see lib/tenantContext.ts) instead of relying on
+    // the old silent RLS bypass.
+    setupFiles: ['tests/setup/platformScope.ts'],
     globals: true,
     testTimeout: 120000,
     hookTimeout: 120000,
     fileParallelism: false,
     pool: 'forks',
-    // Vitest 4 moved this out of poolOptions to a top-level option.
-    isolate: false,
+    // Each file gets its own module registry. With `isolate: false` a file's
+    // vi.mock() of auth/database was ignored whenever an earlier file had
+    // already imported the real module, so the mocked suites (student
+    // validation, CORS allowlist, teacher features) passed alone but failed
+    // in the full run purely on ordering. Serial + isolated is deterministic.
+    isolate: true,
   },
 });

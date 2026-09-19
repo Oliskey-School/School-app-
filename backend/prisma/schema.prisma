@@ -236,7 +236,6 @@ model User {
   ui_preferences         Json?
   created_at             DateTime               @default(now())
   updated_at             DateTime               @updatedAt
-  initial_password       String?
   audit_logs             AuditLog[]
   sent_chat_messages     ChatMessage[]
   chat_participants      ChatParticipant[]

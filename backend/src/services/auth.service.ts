@@ -197,8 +197,7 @@ export class AuthService {
                     allowed_branch_ids: data.allowed_branch_ids || (data.branch_id ? [data.branch_id] : []),
                     full_name: data.full_name,
                     email_verified: false,
-                    school_generated_id: schoolGeneratedId,
-                    initial_password: data.password // Store generated credentials for Admin visibility
+                    school_generated_id: schoolGeneratedId
                 }
             });
 
@@ -358,7 +357,6 @@ export class AuthService {
                 preferred_language: true,
                 created_at: true,
                 updated_at: true,
-                initial_password: true,
                 created_by: true,
                 updated_by: true,
                 deleted_at: true,
@@ -655,7 +653,6 @@ export class AuthService {
                         branch_id: data.branch_id || null,
                         full_name: data.full_name,
                         avatar_url: data.avatar_url || null,
-                        initial_password: data.password || null,
                         email_verified: true
                     }
                 });
@@ -745,7 +742,6 @@ export class AuthService {
                 school_generated_id: schoolGeneratedId,
                 schoolGeneratedId, // back-compat for any camelCase consumer
                 username: schoolGeneratedId || user.email,
-                initial_password: data.password || null,
                 linked: false // creation always yields a brand-new account now
             };
         });
@@ -815,8 +811,7 @@ export class AuthService {
         const updatedUser = await prisma.user.update({
             where: { id: userId },
             data: { 
-                password_hash: hashedPassword,
-                initial_password: newPassword
+                password_hash: hashedPassword
             }
         });
 
@@ -845,8 +840,7 @@ export class AuthService {
         await prisma.user.update({
             where: { id: userId },
             data: {
-                password_hash: hashedPassword,
-                initial_password: newPassword // Store for admin visibility
+                password_hash: hashedPassword
             }
         });
 
@@ -869,8 +863,7 @@ export class AuthService {
         await prisma.user.update({
             where: { id: userId },
             data: {
-                password_hash: hashedPassword,
-                initial_password: newPassword
+                password_hash: hashedPassword
             }
         });
 
@@ -955,8 +948,7 @@ export class AuthService {
         await prisma.user.update({
             where: { id: user.id },
             data: {
-                password_hash: hashedPassword,
-                initial_password: newPassword // For admin visibility/recovery if needed
+                password_hash: hashedPassword
             }
         });
 
@@ -1184,8 +1176,10 @@ export class AuthService {
             console.log(`[AUTH] 🔍 Checking demo user in sandbox: ${persistenceId}`);
             
             // Try to find the user in the sandbox first
-            let demoUser = await (prisma.user.findUnique as any)({ 
-                where: { id: persistenceId },
+            // The seeder may have ADOPTED a row created under a different id (e.g.
+            // prisma/seed.ts) — the global ID is the stable identity, the id is not.
+            let demoUser = await (prisma.user.findFirst as any)({
+                where: { school_id: this.DEMO_SCHOOL_ID, OR: [{ school_generated_id: persistenceId }, { id: persistenceId }] },
                 include: { school: true, branch: true }
             });
 

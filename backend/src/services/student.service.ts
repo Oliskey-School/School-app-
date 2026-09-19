@@ -3,7 +3,7 @@ import { NotificationService } from './notification.service';
 import { IdGeneratorService } from './idGenerator.service';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
-import { Role } from '@prisma/client';
+import { Role } from '../../generated/prisma-client';
 import { SocketService } from './socket.service';
 import { AcademicService } from './academic.service';
 
@@ -115,7 +115,6 @@ export class StudentService {
                     school_id: schoolId,
                     branch_id: branchId || null,
                     email_verified: true, // System created accounts should be pre-verified
-                    initial_password: isTeacherAdded ? null : generatedPassword,
                     avatar_url: incomingAvatar,
                     updated_at: new Date()
                 }
@@ -222,7 +221,6 @@ export class StudentService {
                             school_id: schoolId,
                             branch_id: branchId || null,
                             email_verified: true,
-                            initial_password: parentPass,
                             updated_at: new Date()
                         } as any
                     });
@@ -522,8 +520,7 @@ export class StudentService {
                 data: {
                     password_hash: hashedPassword,
                     school_generated_id: schoolGeneratedId,
-                    email_verified: true,
-                    initial_password: generatedPassword
+                    email_verified: true
                 }
             });
 
@@ -716,7 +713,6 @@ export class StudentService {
                         email: true,
                         avatar_url: true,
                         school_generated_id: true,
-                        initial_password: true,
                     },
                 },
             },

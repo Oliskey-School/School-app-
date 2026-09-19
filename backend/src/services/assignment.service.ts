@@ -292,7 +292,7 @@ export class AssignmentService {
         const classRecord = (assignment as any)?.class;
         const branchMismatch = branchId && branchId !== 'all' && classRecord?.branch_id && classRecord.branch_id !== branchId;
 
-        if (!assignment || classRecord.school_id !== schoolId || branchMismatch) {
+        if (!assignment || !classRecord || classRecord.school_id !== schoolId || branchMismatch) {
             throw new Error('Assignment not found');
         }
 

@@ -72,7 +72,6 @@ export class TeacherService {
                     branch_id: branchId || null,
                     allowed_branch_ids: data.allowed_branch_ids || (branchId ? [branchId] : []),
                     school_generated_id: schoolGeneratedId,
-                    initial_password: generatedPassword,
                     avatar_url: avatar_url || null,
                     email_verified: true
                 }
@@ -125,7 +124,7 @@ export class TeacherService {
 
             const result = {
                 ...teacher,
-                initial_password: user.initial_password,
+                initial_password: generatedPassword, // one-time: shown to the admin now, never stored
                 username: user.school_generated_id || user.email
             };
 
@@ -930,7 +929,7 @@ export class TeacherService {
                 // teach. has_password alone tells the UI whether one was ever set.
                 credentials: student.status === 'Active' ? {
                     login_id: student.school_generated_id || student.email,
-                    has_password: !!student.user?.initial_password
+                    has_password: !!student.user?.password_hash
                 } : null,
                 created_at: student.created_at
             });

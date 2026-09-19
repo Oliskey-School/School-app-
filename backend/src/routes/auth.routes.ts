@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { platformContext } from '../lib/tenantContext';
 import * as AuthController from '../controllers/auth.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { requireRole } from '../middleware/tenant.middleware';
@@ -10,6 +11,9 @@ import { z } from 'zod';
 const ADMIN_ROLES = ['admin', 'super_admin', 'proprietor'];
 
 const router = Router();
+// Public / cross-school endpoints run in explicit platform scope (see
+// lib/tenantContext.ts); per-route `authenticate` narrows to the tenant.
+router.use(platformContext);
 
 // Lead DevSecOps: Strict Payload Validation Schema
 const loginSchema = z.object({

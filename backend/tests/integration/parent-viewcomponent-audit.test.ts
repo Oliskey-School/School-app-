@@ -448,13 +448,16 @@ describe('Parent viewComponent audit (comprehensive)', () => {
 
     // ─── SECTION 14: LINK CHILD ───────────────────────────────────────────────
 
-    it('LinkChildScreen — POST /link-child is admin-only (security hardening, confirmed round 14)', async () => {
-        // parent-child linking was locked down to admins only (cross-family link abuse
-        // fix from the round 6-9 security audit) — a parent self-linking a child now
-        // correctly returns 403, not 200/201.
+    it('LinkChildScreen — POST /link-child refuses a parent self-link without proof of the child identity', async () => {
+        // A parent may only link a child after proving the child's date of birth or
+        // admission number (cross-family link abuse fix). No proof, or wrong proof,
+        // must be 403 and must not create the link.
         const res = await post('/api/parents/link-child', { parentId: PID, studentId: SID2 });
         expect(res.status).toBe(403);
-        expect(res.body?.message).toMatch(/only admins can link a child/i);
+        const wrong = await post('/api/parents/link-child', { parentId: PID, studentId: SID2, dateOfBirth: '1900-01-01' });
+        expect(wrong.status).toBe(403);
+        const link = await prisma.parentChild.findFirst({ where: { parent_id: PID, student_id: SID2, deleted_at: null } });
+        expect(link).toBeNull();
     });
 
     it('LinkChildScreen — Child Two is correctly NOT linked (parent self-link was rejected above)', async () => {

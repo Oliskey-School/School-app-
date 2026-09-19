@@ -23,7 +23,7 @@ describe('Demo login funnel', () => {
     for (const ip of ips) {
       const res: any = await AuthService.generateDemoToken('admin', ip);
       expect(res?.token).toBeTruthy();
-      expect(res?.user?.id).toContain('_ADM_'); // readable MAIN-coded id
+      expect(res?.user?.school_generated_id).toContain('_ADM_'); // readable MAIN-coded global id (the row id is internal)
     }
   }, 120000);
 

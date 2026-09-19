@@ -34,7 +34,10 @@ jobs:
           --health-retries 5
 
     env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/school_app_test
+      # The app connects as the NOBYPASSRLS role (as production does) so tenant
+      # isolation is actually enforced in CI; migrations, seeding and test
+      # fixtures use the superuser DIRECT_URL.
+      DATABASE_URL: postgresql://oliskey_app:oliskey_app@localhost:5432/school_app_test
       DIRECT_URL: postgresql://postgres:postgres@localhost:5432/school_app_test
       JWT_SECRET: ci-only-jwt-signing-key-not-used-anywhere-real
       REFRESH_TOKEN_SECRET: ci-only-refresh-signing-key-not-used-for-real
@@ -60,9 +63,18 @@ jobs:
 
       - name: Apply database migrations
         run: npx prisma migrate deploy --schema=backend/prisma/schema.prisma
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/school_app_test
+
+      # The migration creates the NOBYPASSRLS app role without a login; each
+      # environment grants login with its own secret. CI's is throwaway.
+      - name: Enable the app role login for CI
+        run: PGPASSWORD=postgres psql -h localhost -U postgres -d school_app_test -v ON_ERROR_STOP=1 -c "ALTER ROLE oliskey_app LOGIN PASSWORD 'oliskey_app';"
 
       - name: Seed demo data
         run: npm run db:seed
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/school_app_test
 
       # Fast RLS/tenant-boundary regression gate. No running server needed —
       # it talks to the database directly. This is the release gate from the
@@ -138,7 +150,7 @@ jobs:
         if: failure()
         run: |
           echo "::group::backend log (last 200 lines — see the full-server-logs artifact for the complete run)"
-          tail -200 /tmp/e2e-backend.log || true
+          cat /tmp/e2e-backend.log || true
           echo "::endgroup::"
           echo "::group::vite preview log (last 100 lines)"
           tail -100 /tmp/e2e-preview.log || true

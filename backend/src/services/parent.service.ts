@@ -265,7 +265,6 @@ export class ParentService {
                         branch_id: branchId && branchId !== 'all' ? branchId : null,
                         school_generated_id: schoolGeneratedId,
                         email_verified: true,
-                        initial_password: generatedPassword,
                         avatar_url: incomingAvatar,
                         updated_at: new Date()
                     }
@@ -946,6 +945,16 @@ export class ParentService {
         }
 
         return await prisma.$transaction(async (tx) => {
+            // A gateway reference pays exactly once. Serialise concurrent
+            // attempts on the same reference, then refuse one already recorded
+            // in this school — otherwise one real payment could be replayed to
+            // mark any number of fees paid.
+            if (reference) {
+                await tx.$executeRawUnsafe(`SELECT pg_advisory_xact_lock(hashtext($1))`, `payment-ref:${schoolId}:${reference}`);
+                const used = await tx.payment.findFirst({ where: { school_id: schoolId, reference }, select: { id: true } });
+                if (used) throw Object.assign(new Error('This payment reference has already been recorded'), { status: 409 });
+            }
+
             // 1. Create Payment record
             const payment = await tx.payment.create({
                 data: {

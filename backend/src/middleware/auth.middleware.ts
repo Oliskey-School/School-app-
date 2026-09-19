@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import prisma from '../config/database';
 import { config, DEMO_SCHOOL_ID } from '../config/env';
-import { runWithTenantContext } from '../lib/tenantContext';
+import { runWithTenantContext, runAsPlatform } from '../lib/tenantContext';
 
 export interface AuthRequest extends Request {
     user?: any;
@@ -60,18 +60,20 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
                 return res.status(403).json({ message: 'Demo tokens can only access the demo school' });
             }
 
-            // Fetch demo school details to ensure name updates persist
-            const demoSchool = await prisma.school.findUnique({
+            // Resolving the token's identity happens BEFORE a tenant scope exists,
+            // so it is platform-level work (see lib/tenantContext.ts). Without this
+            // the lookups run with RLS applied and an empty school → no row.
+            const demoSchool = await runAsPlatform(() => prisma.school.findUnique({
                 where: { id: DEMO_SCHOOL_ID }
-            });
+            }));
 
             // Re-read the demo user's editable profile fields from the DB so that
             // profile edits (name / phone / avatar) made in this session show up
             // (the JWT carries only the values from login time).
-            const demoDbUser = await prisma.user.findUnique({
+            const demoDbUser = await runAsPlatform(() => prisma.user.findUnique({
                 where: { id: decoded.id },
                 select: { full_name: true, avatar_url: true, phone: true },
-            }).catch(() => null);
+            })).catch(() => null);
 
             // Within their private sandbox a demo visitor may switch to the root branch
             // or any branch they created ("<root>__<rand>"); honor that active branch.
@@ -134,8 +136,12 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
             );
         }
 
-        // REAL USER: Fetch from database
-        const user = await (prisma.user.findUnique as any)({
+        // REAL USER: token → user is resolved before any tenant scope exists, so
+        // it is platform-level by definition (the scope for everything after this
+        // is derived from it). With no scope this would run with RLS applied and
+        // an empty school, find nothing, and every real user would get 401
+        // "User no longer exists" right after a successful sign-in.
+        const user = await runAsPlatform(() => (prisma.user.findUnique as any)({
             where: { id: decoded.id },
             include: {
                 school: true,
@@ -143,7 +149,7 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
                 teacher_profile: true,
                 parent_profile: true
             }
-        });
+        }));
 
         if (!user) {
             // User deleted — reject immediately, no ghost fallback
@@ -235,10 +241,12 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
                 .flat()
                 .filter((v): v is string => typeof v === 'string' && v !== '' && v !== 'all' && v !== 'undefined' && v !== 'null');
             if (candidates.length) {
-                const owners = await prisma.branch.findMany({
+                // Deliberately cross-school: the check is whether a requested branch
+                // belongs to ANOTHER school, which the tenant scope would hide.
+                const owners = await runAsPlatform(() => prisma.branch.findMany({
                     where: { id: { in: Array.from(new Set(candidates)) } },
                     select: { id: true, school_id: true },
-                });
+                }));
                 const foreign = owners.find(b => b.school_id !== user.school_id);
                 if (foreign) {
                     console.error(`🚨 [Security] Cross-tenant branch assertion: ${user.id} (school ${user.school_id}) tried branch ${foreign.id} of school ${foreign.school_id}`);
@@ -320,6 +328,8 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
                 branchId: effectiveBranchId,
                 userId: user.id,
                 allowedBranchIds: entitledBranches,
+                // The platform owner's account has no school of its own.
+                platform: roleUpperCtx === 'SUPER_ADMIN',
             },
             next
         );

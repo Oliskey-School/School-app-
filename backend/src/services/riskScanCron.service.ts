@@ -1,4 +1,5 @@
 import prisma from '../config/database';
+import { runAsPlatform } from '../lib/tenantContext';
 import { RiskService } from './risk.service';
 
 /**
@@ -39,7 +40,7 @@ export function startRiskScanCron() {
 
     // 01:00 Africa/Lagos — after the midnight subscription cron.
     cron.schedule('0 1 * * *', () => {
-        runRiskScanForAllSchools().catch(e => console.error('[RiskScanCron] crashed:', e));
+        runAsPlatform(() => runRiskScanForAllSchools()).catch(e => console.error('[RiskScanCron] crashed:', e));
     }, { timezone: 'Africa/Lagos' });
 
     console.log('🕛 [RiskScanCron] Scheduled daily at 01:00 Africa/Lagos');

@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../generated/prisma-client';
 import { OnboardingService } from '../services/onboarding.service';
 
 const prisma = new PrismaClient();

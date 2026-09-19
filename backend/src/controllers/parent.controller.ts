@@ -463,19 +463,20 @@ export const recordPayment = async (req: AuthRequest, res: Response) => {
             return res.status(400).json({ message: 'A verified gateway reference is required to record a payment' });
         }
         const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
-        const verified = await TransactionService.verifyPayment(req.user.school_id, branchId, reference, gateway);
-        if (!verified || (verified as any).status !== 'success') {
-            return res.status(402).json({ message: 'Payment could not be verified with the gateway' });
-        }
+        // Throws (402/503) unless the gateway confirms a successful transaction.
+        const verified = await TransactionService.verifyPayment(reference, gateway);
 
         const result = await ParentService.recordPayment(req.user.school_id, branchId, {
             ...req.body,
             student_id,
-            amount: (verified as any).amount,
+            reference: verified.reference,
+            payment_method: gateway,
+            amount: verified.amount, // the amount the gateway saw, never the client's
         });
         res.status(201).json(result);
     } catch (error: any) {
-        res.status(error.message === 'Student not found' ? 404 : 500).json({ message: error.message });
+        const status = error.status || (error.message === 'Student not found' ? 404 : 500);
+        res.status(status).json({ message: error.message });
     }
 };
 

@@ -6,19 +6,10 @@ import { getTenantContext } from '../lib/tenantContext';
 // everything else untouched. Bounded depth so a pathological result shape can't
 // recurse forever.
 //
-// initial_password is NOT a one-time onboarding artifact: auth.service rewrites
-// it with the new plaintext on EVERY password change/reset, so it mirrors the
-// user's CURRENT live password indefinitely. It was being returned in cleartext
-// by the /students, /teachers and /users LIST endpoints — a value read straight
-// off the API was used to log in successfully as that teacher, i.e. full account
-// takeover from a directory read. The detail route already stripped it; the list
-// routes did not.
-//
-// Credential hand-out is unaffected: the create/reset services return the freshly
-// generated password to the caller at the moment they issue it. What is removed
-// is the ability to read an existing user's live password back later — for that,
-// reset it.
-const SENSITIVE_FIELDS = ['password_hash', 'two_factor_secret', 'initial_password'];
+// The plaintext initial_password column no longer exists (migration
+// 20260919140000); the names stay in this list so a stray value in a JSON
+// column or a stale client can never reach a response.
+const SENSITIVE_FIELDS = ['password_hash', 'two_factor_secret', 'initial_password', 'password'];
 function stripSensitiveFields(value: any, depth = 0): void {
   if (!value || typeof value !== 'object' || depth > 6) return;
   if (Array.isArray(value)) {
@@ -98,124 +89,151 @@ const prismaClientSingleton = () => {
 
   globalThis.__rawPrisma = client;
 
-  return client.$extends({
+  return withScopedTransactions(client.$extends({
     query: {
-        async $allOperations({ model, args, query }) {
-            const TIMEOUT_MS = 30000;
-            const timeoutPromise = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('PrismaQueryTimeout: Operation exceeded 30s limit.')), TIMEOUT_MS)
-            );
-
-            const ctx = getTenantContext();
-
-            const run = async () => {
-                // Applies to model operations AND raw $queryRaw/$executeRaw calls.
-                //
-                // Raw calls have `model === undefined`. They used to fall straight
-                // through with no GUCs set at all, which was harmless before RLS but
-                // became a silent breakage after it: under RLS a raw SELECT with no
-                // app.current_school_id matches NOTHING, so ~37 raw call sites began
-                // returning 0 rows. BranchIdentityService is the visible symptom —
-                // its `SELECT code FROM "Branch"` came back empty, so a teacher lent
-                // to another branch silently kept their home ID instead of that
-                // branch's (the failure is swallowed by a catch in teacher.service).
-                if (ctx?.schoolId) {
-                    // set_config and the real query MUST run on the exact same
-                    // connection, or the session var never reaches the query that
-                    // needs it. prisma.$transaction(async (tx) => ...) does NOT
-                    // guarantee that — query(args) here is bound to this client, not
-                    // to `tx`, and gets dispatched on a separate pooled connection.
-                    // The array/batch form below is Prisma's documented pattern for
-                    // this exact case: it runs every element as one real DB
-                    // transaction over one connection.
-                    const raw = globalThis.__rawPrisma!;
-                    // Branch entitlement for RLS. An EMPTY string means "no branch
-                    // restriction" — correct for a school-level admin (manages every
-                    // branch) and for a parent (children may sit in different
-                    // branches). Anyone else is limited to this list, so Branch A
-                    // cannot read or write Branch B's rows even if a query forgets
-                    // its branch filter. Rows with branch_id IS NULL are school-wide
-                    // and remain visible to every branch.
-                    const branchList = (ctx.allowedBranchIds && ctx.allowedBranchIds.length)
-                        ? ctx.allowedBranchIds.join(',')
-                        : '';
-
-                    // Every GUC goes in ONE statement rather than one round-trip
-                    // each. This used to be up to four separate $executeRaw calls,
-                    // so an endpoint issuing ten model queries paid up to fifty
-                    // statements across ten transactions before doing any work.
-                    //
-                    // Nothing about the scoping changes: same GUC names, same
-                    // values, same is_local=true, same single transaction as the
-                    // query they protect. Only the number of round-trips changes.
-                    // Values are still bound as parameters — the SQL text below is
-                    // assembled purely from constants.
-                    const fragments = [`set_config('app.current_school_id', $1, true)`];
-                    const values: string[] = [ctx.schoolId];
-                    if (ctx.branchId) {
-                        values.push(ctx.branchId);
-                        fragments.push(`set_config('app.current_branch_id', $${values.length}, true)`);
-                    }
-                    if (ctx.userId) {
-                        values.push(ctx.userId);
-                        fragments.push(`set_config('app.current_user_id', $${values.length}, true)`);
-                    }
-                    values.push(branchList);
-                    fragments.push(`set_config('app.current_branch_ids', $${values.length}, true)`);
-
-                    const results = await raw.$transaction([
-                        raw.$executeRawUnsafe(`SELECT ${fragments.join(', ')}`, ...values),
-                        query(args),
-                    ] as any);
-                    return results[results.length - 1];
-                }
-
-                // No tenant context. Under RLS every tenant table denies rows unless
-                // app.current_school_id matches, so these operations — login (which
-                // looks a user up by email before any school is known), school
-                // onboarding (which creates the tenant), platform/SUPER_ADMIN reads
-                // and the seed scripts — would silently return nothing.
-                //
-                // They run with an explicit, transaction-local bypass flag instead of
-                // being implicitly trusted. This is the SAME reach these operations
-                // already have today (they were never scoped), so it grants nothing
-                // new — but it makes the exemption explicit and greppable, and it
-                // means every *authenticated* query is now DB-enforced rather than
-                // relying on ~1,900 call sites each remembering a school_id filter.
-                // Same reasoning for raw calls made outside a request (seeds, scripts,
-                // login lookups): without the flag they match nothing under RLS.
-                const raw = globalThis.__rawPrisma!;
-                const results = await raw.$transaction([
-                    raw.$executeRaw`SELECT set_config('app.bypass_rls', 'on', true)`,
-                    query(args),
-                ] as any);
-                return results[results.length - 1];
-            };
-
-            const result = await Promise.race([run(), timeoutPromise]);
-            stripSensitiveFields(result);
-            return result;
-        },
-    }
-  });
+      $allOperations({ model, operation, args, query, ...rest }) {
+        return runScoped(model, operation, args as any, query as any, true, !!(rest as any).__internalParams?.transaction);
+      },
+    },
+  }));
 };
+
+/**
+ * The session variables (GUCs) that express the current scope to the RLS
+ * policies, as ONE statement (the values are bound as parameters).
+ *
+ *  - tenant scope   → bypass OFF + school / branch / user / branch list
+ *  - platform scope → bypass ON. This is the ONLY path that may bypass RLS,
+ *    and only code wrapped in runAsPlatform()/platformContext (sign-in by
+ *    email, onboarding, demo seeding, webhooks, jobs, SUPER_ADMIN) gets it.
+ *  - no scope at all → bypass OFF with an empty school. This used to bypass
+ *    RLS silently, so any request path that reached the database without a
+ *    tenant context could read or write EVERY school. Now such a query sees
+ *    nothing / writes nothing and the call site is reported once so it can be
+ *    given the scope it actually needs.
+ *
+ * Branch entitlement: an EMPTY list means "no branch restriction" — correct
+ * for a school-level admin and for a parent whose children may sit in
+ * different branches. Anyone else is limited to the list, so Branch A cannot
+ * read or write Branch B's rows even if a query forgets its branch filter.
+ * Rows with branch_id IS NULL are school-wide and stay visible to every branch.
+ */
+function scopeGucs(ctx: ReturnType<typeof getTenantContext>): { fragments: string[]; values: string[]; unscoped: boolean } {
+  if (ctx?.schoolId) {
+    const fragments = [`set_config('app.bypass_rls', 'off', true)`, `set_config('app.current_school_id', $1, true)`];
+    const values: string[] = [ctx.schoolId];
+    if (ctx.branchId) { values.push(ctx.branchId); fragments.push(`set_config('app.current_branch_id', $${values.length}, true)`); }
+    if (ctx.userId) { values.push(ctx.userId); fragments.push(`set_config('app.current_user_id', $${values.length}, true)`); }
+    values.push(ctx.allowedBranchIds?.length ? ctx.allowedBranchIds.join(',') : '');
+    fragments.push(`set_config('app.current_branch_ids', $${values.length}, true)`);
+    return { fragments, values, unscoped: false };
+  }
+  if (ctx?.platform) return { fragments: [`set_config('app.bypass_rls', 'on', true)`], values: [], unscoped: false };
+  return { fragments: [`set_config('app.bypass_rls', 'off', true)`, `set_config('app.current_school_id', '', true)`, `set_config('app.current_branch_ids', '', true)`], values: [], unscoped: true };
+}
+
+const unscopedWarned = new Set<string>();
+function warnUnscopedOnce(model: string | undefined, op: string) {
+  const key = `${model}:${op}`;
+  if (unscopedWarned.has(key)) return;
+  unscopedWarned.add(key);
+  console.warn(`[RLS] ${model ?? 'raw'}.${op} ran with NO tenant or platform scope (RLS applied, tenant rows invisible). Wrap the caller in runAsPlatform() if it is genuinely platform-level.`);
+}
+
+/**
+ * Run one Prisma operation with the current scope applied on the SAME
+ * connection. Applies to model operations AND raw $queryRaw/$executeRaw calls
+ * (raw calls have `model === undefined`; under RLS a raw SELECT with no
+ * app.current_school_id matches nothing, so they must be scoped too).
+ *
+ * The GUC statement and the query are batched into one real DB transaction
+ * over one connection — Prisma's documented pattern for exactly this. Shared
+ * by the default client and the privileged auth client; only the
+ * sensitive-field scrubbing differs.
+ */
+async function runScoped(model: string | undefined, operation: string, args: any, query: (a: any) => Promise<any>, stripSensitive: boolean, inTransaction: boolean): Promise<any> {
+  // Inside an interactive or batch transaction opened through this client the
+  // scope GUCs were already set on that transaction's connection by the
+  // $transaction override below — run the operation there as-is. Opening a
+  // nested batch here (the previous behaviour) ran every statement on a
+  // DIFFERENT connection: nothing inside `prisma.$transaction(async tx …)`
+  // was atomic, and each outer transaction held a pooled connection idle
+  // while its statements queued for more — the P2028 "Unable to start a
+  // transaction in the given time" seen under bursts of admin edits.
+  if (inTransaction) {
+    const result = await query(args);
+    if (stripSensitive) stripSensitiveFields(result);
+    return result;
+  }
+
+  const TIMEOUT_MS = 30000;
+  let timer: NodeJS.Timeout | undefined;
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error('PrismaQueryTimeout: Operation exceeded 30s limit.')), TIMEOUT_MS);
+  });
+
+  const run = async () => {
+    const raw = globalThis.__rawPrisma!;
+    const { fragments, values, unscoped } = scopeGucs(getTenantContext());
+    if (unscoped) warnUnscopedOnce(model, operation);
+    const results = await raw.$transaction([
+      raw.$executeRawUnsafe(`SELECT ${fragments.join(', ')}`, ...values),
+      query(args),
+    ] as any);
+    return results[results.length - 1];
+  };
+
+  try {
+    const result = await Promise.race([run(), timeoutPromise]);
+    if (stripSensitive) stripSensitiveFields(result);
+    return result;
+  } finally {
+    // Never leave the 30s timer pending after the query settles: it leaked one
+    // timer per query and kept every serverless invocation alive.
+    if (timer) clearTimeout(timer);
+  }
+}
+
+/**
+ * Wrap a query-extended client so that BOTH forms of `$transaction` run every
+ * statement on one connection with the scope GUCs set first:
+ *   - interactive: `prisma.$transaction(async (tx) => …)` — GUCs are set on
+ *     the transaction connection before the callback runs, so locks, SET LOCAL
+ *     and rollback genuinely work;
+ *   - batch: `prisma.$transaction([op1, op2])` — a GUC-setting statement is
+ *     prepended to the batch.
+ * Operations issued through `tx` (or inside the batch) are detected in
+ * runScoped via Prisma's transaction marker and executed as-is.
+ */
+function withScopedTransactions<C extends { $transaction: any; $executeRawUnsafe: any }>(extended: C): C {
+  return (extended as any).$extends({
+    client: {
+      $transaction(arg: any, options?: any) {
+        const { fragments, values, unscoped } = scopeGucs(getTenantContext());
+        if (unscoped) warnUnscopedOnce(undefined, '$transaction');
+        const gucSql = `SELECT ${fragments.join(', ')}`;
+        if (typeof arg === 'function') {
+          return extended.$transaction(async (tx: any) => {
+            await tx.$executeRawUnsafe(gucSql, ...values);
+            return arg(tx);
+          }, options);
+        }
+        return extended.$transaction([extended.$executeRawUnsafe(gucSql, ...values), ...arg], options)
+          .then((results: any[]) => results.slice(1));
+      },
+    },
+  });
+}
 
 const prisma = globalThis.prisma ?? prismaClientSingleton();
 
 /**
- * Returns a Prisma client for operations that need access to sensitive fields
- * like `password_hash` / `two_factor_secret`, which the default client strips
- * from every result (e.g. AuthService.login, verify2FALogin, updatePassword).
- *
- * These run BEFORE any tenant is known — login looks a user up by email — so
- * under RLS they must carry the explicit bypass flag, exactly like the unscoped
- * branch of the main extension. Without it every real login failed with
- * "Invalid credentials": the row existed but the policy hid it.
- *
- * NOTE: this deliberately returns a SEPARATE extended client, leaving
- * `globalThis.__rawPrisma` as the plain base client. The main extension batches
- * `__rawPrisma.$transaction([...setters, query(args)])`, and pointing that at an
- * extended client would recurse.
+ * Privileged Prisma client for authentication/2FA operations that need
+ * password_hash or two_factor_secret in the result (AuthService.login,
+ * verify2FALogin, updatePassword). It applies EXACTLY the same tenant/platform
+ * scoping as the default client — sign-in runs under the auth router's
+ * platform scope — the only difference is that sensitive fields are not
+ * scrubbed from results. It is no longer an unconditional RLS bypass.
  */
 let _privilegedPrisma: any = null;
 export function getRawPrisma(): PrismaClient {
@@ -223,19 +241,13 @@ export function getRawPrisma(): PrismaClient {
     prismaClientSingleton();
   }
   if (!_privilegedPrisma) {
-    const base = globalThis.__rawPrisma!;
-    _privilegedPrisma = base.$extends({
+    _privilegedPrisma = withScopedTransactions(globalThis.__rawPrisma!.$extends({
       query: {
-        async $allOperations({ model, args, query }) {
-          if (!model) return query(args);
-          const results = await base.$transaction([
-            base.$executeRaw`SELECT set_config('app.bypass_rls', 'on', true)`,
-            query(args),
-          ] as any);
-          return results[results.length - 1];
+        $allOperations({ model, operation, args, query, ...rest }) {
+          return runScoped(model, operation, args as any, query as any, false, !!(rest as any).__internalParams?.transaction);
         },
       },
-    });
+    }));
   }
   return _privilegedPrisma as PrismaClient;
 }
@@ -265,6 +277,7 @@ export async function withTenantTransaction<T>(
   if (!globalThis.__rawPrisma) prismaClientSingleton();
   const base = globalThis.__rawPrisma!;
   return base.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT set_config('app.bypass_rls', 'off', true)`;
     await tx.$executeRaw`SELECT set_config('app.current_school_id', ${scope.schoolId}, true)`;
     if (scope.branchId) await tx.$executeRaw`SELECT set_config('app.current_branch_id', ${scope.branchId}, true)`;
     if (scope.userId) await tx.$executeRaw`SELECT set_config('app.current_user_id', ${scope.userId}, true)`;

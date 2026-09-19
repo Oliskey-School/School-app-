@@ -98,7 +98,7 @@ export class UserService {
     // Personal Security Settings screen) and is safe to allow.
     private static readonly FORBIDDEN_UPDATE_FIELDS = [
         'id', 'role', 'school_id', 'password_hash', 'password',
-        'email_verified', 'initial_password', 'two_factor_secret',
+        'email_verified', 'two_factor_secret',
         'created_at', 'updated_at'
     ];
 

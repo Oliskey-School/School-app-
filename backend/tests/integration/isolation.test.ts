@@ -432,17 +432,23 @@ describe('RLS Policy Enforcement at Database Level', () => {
         }
     });
 
-    // NOTE: This backend enforces tenant isolation at the APPLICATION layer (every query
-    // is scoped by school_id/branch_id from the trusted JWT — see the passing isolation
-    // tests above and the admin-isolation-audit suite), NOT via Postgres row-level
-    // security policies. So asserting pg_policies rows here tests a mechanism this
-    // architecture intentionally does not use. Skipped to reflect that design choice.
-    it.skip('Verifies branch isolation through RLS (architecture uses app-level scoping, not pg RLS)', async () => {
-        const policies = await prisma.$queryRaw`
-            SELECT tablename, policyname FROM pg_policies
-            WHERE tablename IN ('Student', 'Teacher', 'Class', 'Attendance')
-            ORDER BY tablename;
+    // Tenant isolation is enforced by Postgres row-level security (migrations
+    // 20260822000000 / 20260822010000 / 20260823000000) on top of the
+    // application-level scoping asserted above. Every core tenant table must
+    // carry a FORCED tenant_isolation policy, otherwise the app role could read
+    // another school's rows the moment a query forgot its school_id filter.
+    it('Verifies branch isolation is backed by FORCED row-level security policies', async () => {
+        const rows: { tablename: string; policyname: string; forced: boolean }[] = await prisma.$queryRaw`
+            SELECT p.tablename, p.policyname, c.relforcerowsecurity AS forced
+            FROM pg_policies p
+            JOIN pg_class c ON c.relname = p.tablename
+            WHERE p.tablename IN ('Student', 'Teacher', 'Class', 'Attendance')
+            ORDER BY p.tablename;
         `;
-        expect(Array.isArray(policies)).toBe(true);
+        const byTable = new Map(rows.map(r => [r.tablename, r]));
+        for (const t of ['Student', 'Teacher', 'Class', 'Attendance']) {
+            expect(byTable.get(t)?.policyname, `${t} has no RLS policy`).toBe('tenant_isolation');
+            expect(byTable.get(t)?.forced, `${t} RLS is not FORCED (table owner would bypass it)`).toBe(true);
+        }
     });
 });

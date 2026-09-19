@@ -1,10 +1,14 @@
 import { Router } from 'express';
+import { platformContext } from '../lib/tenantContext';
 import * as SchoolController from '../controllers/school.controller';
 import { schoolManifest, schoolIcon } from '../controllers/schoolBranding.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { requireRole } from '../middleware/tenant.middleware';
 
 const router = Router();
+// Public / cross-school endpoints run in explicit platform scope (see
+// lib/tenantContext.ts); per-route `authenticate` narrows to the tenant.
+router.use(platformContext);
 
 router.get('/public', SchoolController.listPublicSchools);
 // PWA install branding — fetched by the browser without auth (see controller).
@@ -31,7 +35,11 @@ router.put('/', authenticate, SchoolController.updateMySchool);
 // destructive action must be role-gated here as well.
 router.delete('/:id', authenticate, requireRole(['SUPER_ADMIN', 'ADMIN', 'PROPRIETOR']), SchoolController.deleteSchool);
 router.put('/:id', authenticate, SchoolController.updateSchool);
-router.post('/:id/subscription', authenticate, SchoolController.updateSchoolSubscription);
+// Plan / status changes WITHOUT a verified payment are a platform-staff
+// operation (support, comps, trial extensions). A school's own admin upgrades
+// only through POST /api/subscription/activate, which verifies the Paystack
+// transaction and the amount before touching plan_type.
+router.post('/:id/subscription', authenticate, requireRole(['SUPER_ADMIN']), SchoolController.updateSchoolSubscription);
 
 router.get('/:id/policies', authenticate, SchoolController.getSchoolPolicies);
 router.get('/:id/photos', authenticate, SchoolController.getSchoolPhotos);

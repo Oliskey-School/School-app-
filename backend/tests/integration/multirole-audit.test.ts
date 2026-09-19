@@ -204,7 +204,8 @@ describe('Multi-Role Audit (Teacher / Student / Parent / Onboarding)', () => {
       await expect(OnboardingService.createSchoolWithSetup({
         schoolName: 'Dup', schoolCode: ONBOARD_CODE, schoolEmail: 'd@x.com', phone: '080',
         mainBranchName: 'Main', mainBranchCode: 'MAIN', adminName: 'D', adminEmail: 'dup-admin@x.com',
-        adminPassword: 'x', planType: 'free',
+        // A valid password: input validation runs before the code-uniqueness check.
+        adminPassword: 'DupOwnerPass123!', planType: 'free',
       })).rejects.toThrow(/already taken/i);
     });
 

@@ -82,20 +82,6 @@ export const approveStudent = async (req: AuthRequest, res: Response) => {
     }
 };
 
-// `initial_password` mirrors a student's CURRENT real login password (it is
-// rewritten on every change/reset — see the same note in teacher.service.ts),
-// so it must never reach a non-admin caller. Admins keep it: the credential
-// hand-out screens legitimately display it.
-function stripStudentCredentials(result: any): any {
-    const scrub = (student: any) => {
-        if (student && student.user && 'initial_password' in student.user) {
-            delete student.user.initial_password;
-        }
-        return student;
-    };
-    return Array.isArray(result) ? result.map(scrub) : scrub(result);
-};
-
 export const getAllStudents = async (req: AuthRequest, res: Response) => {
     try {
         // The full student roster (every classmate's linked user record) is
@@ -130,7 +116,8 @@ export const getAllStudents = async (req: AuthRequest, res: Response) => {
 
         const result = await StudentService.getAllStudents(req.user.school_id, branchId, classId, status, scope);
 
-        res.json(isAdmin(req) ? result : stripStudentCredentials(result));
+        // Credentials are never stored, so there is nothing to scrub per role.
+        res.json(result);
     } catch (error: any) {
         sendError(res, error, 'student.controller.ts');
     }

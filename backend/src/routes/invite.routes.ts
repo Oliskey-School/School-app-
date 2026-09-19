@@ -43,6 +43,7 @@ router.post('/invite-user', authenticate, requireRole(['admin', 'proprietor']), 
         console.log(`[LocalInvite] Inviting ${email} as ${role} (${roleEnum}) for school ${school_id}`);
 
         // Check if user already exists
+        let tempPassword: string | null = null;
         let user = await prisma.user.findFirst({
             where: { email: email.toLowerCase() }
         });
@@ -59,7 +60,7 @@ router.post('/invite-user', authenticate, requireRole(['admin', 'proprietor']), 
             }
         } else {
             // Create user with a temporary random password
-            const tempPassword = Math.random().toString(36).slice(-10) + '1!A';
+            tempPassword = Math.random().toString(36).slice(-10) + '1!A';
             const hashedPassword = await bcrypt.hash(tempPassword, 10);
 
             // Every user needs the platform's standard {SCHOOL}_{BRANCH}_{ROLE}_{NUM}
@@ -78,7 +79,6 @@ router.post('/invite-user', authenticate, requireRole(['admin', 'proprietor']), 
                         school_id,
                         branch_id: branch_id || null,
                         email_verified: false,
-                        initial_password: tempPassword,
                         school_generated_id: schoolGeneratedId
                     }
                 });
@@ -107,7 +107,7 @@ router.post('/invite-user', authenticate, requireRole(['admin', 'proprietor']), 
                 email: user!.email,
                 username: user!.school_generated_id || user!.email,
                 school_generated_id: user!.school_generated_id,
-                initial_password: user!.initial_password
+                initial_password: tempPassword // one-time: returned to the inviting admin, never stored
             }
         });
     } catch (error: any) {

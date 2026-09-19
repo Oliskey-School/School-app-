@@ -1,7 +1,11 @@
 import { Router } from 'express';
+import { platformContext } from '../lib/tenantContext';
 import { TestOTPStore } from '../services/test-otp.store';
 
 const router = Router();
+// Public / cross-school endpoints run in explicit platform scope (see
+// lib/tenantContext.ts); per-route `authenticate` narrows to the tenant.
+router.use(platformContext);
 
 // 🚨 TESTING ONLY: This route is only registered in non-production environments
 // (see routes/index.ts — NODE_ENV != production AND ENABLE_DEBUG_ROUTES=true).

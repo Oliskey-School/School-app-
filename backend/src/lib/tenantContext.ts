@@ -26,12 +26,41 @@ export interface TenantContext {
      * everyone in the school.
      */
     allowedBranchIds?: string[] | null;
+    /**
+     * Platform-level work that legitimately spans schools: sign-in by email,
+     * onboarding a new school, demo seeding, payment webhooks, scheduled jobs,
+     * the platform owner's own account. ONLY code that runs inside
+     * runAsPlatform()/platformContext gets the RLS bypass; a query with no
+     * context at all runs with RLS fully applied (and sees nothing
+     * tenant-owned) instead of silently bypassing it.
+     */
+    platform?: boolean;
 }
 
 const storage = new AsyncLocalStorage<TenantContext>();
 
-export function runWithTenantContext<T>(context: TenantContext, fn: () => T): T {
-    return storage.run(context, fn);
+export function runWithTenantContext<T>(context: TenantContext, fn: () => T): Promise<Awaited<T>> {
+    // `await` INSIDE the store: a lazy PrismaPromise returned from `fn` would
+    // otherwise execute after storage.run() returned, outside the context.
+    return storage.run(context, async () => (await fn()) as Awaited<T>) as any;
+}
+
+/** Run `fn` as platform-level (cross-school) work. Keep the body minimal. */
+export function runAsPlatform<T>(fn: () => T): Promise<Awaited<T>> {
+    return storage.run({ platform: true }, async () => (await fn()) as Awaited<T>) as any;
+}
+
+/** Express middleware form of runAsPlatform for public / cross-school routers. */
+export function platformContext(_req: any, _res: any, next: () => void) {
+    return storage.run({ platform: true }, next);
+}
+
+/**
+ * Test-only: puts the whole current async tree in platform scope so fixtures
+ * can be created directly. Never call this from application code.
+ */
+export function enterPlatformScopeForTests() {
+    storage.enterWith({ platform: true });
 }
 
 export function getTenantContext(): TenantContext | undefined {

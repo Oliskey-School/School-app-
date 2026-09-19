@@ -26,6 +26,16 @@ const STARTUP_GRACE_MS = (() => {
     return Number.isFinite(v) && v > 0 ? v : 60_000;
 })();
 
+/**
+ * Redis is OPTIONAL. It is only used when REDIS_URL is set. Without it the
+ * client below is created but never connected: no retry loop against a
+ * localhost that does not exist, no boot-time error storm, and every consumer
+ * goes straight to its in-memory behaviour via isRedisReady() === false.
+ * (Production on Vercel has no Redis; guessing 'redis://localhost:6379' there
+ * produced "Redis not ready" on every limiter at every cold start.)
+ */
+export const redisConfigured = !!process.env.REDIS_URL;
+
 export const redisConnection = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379', {
     maxRetriesPerRequest: null,
     enableReadyCheck: false,
@@ -61,7 +71,11 @@ redisConnection.on('ready', () => {
     console.log('✅ [Redis] Shared connection ready — cache, rate limiting, and CSRF replay guard are Redis-backed.');
 });
 
-redisConnection.connect().catch(() => { /* handled by the error listener */ });
+if (redisConfigured) {
+    redisConnection.connect().catch(() => { /* handled by the error listener */ });
+} else {
+    console.info('ℹ️  [Redis] REDIS_URL not set — rate limiting, CSRF replay guard, and cache use in-memory (per-process) behaviour.');
+}
 
 /** True once the shared connection has completed its handshake. Callers use
  * this to decide whether to attempt a Redis op or go straight to their
@@ -96,6 +110,7 @@ export function isRedisReady(): boolean {
  */
 export function waitForRedisReady(timeoutMs = 10_000): Promise<boolean> {
     if (isReady) return Promise.resolve(true);
+    if (!redisConfigured) return Promise.resolve(false);
     if (everBeenReady) return Promise.resolve(false);
     // A first connect attempt already failed — Redis is absent, not merely slow.
     // Fail fast now and on every later call; do NOT wait out timeoutMs (that's the

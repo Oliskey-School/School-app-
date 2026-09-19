@@ -1,9 +1,13 @@
 import { Router } from 'express';
+import { platformContext } from '../lib/tenantContext';
 import { ParentAuthController } from '../controllers/parentAuth.controller';
 import { otpLimiter } from '../middleware/rateLimiters';
 import { authenticate } from '../middleware/auth.middleware';
 
 const router = Router();
+// Public / cross-school endpoints run in explicit platform scope (see
+// lib/tenantContext.ts); per-route `authenticate` narrows to the tenant.
+router.use(platformContext);
 
 // Email verification routes
 router.post('/verify-email/send', otpLimiter, ParentAuthController.sendVerificationEmail);

@@ -6,9 +6,8 @@ import { requireRole } from '../middleware/tenant.middleware';
 const router = Router();
 
 router.get('/', PlanController.getAllPlans);
-router.get('/status', PlanController.getPlanStatus);
+router.get('/status', authenticate, PlanController.getPlanStatus);
 router.post('/', authenticate, requireRole(['SuperAdmin']), PlanController.createPlan);
-router.post('/subscribe', authenticate, PlanController.recordSubscriptionPayment);
 router.put('/:id', authenticate, requireRole(['SuperAdmin']), PlanController.updatePlan);
 router.delete('/:id', authenticate, requireRole(['SuperAdmin']), PlanController.deletePlan);
 

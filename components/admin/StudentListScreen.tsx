@@ -110,11 +110,6 @@ const StudentRow: React.FC<{
                 {student.curriculum_type}
               </span>
             )}
-            {(student.user?.initial_password || student.initial_password) && (
-              <span className="ml-2 text-indigo-600 bg-indigo-50 px-1 py-0.5 rounded text-xs">
-                Pass: {student.user?.initial_password || student.initial_password}
-              </span>
-            )}
           </p>
         </div>
       </button>
@@ -327,8 +322,7 @@ const mapStudent = (s: any) => ({
   attendanceStatus: s.attendance_status || s.attendanceStatus || 'Absent',
   birthday: s.birthday,
   classId: s.class_id || s.classId,
-  status: s.status,
-  initial_password: s.user?.initial_password || s.initial_password
+  status: s.status
 });
 
 // Graduated/Transferred students live exclusively in the Past Students archive —

@@ -115,15 +115,14 @@ export const updateMySchool = async (req: AuthRequest, res: Response) => {
 
 export const updateSchoolSubscription = async (req: AuthRequest, res: Response) => {
     try {
-        // Plan / subscription is school-wide — Main Admin only.
-        if (!isMainAdmin(req.user)) return res.status(403).json({ message: 'Only the main admin can change the subscription/plan.' });
-        const schoolId = req.user.school_id;
-        if (!schoolId) return res.status(400).json({ message: 'School context required' });
-        // :id is client-supplied and must be checked against the caller's verified
-        // tenant — same rule as updateSchool above. Without this, any main admin
-        // (including a demo visitor) could change another school's plan and read
-        // its record back.
-        if (schoolId !== req.params.id) return res.status(403).json({ message: 'Unauthorized' });
+        // Sets plan/status with NO payment verification, so it is restricted to
+        // platform staff (route: requireRole SUPER_ADMIN). A school admin used to
+        // be able to call this on their own school and grant themselves any plan
+        // for free; paid upgrades go through POST /api/subscription/activate.
+        const role = String(req.user?.role || '').toUpperCase();
+        if (role !== 'SUPER_ADMIN' && role !== 'SUPERADMIN') return res.status(403).json({ message: 'Only platform staff can change a subscription without a verified payment.' });
+        const schoolId = req.params.id as string;
+        if (!schoolId) return res.status(400).json({ message: 'School id required' });
 
         const updates: any = {};
         const { planType, subscriptionStatus, trialEndsAt, isPremium } = req.body;

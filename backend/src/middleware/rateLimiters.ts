@@ -1,40 +1,115 @@
-import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator, MemoryStore } from 'express-rate-limit';
+import type { Store, Options, IncrementResponse, ClientRateLimitInfo } from 'express-rate-limit';
 import { RedisStore } from 'rate-limit-redis';
 import jwt from 'jsonwebtoken';
-import { redisConnection, isRedisReady, waitForRedisReady } from '../config/redis';
+import { redisConnection, redisConfigured, isRedisReady, waitForRedisReady } from '../config/redis';
 import { config } from '../config/env';
 
 /**
- * Tiered, Redis-backed rate limiting.
+ * Tiered rate limiting with a store that ALWAYS enforces.
  *
- * Every limiter created here shares ONE Redis-backed store keyed by prefix,
- * so counts survive process restarts and are consistent across horizontally
- * scaled instances — the whole point of moving off express-rate-limit's
- * default in-memory store. When Redis is unreachable, `sendCommand` fails
- * fast (no offline-queue wait) and `passOnStoreError: true` makes the
- * limiter fail OPEN (requests pass through) rather than taking the API down
- * with it — availability over strict enforcement during a Redis outage.
+ * When REDIS_URL is set, every limiter shares one Redis-backed store keyed by
+ * prefix, so counts survive process restarts and are consistent across
+ * horizontally scaled instances. When Redis is not configured, or is
+ * configured but unreachable, the store falls back to express-rate-limit's
+ * in-process MemoryStore for that call — limits are still enforced, just per
+ * process/instance.
  *
- * Every limiter below is constructed at module-load time (app.ts's route
- * imports run synchronously at boot), which fires each store's one-time Lua
- * script preload before the real Redis connection has finished its async
- * handshake — an instant isRedisReady() check there is a guaranteed-false
- * race on every cold start, not a real outage. waitForRedisReady() gives
- * that one-time call a short bounded wait instead of failing (and logging)
- * on a race that resolves itself a moment later; ongoing per-request calls
- * still check isRedisReady() directly so an actual outage fails fast.
+ * ROOT CAUSE this replaces: the limiters used a bare RedisStore with
+ * `passOnStoreError: true`. With no Redis (production on Vercel has none) the
+ * store rejected "Redis not ready" on every call, and passOnStoreError turned
+ * EVERY limiter into a no-op — unlimited login, OTP, password-reset and
+ * signup attempts — while logging an error storm at each cold start.
+ * Regression test: tests/integration/rate-limit-without-redis.test.ts.
  */
-function redisStore(prefix: string) {
-    return new RedisStore({
-        prefix: `rl:${prefix}:`,
-        sendCommand: async (...args: string[]) => {
-            if (!isRedisReady() && !(await waitForRedisReady())) {
-                return Promise.reject(new Error('Redis not ready'));
-            }
-            const [command, ...rest] = args;
-            return redisConnection.call(command, rest) as Promise<any>;
-        },
-    });
+const REDIS_STORE_LOG_THROTTLE_MS = 60_000;
+let lastStoreErrorLogAt = 0;
+function logStoreErrorThrottled(prefix: string, err: unknown) {
+    const now = Date.now();
+    if (now - lastStoreErrorLogAt < REDIS_STORE_LOG_THROTTLE_MS) return;
+    lastStoreErrorLogAt = now;
+    console.warn(`⚠️  [RateLimit] Redis store "${prefix}" unavailable (${(err as Error)?.message || err}); enforcing in memory until Redis is back.`);
+}
+
+class ResilientStore implements Store {
+    readonly localKeys = false;
+    private readonly memory = new MemoryStore();
+    private readonly redis: RedisStore | null;
+    private redisInitialised = false;
+
+    constructor(readonly prefix: string) {
+        this.redis = redisConfigured
+            ? new RedisStore({
+                prefix: `rl:${prefix}:`,
+                sendCommand: async (...args: string[]) => {
+                    // Limiters are built at module load, before the async Redis
+                    // handshake completes — waitForRedisReady() bounds that
+                    // one-time race; a real outage fails fast (see config/redis.ts).
+                    if (!isRedisReady() && !(await waitForRedisReady())) {
+                        throw new Error('Redis not ready');
+                    }
+                    const [command, ...rest] = args;
+                    return redisConnection.call(command, rest) as Promise<any>;
+                },
+            })
+            : null;
+    }
+
+    init(options: Options) {
+        this.memory.init(options);
+        if (!this.redis) return;
+        // Preload the Lua scripts, but never let a missing Redis fail the
+        // limiter: the first successful increment loads them on demand.
+        this.redis.init(options).then(() => { this.redisInitialised = true; }).catch((err) => logStoreErrorThrottled(this.prefix, err));
+    }
+
+    private redisUsable(): boolean {
+        return !!this.redis && isRedisReady();
+    }
+
+    async increment(key: string): Promise<IncrementResponse> {
+        if (this.redisUsable()) {
+            try { return await this.redis!.increment(key); }
+            catch (err) { logStoreErrorThrottled(this.prefix, err); }
+        }
+        return this.memory.increment(key);
+    }
+
+    async get(key: string): Promise<ClientRateLimitInfo | undefined> {
+        if (this.redisUsable() && this.redisInitialised) {
+            try { return await this.redis!.get(key); }
+            catch (err) { logStoreErrorThrottled(this.prefix, err); }
+        }
+        return this.memory.get(key);
+    }
+
+    async decrement(key: string): Promise<void> {
+        if (this.redisUsable()) {
+            try { await this.redis!.decrement(key); return; }
+            catch (err) { logStoreErrorThrottled(this.prefix, err); }
+        }
+        this.memory.decrement(key);
+    }
+
+    async resetKey(key: string): Promise<void> {
+        if (this.redisUsable()) {
+            try { await this.redis!.resetKey(key); }
+            catch (err) { logStoreErrorThrottled(this.prefix, err); }
+        }
+        this.memory.resetKey(key);
+    }
+
+    resetAll(): void {
+        this.memory.resetAll();
+    }
+
+    shutdown(): void {
+        this.memory.shutdown();
+    }
+}
+
+function redisStore(prefix: string): Store {
+    return new ResilientStore(prefix);
 }
 
 /**
@@ -78,7 +153,6 @@ export const globalApiLimiter = rateLimit({
     keyGenerator: userOrIpKeyGenerator,
     standardHeaders: 'draft-7',
     legacyHeaders: false,
-    passOnStoreError: true,
     store: redisStore('global'),
     message: { error: 'Too many requests, please try again later.' },
     skip: (req) => {
@@ -113,7 +187,6 @@ const authTierLimiter = (opts: { windowMs: number; limit: number; message: strin
         keyGenerator: (req) => ipKeyGenerator(req.ip as string),
         standardHeaders: 'draft-7',
         legacyHeaders: false,
-        passOnStoreError: true,
         store: redisStore(opts.prefix),
         message: { error: opts.message },
         // Loopback is exempt outside production so local tooling and the E2E

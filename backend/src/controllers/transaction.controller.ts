@@ -28,8 +28,8 @@ export const verifyPayment = async (req: AuthRequest, res: Response) => {
     try {
         const { reference } = req.params;
         const { gateway } = req.query; // 'paystack' or 'flutterwave'
-        const branchId = getEffectiveBranchId(req.user);
-        const result = await TransactionService.verifyPayment(req.user.school_id as string, branchId, reference as string, gateway as string);
+        // Read-only check against the gateway; recording happens via the fee/parent payment endpoints.
+        const result = await TransactionService.verifyPayment(reference as string, gateway as string);
         res.json(result);
     } catch (error: any) {
         sendError(res, error, 'transaction.controller.ts');

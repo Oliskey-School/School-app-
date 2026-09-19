@@ -203,8 +203,11 @@ export class NotificationService {
                     user_id: userId,
                     categories: defaultCategories,
                     digest_time: '19:00',
-                    school_id: owner.school_id || 'GLOBAL',
-                    branch_id: 'GLOBAL'
+                    // The caller's own school. (Defaults used to be written under a
+                    // fake 'GLOBAL' tenant, which only ever worked with a superuser
+                    // connection — RLS correctly refuses that row.)
+                    school_id: owner.school_id,
+                    branch_id: null
                 }
             });
         }

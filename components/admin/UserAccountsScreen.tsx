@@ -18,7 +18,6 @@ interface AuthAccount {
     created_at: string;
     is_active: boolean;
     name?: string;
-    initial_password?: string;
 }
 
 const UserAccountsScreen: React.FC = () => {
@@ -210,7 +209,7 @@ const UserAccountsScreen: React.FC = () => {
                                             <div className="flex items-center gap-2">
                                                 <span className="font-mono bg-gray-50 px-2 py-1 rounded border border-gray-200">
                                                     {visiblePasswords.has(account.id)
-                                                        ? (account.initial_password || account.username || '********')
+                                                        ? 'Not stored — use Reset Password'
                                                         : '••••••••'}
                                                 </span>
                                                 <button
@@ -301,7 +300,7 @@ const UserAccountsScreen: React.FC = () => {
                                         <div className="flex items-center space-x-2">
                                             <span className="text-gray-500 text-xs uppercase">Password:</span>
                                             <span className="font-mono text-gray-700">
-                                                {visiblePasswords.has(account.id) ? (account.initial_password || account.username || '********') : '••••••••'}
+                                                {visiblePasswords.has(account.id) ? 'Not stored — use Reset Password' : '••••••••'}
                                             </span>
                                         </div>
                                         <button
