@@ -243,6 +243,16 @@ test.describe('Production critical path', () => {
             await search.fill(uniqueName);
             await page.waitForTimeout(1200);
         }
+        // The roster groups students by stage and class inside accordions that
+        // start collapsed (a search does not expand them), so open them the way
+        // a user would before checking the row is there.
+        for (let round = 0; round < 3; round++) {
+            const closed = page.locator('button[aria-expanded="false"]');
+            const n = await closed.count();
+            if (n === 0) break;
+            for (let i = 0; i < n; i++) await closed.first().click({ timeout: 2000 }).catch(() => {});
+            await page.waitForTimeout(300);
+        }
         await expect(page.locator(`text="${uniqueName}"`).first(), ['API trace:', ...apiTrace].join(String.fromCharCode(10))).toBeVisible({ timeout: 10_000 });
     });
 
