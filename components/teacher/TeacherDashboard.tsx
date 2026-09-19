@@ -423,7 +423,6 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
       scrollKey={scrollKey}
       activeScreen={activeBottomNav}
       setActiveScreen={handleBottomNavClick}
-      onProfileClick={() => navigateTo('editTeacherProfile', 'My Profile')}
       hideHeader={hideBottomNav}
       hidePadding={isFullScreen}
       hideBottomNav={hideBottomNav}

@@ -10,6 +10,7 @@ import TeacherCurriculumBadges from '../shared/TeacherCurriculumBadges';
 import { User, FileText, BookOpen, CheckCircle, Upload, AlertCircle } from 'lucide-react';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import CenteredLoader from '../ui/CenteredLoader';
+import { onImageClick } from '../shared/ImageLightbox';
 
 interface TeacherProfileProps {
     teacherId: string;
@@ -118,7 +119,8 @@ export default function TeacherProfileEnhanced({ teacherId }: TeacherProfileProp
                                         key={refreshKey}
                                         src={`${teacher.avatar_url}${teacher.avatar_url.includes('uploads/') ? `?t=${refreshKey}` : ''}`} 
                                         alt={teacher.full_name || teacher.name} 
-                                        className="w-full h-full object-cover"
+                                        onClick={onImageClick}
+                                        className="w-full h-full object-cover cursor-zoom-in"
                                         onError={(e) => {
                                             (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(teacher.full_name || teacher.name || 'T') + '&background=random';
                                         }}

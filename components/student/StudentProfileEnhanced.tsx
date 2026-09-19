@@ -29,6 +29,7 @@ import { useUserIdentity } from '../../lib/hooks/useUserIdentity';
 // ... (existing imports)
 
 import { toast } from 'react-hot-toast';
+import { onImageClick } from '../shared/ImageLightbox';
 
 // ... (existing imports)
 
@@ -426,7 +427,7 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                                     <div className="relative w-32 h-32 lg:w-40 lg:h-40 bg-white rounded-full p-1.5 shadow-2xl">
                                         <div className="w-full h-full rounded-full bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center text-white overflow-hidden">
                                             {student.avatarUrl || student.profile_photo ? (
-                                                <img src={student.avatarUrl || student.profile_photo} alt="Profile" className="w-full h-full object-cover" />
+                                                <img src={student.avatarUrl || student.profile_photo} alt={student.name || 'Profile'} onClick={onImageClick} className="w-full h-full object-cover cursor-zoom-in" />
                                             ) : (
                                                 <span className="text-4xl lg:text-5xl font-bold tracking-tight">
                                                     {student.first_name ? (
@@ -931,11 +932,11 @@ function InfoField({ icon, label, value }: any) {
     return (
         <div className="group">
             <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 block">{label}</label>
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 group-hover:bg-slate-100 transition-colors">
-                <div className="text-slate-400">
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 group-hover:bg-slate-100 transition-colors min-w-0">
+                <div className="text-slate-400 flex-shrink-0">
                     {React.cloneElement(icon, { className: 'w-4 h-4' })}
                 </div>
-                <span className="text-slate-900 font-medium">{value}</span>
+                <span className="text-slate-900 font-medium truncate min-w-0" title={typeof value === 'string' ? value : undefined}>{value}</span>
             </div>
         </div>
     );

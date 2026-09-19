@@ -23,6 +23,7 @@ import { useProfile } from '../../context/ProfileContext';
 import { useAuth } from '../../context/AuthContext';
 import { useUserIdentity } from '../../lib/hooks/useUserIdentity';
 import { toast } from 'react-hot-toast';
+import { onImageClick } from '../shared/ImageLightbox';
 
 type SettingView = 'editProfile' | 'notificationsSettings' | 'personalSecuritySettings' | 'dataUsage' | 'systemSettings' | null;
 
@@ -110,7 +111,8 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ onLogout, navigateTo 
                         <img
                             src={profile.avatar_url || 'https://i.pravatar.cc/150?u=admin'}
                             alt={profile.full_name}
-                            className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-md flex-shrink-0 aspect-square bg-gray-200"
+                            onClick={onImageClick}
+                            className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-md flex-shrink-0 aspect-square bg-gray-200 cursor-zoom-in"
                         />
                         <h3 className="text-2xl font-bold text-gray-800">{profile.full_name}</h3>
                         <span className="bg-purple-100 text-purple-800 text-xs font-semibold px-3 py-1 rounded-full mb-2 capitalize">

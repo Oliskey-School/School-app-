@@ -960,7 +960,6 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                 scrollKey={scrollKey}
                 activeScreen={activeBottomNav}
                 setActiveScreen={handleBottomNavClick}
-                onProfileClick={() => navigateTo('profile', 'My Profile')}
                 hideHeader={hideBottomNav || view === 'profile'}
                 hidePadding={isFullScreen}
                 hideBottomNav={hideBottomNav}

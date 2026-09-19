@@ -27,6 +27,7 @@ import { applySchoolBranding } from './lib/pwaBranding';
 // catch it.
 import Login from './components/auth/Login';
 import PremiumErrorPage from './components/ui/PremiumErrorPage';
+import ImageLightbox from './components/shared/ImageLightbox';
 
 const DashboardRouter = lazyWithRetry(() => import('./components/DashboardRouter'));
 const Signup = lazyWithRetry(() => import('./components/auth/Signup'));
@@ -340,6 +341,7 @@ const App: React.FC = () => {
 
   return (
     <>
+      <ImageLightbox />
       <Toaster
         position="top-right"
         // react-hot-toast's own defaults are inconsistent (2s for success, 4s

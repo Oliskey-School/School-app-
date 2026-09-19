@@ -780,7 +780,6 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
             onBack={canGoBack ? handleBack : undefined}
             scrollKey={scrollKey}
             onLogout={handleLogout}
-            onProfileClick={() => navigateTo('more', 'My Profile')}
             activeScreen={activeBottomNav}
             setActiveScreen={handleBottomNavClick}
             hideHeader={hideBottomNav}

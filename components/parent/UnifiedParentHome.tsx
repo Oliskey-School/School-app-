@@ -13,6 +13,7 @@ import { Student } from '../../types';
 import SuspensionNoticeBanner from '../shared/SuspensionNoticeBanner';
 import ChildRiskBanner from '../shared/ChildRiskBanner';
 import AIInsightsPanel from '../shared/AIInsightsPanel';
+import { viewImage } from '../shared/ImageLightbox';
 
 export interface ChildOverview {
     id: string;
@@ -219,11 +220,11 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
                             {child.grade} {child.school_name ? `· ${child.school_name}` : ''}
                         </p>
                     </div>
-                    {/* The selected child's photo — tap to open their full profile */}
+                    {/* The selected child's photo — tap to see it full size */}
                     <button
                         type="button"
-                        onClick={() => navigateTo('childDetail', child.name, { student: students[activeChildIndex], studentId: child.id })}
-                        aria-label={`Open ${child.name}'s profile`}
+                        onClick={() => viewImage((students[activeChildIndex] as any)?.avatarUrl || (students[activeChildIndex] as any)?.avatar_url, child.name)}
+                        aria-label={`View ${child.name}'s photo`}
                         className="bg-gray-100 w-10 h-10 rounded-full flex items-center justify-center border-2 border-white shadow-sm overflow-hidden flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-emerald-400"
                     >
                         {(students[activeChildIndex] as any)?.avatarUrl || (students[activeChildIndex] as any)?.avatar_url ? (

@@ -40,6 +40,7 @@ import { Copy, UserPlus } from 'lucide-react';
 import LinkChildScreen from './LinkChildScreen';
 import VersionStatusCard from '../shared/VersionStatusCard';
 import AIUnlockCard from '../shared/AIUnlockCard';
+import { onImageClick } from '../shared/ImageLightbox';
 
 interface ParentProfileScreenProps {
   onLogout: () => void;
@@ -154,7 +155,7 @@ const ParentProfileScreen: React.FC<ParentProfileScreenProps> = ({ onLogout, nav
       <div className={`w-full md:w-[400px] md:flex-shrink-0 bg-gray-50 flex flex-col ${activeSetting ? 'hidden md:flex' : 'flex'}`}>
         <div className="flex-grow p-4 space-y-4 overflow-y-auto">
           <div className="flex items-center p-4 space-x-4 bg-white rounded-xl shadow-sm">
-            <img src={profile.avatar_url || 'https://i.pravatar.cc/150?u=parent'} alt="Parent Avatar" className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-md flex-shrink-0 aspect-square" />
+            <img src={profile.avatar_url || 'https://i.pravatar.cc/150?u=parent'} alt={profile.full_name || 'Parent'} onClick={onImageClick} className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-md flex-shrink-0 aspect-square cursor-zoom-in" />
             <div className="min-w-0">
               <h3 className="text-xl font-bold text-gray-800 truncate" title={profile.full_name}>{profile.full_name}</h3>
               <p className="text-sm text-gray-500 mb-1 truncate" title={profile.email}>{profile.email}</p>
