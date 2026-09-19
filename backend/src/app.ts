@@ -1,6 +1,7 @@
 
 import './config/env';
 import crypto from 'crypto';
+import { materializeImages } from './middleware/materializeImages.middleware';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -93,6 +94,10 @@ app.use((req, _res, next) => {
     if (req.body == null) req.body = {};
     next();
 });
+
+// Inline base64 images in JSON bodies become stored files before any route
+// runs (see the middleware for the production incident behind this).
+app.use(materializeImages);
 
 // CSRF token is delivered as a readable cookie (XSRF-TOKEN) on the first
 // response — the SPA reads it directly instead of calling an endpoint.

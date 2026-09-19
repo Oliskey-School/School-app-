@@ -2917,10 +2917,34 @@ class ExpressApiClient {
         return this.post('/gallery', data);
     }
 
+    /**
+     * The API runs as a serverless function whose request body is capped at
+     * ~4.5 MB by the platform (the request is refused BEFORE it reaches the
+     * app, as a bare 413). A phone photo is 3–12 MB, so every image is
+     * compressed on the device first and anything still too large is refused
+     * here with a clear message — the old behaviour was a swallowed failure
+     * that some screens "recovered" from by saving a multi-megabyte base64
+     * copy of the picture into the database.
+     */
+    private static readonly UPLOAD_MAX_BYTES = 4 * 1024 * 1024;
+    private async prepareUpload(file: File): Promise<File> {
+        let out = file;
+        if (file.type.startsWith('image/') && file.type !== 'image/svg+xml' && file.type !== 'image/gif') {
+            try { out = await optimizeImage(file, { maxWidth: 1600, maxHeight: 1600, quality: 0.82, format: 'image/webp' }); } catch { out = file; }
+            if (out.size > ExpressApiClient.UPLOAD_MAX_BYTES) {
+                try { out = await optimizeImage(file, { maxWidth: 1024, maxHeight: 1024, quality: 0.7, format: 'image/webp' }); } catch { /* keep */ }
+            }
+        }
+        if (out.size > ExpressApiClient.UPLOAD_MAX_BYTES) {
+            throw new Error(`This file is ${(out.size / 1024 / 1024).toFixed(1)} MB; the limit is 4 MB. Please choose a smaller file.`);
+        }
+        return out;
+    }
+
     async uploadFile(fileOrBucket: File | string, pathOrFile?: string | File, file?: File): Promise<{ publicUrl: string; url?: string }> {
         const formData = new FormData();
         if (fileOrBucket instanceof File) {
-            formData.append('file', fileOrBucket);
+            formData.append('file', await this.prepareUpload(fileOrBucket));
             formData.append('category', 'general');
             return this.post('/media/upload', formData);
         } else {
@@ -2928,7 +2952,7 @@ class ExpressApiClient {
             if (actualFile) {
                 formData.append('bucket', fileOrBucket);
                 if (typeof pathOrFile === 'string') formData.append('path', pathOrFile);
-                formData.append('file', actualFile);
+                formData.append('file', await this.prepareUpload(actualFile));
             }
             const result = await this.post<{ publicUrl: string }>('/media/upload', formData);
             return result;
@@ -3273,7 +3297,7 @@ class ExpressApiClient {
     // ============================================
     async uploadFileWithCategory(file: File, category: string = 'general'): Promise<{ url: string }> {
         const formData = new FormData();
-        formData.append('file', file);
+        formData.append('file', await this.prepareUpload(file));
         formData.append('category', category);
         // The backend returns { publicUrl }; normalise to { url } for all callers.
         const res = await this.post<any>('/media/upload', formData);

@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { AuthService } from '../services/auth.service';
 import { BranchIdentityService } from '../services/branchIdentity.service';
 import { generateToken } from '../middleware/csrf.middleware';
+import { AvatarRepairService } from '../services/avatarRepair.service';
 import prisma from '../config/database';
 import { sendError } from '../utils/httpError';
 
@@ -402,7 +403,15 @@ export const getMe = async (req: Request, res: Response) => {
                 ui_preferences = (row as any)?.ui_preferences ?? null;
             }
         } catch { /* column may not be migrated yet — ignore */ }
-        res.json({ ...user, preferred_language, two_factor_enabled, ui_preferences });
+        // An inline base64 avatar on the account makes THIS response (fetched by
+        // every screen) hundreds of KB. Repair it once into a stored file; if
+        // that is not possible, still never ship the inline copy.
+        let avatar_url = user?.avatar_url;
+        if (typeof avatar_url === 'string' && avatar_url.startsWith('data:image/')) {
+            try { avatar_url = (user?.id && user?.school_id ? await AvatarRepairService.repairUser(user.id, user.school_id) : null) || null; }
+            catch { avatar_url = null; }
+        }
+        res.json({ ...user, avatar_url, preferred_language, two_factor_enabled, ui_preferences });
     } catch (error: any) {
         res.status(401).json({ message: 'Unauthorized' });
     }
