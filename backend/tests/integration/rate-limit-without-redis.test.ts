@@ -8,7 +8,10 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 
 // Production on Vercel: no REDIS_URL at all. (A local Redis may be running on
-// the developer machine — the point is that the app must not assume one.)
+// the developer machine and backend/.env may name it — the point is that the
+// app must not assume one.) Load the env module FIRST so dotenv cannot put
+// REDIS_URL back after we remove it.
+import '../../src/config/env';
 delete process.env.REDIS_URL;
 process.env.RATE_LIMIT_LOGIN_MAX = '3';
 process.env.RATE_LIMIT_OTP_MAX = '2';
