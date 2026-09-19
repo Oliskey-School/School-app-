@@ -19,7 +19,10 @@ class RealtimeService {
     // traffic are what an expensive connection can't afford) and half the
     // polling frequency; the poll below is the fallback that keeps
     // notifications flowing either way.
-    private pollIntervalMs() { return isLowDataMode() ? 60000 : 30000; }
+    // 20s is the "near-live" fallback cadence on hosts with no socket server
+    // (serverless production): an admin's change shows on a teacher's open
+    // screen within ~20s instead of ~30s. Low Data Mode keeps the slow cadence.
+    private pollIntervalMs() { return isLowDataMode() ? 60000 : 20000; }
 
     private applyRealtimeTransport() {
         if (!this.schoolId) return;

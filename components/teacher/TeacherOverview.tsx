@@ -98,9 +98,12 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
   const [myRoles, setMyRoles] = useState<{ roles: string[]; class_teacher_of: any[]; subject_assignments: any[] }>({
     roles: [], class_teacher_of: [], subject_assignments: [],
   });
+  // Re-read on every refresh signal (`version` bumps on realtime events and on
+  // the polling fallback used where there is no socket): an admin assigning
+  // this teacher as Class Teacher used to stay invisible until a full reload.
   useEffect(() => {
     api.get<any>('/teacher-assignments/mine/roles').then(setMyRoles).catch(() => { /* non-fatal — badges just stay empty */ });
-  }, []);
+  }, [version]);
   const isClassTeacher = myRoles.roles.includes('class_teacher');
   const isSubjectTeacher = myRoles.roles.includes('subject_teacher');
 
