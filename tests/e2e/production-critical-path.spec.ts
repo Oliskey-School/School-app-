@@ -241,9 +241,7 @@ test.describe('Production critical path', () => {
             await search.fill(uniqueName);
             await page.waitForTimeout(1200);
         }
-        await expect(page.locator(`text="${uniqueName}"`).first(), `API trace:
-${apiTrace.join('
-')}`).toBeVisible({ timeout: 10_000 });
+        await expect(page.locator(`text="${uniqueName}"`).first(), ['API trace:', ...apiTrace].join(String.fromCharCode(10))).toBeVisible({ timeout: 10_000 });
     });
 
     test('Student editing', async ({ page, baseURL }) => {
