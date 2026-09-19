@@ -1831,6 +1831,15 @@ class ExpressApiClient {
 
     // getSubjects moved to core section above
 
+    /** The printable QR code for a class (created the first time an admin asks). */
+    async getClassQr(classId: string): Promise<{ class_id: string; name: string; grade: number; section: string; qr_token: string }> {
+        return this.get(`/classes/${encodeURIComponent(classId)}/qr`);
+    }
+    /** Issue a new code for the class — the previously printed one stops working. */
+    async rotateClassQr(classId: string): Promise<{ class_id: string; name: string; grade: number; section: string; qr_token: string }> {
+        return this.post(`/classes/${encodeURIComponent(classId)}/qr`, {});
+    }
+
     async getClassSubjects(gradeOrId: number | string, section?: string): Promise<any[]> {
         if (typeof gradeOrId === 'string' && !section) {
             return this.get(`/classes/${gradeOrId}/subjects`);

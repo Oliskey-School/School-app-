@@ -1,9 +1,14 @@
 import { Response } from 'express';
+import crypto from 'crypto';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { ClassService } from '../services/class.service';
 import prisma from '../config/database';
 import { getEffectiveBranchId } from '../utils/branchScope';
 import { sendError } from '../utils/httpError';
+
+function isAdmin(req: AuthRequest): boolean {
+    return ['admin', 'proprietor', 'superadmin', 'super_admin'].includes((req.user?.role || '').toLowerCase());
+}
 
 export const getClass = async (req: AuthRequest, res: Response) => {
     try {
@@ -132,6 +137,41 @@ export const initializeClasses = async (req: AuthRequest, res: Response) => {
         const branchId = getEffectiveBranchId(req.user, branch_id);
         const result = await ClassService.initializeStandardClasses(req.user.school_id, classes, branchId);
         res.status(201).json(result);
+    } catch (error: any) {
+        sendError(res, error, 'class.controller.ts');
+    }
+};
+
+/**
+ * GET  /classes/:id/qr  → the class's QR token (created on first request)
+ * POST /classes/:id/qr  → issue a NEW token (the old printed code stops working)
+ * Admin only. The token is what gets printed; a teacher scans it before the
+ * lesson (POST /classrooms/scan) and the school sees who taught what.
+ */
+export const getClassQr = async (req: AuthRequest, res: Response) => {
+    try {
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can manage class QR codes' });
+        const cls = await prisma.class.findFirst({ where: { id: String(req.params.id), school_id: req.user.school_id, deleted_at: null } });
+        if (!cls) return res.status(404).json({ message: 'Class not found' });
+        let token = cls.qr_token;
+        if (!token) {
+            token = `CLS-${crypto.randomBytes(12).toString('hex')}`;
+            await prisma.class.update({ where: { id: cls.id }, data: { qr_token: token } });
+        }
+        res.json({ class_id: cls.id, name: cls.name, grade: cls.grade, section: cls.section, qr_token: token });
+    } catch (error: any) {
+        sendError(res, error, 'class.controller.ts');
+    }
+};
+
+export const rotateClassQr = async (req: AuthRequest, res: Response) => {
+    try {
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can manage class QR codes' });
+        const cls = await prisma.class.findFirst({ where: { id: String(req.params.id), school_id: req.user.school_id, deleted_at: null } });
+        if (!cls) return res.status(404).json({ message: 'Class not found' });
+        const token = `CLS-${crypto.randomBytes(12).toString('hex')}`;
+        await prisma.class.update({ where: { id: cls.id }, data: { qr_token: token } });
+        res.json({ class_id: cls.id, name: cls.name, grade: cls.grade, section: cls.section, qr_token: token, rotated: true });
     } catch (error: any) {
         sendError(res, error, 'class.controller.ts');
     }

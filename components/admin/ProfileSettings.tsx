@@ -1,5 +1,5 @@
 ﻿
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     EditIcon,
@@ -22,6 +22,7 @@ import SystemSettingsScreen from './SystemSettingsScreen';
 import { useProfile } from '../../context/ProfileContext';
 import { useAuth } from '../../context/AuthContext';
 import { useUserIdentity } from '../../lib/hooks/useUserIdentity';
+import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { onImageClick } from '../shared/ImageLightbox';
 
@@ -44,6 +45,14 @@ const SettingsPlaceholder: React.FC = () => (
 
 
 const ProfileSettings: React.FC<ProfileSettingsProps> = ({ onLogout, navigateTo }) => {
+    // Staff / student headcounts for the profile card (same figures as the
+    // admin home); they were hard-coded to "-".
+    const [counts, setCounts] = useState<{ staff: number | null; students: number | null }>({ staff: null, students: null });
+    useEffect(() => {
+        let active = true;
+        api.getDashboardStats().then((s: any) => { if (active && s) setCounts({ staff: Number(s.totalTeachers) || 0, students: Number(s.totalStudents) || 0 }); }).catch(() => { /* card shows – until loaded */ });
+        return () => { active = false; };
+    }, []);
     const { profile } = useProfile();
     const { memberships, switchSchool, currentSchool } = useAuth();
     const { customId, copyToClipboard, copied, formatId } = useUserIdentity();
@@ -135,11 +144,11 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ onLogout, navigateTo 
                         <div className="flex w-full justify-around mt-4 pt-4 border-t border-gray-100">
                             <div className="text-center">
                                 <p className="text-xs text-gray-500 font-medium">Staff</p>
-                                <p className="text-lg font-bold text-gray-800">-</p>
+                                <p className="text-lg font-bold text-gray-800">{counts.staff ?? '-'}</p>
                             </div>
                             <div className="text-center">
                                 <p className="text-xs text-gray-500 font-medium">Students</p>
-                                <p className="text-lg font-bold text-gray-800">-</p>
+                                <p className="text-lg font-bold text-gray-800">{counts.students ?? '-'}</p>
                             </div>
                             <div className="text-center">
                                 <p className="text-xs text-gray-500 font-medium">Status</p>

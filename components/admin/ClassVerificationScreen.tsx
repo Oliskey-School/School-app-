@@ -46,12 +46,26 @@ interface TeacherSummary {
     early_departure: number;
     upcoming: number;
     pending: number;
+    attended?: number;
+    completed_all?: boolean;
+    finished_at?: string | null;
+}
+
+interface ClassGroup {
+    class_name: string;
+    lessons: number;
+    attended: number;
+    completed: number;
+    missed: number;
+    teachers: Array<{ teacher_id: string | null; teacher_name: string; subject: string; scheduled_start: string; status: string; scan_in_at: string | null; is_late: boolean }>;
 }
 
 interface DailyReport {
     date: string;
     lessons: LessonRow[];
     summary: TeacherSummary[];
+    finished_teachers?: TeacherSummary[];
+    by_class?: ClassGroup[];
 }
 
 const STATUS_STYLES: Record<string, { label: string; classes: string }> = {
@@ -161,7 +175,7 @@ const ClassVerificationScreen = () => {
                     <QrCode className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                     <h3 className="font-bold text-lg text-gray-900">No verifiable lessons for this day</h3>
                     <p className="text-gray-500 mt-1 max-w-md mx-auto">
-                        Lessons appear here when a published timetable entry is linked to a classroom with a QR code.
+                        Lessons appear here when a published timetable entry names a class (scan its class QR code) or a classroom with a QR code.
                     </p>
                 </motion.div>
             ) : (
@@ -226,6 +240,63 @@ const ClassVerificationScreen = () => {
                                 </tbody>
                             </table>
                         </div>
+                    </motion.div>
+
+                    {/* Who has finished all of their classes for the day */}
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: 0.03 }} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                            <h2 className="font-bold text-gray-900">Finished for the Day</h2>
+                            <span className="text-xs font-bold text-gray-400">{(report?.finished_teachers ?? []).length} of {(report?.summary ?? []).length} teachers</span>
+                        </div>
+                        {(report?.finished_teachers ?? []).length === 0 ? (
+                            <p className="px-5 py-6 text-sm text-gray-400">No teacher has completed every one of their classes yet today.</p>
+                        ) : (
+                            <ul className="divide-y divide-gray-50">
+                                {(report?.finished_teachers ?? []).map(t => (
+                                    <li key={t.teacher_id || t.teacher_name} className="px-5 py-3 flex items-center justify-between">
+                                        <div>
+                                            <p className="font-semibold text-gray-900">{t.teacher_name}</p>
+                                            <p className="text-xs text-gray-400">{t.completed} of {t.assigned} classes taught{t.late ? ` · ${t.late} late` : ''}</p>
+                                        </div>
+                                        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-green-50 text-green-700">
+                                            Done{t.finished_at ? ` · ${new Date(t.finished_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
+                                        </span>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </motion.div>
+
+                    {/* Per-class: which teachers came for each class */}
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: 0.04 }} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div className="px-5 py-4 border-b border-gray-100">
+                            <h2 className="font-bold text-gray-900">By Class</h2>
+                            <p className="text-xs text-gray-400 mt-0.5">Teachers scan the class QR code before each lesson.</p>
+                        </div>
+                        {(report?.by_class ?? []).length === 0 ? (
+                            <p className="px-5 py-6 text-sm text-gray-400">No lessons on the timetable for this day.</p>
+                        ) : (
+                            <div className="divide-y divide-gray-50">
+                                {(report?.by_class ?? []).map(c => (
+                                    <div key={c.class_name} className="px-5 py-3">
+                                        <div className="flex items-center justify-between">
+                                            <p className="font-semibold text-gray-900">{c.class_name}</p>
+                                            <p className="text-xs text-gray-400">{c.attended} of {c.lessons} lessons attended{c.missed ? ` · ${c.missed} missed` : ''}</p>
+                                        </div>
+                                        <ul className="mt-2 space-y-1">
+                                            {c.teachers.map((t, i) => (
+                                                <li key={`${t.teacher_id}-${i}`} className="flex items-center justify-between text-sm">
+                                                    <span className="text-gray-700 truncate min-w-0">{t.scheduled_start} · {t.subject} — {t.teacher_name}</span>
+                                                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${(STATUS_STYLES[t.status] || STATUS_STYLES.upcoming).classes}`}>
+                                                        {(STATUS_STYLES[t.status] || STATUS_STYLES.upcoming).label}{t.is_late ? ' · Late' : ''}
+                                                    </span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </motion.div>
 
                     {/* Per-teacher summary */}

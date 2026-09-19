@@ -45,7 +45,7 @@ async function makeLesson(classroomId: string | null, startMin: number, endMin: 
 
 async function cleanup() {
     for (const school of [S, S2]) {
-        for (const m of ['lessonAttendance', 'timetable', 'classroom', 'teacher', 'user', 'branch'] as const) {
+        for (const m of ['lessonAttendance', 'timetable', 'classroom', 'class', 'teacher', 'user', 'branch'] as const) {
             await (prisma as any)[m]?.deleteMany?.({ where: { school_id: school } }).catch(() => {});
         }
         await prisma.school.delete({ where: { id: school } }).catch(() => {});
@@ -206,5 +206,65 @@ describe('QR lesson attendance', () => {
             .set('Authorization', `Bearer ${asTeacher()}`);
         expect(res.status).toBe(200);
         expect(res.body.length).toBeGreaterThanOrEqual(2);
+    });
+
+    // ---------------- CLASS QR (one code per class, no room needed) ----------------
+    describe('class QR codes', () => {
+        let classId = '';
+        let classToken = '';
+        let classLesson: any;
+
+        beforeAll(async () => {
+            classId = (await prisma.class.create({ data: { school_id: S, branch_id: B, name: 'JSS 2', grade: 8, section: 'B' } as any })).id;
+            classLesson = await makeLesson(null, -5, 40, { subject: 'Basic Science', data: { class_id: classId, class_name: 'JSS 2' } });
+        });
+
+        it('admin gets a code for the class (created once, stable on re-read); teachers cannot', async () => {
+            const a = await request(app).get(`/api/classes/${classId}/qr`).set('Authorization', `Bearer ${asAdmin()}`);
+            expect(a.status).toBe(200);
+            expect(a.body.qr_token).toMatch(/^CLS-/);
+            const again = await request(app).get(`/api/classes/${classId}/qr`).set('Authorization', `Bearer ${asAdmin()}`);
+            expect(again.body.qr_token).toBe(a.body.qr_token);
+            classToken = a.body.qr_token;
+            expect((await request(app).get(`/api/classes/${classId}/qr`).set('Authorization', `Bearer ${asTeacher()}`)).status).toBe(403);
+        });
+
+        it('teacher scans the class code before the lesson → recorded as attended for that class', async () => {
+            const res = await request(app).post('/api/classrooms/scan').set('Authorization', `Bearer ${asTeacher()}`).send({ qr_token: classToken });
+            expect(res.status).toBe(200);
+            expect(res.body.action).toBe('in');
+            expect(res.body.place).toBe('JSS 2 B');
+            expect(res.body.record.class_id).toBe(classId);
+            expect(res.body.record.classroom_id).toBeNull();
+        });
+
+        it('the admin report shows the class lesson as attended, per class and per teacher, with the finished-for-the-day flag', async () => {
+            // finish the lesson so the day can be complete
+            const out = await request(app).post('/api/classrooms/scan').set('Authorization', `Bearer ${asTeacher()}`).send({ qr_token: classToken });
+            expect(out.body.action).toBe('out');
+
+            const res = await request(app).get('/api/classrooms/lesson-attendance/report').set('Authorization', `Bearer ${asAdmin()}`);
+            expect(res.status).toBe(200);
+            const row = (res.body.lessons as any[]).find(r => r.timetable_id === classLesson.id);
+            expect(row?.status).toBe('completed');
+            const cls = (res.body.by_class as any[]).find(c => c.class_name === 'JSS 2');
+            expect(cls).toBeTruthy();
+            expect(cls.attended).toBeGreaterThanOrEqual(1);
+            expect(cls.teachers.some((t: any) => t.teacher_id === teacherId && t.scan_in_at)).toBe(true);
+            const mine = (res.body.summary as any[]).find(s => s.teacher_id === teacherId);
+            expect(typeof mine.completed_all).toBe('boolean');
+            expect(mine.attended).toBeGreaterThanOrEqual(2);
+            // this teacher still has a missed room lesson from the earlier tests → not finished for the day
+            expect(mine.completed_all).toBe(false);
+            expect(Array.isArray(res.body.finished_teachers)).toBe(true);
+        });
+
+        it('rotating the code invalidates the printed one', async () => {
+            const rot = await request(app).post(`/api/classes/${classId}/qr`).set('Authorization', `Bearer ${asAdmin()}`);
+            expect(rot.status).toBe(200);
+            expect(rot.body.qr_token).not.toBe(classToken);
+            const res = await request(app).post('/api/classrooms/scan').set('Authorization', `Bearer ${asTeacher()}`).send({ qr_token: classToken });
+            expect(res.status).toBeGreaterThanOrEqual(400);
+        });
     });
 });

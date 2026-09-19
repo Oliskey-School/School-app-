@@ -620,6 +620,9 @@ model Class {
   name           String
   grade          Int
   section        String
+  /// Printed QR for THIS CLASS (not a room). A teacher scans it before the
+  /// lesson so the school knows who taught which class and when.
+  qr_token       String?             @unique
   department     String?
   level_category String?
   created_at     DateTime            @default(now())
@@ -1406,7 +1409,8 @@ model LessonAttendance {
   branch_id          String?
   timetable_id       String
   teacher_id         String
-  classroom_id       String
+  classroom_id       String? // set when a ROOM code was scanned
+  class_id           String? // set when a CLASS code was scanned
   date               String // YYYY-MM-DD
   subject            String
   class_name         String?
@@ -1429,7 +1433,7 @@ model LessonAttendance {
   branch             Branch?   @relation(fields: [branch_id], references: [id])
   timetable          Timetable @relation(fields: [timetable_id], references: [id], onDelete: Cascade)
   teacher            Teacher   @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
-  classroom          Classroom @relation(fields: [classroom_id], references: [id], onDelete: Cascade)
+  classroom          Classroom? @relation(fields: [classroom_id], references: [id], onDelete: Cascade)
 
   @@unique([timetable_id, date])
   @@index([school_id, date])

@@ -10,6 +10,7 @@ import { DEFAULT_STANDARD_CLASSES } from '../../constants';
 import { toast } from 'react-hot-toast';
 import { ClassInfo, Student } from '../../types';
 import CenteredLoader from '../ui/CenteredLoader';
+import { QRCodeCanvas } from 'qrcode.react';
 import { useAutoSync } from '../../hooks/useAutoSync';
 
 interface ClassListScreenProps {
@@ -86,6 +87,39 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId,
     };
 
     const [expandedClassId, setExpandedClassId] = useState<string | null>(null);
+
+    // Class QR code: one printable code per class. Teachers scan it before each
+    // lesson (Teacher → Scan Classroom); the admin sees who came in Class
+    // Verification. Created on first request, can be re-issued.
+    const [qrClass, setQrClass] = useState<{ id: string; name: string; label: string; qr_token: string } | null>(null);
+    const [qrLoading, setQrLoading] = useState(false);
+    const openQr = async (cls: any) => {
+        setQrLoading(true);
+        try {
+            const q = await api.getClassQr(cls.id);
+            setQrClass({ id: cls.id, name: q.name, label: getFormattedClassName(q.grade, q.section), qr_token: q.qr_token });
+        } catch (e: any) {
+            toast.error(`Could not load the QR code: ${e?.message || 'try again'}`);
+        } finally { setQrLoading(false); }
+    };
+    const reissueQr = async () => {
+        if (!qrClass) return;
+        if (!window.confirm('Issue a new code? The code already printed for this class will stop working.')) return;
+        try {
+            const q = await api.rotateClassQr(qrClass.id);
+            setQrClass({ ...qrClass, qr_token: q.qr_token });
+            toast.success('New code issued — reprint it for the class.');
+        } catch (e: any) { toast.error(`Could not issue a new code: ${e?.message || 'try again'}`); }
+    };
+    const downloadQr = () => {
+        const canvas = document.querySelector('#class-qr-canvas canvas') as HTMLCanvasElement | null;
+        if (!canvas || !qrClass) return;
+        const a = document.createElement('a');
+        a.href = canvas.toDataURL('image/png');
+        a.download = `${qrClass.label.replace(/\s+/g, '-')}_class_QR.png`;
+        a.click();
+        toast.success('QR code downloaded');
+    };
     const [classStudents, setClassStudents] = useState<Record<string, Student[]>>({});
     const [loadingStudents, setLoadingStudents] = useState<Record<string, boolean>>({});
 
@@ -203,6 +237,14 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId,
                                                     </div>
                                                 </button>
                                                 <div className="flex items-center space-x-1">
+                                                    <button
+                                                        onClick={() => openQr(cls)}
+                                                        title="Class QR code — teachers scan it before each lesson"
+                                                        aria-label={`QR code for ${cls.name}`}
+                                                        className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                                                    >
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2M7 12h10" /></svg>
+                                                    </button>
                                                     <button
                                                         onClick={() => navigateTo('classForm', 'Edit Class', { classToEdit: cls })}
                                                         className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
@@ -343,6 +385,30 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId,
                 )}
             </main>
 
+            {/* Class QR code modal */}
+            <AnimatePresence>
+            {qrClass && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setQrClass(null)} className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+                    <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} transition={{ type: 'spring', stiffness: 400, damping: 32 }} onClick={e => e.stopPropagation()} className="bg-white rounded-3xl p-6 max-w-sm w-full space-y-5 shadow-2xl text-center">
+                        <div>
+                            <h2 className="text-xl font-bold text-gray-900 font-outfit">{qrClass.label}</h2>
+                            <p className="text-sm text-gray-500">Class QR code</p>
+                        </div>
+                        <div id="class-qr-canvas" className="flex justify-center bg-white p-4 rounded-2xl border border-gray-100">
+                            <QRCodeCanvas value={qrClass.qr_token} size={240} level="M" includeMargin />
+                        </div>
+                        <p className="text-xs text-gray-400">
+                            Print this code and keep it in the class. Every teacher scans it before starting their lesson and again when they finish — you will see who taught the class and who has completed all their classes for the day under Class Verification.
+                        </p>
+                        <div className="grid grid-cols-2 gap-3">
+                            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={downloadQr} className="py-3 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-colors">Download</motion.button>
+                            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => setQrClass(null)} className="py-3 bg-gray-100 text-gray-700 rounded-2xl font-bold hover:bg-gray-200 transition-colors">Close</motion.button>
+                        </div>
+                        <button onClick={reissueQr} className="text-xs font-semibold text-gray-400 hover:text-red-600 transition-colors">Issue a new code (old printout stops working)</button>
+                    </motion.div>
+                </motion.div>
+            )}
+            </AnimatePresence>
         </div>
     );
 };

@@ -37,30 +37,41 @@ export class LessonAttendanceService {
     static async scan(schoolId: string, teacherId: string, qrToken: string) {
         if (!qrToken?.trim()) throw new Error('No QR code provided');
 
-        // Token must resolve to a classroom in the SAME school — a token from
-        // another school behaves exactly like an unknown one.
+        // A code is either a ROOM code (Classroom) or a CLASS code (Class) —
+        // both must belong to the SAME school; a token from another school
+        // behaves exactly like an unknown one.
+        const token = qrToken.trim();
         const classroom = await (prisma as any).classroom.findFirst({
-            where: { qr_token: qrToken.trim(), school_id: schoolId, deleted_at: null },
+            where: { qr_token: token, school_id: schoolId, deleted_at: null },
         });
-        if (!classroom) throw new Error('This QR code is not a valid classroom code for your school');
+        const klass = classroom ? null : await prisma.class.findFirst({
+            where: { qr_token: token, school_id: schoolId, deleted_at: null },
+            select: { id: true, name: true, grade: true, section: true, branch_id: true },
+        });
+        if (!classroom && !klass) throw new Error('This QR code is not a valid classroom or class code for your school');
+        const placeName = classroom ? classroom.name : `${klass!.name}${klass!.section ? ` ${klass!.section}` : ''}`;
 
         const now = new Date();
         const dateStr = toLocalDateStr(now);
         const dow = toIsoDayOfWeek(now);
 
-        // All of today's published lessons for this teacher in this classroom.
+        // All of today's published lessons for this teacher in this room / for this class.
         const lessons = await prisma.timetable.findMany({
             where: {
                 school_id: schoolId,
                 teacher_id: teacherId,
-                classroom_id: classroom.id,
                 day_of_week: dow,
                 status: 'Published',
                 deleted_at: null,
+                ...(classroom
+                    ? { classroom_id: classroom.id }
+                    : { OR: [{ class_id: klass!.id }, { class_name: { equals: klass!.name, mode: 'insensitive' } }] }),
             },
         });
         if (lessons.length === 0) {
-            throw new Error(`You have no scheduled lesson in ${classroom.name} today`);
+            throw new Error(classroom
+                ? `You have no scheduled lesson in ${placeName} today`
+                : `You have no lesson with ${placeName} on the timetable today`);
         }
 
         const existing = await (prisma as any).lessonAttendance.findMany({
@@ -88,7 +99,7 @@ export class LessonAttendanceService {
                     status: 'completed',
                 },
             });
-            return { action: 'out', classroom: classroom.name, lesson: openLesson, record: updated };
+            return { action: 'out', classroom: placeName, place: placeName, lesson: openLesson, record: updated };
         }
 
         // 2) Otherwise this is a scan-in: find a lesson whose scan window
@@ -102,7 +113,7 @@ export class LessonAttendanceService {
                 && now.getTime() <= end.getTime();
         });
         if (inWindow.length === 0) {
-            throw new Error(`It is not time for any of your lessons in ${classroom.name}. Scanning opens ${SCAN_WINDOW_BEFORE_MIN} minutes before your lesson starts.`);
+            throw new Error(`It is not time for any of your lessons ${classroom ? 'in' : 'with'} ${placeName}. Scanning opens ${SCAN_WINDOW_BEFORE_MIN} minutes before your lesson starts.`);
         }
 
         // Back-to-back overlap: prefer the lesson already in progress, then the
@@ -120,10 +131,11 @@ export class LessonAttendanceService {
         const record = await (prisma as any).lessonAttendance.create({
             data: {
                 school_id: schoolId,
-                branch_id: lesson.branch_id ?? classroom.branch_id ?? null,
+                branch_id: lesson.branch_id ?? classroom?.branch_id ?? klass?.branch_id ?? null,
                 timetable_id: lesson.id,
                 teacher_id: teacherId,
-                classroom_id: classroom.id,
+                classroom_id: classroom?.id ?? null,
+                class_id: klass?.id ?? lesson.class_id ?? null,
                 date: dateStr,
                 subject: lesson.subject,
                 class_name: lesson.class_name ?? null,
@@ -134,7 +146,7 @@ export class LessonAttendanceService {
                 status: 'in_progress',
             },
         });
-        return { action: 'in', classroom: classroom.name, lesson, record };
+        return { action: 'in', classroom: placeName, place: placeName, lesson, record };
     }
 
     /**
@@ -162,13 +174,15 @@ export class LessonAttendanceService {
         const dow = toIsoDayOfWeek(target);
         const isToday = dateStr === toLocalDateStr(now);
 
+        // Every published lesson with a teacher counts — whether it is tied to a
+        // room (room QR) or only to a class (class QR).
         const lessonWhere: any = {
             school_id: schoolId,
             day_of_week: dow,
             status: 'Published',
-            classroom_id: { not: null },
             teacher_id: { not: null },
             deleted_at: null,
+            OR: [{ classroom_id: { not: null } }, { class_id: { not: null } }, { class_name: { not: null } }],
         };
         if (branchId && branchId !== 'all') lessonWhere.branch_id = branchId;
 
@@ -259,7 +273,35 @@ export class LessonAttendanceService {
             if (r.is_early_departure) s.early_departure += 1;
         }
 
-        return { date: dateStr, lessons: rows, summary: Array.from(summaryMap.values()) };
+        // "Finished for the day": every assigned lesson completed (scanned in and
+        // out). Also expose the last scan-out time so the owner can see WHEN.
+        const summary = Array.from(summaryMap.values()).map((s: any) => {
+            const own = rows.filter(r => (r.teacher_id || r.teacher_name) === (s.teacher_id || s.teacher_name));
+            const attended = own.filter(r => r.scan_in_at).length;
+            const lastOut = own.map(r => r.scan_out_at).filter(Boolean).sort().pop() || null;
+            return {
+                ...s,
+                attended,
+                completed_all: s.assigned > 0 && s.completed === s.assigned,
+                finished_at: s.assigned > 0 && s.completed === s.assigned ? lastOut : null,
+            };
+        });
+        const finished_teachers = summary.filter((s: any) => s.completed_all);
+
+        // Per-class view: which teachers came for each class today.
+        const byClass = new Map<string, any>();
+        for (const r of rows) {
+            const key = r.class_name || '(no class)';
+            if (!byClass.has(key)) byClass.set(key, { class_name: key, lessons: 0, attended: 0, completed: 0, missed: 0, teachers: [] as any[] });
+            const c = byClass.get(key);
+            c.lessons += 1;
+            if (r.scan_in_at) c.attended += 1;
+            if (r.status === 'completed') c.completed += 1;
+            if (r.status === 'missed') c.missed += 1;
+            c.teachers.push({ teacher_id: r.teacher_id, teacher_name: r.teacher_name, subject: r.subject, scheduled_start: r.scheduled_start, status: r.status, scan_in_at: r.scan_in_at, is_late: r.is_late });
+        }
+
+        return { date: dateStr, lessons: rows, summary, finished_teachers, by_class: Array.from(byClass.values()) };
     }
 
     /**

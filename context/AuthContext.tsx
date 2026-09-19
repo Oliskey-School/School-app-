@@ -79,6 +79,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         sessionStorage.removeItem('school');
         sessionStorage.removeItem('demo_school_id');
         sessionStorage.removeItem('active_dashboard_role');
+        // Per-role navigation memory: the highlighted bottom tab and remembered
+        // screen data. Left behind, the next sign-in opened on Home with the
+        // previous tab (e.g. Settings) still highlighted.
+        for (const k of Object.keys(sessionStorage)) {
+            if (k.endsWith('_activeBottomNav') || k.startsWith('nav_props:')) sessionStorage.removeItem(k);
+        }
         // Defensive: clear any legacy localStorage tokens left behind.
         localStorage.removeItem('auth_token');
         localStorage.removeItem('auth_refresh_token');

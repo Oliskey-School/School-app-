@@ -166,3 +166,7 @@ database_backup.sql
 
 # Regeneratable scratch file for tests/security/attack.ts — see tests/security/README.md
 tmp-routes.json
+
+# runtime artefacts
+backend/uploads/
+tests/e2e/qa-test-upload.pdf

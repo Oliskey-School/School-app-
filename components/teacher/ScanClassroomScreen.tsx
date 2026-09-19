@@ -101,7 +101,7 @@ const ScanClassroomScreen = () => {
                 </div>
                 <h2 className="text-2xl font-bold text-gray-900 font-outfit">Scan Classroom</h2>
                 <p className="text-gray-600 mt-2">
-                    Scan the classroom QR code before your lesson starts, and again before you leave.
+                    Scan the class (or classroom) QR code before your lesson starts, and again before you leave.
                 </p>
             </div>
 
@@ -194,7 +194,7 @@ const ScanClassroomScreen = () => {
                                         {rec.subject}{rec.class_name ? ` — ${rec.class_name}` : ''}
                                     </p>
                                     <p className="text-xs text-gray-400">
-                                        {rec.classroom?.name || ''} · {rec.scheduled_start}–{rec.scheduled_end} ·
+                                        {rec.classroom?.name || rec.class_name || ''} · {rec.scheduled_start}–{rec.scheduled_end} ·
                                         In {formatTime(rec.scan_in_at)} / Out {formatTime(rec.scan_out_at)}
                                     </p>
                                 </div>
