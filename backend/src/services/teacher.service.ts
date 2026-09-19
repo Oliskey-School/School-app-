@@ -1,4 +1,4 @@
-import prisma from '../config/database';
+import prisma, { withTenantTransaction } from '../config/database';
 import bcrypt from 'bcrypt';
 import { IdGeneratorService } from './idGenerator.service';
 import { BranchIdentityService } from './branchIdentity.service';
@@ -28,7 +28,7 @@ export class TeacherService {
         const generatedPassword = 'teacher' + Math.floor(1000 + Math.random() * 9000);
         const hashedPassword = await bcrypt.hash(generatedPassword, 10);
 
-        return await prisma.$transaction(async (tx) => {
+        return await withTenantTransaction({ schoolId, branchId: branchId && branchId !== 'all' ? branchId : null }, async (tx) => {
             // 1. Generate standard school ID. Must happen inside this transaction —
             //    the advisory lock inside generateSchoolId is scoped to it (see
             //    idGenerator.service.ts) and only protects the insert below if both
@@ -118,69 +118,9 @@ export class TeacherService {
                 }
             });
 
-            // 4. Link Subjects/Classes
-            if (classes && Array.isArray(classes)) {
-                const seenAssignments = new Set<string>();
-                for (const item of classes) {
-                    let classId = typeof item === 'string' ? item : item.classId;
-                    const subjectId = typeof item === 'string' ? undefined : item.subjectId;
-                    
-                    const assignmentKey = `${classId}:${subjectId || 'none'}`;
-                    if (seenAssignments.has(assignmentKey)) continue;
-                    seenAssignments.add(assignmentKey);
-
-                    if (classId && typeof classId === 'string' && classId.startsWith('std-')) {
-                        const parts = classId.split('-'); // std-grade-section
-                        const grade = parseInt(parts[1]);
-                        const section = parts[2];
-
-                        if (isNaN(grade)) {
-                            console.error(`❌ [TeacherService] Invalid grade parsed from classId: ${classId}`);
-                            continue; // Skip this invalid class assignment
-                        }
-
-                        let cls = await tx.class.findFirst({
-                            where: { school_id: schoolId, grade, section }
-                        });
-
-                        if (!cls) {
-                            console.log(`📚 [TeacherService] Creating missing class: Grade ${grade}, Section ${section}`);
-                            cls = await tx.class.create({
-                                data: {
-                                    school_id: schoolId,
-                                    branch_id: branchId || null,
-                                    grade,
-                                    section,
-                                    name: `Grade ${grade}`, // More readable default name
-                                    level_category: grade >= 7 ? 'Secondary' : (grade >= 1 ? 'Primary' : 'Pre-Primary')
-                                }
-                            });
-                        }
-                        classId = cls.id;
-                    }
-
-                    const existingClass = await tx.class.findUnique({ where: { id: classId } });
-                    if (existingClass) {
-                        await (tx.classTeacher.upsert as any)({
-                            where: {
-                                class_id_teacher_id_subject_id: {
-                                    class_id: classId,
-                                    teacher_id: teacher.id,
-                                    subject_id: subjectId || null
-                                }
-                            },
-                            create: {
-                                school: { connect: { id: schoolId } },
-                                branch: branchId ? { connect: { id: branchId } } : undefined,
-                                teacher: { connect: { id: teacher.id } },
-                                class: { connect: { id: classId } },
-                                subject: subjectId ? { connect: { id: subjectId } } : undefined,
-                                is_primary: false
-                            },
-                            update: {}
-                        });
-                    }
-                }
+            // 4. Link Subjects/Classes (same batched routine as updateTeacher)
+            if (classes && Array.isArray(classes) && classes.length) {
+                await TeacherService.replaceBranchClassLinks(tx, schoolId, branchId || (teacher as any).branch_id || null, teacher.id, classes, { requireBranchClasses: false });
             }
 
             const result = {
@@ -294,6 +234,68 @@ export class TeacherService {
         return null;
     }
 
+    /**
+     * Replace a teacher's class/subject links in ONE branch, in as few queries as
+     * possible. `classes` is [{ classId, subjectId? }] or plain class ids; a
+     * `std-<grade>-<section>` id names a standard level and resolves to (or
+     * creates) that class. Runs inside the caller's transaction so the delete
+     * and the re-insert commit together — the old per-link loop (3 queries per
+     * link, ~1 s each on the serverless host) timed out after the delete had
+     * already committed, leaving the teacher with no classes at all.
+     */
+    private static async replaceBranchClassLinks(
+        tx: any, schoolId: string, branchId: string | null, teacherId: string, classes: any[], opts: { requireBranchClasses: boolean },
+    ) {
+        const wanted: Array<{ classId: string; subjectId?: string }> = [];
+        const seen = new Set<string>();
+        for (const item of Array.isArray(classes) ? classes : []) {
+            const classId = typeof item === 'string' ? item : (item?.classId || item?.class_id);
+            const subjectId = typeof item === 'string' ? undefined : (item?.subjectId || item?.subject_id || undefined);
+            if (!classId || typeof classId !== 'string') continue; // a malformed link is skipped, never a crash
+            const key = `${classId}:${subjectId || 'none'}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            wanted.push({ classId, subjectId });
+        }
+
+        // Resolve standard-level ids (std-<grade>-<section>) to real classes, creating once.
+        const levelName = (grade: number) => grade >= 10 && grade <= 12 ? `SSS ${grade - 9}` : grade >= 7 && grade <= 9 ? `JSS ${grade - 6}` : grade >= 1 && grade <= 6 ? `Primary ${grade}` : String(grade);
+        for (const w of wanted) {
+            if (!w.classId.startsWith('std-')) continue;
+            const [, g, section] = w.classId.split('-');
+            const grade = parseInt(g, 10);
+            let cls = await tx.class.findFirst({ where: { school_id: schoolId, grade, section }, select: { id: true } });
+            if (!cls) {
+                cls = await tx.class.create({
+                    data: { school_id: schoolId, branch_id: branchId || null, grade, section, name: levelName(grade), level_category: grade >= 7 ? 'Secondary' : (grade >= 1 ? 'Primary' : 'Pre-Primary') },
+                    select: { id: true },
+                });
+            }
+            w.classId = cls.id;
+        }
+
+        // One query validates every class (and, for a branch admin, that it is this branch's class).
+        const classIds = Array.from(new Set(wanted.map(w => w.classId)));
+        const validClasses = classIds.length
+            ? await tx.class.findMany({ where: { id: { in: classIds }, school_id: schoolId, ...(opts.requireBranchClasses ? { branch_id: branchId } : {}) }, select: { id: true } })
+            : [];
+        const valid = new Set(validClasses.map((c: any) => c.id));
+        const subjectIds = Array.from(new Set(wanted.map(w => w.subjectId).filter(Boolean))) as string[];
+        const validSubjects = subjectIds.length ? await tx.subject.findMany({ where: { id: { in: subjectIds }, school_id: schoolId }, select: { id: true } }).catch(() => []) : [];
+        const validSubj = new Set(validSubjects.map((c: any) => c.id));
+
+        await tx.classTeacher.deleteMany({ where: { teacher_id: teacherId, branch_id: branchId } });
+        const rows = wanted
+            .filter(w => valid.has(w.classId))
+            .map(w => ({
+                school_id: schoolId, branch_id: branchId, teacher_id: teacherId, class_id: w.classId,
+                subject_id: w.subjectId && validSubj.has(w.subjectId) ? w.subjectId : null,
+                is_primary: false,
+            }));
+        if (rows.length) await tx.classTeacher.createMany({ data: rows, skipDuplicates: true });
+        return { requested: wanted.length, linked: rows.length };
+    }
+
     static async updateTeacher(schoolId: string, branchId: string | undefined, id: string, updates: any, requester?: RequesterLike) {
         const {
             name,
@@ -338,7 +340,7 @@ export class TeacherService {
         if (school_generated_id !== undefined) prismaData.school_generated_id = school_generated_id;
         if (notification_preferences !== undefined) prismaData.notification_preferences = notification_preferences;
 
-        return await prisma.$transaction(async (tx) => {
+        return await withTenantTransaction({ schoolId, branchId: branchId && branchId !== 'all' ? branchId : null, userId: (requester as any)?.id || null }, async (tx) => {
             // Find teacher record first to handle cases where id passed is user_id
             const teacher = await tx.teacher.findFirst({
                 where: {
@@ -406,67 +408,8 @@ export class TeacherService {
             // Update classes if provided — only for the ACTIVE branch.
             // Without a branch filter this would wipe assignments in every other
             // branch whenever the admin saves ANY field on the teacher form.
-            if (classes && Array.isArray(classes) && branchId) {
-                await tx.classTeacher.deleteMany({
-                    where: { teacher_id: teacher.id, branch_id: branchId }
-                });
-
-                const seenAssignments = new Set<string>();
-                for (const item of classes) {
-                    let classId = typeof item === 'string' ? item : item.classId;
-                    const subjectId = typeof item === 'string' ? undefined : item.subjectId;
-                    
-                    const assignmentKey = `${classId}:${subjectId || 'none'}`;
-                    if (seenAssignments.has(assignmentKey)) continue;
-                    seenAssignments.add(assignmentKey);
-
-                    // Handle Virtual/Shell Class IDs (Implicit Creation)
-                    if (classId && classId.startsWith('std-')) {
-                        const parts = classId.split('-');
-                        const grade = parseInt(parts[1]);
-                        const section = parts[2];
-
-                        let cls = await tx.class.findFirst({
-                            where: { school_id: schoolId, grade, section }
-                        });
-
-                        if (!cls) {
-                            // Proper level name (e.g. "SSS 1") instead of a bare grade number,
-                            // so an auto-created standard class reads correctly everywhere.
-                            const levelName =
-                                grade >= 10 && grade <= 12 ? `SSS ${grade - 9}` :
-                                grade >= 7 && grade <= 9 ? `JSS ${grade - 6}` :
-                                grade >= 1 && grade <= 6 ? `Primary ${grade}` :
-                                String(grade);
-                            cls = await tx.class.create({
-                                data: {
-                                    school_id: schoolId,
-                                    branch_id: branchId || null,
-                                    grade,
-                                    section,
-                                    name: levelName,
-                                    level_category: grade >= 7 ? 'Secondary' : (grade >= 1 ? 'Primary' : 'Pre-Primary')
-                                }
-                            });
-                        }
-                        classId = cls.id;
-                    }
-
-                    // Check if class exists to prevent foreign key errors
-                    const existingClass = await tx.class.findUnique({ where: { id: classId } });
-                    if (existingClass) {
-                        await tx.classTeacher.create({
-                            data: {
-                                school: { connect: { id: schoolId } },
-                                branch: branchId ? { connect: { id: branchId } } : undefined,
-                                teacher: { connect: { id: teacher.id } },
-                                class: { connect: { id: classId } },
-                                subject: subjectId ? { connect: { id: subjectId } } : undefined,
-                                is_primary: false
-                            }
-                        });
-                    }
-                }
+            if (classes && Array.isArray(classes) && branchId && branchId !== 'all') {
+                await TeacherService.replaceBranchClassLinks(tx, schoolId, branchId, teacher.id, classes, { requireBranchClasses: false });
             }
 
             SocketService.emitToSchool(schoolId, 'teacher:updated', { action: 'update', teacherId: teacher.id });
@@ -488,7 +431,7 @@ export class TeacherService {
     static async assignBranchClasses(schoolId: string, branchId: string | undefined, id: string, classes: any[], requester?: RequesterLike) {
         if (!branchId || branchId === 'all') throw forbidden('Select a specific branch before assigning classes to a teacher.');
 
-        return await prisma.$transaction(async (tx) => {
+        return await withTenantTransaction({ schoolId, branchId, userId: (requester as any)?.id || null }, async (tx) => {
             const teacher = await tx.teacher.findFirst({ where: { OR: [{ id }, { user_id: id }], school_id: schoolId } });
             if (!teacher) throw new Error('Teacher record not found');
 
@@ -496,32 +439,8 @@ export class TeacherService {
                 throw forbidden('You can only assign classes/subjects for a teacher who is assigned to your branch.');
             }
 
-            // Replace ONLY this branch's assignments for this teacher.
-            await tx.classTeacher.deleteMany({ where: { teacher_id: teacher.id, branch_id: branchId } });
-
-            const seen = new Set<string>();
-            for (const item of (Array.isArray(classes) ? classes : [])) {
-                const classId = typeof item === 'string' ? item : item?.classId;
-                const subjectId = typeof item === 'string' ? undefined : item?.subjectId;
-                if (!classId) continue;
-                const key = `${classId}:${subjectId || 'none'}`;
-                if (seen.has(key)) continue;
-                seen.add(key);
-
-                // The class must belong to THIS branch (you can only assign your branch's classes).
-                const cls = await tx.class.findFirst({ where: { id: classId, school_id: schoolId, branch_id: branchId } });
-                if (!cls) continue;
-                await tx.classTeacher.create({
-                    data: {
-                        school: { connect: { id: schoolId } },
-                        branch: { connect: { id: branchId } },
-                        teacher: { connect: { id: teacher.id } },
-                        class: { connect: { id: classId } },
-                        subject: subjectId ? { connect: { id: subjectId } } : undefined,
-                        is_primary: false,
-                    },
-                });
-            }
+            // Replace ONLY this branch's assignments for this teacher (this branch's classes only).
+            await TeacherService.replaceBranchClassLinks(tx, schoolId, branchId, teacher.id, classes, { requireBranchClasses: true });
 
             SocketService.emitToSchool(schoolId, 'teacher:updated', { action: 'branch-classes', teacherId: teacher.id, branchId });
             const rows = await tx.classTeacher.findMany({ where: { teacher_id: teacher.id, branch_id: branchId }, include: { class: true, subject: true } });

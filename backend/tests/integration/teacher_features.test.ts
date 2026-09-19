@@ -984,7 +984,11 @@ vi.mock('../../src/config/database', () => {
 
     return {
         default: prismaProxy,
-        prisma: prismaProxy
+        prisma: prismaProxy,
+        // Newer services run their writes through the real transaction helper;
+        // in this mocked suite it simply hands the proxy to the callback.
+        withTenantTransaction: vi.fn(async (_scope: any, cb: any) => cb(prismaProxy)),
+        getRawPrisma: vi.fn(() => prismaProxy),
     };
 });
 
