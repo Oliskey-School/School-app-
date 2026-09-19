@@ -194,7 +194,9 @@ test.describe('Production critical path', () => {
             const u = r.url();
             if (!/\/api\/students(\/enroll|\?|$)/.test(u)) return;
             const body = await r.text().catch(() => '');
-            apiTrace.push(`${r.request().method()} ${u.split('/api/')[1]} → ${r.status()} ${body.slice(0, 400)}`);
+            // For the list, the names are the evidence; for everything else the first 400 chars.
+            const names = r.request().method() === 'GET' ? (body.match(/"full_name":"[^"]*"/g) || []).join(', ') : '';
+            apiTrace.push(`${r.request().method()} ${u.split('/api/')[1]} → ${r.status()} ${names ? `[${(body.match(/"full_name"/g) || []).length} students] ${names}` : body.slice(0, 400)}`);
             if (r.request().method() === 'POST') apiTrace.push(`  payload: ${(r.request().postData() || '').slice(0, 400)}`);
         });
         const fullName = page.locator('#fullName');
