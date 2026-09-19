@@ -71,6 +71,16 @@ describe('Payment security', () => {
         expect(await prisma.payment.count({ where: { school_id: S, reference: 'PAY-REF-BAD' } })).toBe(0);
     });
 
+    it('the unverified plan activation endpoint no longer exists and plan status needs a session', async () => {
+        const res = await request(app).post('/api/plans/subscribe').set(adminAuth).send({ schoolId: S, amount: 1, reference: 'FAKE', planType: 'enterprise' });
+        expect(res.status).toBe(404);
+        const school = await prisma.school.findUnique({ where: { id: S } });
+        expect(school!.plan_type).toBe('free');
+        expect((await request(app).get(`/api/plans/status?schoolId=${S}`)).status).toBe(401);
+        const own = await request(app).get('/api/plans/status').set(adminAuth);
+        expect(own.status).toBe(200);
+    });
+
     it('a school admin cannot grant their own school a plan without paying', async () => {
         const res = await request(app).post(`/api/schools/${S}/subscription`).set(adminAuth).send({ planType: 'enterprise', subscriptionStatus: 'active', isPremium: true });
         expect(res.status).toBe(403);

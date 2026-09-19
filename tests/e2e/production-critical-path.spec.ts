@@ -1,6 +1,8 @@
 import { test, expect, Page, APIRequestContext } from '@playwright/test';
 import bcrypt from 'bcrypt';
-import { PrismaClient } from '@prisma/client';
+// The ONE Prisma schema is backend/prisma/schema.prisma; its generated client is
+// the only one that matches the migrated database.
+import { PrismaClient } from '../../backend/generated/prisma-client';
 
 /**
  * Production release gate: login, dashboard loading, student create/edit,
@@ -128,7 +130,7 @@ async function createIsolationFixture(tag: string) {
     const school = await prisma.school.create({
         data: {
             name: `Isolation ${tag} ${unique}`,
-            code: `ISO${tag}${unique}`.slice(0, 10),
+            code: `ISO${tag}${unique.slice(-6)}`, // the tail of the id is what differs between two fixtures made ms apart
             slug: `iso-${tag.toLowerCase()}-${unique.toLowerCase()}`,
             email: `${tag.toLowerCase()}-${unique.toLowerCase()}@example.com`,
             is_active: true,
@@ -186,6 +188,15 @@ test.describe('Production critical path', () => {
         await loginAsAdminWithHook(page, baseURL!);
         await navigateAdmin(page, 'addStudent');
         const uniqueName = `CI Student ${Date.now()}`;
+        // Evidence on failure: what the app sent and what the API answered.
+        const apiTrace: string[] = [];
+        page.on('response', async (r) => {
+            const u = r.url();
+            if (!/\/api\/students(\/enroll|\?|$)/.test(u)) return;
+            const body = await r.text().catch(() => '');
+            apiTrace.push(`${r.request().method()} ${u.split('/api/')[1]} → ${r.status()} ${body.slice(0, 400)}`);
+            if (r.request().method() === 'POST') apiTrace.push(`  payload: ${(r.request().postData() || '').slice(0, 400)}`);
+        });
         const fullName = page.locator('#fullName');
         await fullName.waitFor({ state: 'visible', timeout: 15_000 });
         await fullName.fill(uniqueName);
@@ -230,7 +241,9 @@ test.describe('Production critical path', () => {
             await search.fill(uniqueName);
             await page.waitForTimeout(1200);
         }
-        await expect(page.locator(`text="${uniqueName}"`).first()).toBeVisible({ timeout: 10_000 });
+        await expect(page.locator(`text="${uniqueName}"`).first(), `API trace:
+${apiTrace.join('
+')}`).toBeVisible({ timeout: 10_000 });
     });
 
     test('Student editing', async ({ page, baseURL }) => {

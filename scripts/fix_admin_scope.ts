@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../backend/generated/prisma-client';
 const prisma = new PrismaClient();
 async function main() {
     console.log('Promoting admin@demo.com to Global Admin...');

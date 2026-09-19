@@ -7,7 +7,7 @@
     "build": "vite build",
     "prebuild:vps": "node scripts/check-env.mjs",
     "build:vps": "cross-env LOW_RESOURCE_BUILD=true NODE_OPTIONS=--max-old-space-size=1536 vite build",
-    "postinstall": "npx prisma generate && npx prisma generate --schema=backend/prisma/schema.prisma && node scripts/patch-otplib.js",
+    "postinstall": "npx prisma generate --schema=backend/prisma/schema.prisma && node scripts/patch-otplib.js",
     "preview": "vite preview",
     "test": "vitest",
     "test:run": "vitest run",
