@@ -160,7 +160,7 @@ jobs:
         if: failure()
         run: |
           echo "::group::backend log (last 200 lines)"
-          tail -200 /tmp/e2e-backend.log || true
+          cat /tmp/e2e-backend.log || true
           echo "::endgroup::"
           echo "::group::vite preview log (last 100 lines)"
           tail -100 /tmp/e2e-preview.log || true

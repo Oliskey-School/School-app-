@@ -10,7 +10,10 @@ import { PrismaClient } from '@prisma/client';
  * not depend on private browser hooks that can disappear during refactors.
  */
 
-const prisma = new PrismaClient();
+// Fixture seeding is administrative work, not app traffic: connect as the
+// migration/superuser role (DIRECT_URL). DATABASE_URL is the NOBYPASSRLS app
+// role in CI, which correctly refuses unscoped inserts.
+const prisma = new PrismaClient({ datasources: { db: { url: process.env.DIRECT_URL || process.env.DATABASE_URL } } });
 
 async function warmDemoBackend(page: Page, baseURL: string, role: string) {
     const request = page.context().request;

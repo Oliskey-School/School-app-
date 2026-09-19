@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import prisma from '../config/database';
 import { config, DEMO_SCHOOL_ID } from '../config/env';
-import { runWithTenantContext } from '../lib/tenantContext';
+import { runWithTenantContext, runAsPlatform } from '../lib/tenantContext';
 
 export interface AuthRequest extends Request {
     user?: any;
@@ -30,11 +30,14 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
                 return res.status(403).json({ message: 'Demo tokens can only access the demo school' });
             }
 
-            const demoSchool = await prisma.school.findUnique({ where: { id: DEMO_SCHOOL_ID } });
-            const demoDbUser = await prisma.user.findUnique({
+            // Resolving the token's identity happens BEFORE a tenant scope exists,
+            // so it is platform-level work (see lib/tenantContext.ts). Without this
+            // the lookup runs with RLS applied and an empty school → no row.
+            const demoSchool = await runAsPlatform(() => prisma.school.findUnique({ where: { id: DEMO_SCHOOL_ID } }));
+            const demoDbUser = await runAsPlatform(() => prisma.user.findUnique({
                 where: { id: decoded.id },
                 select: { full_name: true, avatar_url: true, phone: true },
-            }).catch(() => null);
+            })).catch(() => null);
 
             const demoSessionRoot = (decoded.branch_id || '').split('__')[0];
             const demoHeaderBranch = req.headers['x-branch-id'] as string | undefined;
@@ -70,10 +73,15 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
             }, next);
         }
 
-        const user = await (prisma.user.findUnique as any)({
+        // Token → user is resolved before any tenant scope exists: platform-level
+        // by definition (the scope for everything after this is derived from it).
+        // ROOT CAUSE this fixes: with no scope this ran with RLS applied and an
+        // empty school, found nothing, and every real user got 401
+        // "User no longer exists" right after a successful sign-in.
+        const user = await runAsPlatform(() => (prisma.user.findUnique as any)({
             where: { id: decoded.id },
             include: { school: true, branch: true, teacher_profile: true, parent_profile: true }
-        });
+        }));
 
         if (!user) return res.status(401).json({ message: 'User no longer exists' });
 
@@ -100,9 +108,11 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
         }
 
         if (headerBranchId && isSchoolLevelAdmin && user.school_id) {
-            const branchOwner = await prisma.branch.findUnique({
+            // Deliberately cross-school: the check is whether the requested
+            // branch belongs to ANOTHER school, which the tenant scope would hide.
+            const branchOwner = await runAsPlatform(() => prisma.branch.findUnique({
                 where: { id: headerBranchId }, select: { school_id: true }
-            });
+            }));
             if (branchOwner && branchOwner.school_id !== user.school_id) {
                 return res.status(403).json({ message: 'User not authorized to access this branch' });
             }
