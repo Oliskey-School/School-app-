@@ -90,6 +90,11 @@ jobs:
 
       # Metadata, structured data, robots/sitemap and manifest checks.
       # Also fails if a private route ever appears in sitemap.xml.
+      # Knowledge retrieval, the security rules, user context, and the check
+      # that the Gemini fallback receives exactly what NVIDIA was given.
+      - name: AI knowledge layer checks
+        run: npx tsx --tsconfig backend/tsconfig.json node_modules/vitest/vitest.mjs run --config backend/vitest.config.ts backend/tests/integration/ai-knowledge.test.ts
+
       - name: SEO and brand-entity checks
         run: npx vitest run --config vite.config.mts tests/seo/seo-metadata.test.ts
 
