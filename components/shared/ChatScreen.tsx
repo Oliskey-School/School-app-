@@ -715,7 +715,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
                                             transition={{ type: 'spring', stiffness: 420, damping: 30 }}
                                             className="absolute bottom-full left-2 mb-2 bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-100/80 p-3 w-64 z-50"
                                         >
-                                            <div className="grid grid-cols-5 gap-1.5">
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1.5">
                                                 {COMMON_EMOJIS.map(emoji => (
                                                     <motion.button
                                                         key={emoji}

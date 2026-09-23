@@ -726,7 +726,7 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
                         </div>
                     ) : (
                         <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
-                            <div className={isWide ? 'min-w-[680px]' : 'min-w-full'}>
+                            <div className={isWide ? 'min-w-[680px] max-w-full' : 'min-w-full'}>
                                 {/* header row: class names (Period column sticks while scrolling) */}
                                 <div className="grid" style={{ gridTemplateColumns: gridCols }}>
                                     <div className="sticky left-0 z-20 bg-slate-50 border-b border-r border-slate-200 p-2 text-[11px] font-bold uppercase text-slate-400 flex items-center">Period</div>

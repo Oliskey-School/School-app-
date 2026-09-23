@@ -160,7 +160,7 @@ const TeacherReportCardPreviewScreen: React.FC<TeacherReportCardPreviewScreenPro
                             </div>
 
                             <SectionHeader title="Attendance Record" />
-                            <div className="grid grid-cols-4 gap-4 text-sm text-center">
+                            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-center">
                                 <div><p className="text-xs text-gray-500">Total Days</p><p className="font-bold text-lg">{report.attendance?.total || 0}</p></div>
                                 <div><p className="text-xs text-gray-500">Present</p><p className="font-bold text-lg">{report.attendance?.present || 0}</p></div>
                                 <div><p className="text-xs text-gray-500">Absent</p><p className="font-bold text-lg">{report.attendance?.absent || 0}</p></div>

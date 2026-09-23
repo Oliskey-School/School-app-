@@ -568,7 +568,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                             here also still appears in its normal department section below. */}
                         <div className="mb-6">
                             <h3 className="text-xs font-bold text-indigo-500 uppercase tracking-wider mb-2 px-1">Daily Essentials</h3>
-                            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 sm:gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 sm:gap-4">
                                 <QuickActionCard index={0} label="Approvals" icon={<CheckCircleIcon />} onClick={() => navigateTo('studentApprovals', 'Student Approvals')} color="bg-indigo-600" />
                                 <QuickActionCard index={1} label="Attendance" icon={<ClockIcon />} onClick={() => navigateTo('teacherAttendance', 'Teacher Attendance')} color="bg-amber-500" />
                                 <QuickActionCard index={2} label="Announce" icon={<MegaphoneIcon />} onClick={() => navigateTo('communicationHub', 'Communication Hub')} color="bg-teal-500" />
@@ -608,7 +608,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                                         {categoriesToShow.map(cat => (
                                             <div key={cat.id}>
                                                 <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-1">{cat.name}</h3>
-                                                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 sm:gap-4">
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 sm:gap-4">
                                                     {cat.items.map((item, i) => (
                                                         <QuickActionCard key={item.label} index={i} label={item.label} icon={item.icon} onClick={item.onClick} color={item.color} />
                                                     ))}

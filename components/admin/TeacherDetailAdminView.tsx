@@ -159,7 +159,7 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
                                                         animate={{ opacity: 1, y: 0, scale: 1 }}
                                                         exit={{ opacity: 0, y: -8, scale: 0.96 }}
                                                         transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                                                        className="absolute left-0 top-6 z-50 bg-white border border-gray-200 rounded-xl shadow-lg py-1 min-w-[130px]"
+                                                        className="absolute left-0 top-6 z-50 bg-white border border-gray-200 rounded-xl shadow-lg py-1 min-w-[130px] max-w-full"
                                                     >
                                                         {['Active', 'On Leave', 'Inactive'].map(s => (
                                                             <motion.button

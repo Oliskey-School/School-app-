@@ -425,7 +425,7 @@ const AttendanceTab = ({ student }: { student: Student }) => {
                 <span className="flex items-center"><div className="w-3 h-3 rounded-full bg-blue-400 mr-1.5"></div>Late</span>
             </div>
             {termDays && (
-                <div className="grid grid-cols-4 gap-2 text-center mt-4">
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-center mt-4">
                     <div className="bg-gray-50 rounded-lg p-2"><p className="font-bold text-gray-800">{termDays.total}</p><p className="text-xs text-gray-500">School days</p></div>
                     <div className="bg-green-50 rounded-lg p-2"><p className="font-bold text-green-600">{termDays.present}</p><p className="text-xs text-gray-500">Present</p></div>
                     <div className="bg-red-50 rounded-lg p-2"><p className="font-bold text-red-600">{termDays.absent}</p><p className="text-xs text-gray-500">Absent</p></div>

@@ -163,7 +163,7 @@ const MessagesLayout: React.FC<MessagesLayoutProps> = ({
     return (
         <div className="flex h-full overflow-hidden bg-white/70 backdrop-blur-md rounded-2xl shadow-lg border border-white/60">
             {/* Sidebar / conversation list */}
-            <div className={`flex flex-col h-full bg-white/60 backdrop-blur-sm border-r border-gray-100/60 ${isDesktop ? 'w-[320px] flex-shrink-0' : 'w-full'}`}>
+            <div className={`flex flex-col h-full bg-white/60 backdrop-blur-sm border-r border-gray-100/60 ${isDesktop ? 'w-[320px] max-w-full flex-shrink-0' : 'w-full'}`}>
 
                 {/* Header */}
                 <div className="px-4 pt-4 pb-3 border-b border-gray-100/60 bg-white/40 backdrop-blur-sm flex-shrink-0">

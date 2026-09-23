@@ -198,7 +198,7 @@ const TeacherAttendanceHistoryScreen: React.FC<TeacherAttendanceHistoryScreenPro
 
                 {/* Vertical Stats & Additional Content */}
                 <div className="space-y-4">
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-50 text-center group hover:border-green-100 transition-colors">
                             <p className="font-black text-3xl text-green-500 mb-1 leading-none">{stats.present}</p>
                             <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Present</p>

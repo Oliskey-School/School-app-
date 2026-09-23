@@ -341,7 +341,7 @@ const AssignmentSubmissionsScreen: React.FC<AssignmentSubmissionsScreenProps> = 
                 </div>
 
                 {/* Summary Header */}
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="bg-white p-4 rounded-xl shadow-sm text-center grid grid-cols-3 divide-x divide-gray-200">
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="bg-white p-4 rounded-xl shadow-sm text-center grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 divide-x divide-gray-200">
                     <div>
                         <p className="text-2xl font-bold text-purple-700">{submissions.length}/{allClassStudents.length || assignment.totalStudents}</p>
                         <p className="text-xs text-gray-500 font-medium">Submitted</p>

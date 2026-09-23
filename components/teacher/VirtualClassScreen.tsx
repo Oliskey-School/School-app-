@@ -346,7 +346,7 @@ const ClassSelectionScreen: React.FC<{
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">Duration</label>
-                                <div className="grid grid-cols-4 gap-2">
+                                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                                     {['30', '45', '60', '90'].map((m) => (
                                         <button key={m} onClick={() => setDuration(m)} className={`py-2 px-1 rounded-lg text-sm font-medium border transition-all ${duration === m ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300'}`}>{m}m</button>
                                     ))}

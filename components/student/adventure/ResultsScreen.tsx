@@ -87,7 +87,7 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ adventureData, userAnswer
                 </div>
             </motion.div>
 
-            <div className="mt-4 grid grid-cols-3 gap-3 text-center">
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-center">
                 <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1, type: 'spring', stiffness: 300, damping: 22 }} className="bg-white p-3 rounded-xl shadow-sm"><p className="font-bold text-2xl text-teal-600">{score}%</p><p className="text-xs text-gray-500">Score</p></motion.div>
                 <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.15, type: 'spring', stiffness: 300, damping: 22 }} className="bg-white p-3 rounded-xl shadow-sm"><p className="font-bold text-2xl text-green-600">{correctAnswers}</p><p className="text-xs text-gray-500">Correct</p></motion.div>
                 <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2, type: 'spring', stiffness: 300, damping: 22 }} className="bg-white p-3 rounded-xl shadow-sm"><p className="font-bold text-2xl text-red-600">{incorrectAnswers}</p><p className="text-xs text-gray-500">Incorrect</p></motion.div>

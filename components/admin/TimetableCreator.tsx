@@ -564,7 +564,7 @@ const TimetableCreator: React.FC<{ navigateTo: (path: string) => void, initialCl
                 <div className="absolute inset-0 pattern-grid-lg opacity-[0.03] pointer-events-none"></div>
 
                 {selectedClasses.length > 0 ? (
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden min-w-[800px]">
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden min-w-[800px] max-w-full">
                         {/* Grid Header */}
                         <div className="grid grid-cols-[80px_repeat(5,1fr)] bg-gray-50 border-b border-gray-200">
                             <div className="p-4 border-r border-gray-200 flex items-center justify-center">

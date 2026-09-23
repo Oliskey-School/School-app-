@@ -79,7 +79,7 @@ const TagInput = ({ label, tags, onAdd, onRemove, placeholder }: any) => {
                             setInput('');
                         }
                     }}
-                    className="flex-1 bg-transparent border-none focus:ring-0 text-sm min-w-[120px]"
+                    className="flex-1 bg-transparent border-none focus:ring-0 text-sm min-w-[120px] max-w-full"
                     placeholder={placeholder}
                 />
             </div>

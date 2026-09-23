@@ -68,7 +68,7 @@ const LivePreview: React.FC<{ a: Appearance; roleLabel: string }> = ({ a, roleLa
         <span className="px-3 py-1.5 rounded-full text-[11px] font-bold accent-tint-chip">Highlight</span>
         <span className="ml-auto w-7 h-7 rounded-full flex items-center justify-center text-white" style={{ background: 'rgb(var(--accent-500))' }}><Bell className="w-3.5 h-3.5" /></span>
       </div>
-      <div className="grid grid-cols-4 gap-1 mt-3 pt-2 border-t border-gray-200/60">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-1 mt-3 pt-2 border-t border-gray-200/60">
         {[['Home', Home], ['Messages', MessageSquare], ['Settings', Settings]].map(([label, Icon]: any, i) => (
           <div key={label} className="flex flex-col items-center gap-0.5 text-[9px] font-semibold" style={{ color: i === 0 ? 'rgb(var(--accent-600))' : '#9ca3af' }}>
             <Icon className="w-3.5 h-3.5" />{label}
@@ -170,7 +170,7 @@ const AppearancePanel: React.FC = () => {
         {/* Colour scheme — html.dark + styles/dark-theme.css re-colour every screen */}
         <div className="mt-6">
           <SectionTitle hint={scheme === 'system' ? 'follows your device' : undefined}>Colour scheme</SectionTitle>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
             {([['light', 'Light', Sun], ['dark', 'Dark', Moon], ['system', 'System', Laptop]] as const).map(([key, label, Icon]) => (
               <motion.button key={key} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => chooseScheme(key)} aria-pressed={scheme === key}
                 className={`flex items-center justify-center gap-2 px-3 py-3 rounded-2xl text-xs font-black uppercase tracking-wide border transition-all ${scheme === key ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-900/20' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>

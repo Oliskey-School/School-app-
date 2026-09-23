@@ -449,7 +449,7 @@ const HealthLogScreen: React.FC<HealthLogProps> = ({ schoolId, currentUserId }) 
                         </div>
 
                         <div className="flex gap-3 overflow-x-auto pb-1 md:pb-0 no-scrollbar">
-                            <div className="px-4 py-2 bg-rose-50 border border-rose-100 rounded-xl flex items-center gap-3 min-w-[140px]">
+                            <div className="px-4 py-2 bg-rose-50 border border-rose-100 rounded-xl flex items-center gap-3 min-w-[140px] max-w-full">
                                 <div className="p-2 bg-white rounded-lg text-rose-500 shadow-sm">
                                     <ExclamationCircleIcon className="w-4 h-4" />
                                 </div>
@@ -458,7 +458,7 @@ const HealthLogScreen: React.FC<HealthLogProps> = ({ schoolId, currentUserId }) 
                                     <p className="text-lg font-bold text-gray-900">{stats.today}</p>
                                 </div>
                             </div>
-                            <div className="px-4 py-2 bg-blue-50 border border-blue-100 rounded-xl flex items-center gap-3 min-w-[140px]">
+                            <div className="px-4 py-2 bg-blue-50 border border-blue-100 rounded-xl flex items-center gap-3 min-w-[140px] max-w-full">
                                 <div className="p-2 bg-white rounded-lg text-blue-500 shadow-sm">
                                     <TrendingUpIcon className="w-4 h-4" />
                                 </div>

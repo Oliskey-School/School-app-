@@ -338,7 +338,7 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
         <div className="flex overflow-x-auto pb-2 gap-3 no-scrollbar">
           {classesLoading ? (
             Array(2).fill(0).map((_, i) => (
-              <div key={i} className="min-w-[160px] bg-white p-4 rounded-2xl shadow-sm animate-pulse">
+              <div key={i} className="min-w-[160px] max-w-full bg-white p-4 rounded-2xl shadow-sm animate-pulse">
                 <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
                 <div className="h-3 bg-gray-100 rounded w-1/2"></div>
               </div>
@@ -355,7 +355,7 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
                 onClick={() => navigateTo('classDetail', c.name || getFormattedClassName(c.grade, c.section, true, c.subject), {
                   classInfo: { ...c, schoolId, branchId: currentBranchId }
                 })}
-                className="min-w-[180px] bg-white p-4 rounded-2xl shadow-sm hover:shadow-md transition-shadow text-left border border-purple-100 hover:border-purple-300 group"
+                className="min-w-[180px] max-w-full bg-white p-4 rounded-2xl shadow-sm hover:shadow-md transition-shadow text-left border border-purple-100 hover:border-purple-300 group"
               >
                 <div className="flex justify-between items-start mb-1">
                   <p className="font-bold text-gray-800 text-base">{c.name || getFormattedClassName(c.grade, c.section)}</p>
@@ -425,7 +425,7 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
             {quickActionGroups.filter(group => group.items.length > 0).map((group) => (
               <div key={group.title}>
                 <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-1">{group.title}</h4>
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 sm:gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 sm:gap-3">
                   {group.items.map((action, i) => (
                     <motion.button
                       key={action.label}

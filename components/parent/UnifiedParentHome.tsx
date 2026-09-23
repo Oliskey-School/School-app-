@@ -253,7 +253,7 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
                         <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider underline">School Utilities</h3>
                         <button onClick={() => navigateTo('schoolUtilities', 'School Utilities')} className="text-xs text-indigo-600 font-bold hover:underline">View All</button>
                     </div>
-                    <div className="grid grid-cols-4 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                         {[
                             { label: 'Bus', icon: Bus, color: 'text-amber-600', bg: 'bg-amber-50', view: 'busRoute', title: 'Bus Route' },
                             { label: 'Calendar', icon: Calendar, color: 'text-blue-600', bg: 'bg-blue-50', view: 'calendar', title: 'School Calendar' },

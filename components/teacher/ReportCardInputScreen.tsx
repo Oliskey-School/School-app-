@@ -610,7 +610,7 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
                 </div>
 
                 <SectionHeader title="Attendance Record" />
-                <div className="grid grid-cols-4 gap-4 text-sm">
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
                     {Object.entries(attendance).map(([key, value]) => (<div key={key}><label className="capitalize text-xs text-gray-700">{key.replace(/([A-Z])/g, ' $1')}</label><input type="number" value={value} disabled={!canEditGeneralSections || isLocked} onChange={e => { dirtyRef.current = true; setAttendance(p => ({ ...p, [key]: e.target.value })); }} className="w-full p-2 text-sm border border-gray-300 rounded bg-white text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed" /></div>))}
                 </div>
                 <p className="text-xs text-gray-500 mt-2">

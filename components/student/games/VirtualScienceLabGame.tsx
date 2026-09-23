@@ -349,7 +349,7 @@ const VirtualScienceLabGame: React.FC<VirtualScienceLabGameProps> = ({ onBack })
                     </div>
 
                     {/* Shelf / Inventory */}
-                    <div className="w-full px-8 grid grid-cols-3 sm:grid-cols-6 gap-4 z-20">
+                    <div className="w-full px-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 sm:grid-cols-6 gap-4 z-20">
                         {CHEMICALS.map(chem => (
                             <button
                                 key={chem.id}

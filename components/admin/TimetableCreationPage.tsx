@@ -79,7 +79,7 @@ const TagInput: React.FC<{ tags: string[]; setTags: (newTags: string[]) => void;
                 onKeyDown={handleKeyDown}
                 onBlur={handleAddTag}
                 placeholder={tags.length === 0 ? placeholder : ''}
-                className="flex-grow bg-transparent p-1 text-sm focus:outline-none min-w-[100px] placeholder:text-gray-400 text-gray-800"
+                className="flex-grow bg-transparent p-1 text-sm focus:outline-none min-w-[100px] max-w-full placeholder:text-gray-400 text-gray-800"
             />
         </div>
     );

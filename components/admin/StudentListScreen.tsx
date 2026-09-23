@@ -152,7 +152,7 @@ const StudentRow: React.FC<{
                 exit={{ opacity: 0, y: menuPos.openUpward ? 10 : -10, scale: 0.96 }}
                 transition={{ type: 'spring', stiffness: 400, damping: 25 }}
                 style={{ position: 'fixed', top: menuPos.top, bottom: menuPos.bottom, right: menuPos.right }}
-                className="z-50 bg-white rounded-xl shadow-lg border border-gray-100 py-1.5 min-w-[150px]"
+                className="z-50 bg-white rounded-xl shadow-lg border border-gray-100 py-1.5 min-w-[150px] max-w-full"
               >
                 <p className="text-[9px] text-gray-400 px-3 pb-1.5 font-semibold uppercase tracking-widest">Change status</p>
                 {otherStatuses.map(s => (

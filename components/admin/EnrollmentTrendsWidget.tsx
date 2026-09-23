@@ -74,7 +74,7 @@ const EnrollmentTrendsWidget = () => {
             ) : (
                 <>
                     {/* Mini stats */}
-                    <div className="grid grid-cols-3 gap-3 mb-5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
                         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="bg-emerald-50 p-3 rounded-xl text-center">
                             <p className="text-xl font-bold text-emerald-700">{totalEnrolled}</p>
                             <p className="text-xs font-bold text-emerald-500">Enrolled</p>

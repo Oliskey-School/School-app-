@@ -149,7 +149,7 @@ const LearningHubScreen: React.FC<LearningHubScreenProps> = ({ navigateTo, stude
         </div>
 
         {summary && (
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <div className="bg-white rounded-xl p-3 border border-gray-100 text-center">
               <AwardIcon className="w-5 h-5 mx-auto text-orange-500 mb-1" />
               <p className="text-lg font-black text-gray-800">{summary.lessons_completed}</p>

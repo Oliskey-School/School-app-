@@ -143,7 +143,7 @@ const AnonymousReporting: React.FC = () => {
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             How serious is this issue? *
                         </label>
-                        <div className="grid grid-cols-4 gap-2">
+                        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                             {['Low', 'Medium', 'High', 'Critical'].map((level) => (
                                 <motion.button
                                     key={level}

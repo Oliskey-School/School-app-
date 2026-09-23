@@ -150,7 +150,7 @@ const IDCardGenerator: React.FC<IDCardGeneratorProps> = ({ user, userType }) => 
                     }}
                     className="flex-shrink-0 transition-all duration-300 ease-out"
                 >
-                    <div ref={cardRef} data-id-card="true" className="relative w-[856px] h-[540px] bg-gradient-to-br from-indigo-700 via-purple-700 to-indigo-900 rounded-[40px] shadow-2xl overflow-hidden border-8 border-white/20">
+                    <div ref={cardRef} data-id-card="true" className="relative w-[856px] max-w-full h-[540px] bg-gradient-to-br from-indigo-700 via-purple-700 to-indigo-900 rounded-[40px] shadow-2xl overflow-hidden border-8 border-white/20">
                         {/* Refined Background Pattern */}
                         <div className="absolute inset-0 opacity-10 pointer-events-none">
                             <div className="absolute inset-0" style={{

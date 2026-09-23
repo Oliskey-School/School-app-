@@ -237,7 +237,7 @@ const TransportManagementScreen = () => {
                                                 <div className="flex items-center space-x-1"><Users className="w-4 h-4 text-gray-400" /><span className="font-bold">{route.driver_name}</span></div>
                                                 <div className="flex items-center space-x-1"><Phone className="w-3 h-3 text-gray-400" /><span>{route.driver_phone}</span></div>
                                             </div>
-                                            <div className="grid grid-cols-3 gap-4 pt-4 border-t border-gray-50">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-4 border-t border-gray-50">
                                                 <div>
                                                     <p className="text-xs uppercase font-bold text-gray-400">Morning</p>
                                                     <p className="font-bold text-gray-700">{route.morning_departure}</p>
@@ -409,7 +409,7 @@ const TransportManagementScreen = () => {
                                             {routes.map(r => <option key={r.id} value={r.id}>{r.route_name}</option>)}
                                         </select>
                                     </div>
-                                    <div className="grid grid-cols-3 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                         <div>
                                             <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Order</label>
                                             <input type="number" className="w-full px-5 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold" value={formData.stop_order || 1} onChange={e => setFormData({ ...formData, stop_order: parseInt(e.target.value) || 1 })} />

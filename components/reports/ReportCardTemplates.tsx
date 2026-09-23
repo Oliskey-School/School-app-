@@ -114,7 +114,7 @@ export function NigerianReportCard({
             {/* Grading Scale */}
             <div className="mb-6 p-3 bg-gray-50 border rounded">
                 <h3 className="font-semibold mb-2">Grading Scale:</h3>
-                <div className="grid grid-cols-6 gap-2 text-xs">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-xs">
                     <div><strong>A:</strong> 70-100 (Excellent)</div>
                     <div><strong>B:</strong> 60-69 (Very Good)</div>
                     <div><strong>C:</strong> 50-59 (Good)</div>
@@ -125,7 +125,7 @@ export function NigerianReportCard({
             </div>
 
             {/* Performance Summary */}
-            <div className="grid grid-cols-3 gap-4 mb-6 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6 text-sm">
                 <div className="border p-3 rounded">
                     <p className="font-semibold">Overall Average:</p>
                     <p className="text-2xl font-bold text-green-700">{averageScore}%</p>
@@ -248,7 +248,7 @@ export function BritishReportCard({
             {/* Grading Scale */}
             <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded">
                 <h3 className="font-semibold mb-2">Cambridge Grading Criteria:</h3>
-                <div className="grid grid-cols-4 gap-2 text-xs">
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
                     <div><strong>A*:</strong> 90-100 (Outstanding)</div>
                     <div><strong>A:</strong> 80-89 (Excellent)</div>
                     <div><strong>B:</strong> 70-79 (Very Good)</div>

@@ -66,7 +66,7 @@ const MultiSelect: React.FC<{
                 ))}
 
                 {/* Input Field */}
-                <div className="flex-grow flex items-center min-w-[120px]">
+                <div className="flex-grow flex items-center min-w-[120px] max-w-full">
                     <input
                         type="text"
                         value={filterText}

@@ -196,7 +196,7 @@ const TeacherAttendanceDetail: React.FC<{ teacher: Teacher }> = ({ teacher }) =>
                     <span className="flex items-center"><div className="w-3 h-3 rounded-full bg-amber-400 mr-1.5"></div>Leave</span>
                 </div>
             </div>
-            <div className="grid grid-cols-3 gap-3 text-center">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-center">
                 <motion.div layout className="bg-white p-3 rounded-xl shadow-sm border border-transparent hover:border-green-100 transition-colors">
                     <motion.p key={stats.present} initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="font-bold text-lg text-green-600">{stats.present}</motion.p>
                     <p className="text-xs text-gray-500">Present</p>

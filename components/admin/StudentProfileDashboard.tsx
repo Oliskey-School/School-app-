@@ -394,7 +394,7 @@ const StudentProfileDashboard: React.FC<StudentProfileDashboardProps> = ({
 
                             {loading ? (
                                 <div className="animate-pulse flex flex-col items-center">
-                                    <div className="w-[140px] h-[140px] rounded-full bg-gray-100"></div>
+                                    <div className="w-[140px] max-w-full h-[140px] rounded-full bg-gray-100"></div>
                                     <div className="grid grid-cols-2 gap-x-8 gap-y-3 mt-8 w-full border-t border-gray-50 pt-6">
                                         {Array.from({ length: 4 }).map((_, i) => (
                                             <div key={i} className="h-3 bg-gray-100 rounded w-3/4"></div>
@@ -480,7 +480,7 @@ const StudentProfileDashboard: React.FC<StudentProfileDashboardProps> = ({
             {/* Admin Action Bar (Docked Bottom) */}
             <div className="bg-white/80 backdrop-blur-md border-t border-gray-100 p-4 sticky bottom-0 z-10">
                 <p className="text-xs font-bold text-gray-400 text-center uppercase tracking-widest mb-3">Admin Actions</p>
-                <div className="grid grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     <motion.button
                         whileHover={{ y: -2, boxShadow: '0 8px 16px -4px rgba(93, 92, 222, 0.25)' }}
                         whileTap={{ scale: 0.95, y: 0 }}

@@ -391,7 +391,7 @@ const PhysicsLabGame: React.FC<PhysicsLabGameProps> = ({ onBack }) => {
                                     {/* Question 1 */}
                                     <div>
                                         <label className="block text-cyan-300 font-bold mb-2">1. Which particle initiates the chain reaction?</label>
-                                        <div className="grid grid-cols-3 gap-2">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                                             {['proton', 'electron', 'neutron'].map(opt => (
                                                 <button
                                                     key={opt}
