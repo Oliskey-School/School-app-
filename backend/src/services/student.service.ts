@@ -636,7 +636,12 @@ export class StudentService {
                 academic_performance: true,
                 behavior_notes: true,
                 report_cards: true,
-                enrollments: { include: { class: true } }, // Added to support edit mode
+                // NOT `include: { class: true }`: StudentEnrollment.class is a
+                // REQUIRED relation and RLS can legitimately hide the Class (an
+                // enrolment pointing at a branch this caller cannot see), which
+                // makes Prisma throw "Inconsistent query result" and 500 the
+                // whole request. The visible classes are attached afterwards.
+                enrollments: true, // Added to support edit mode
                 parents: {
                     include: {
                         parent: true
@@ -645,6 +650,8 @@ export class StudentService {
             }
         });
 
+        if (student) await StudentService.attachVisibleClasses(student as any);
+
         if (student) {
             const primaryParent = student.parents?.[0]?.parent;
             // The real class name ("JSS 1") the admin typed, not a raw "Grade N"
@@ -652,7 +659,7 @@ export class StudentService {
             const primaryEnrollment = student.enrollments?.find((e: any) => e.is_primary) || student.enrollments?.[0];
             return {
                 ...student,
-                class_name: primaryEnrollment?.class?.name ?? (student as any).class_name,
+                class_name: (primaryEnrollment as any)?.class?.name ?? (student as any).class_name,
                 parentName: primaryParent?.full_name,
                 parentEmail: primaryParent?.email,
                 parentPhone: primaryParent?.phone,
@@ -815,14 +822,20 @@ export class StudentService {
      * Attach each enrolment's Class without using a required-relation include.
      * Classes hidden by RLS come back as null rather than throwing.
      */
-    private static async attachVisibleClasses<T extends { enrollments?: any[] }>(student: T): Promise<T> {
-        const enrollments = student.enrollments ?? [];
-        const classIds = Array.from(new Set(enrollments.map((e: any) => e.class_id).filter(Boolean)));
-        if (classIds.length === 0) return student;
+    static async attachVisibleClasses<T extends { enrollments?: any[] }>(students: T | T[]): Promise<T | T[]> {
+        const list = Array.isArray(students) ? students : [students];
+        const classIds = Array.from(new Set(
+            list.flatMap(st => (st.enrollments ?? []).map((e: any) => e.class_id)).filter(Boolean)
+        ));
+        if (classIds.length === 0) return students;
+        // RLS filters this: only classes the caller may see come back.
         const classes = await prisma.class.findMany({ where: { id: { in: classIds as string[] } } });
         const byId = new Map(classes.map(c => [c.id, c]));
-        (student as any).enrollments = enrollments.map((e: any) => ({ ...e, class: byId.get(e.class_id) ?? null }));
-        return student;
+        for (const st of list) {
+            if (!st.enrollments) continue;
+            (st as any).enrollments = st.enrollments.map((e: any) => ({ ...e, class: byId.get(e.class_id) ?? null }));
+        }
+        return students;
     }
 
     static async getStudentProfileByUserId(schoolId: string, branchId: string | undefined, userId: string) {
@@ -847,7 +860,7 @@ export class StudentService {
                 enrollments: true
             }
         });
-        if (student) student = await StudentService.attachVisibleClasses(student);
+        if (student) student = await StudentService.attachVisibleClasses(student) as typeof student;
 
         // Self-Healing: Only STUDENT role may trigger auto-creation of a Student record.
         // ADMIN/PROPRIETOR/SUPER_ADMIN calling /me should never get a ghost student record.
@@ -1257,9 +1270,12 @@ export class StudentService {
 
             // 1. Get ALL student's enrolled classes
             console.log('   [1/5] Querying active enrollments...');
+            // No `include: { class: true }` here either: Class is a REQUIRED
+            // relation that RLS can hide, and Prisma throws "Inconsistent query
+            // result" rather than returning null — which 500'd the student's own
+            // dashboard. Read the enrolments, then the classes the caller can see.
             const enrollments = await prisma.studentEnrollment.findMany({
-                where: { student_id: studentId, status: 'Active' },
-                include: { class: true }
+                where: { student_id: studentId, status: 'Active' }
             });
 
             if (enrollments.length === 0) {
@@ -1268,7 +1284,8 @@ export class StudentService {
             }
 
             const classIds = enrollments.map(e => e.class_id);
-            const classNames = enrollments.map(e => e.class.name);
+            const visibleClasses = await prisma.class.findMany({ where: { id: { in: classIds } } });
+            const classNames = visibleClasses.map(c => c.name);
             console.log(`   ✅ Found ${enrollments.length} active classes: ${classNames.join(', ')}`);
 
             // Student's department (Science/Art/Commercial) — used to pick the right
@@ -1375,8 +1392,11 @@ export class StudentService {
                 quizzes,
                 stats,
                 notifications,
-                classes: enrollments.map(e => e.class),
-                primaryClass: enrollments.find(e => e.is_primary)?.class || enrollments[0].class
+                // Only classes this caller may actually see (visibleClasses is
+                // RLS-filtered); an enrolment whose class is hidden contributes
+                // nothing rather than failing the request.
+                classes: visibleClasses,
+                primaryClass: visibleClasses.find(c => c.id === (enrollments.find(e => e.is_primary)?.class_id ?? enrollments[0]?.class_id)) ?? null
             };
         } catch (error: any) {
             console.error(`❌ [StudentService] Detailed error in getDashboardOverview for student ${studentId}:`, error);

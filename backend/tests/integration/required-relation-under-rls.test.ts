@@ -62,6 +62,17 @@ describe('required relations hidden by RLS', () => {
         expect(JSON.stringify(res.body)).not.toMatch(/Inconsistent query result/i);
     }, 120000);
 
+    it('every student-facing endpoint that loads enrolments survives the hidden class', async () => {
+        // students/me was the one the browser sweep caught; these share the
+        // exact same required-relation include and failed the same way.
+        const failures: string[] = [];
+        for (const url of ['/api/students/me', '/api/students/me/dashboard', `/api/students/${ids.student}`]) {
+            const res = await request(app).get(url).set(studentAuth());
+            if (res.status >= 500) failures.push(`${url} → ${res.status} ${JSON.stringify(res.body).slice(0, 160)}`);
+        }
+        expect(failures, ['endpoints still 500 on an RLS-hidden required relation:', ...failures].join(String.fromCharCode(10))).toEqual([]);
+    }, 120000);
+
     it('the hidden class is reported as absent, not fabricated', async () => {
         const res = await request(app).get('/api/students/me').set(studentAuth());
         const body = JSON.stringify(res.body ?? '');

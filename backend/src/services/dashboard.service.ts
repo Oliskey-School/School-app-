@@ -1,4 +1,5 @@
 import prisma from '../config/database';
+import { StudentService } from './student.service';
 import { Role } from '../../generated/prisma-client';
 
 export class DashboardService {
@@ -631,12 +632,21 @@ export class DashboardService {
                     } 
                 },
                 fees: { where: { status: { not: 'Paid' } } },
-                enrollments: { include: { class: true } }
+                // NOT `include: { class: true }`: StudentEnrollment.class is a
+                // REQUIRED relation and RLS can legitimately hide the Class (an
+                // enrolment pointing at a branch this caller cannot see), which
+                // makes Prisma throw "Inconsistent query result" and 500 the
+                // whole request. The visible classes are attached afterwards.
+                enrollments: true
             }
         });
 
+        // Attach only the classes this caller may see (see the note on the
+        // enrollments include above).
+        await StudentService.attachVisibleClasses(children as any);
+
         // 2. Map children to summary
-        const childSummaries = await Promise.all(children.map(async child => {
+        const childSummaries = await Promise.all(children.map(async (child: any) => {
             const attendance = child.attendance[0];
             const feesDue = child.fees.reduce((sum, f) => sum + (f.amount - f.paid_amount), 0);
             const className = child.enrollments[0]?.class?.name || 'Unknown';
