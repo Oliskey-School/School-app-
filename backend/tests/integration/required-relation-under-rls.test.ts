@@ -66,7 +66,7 @@ describe('required relations hidden by RLS', () => {
         // students/me was the one the browser sweep caught; these share the
         // exact same required-relation include and failed the same way.
         const failures: string[] = [];
-        for (const url of ['/api/students/me', '/api/students/me/dashboard', `/api/students/${ids.student}`]) {
+        for (const url of ['/api/students/me', '/api/students/me/dashboard', `/api/students/${ids.student}`, `/api/students/${ids.student}/subjects`, '/api/students/me/subjects']) {
             const res = await request(app).get(url).set(studentAuth());
             if (res.status >= 500) failures.push(`${url} → ${res.status} ${JSON.stringify(res.body).slice(0, 160)}`);
         }

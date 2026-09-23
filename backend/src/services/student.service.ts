@@ -1432,24 +1432,23 @@ export class StudentService {
                 school_id: schoolId,
                 status: 'Active'
             },
-            include: {
-                class: {
-                    include: {
-                        subjects: true
-                    }
-                }
-            }
+        });
+
+        // The class is fetched separately, never through the REQUIRED relation:
+        // RLS can hide it and Prisma then throws "Inconsistent query result"
+        // instead of returning null, which 500'd this endpoint.
+        const visibleClasses = await prisma.class.findMany({
+            where: { id: { in: enrollments.map(e => e.class_id).filter(Boolean) } },
+            include: { subjects: true }
         });
 
         const subjectMap = new Map<string, any>();
-        
-        // 2. Collect subjects from all enrolled classes
-        enrollments.forEach(enrollment => {
-            if (enrollment.class && enrollment.class.subjects) {
-                enrollment.class.subjects.forEach(subject => {
-                    subjectMap.set(subject.id, subject);
-                });
-            }
+
+        // 2. Collect subjects from every class this caller may actually see
+        visibleClasses.forEach(klass => {
+            (klass as any).subjects?.forEach((subject: any) => {
+                subjectMap.set(subject.id, subject);
+            });
         });
 
         if (subjectMap.size > 0) {
