@@ -124,7 +124,8 @@ export default defineConfig(({ mode }) => {
     ],
     envPrefix: 'VITE_',
     define: {
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.VITE_GEMINI_API_KEY),
+      // No AI key is inlined into the bundle: AI calls go through the
+      // server-side /api/ai proxy (see lib/ai.ts getAIClient).
       'process.env.APP_VERSION': JSON.stringify(env.VITE_APP_VERSION || process.env.npm_package_version || packageJson.version || '0.5.38')
     },
     build: {

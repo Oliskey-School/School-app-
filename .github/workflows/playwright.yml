@@ -52,7 +52,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 20
           cache: npm
 
       - name: Install dependencies
@@ -204,6 +204,14 @@ jobs:
 
       - name: Run critical path suite
         run: BASE_URL=http://localhost:4173 npx playwright test tests/e2e/production-critical-path.spec.ts --project=chromium --workers=1
+
+      # Teacher, student and parent had no browser coverage at all: the
+      # critical-path suite is admin-centric. This drives all four roles
+      # through sign-in, navigation, reload, history, a phone viewport and
+      # sign-out, failing on blank screens, stuck spinners, page errors or 5xx.
+      - name: Four-role browser sweep
+        if: ${{ !cancelled() }}
+        run: BASE_URL=http://localhost:4173 npx playwright test tests/e2e/four-role-sweep.spec.ts --project=chromium --workers=1
 
       - name: Server logs on failure
         if: failure()

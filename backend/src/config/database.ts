@@ -1,5 +1,5 @@
 import { PrismaClient } from '../../generated/prisma-client';
-import { getTenantContext } from '../lib/tenantContext';
+import { getTenantContext, runAsPlatform } from '../lib/tenantContext';
 
 const SENSITIVE_FIELDS = ['password_hash', 'two_factor_secret', 'initial_password', 'password'];
 
@@ -231,11 +231,40 @@ if (dbUrl) console.log('📦 [Prisma] Database:', finalObfuscatedUrl);
 
 export default prisma;
 
+/**
+ * Every tenant-isolation policy in this database is inert if the application
+ * connects as a role that can bypass row level security — which is exactly what
+ * Supabase's default `postgres` role does (rolbypassrls = true). That made the
+ * single most important security property of this system depend on an
+ * environment variable nobody could verify from the code.
+ *
+ * So the app now checks its OWN role at boot and refuses to serve production
+ * traffic on a bypassing or superuser role. Failing to start is the correct
+ * outcome: serving with RLS silently disabled is worse than being down.
+ */
+export async function assertDatabaseRoleCannotBypassRls(): Promise<void> {
+  const rows = await runAsPlatform(() => prisma.$queryRawUnsafe<Array<{ rolname: string; rolbypassrls: boolean; rolsuper: boolean }>>(
+    `SELECT rolname, rolbypassrls, rolsuper FROM pg_roles WHERE rolname = current_user`
+  ));
+  const role = rows[0];
+  if (!role) throw new Error('Could not determine the current database role');
+  if (role.rolbypassrls || role.rolsuper) {
+    throw new Error(
+      `The application is connected as "${role.rolname}", which bypasses row level security ` +
+      `(rolbypassrls=${role.rolbypassrls}, rolsuper=${role.rolsuper}). Every tenant_isolation policy is inert. ` +
+      `Point DATABASE_URL at the non-superuser, NOBYPASSRLS application role (see migration 20260919150000).`
+    );
+  }
+  console.log(`🔒 [Prisma] Database role "${role.rolname}" cannot bypass RLS — tenant policies are enforced.`);
+}
+
 if (process.env.NODE_ENV === 'production') {
   prisma.$connect()
     .then(() => console.log('🚀 [Prisma] Production database connection established successfully.'))
+    .then(() => assertDatabaseRoleCannotBypassRls())
     .catch((err) => {
-      console.error('❌ [Prisma] Production database connection FAILED:', err instanceof Error ? err.message : 'unknown error');
+      console.error('❌ [Prisma] FATAL:', err instanceof Error ? err.message : 'unknown error');
+      process.exit(1);
     });
 }
 
