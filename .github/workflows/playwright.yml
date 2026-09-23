@@ -106,11 +106,21 @@ jobs:
             backend/tests/integration/demo-seed-idempotent.test.ts \
             backend/tests/integration/auth-hardening.test.ts \
             backend/tests/integration/isolation.test.ts
+        env:
+          # The app skips CSRF for NODE_ENV=test (see app.ts); the mocked
+          # controller suites call routes without an Authorization header and
+          # would otherwise be rejected with 403 before their assertions run.
+          NODE_ENV: test
 
       - name: Backend integration suite (full)
         run: |
           npx tsx --tsconfig backend/tsconfig.json node_modules/vitest/vitest.mjs run \
             --config backend/vitest.config.ts
+        env:
+          # The app skips CSRF for NODE_ENV=test (see app.ts); the mocked
+          # controller suites call routes without an Authorization header and
+          # would otherwise be rejected with 403 before their assertions run.
+          NODE_ENV: test
 
       - name: Build frontend
         run: npm run build
