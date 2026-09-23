@@ -811,15 +811,43 @@ export class StudentService {
         }
     }
 
+    /**
+     * Attach each enrolment's Class without using a required-relation include.
+     * Classes hidden by RLS come back as null rather than throwing.
+     */
+    private static async attachVisibleClasses<T extends { enrollments?: any[] }>(student: T): Promise<T> {
+        const enrollments = student.enrollments ?? [];
+        const classIds = Array.from(new Set(enrollments.map((e: any) => e.class_id).filter(Boolean)));
+        if (classIds.length === 0) return student;
+        const classes = await prisma.class.findMany({ where: { id: { in: classIds as string[] } } });
+        const byId = new Map(classes.map(c => [c.id, c]));
+        (student as any).enrollments = enrollments.map((e: any) => ({ ...e, class: byId.get(e.class_id) ?? null }));
+        return student;
+    }
+
     static async getStudentProfileByUserId(schoolId: string, branchId: string | undefined, userId: string) {
+        // StudentEnrollment.class is a REQUIRED relation, and row level security
+        // can legitimately hide the Class row (an enrolment pointing at a class
+        // in a branch this caller cannot see). Prisma treats a required relation
+        // that comes back empty as corrupt data and throws "Inconsistent query
+        // result: Field class is required to return data, got null" — which
+        // turned a student opening their OWN profile into a 500. Found by the
+        // four-role browser sweep against CI's seeded demo data.
+        //
+        // So the class is never fetched through the required include. The
+        // enrolments are read on their own, then the classes the caller may
+        // actually see are fetched separately and attached; an enrolment whose
+        // class is not visible simply carries class: null instead of blowing up
+        // the whole request.
         let student = await prisma.student.findFirst({
             where: { user_id: userId, school_id: schoolId },
             include: {
                 user: true,
                 parents: { include: { parent: true } },
-                enrollments: { include: { class: true } }
+                enrollments: true
             }
         });
+        if (student) student = await StudentService.attachVisibleClasses(student);
 
         // Self-Healing: Only STUDENT role may trigger auto-creation of a Student record.
         // ADMIN/PROPRIETOR/SUPER_ADMIN calling /me should never get a ghost student record.

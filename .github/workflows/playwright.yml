@@ -105,7 +105,9 @@ jobs:
             backend/tests/integration/scoped-transactions.test.ts \
             backend/tests/integration/demo-seed-idempotent.test.ts \
             backend/tests/integration/auth-hardening.test.ts \
-            backend/tests/integration/isolation.test.ts
+            backend/tests/integration/isolation.test.ts \
+            backend/tests/integration/db-role-guard.test.ts \
+            backend/tests/integration/required-relation-under-rls.test.ts
         env:
           # The app skips CSRF for NODE_ENV=test (see app.ts); the mocked
           # controller suites call routes without an Authorization header and
