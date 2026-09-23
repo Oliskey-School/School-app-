@@ -38,6 +38,10 @@ export interface TenantContext {
 
 const storage = new AsyncLocalStorage<TenantContext>();
 
+/** Test-process default (see enterPlatformScopeForTests). Never set by app code. */
+const TEST_PLATFORM_CONTEXT: TenantContext = { platform: true };
+let testPlatformFallback = false;
+
 /**
  * Prisma operations are LAZY: the query runs when the promise is awaited, and
  * that happens after `fn` has returned. Awaiting inside the store keeps the
@@ -49,7 +53,9 @@ export function runWithTenantContext<T>(context: TenantContext, fn: () => T): Pr
 }
 
 export function getTenantContext(): TenantContext | undefined {
-    return storage.getStore();
+    // An explicit scope always wins. The fallback below applies only when there
+    // is no store at all, and only in a test process that asked for it.
+    return storage.getStore() ?? (testPlatformFallback ? TEST_PLATFORM_CONTEXT : undefined);
 }
 
 /** Run `fn` as platform-level (cross-school) work. Keep the body minimal. */
@@ -71,5 +77,13 @@ export function platformContext(_req: any, _res: any, next: () => void) {
  */
 export function enterPlatformScopeForTests() {
     if (process.env.NODE_ENV === 'production') throw new Error('enterPlatformScopeForTests is for tests only');
-    storage.enterWith({ platform: true });
+    // enterWith() alone is not enough: a vitest setup file and the test bodies
+    // are not always in the same async context (they are not under Node 24, so
+    // CI failed with "new row violates row-level security policy" while the
+    // same tests passed on Node 20). The flag makes the test-process default
+    // independent of async-context propagation; runWithTenantContext() and
+    // runAsPlatform() still override it, so the tests that assert the
+    // NO-SCOPE behaviour keep working.
+    testPlatformFallback = true;
+    storage.enterWith({ ...TEST_PLATFORM_CONTEXT });
 }
