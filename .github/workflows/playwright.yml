@@ -88,6 +88,11 @@ jobs:
       - name: Multi-tenant security regression gate
         run: npx vitest run --config backend/vitest.config.ts backend/tests/integration/multi-tenant-security.test.ts
 
+      # Metadata, structured data, robots/sitemap and manifest checks.
+      # Also fails if a private route ever appears in sitemap.xml.
+      - name: SEO and brand-entity checks
+        run: npx vitest run --config vite.config.mts tests/seo/seo-metadata.test.ts
+
       - name: Build frontend
         run: npm run build
 
