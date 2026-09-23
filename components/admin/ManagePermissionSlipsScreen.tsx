@@ -284,71 +284,73 @@ const ManagePermissionSlipsScreen: React.FC<ManagePermissionSlipsScreenProps> = 
                             </motion.div>
                         ) : (
                             <div className="overflow-hidden">
-                                <table className="min-w-full text-left">
-                                    <thead>
-                                        <tr className="border-b border-gray-100 text-gray-400 text-xs uppercase tracking-wider">
-                                            <th className="pb-4 px-2 font-bold">Student</th>
-                                            <th className="pb-4 px-2 font-bold">Event & Location</th>
-                                            <th className="pb-4 px-2 font-bold">Date</th>
-                                            <th className="pb-4 px-2 font-bold">Status</th>
-                                            <th className="pb-4 px-2 text-right font-bold">Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="text-sm">
-                                        <AnimatePresence mode="popLayout">
-                                            {filteredSlips.map((slip, index) => (
-                                                <motion.tr 
-                                                    key={slip.id}
-                                                    initial={{ opacity: 0, y: 10 }}
-                                                    animate={{ opacity: 1, y: 0 }}
-                                                    exit={{ opacity: 0, x: 20 }}
-                                                    transition={{ delay: Math.min(index * 0.03, 0.3) }}
-                                                    className="hover:bg-indigo-50/30 transition-colors group"
-                                                >
-                                                    <td className="py-4 px-2">
-                                                        <div className="flex items-center">
-                                                            <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center mr-3 font-bold text-xs ring-2 ring-white shadow-sm group-hover:bg-indigo-600 group-hover:text-white transition-all">
-                                                                {slip.students?.full_name?.charAt(0) || slip.students?.name?.charAt(0) || <UserIcon className="w-4 h-4" />}
+                                <div className="overflow-x-auto">
+                                    <table className="min-w-full text-left">
+                                        <thead>
+                                            <tr className="border-b border-gray-100 text-gray-400 text-xs uppercase tracking-wider">
+                                                <th className="pb-4 px-2 font-bold">Student</th>
+                                                <th className="pb-4 px-2 font-bold">Event & Location</th>
+                                                <th className="pb-4 px-2 font-bold">Date</th>
+                                                <th className="pb-4 px-2 font-bold">Status</th>
+                                                <th className="pb-4 px-2 text-right font-bold">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="text-sm">
+                                            <AnimatePresence mode="popLayout">
+                                                {filteredSlips.map((slip, index) => (
+                                                    <motion.tr 
+                                                        key={slip.id}
+                                                        initial={{ opacity: 0, y: 10 }}
+                                                        animate={{ opacity: 1, y: 0 }}
+                                                        exit={{ opacity: 0, x: 20 }}
+                                                        transition={{ delay: Math.min(index * 0.03, 0.3) }}
+                                                        className="hover:bg-indigo-50/30 transition-colors group"
+                                                    >
+                                                        <td className="py-4 px-2">
+                                                            <div className="flex items-center">
+                                                                <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center mr-3 font-bold text-xs ring-2 ring-white shadow-sm group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                                                                    {slip.students?.full_name?.charAt(0) || slip.students?.name?.charAt(0) || <UserIcon className="w-4 h-4" />}
+                                                                </div>
+                                                                <div>
+                                                                    <div className="font-bold text-gray-800 group-hover:text-indigo-900">{slip.students?.full_name || slip.students?.name}</div>
+                                                                    <div className="text-xs text-gray-400 font-medium uppercase tracking-tight">Class {slip.students?.grade}{slip.students?.section}</div>
+                                                                </div>
                                                             </div>
-                                                            <div>
-                                                                <div className="font-bold text-gray-800 group-hover:text-indigo-900">{slip.students?.full_name || slip.students?.name}</div>
-                                                                <div className="text-xs text-gray-400 font-medium uppercase tracking-tight">Class {slip.students?.grade}{slip.students?.section}</div>
+                                                        </td>
+                                                        <td className="py-4 px-2">
+                                                            <div className="font-semibold text-gray-700">{slip.title}</div>
+                                                            <div className="text-[11px] text-gray-400 flex items-center mt-0.5">
+                                                                <ClockIcon className="w-3 h-3 mr-1" />
+                                                                {slip.location}
                                                             </div>
-                                                        </div>
-                                                    </td>
-                                                    <td className="py-4 px-2">
-                                                        <div className="font-semibold text-gray-700">{slip.title}</div>
-                                                        <div className="text-[11px] text-gray-400 flex items-center mt-0.5">
-                                                            <ClockIcon className="w-3 h-3 mr-1" />
-                                                            {slip.location}
-                                                        </div>
-                                                    </td>
-                                                    <td className="py-4 px-2 text-gray-500 font-medium tabular-nums">
-                                                        {new Date(slip.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                                                    </td>
-                                                    <td className="py-4 px-2">
-                                                        <span className={`px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider ${
-                                                            slip.status === 'Approved' ? 'bg-green-100 text-green-700 border border-green-200' :
-                                                            slip.status === 'Rejected' ? 'bg-red-100 text-red-700 border border-red-200' :
-                                                            'bg-amber-100 text-amber-700 border border-amber-200 animate-pulse'
-                                                        }`}>
-                                                            {slip.status}
-                                                        </span>
-                                                    </td>
-                                                    <td className="py-4 px-2 text-right">
-                                                        <button
-                                                            onClick={() => confirmDelete(slip.id)}
-                                                            className="p-2.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all opacity-0 group-hover:opacity-100 border border-transparent hover:border-red-100"
-                                                            title="Delete Slip"
-                                                        >
-                                                            <TrashIcon className="w-4 h-4" />
-                                                        </button>
-                                                    </td>
-                                                </motion.tr>
-                                            ))}
-                                        </AnimatePresence>
-                                    </tbody>
-                                </table>
+                                                        </td>
+                                                        <td className="py-4 px-2 text-gray-500 font-medium tabular-nums">
+                                                            {new Date(slip.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                                        </td>
+                                                        <td className="py-4 px-2">
+                                                            <span className={`px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider ${
+                                                                slip.status === 'Approved' ? 'bg-green-100 text-green-700 border border-green-200' :
+                                                                slip.status === 'Rejected' ? 'bg-red-100 text-red-700 border border-red-200' :
+                                                                'bg-amber-100 text-amber-700 border border-amber-200 animate-pulse'
+                                                            }`}>
+                                                                {slip.status}
+                                                            </span>
+                                                        </td>
+                                                        <td className="py-4 px-2 text-right">
+                                                            <button
+                                                                onClick={() => confirmDelete(slip.id)}
+                                                                className="p-2.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all opacity-0 group-hover:opacity-100 border border-transparent hover:border-red-100"
+                                                                title="Delete Slip"
+                                                            >
+                                                                <TrashIcon className="w-4 h-4" />
+                                                            </button>
+                                                        </td>
+                                                    </motion.tr>
+                                                ))}
+                                            </AnimatePresence>
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         )}
                     </div>

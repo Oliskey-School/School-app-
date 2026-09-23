@@ -149,8 +149,8 @@ const ComplianceOfficerDashboard: React.FC<ComplianceOfficerDashboardProps> = ({
 
                 {complianceStats.criticalIssues > 0 && (
                     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start space-x-3">
-                        <ExclamationCircleIcon className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />
-                        <div className="flex-1">
+                        <ExclamationCircleIcon className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5 shrink-0" />
+                        <div className="flex-1 min-w-0">
                             <h4 className="font-semibold text-red-900">Critical Issue Requires Attention</h4>
                             <p className="text-sm text-red-800 mt-1">Fire extinguisher inspection overdue - Main Building</p>
                             <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="mt-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium">

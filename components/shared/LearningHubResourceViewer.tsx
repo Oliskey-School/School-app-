@@ -159,7 +159,7 @@ const LearningHubResourceViewer: React.FC<LearningHubResourceViewerProps> = ({
                             rel="noopener noreferrer"
                             className={`px-6 py-3 text-white rounded-xl font-bold ${theme.button} transition-colors flex items-center gap-2 shadow-md`}
                         >
-                            <ExternalLink className="w-4 h-4" />
+                            <ExternalLink className="w-4 h-4 shrink-0" />
                             Open Resource
                         </a>
                     </div>
@@ -191,7 +191,7 @@ const LearningHubResourceViewer: React.FC<LearningHubResourceViewerProps> = ({
                         disabled={completed}
                         className={`w-full py-3 rounded-xl font-bold text-white transition-colors flex items-center justify-center gap-2 ${completed ? 'bg-green-500' : theme.button}`}
                     >
-                        <CheckCircle2 className="w-5 h-5" />
+                        <CheckCircle2 className="w-5 h-5 shrink-0" />
                         {completed ? 'Completed!' : 'Mark as Completed'}
                     </button>
                 </div>

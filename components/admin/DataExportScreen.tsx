@@ -140,46 +140,48 @@ const DataExportScreen = () => {
                 </div>
             ) : activeTab === 'requests' ? (
                 <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-                    <table className="w-full text-left border-collapse">
-                        <thead>
-                            <tr className="bg-gray-50/50 border-b border-gray-100">
-                                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Requester</th>
-                                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Student</th>
-                                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Type</th>
-                                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Categories</th>
-                                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Status</th>
-                                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-50">
-                            {requests.map((req, ri) => (
-                                <motion.tr key={req.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(ri, 15) * 0.02 }} className="hover:bg-gray-50/30 transition-colors">
-                                    <td className="px-6 py-4 font-bold text-gray-800 text-sm">{req.requester_name}</td>
-                                    <td className="px-6 py-4 text-sm text-gray-600">{req.student_name}</td>
-                                    <td className="px-6 py-4">
-                                        <span className={`flex items-center space-x-1 text-xs font-bold px-3 py-1 rounded-full w-fit ${req.request_type === 'export' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
-                                            {req.request_type === 'export' ? <Download className="w-3 h-3" /> : <Trash2 className="w-3 h-3" />}
-                                            <span className="capitalize">{req.request_type}</span>
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4"><div className="flex flex-wrap gap-1">{req.data_categories.map(c => <span key={c} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">{c}</span>)}</div></td>
-                                    <td className="px-6 py-4"><span className={`text-xs font-bold px-3 py-1 rounded-full capitalize ${statusStyles[req.status]}`}>{req.status}</span></td>
-                                    <td className="px-6 py-4">
-                                        {req.status === 'pending' && (
-                                            <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => handleApprove(req.id)} className="px-3 py-1.5 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition-all">Approve</motion.button>
-                                        )}
-                                        {req.status === 'processing' && <RefreshCw className="w-4 h-4 text-blue-500 animate-spin" />}
-                                        {req.status === 'completed' && <CheckCircle2 className="w-5 h-5 text-emerald-500" />}
-                                    </td>
-                                </motion.tr>
-                            ))}
-                            {requests.length === 0 && (
-                                <tr>
-                                    <td colSpan={6} className="px-6 py-20 text-center text-gray-400">No data requests found.</td>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-gray-50/50 border-b border-gray-100">
+                                    <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Requester</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Student</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Type</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Categories</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Status</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Action</th>
                                 </tr>
-                            )}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50">
+                                {requests.map((req, ri) => (
+                                    <motion.tr key={req.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(ri, 15) * 0.02 }} className="hover:bg-gray-50/30 transition-colors">
+                                        <td className="px-6 py-4 font-bold text-gray-800 text-sm">{req.requester_name}</td>
+                                        <td className="px-6 py-4 text-sm text-gray-600">{req.student_name}</td>
+                                        <td className="px-6 py-4">
+                                            <span className={`flex items-center space-x-1 text-xs font-bold px-3 py-1 rounded-full w-fit ${req.request_type === 'export' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
+                                                {req.request_type === 'export' ? <Download className="w-3 h-3" /> : <Trash2 className="w-3 h-3" />}
+                                                <span className="capitalize">{req.request_type}</span>
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4"><div className="flex flex-wrap gap-1">{req.data_categories.map(c => <span key={c} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">{c}</span>)}</div></td>
+                                        <td className="px-6 py-4"><span className={`text-xs font-bold px-3 py-1 rounded-full capitalize ${statusStyles[req.status]}`}>{req.status}</span></td>
+                                        <td className="px-6 py-4">
+                                            {req.status === 'pending' && (
+                                                <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => handleApprove(req.id)} className="px-3 py-1.5 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition-all">Approve</motion.button>
+                                            )}
+                                            {req.status === 'processing' && <RefreshCw className="w-4 h-4 text-blue-500 animate-spin" />}
+                                            {req.status === 'completed' && <CheckCircle2 className="w-5 h-5 text-emerald-500" />}
+                                        </td>
+                                    </motion.tr>
+                                ))}
+                                {requests.length === 0 && (
+                                    <tr>
+                                        <td colSpan={6} className="px-6 py-20 text-center text-gray-400">No data requests found.</td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             ) : (
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 space-y-6">
@@ -221,8 +223,8 @@ const DataExportScreen = () => {
                     </div>
                     {newRequest.type === 'deletion' && (
                         <div className="bg-red-50 border border-red-100 rounded-2xl px-5 py-3 flex items-start space-x-3">
-                            <AlertTriangle className="w-5 h-5 text-red-500 mt-0.5" />
-                            <p className="text-sm text-red-700"><strong>Warning:</strong> Data deletion is irreversible. Deleted data cannot be recovered. Under NDPR, you have 72 hours to process deletion requests.</p>
+                            <AlertTriangle className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
+                            <p className="text-sm text-red-700 min-w-0"><strong>Warning:</strong> Data deletion is irreversible. Deleted data cannot be recovered. Under NDPR, you have 72 hours to process deletion requests.</p>
                         </div>
                     )}
                     <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }} onClick={handleSubmit} className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100">

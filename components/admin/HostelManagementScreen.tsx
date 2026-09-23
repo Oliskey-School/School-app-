@@ -78,10 +78,10 @@ interface VisitorLog {
 // ─── Stats Cards ─────────────────────────────────────────────────────────
 const StatsCard = ({ icon: Icon, label, value, color }: { icon: any; label: string; value: string | number; color: string }) => (
     <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
-        <div className={`p-3 rounded-2xl ${color}`}>
+        <div className={`p-3 rounded-2xl ${color} shrink-0`}>
             <Icon className="w-6 h-6" />
         </div>
-        <div>
+        <div className="min-w-0">
             <p className="text-2xl font-bold text-gray-900">{value}</p>
             <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">{label}</p>
         </div>
@@ -154,48 +154,50 @@ const RoomTab = ({ rooms, onAdd, onDelete }: { rooms: HostelRoom[]; onAdd: () =>
             </motion.button>
         </div>
         <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-            <table className="w-full text-left border-collapse">
-                <thead>
-                    <tr className="bg-gray-50/50 border-b border-gray-100">
-                        <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Room</th>
-                        <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Hostel</th>
-                        <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Floor</th>
-                        <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Beds</th>
-                        <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Status</th>
-                        <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Actions</th>
-                    </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                    {rooms.length === 0 ? (
-                        <tr><td colSpan={6} className="px-6 py-12 text-center text-gray-400">No rooms added yet.</td></tr>
-                    ) : rooms.map((room, roi) => (
-                        <motion.tr key={room.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(roi, 15) * 0.02 }} className="hover:bg-gray-50/30 transition-colors">
-                            <td className="px-6 py-5">
-                                <div className="flex items-center space-x-3">
-                                    <div className="p-2 bg-gray-100 rounded-xl"><DoorOpen className="w-4 h-4 text-gray-600" /></div>
-                                    <span className="font-bold text-gray-800">{room.room_number}</span>
-                                </div>
-                            </td>
-                            <td className="px-6 py-5 text-sm font-medium text-gray-600">{room.hostel?.name || '—'}</td>
-                            <td className="px-6 py-5 text-sm font-medium text-gray-600">Floor {room.floor}</td>
-                            <td className="px-6 py-5">
-                                <span className="text-sm font-bold text-gray-700">{room.occupied_beds}/{room.bed_count}</span>
-                            </td>
-                            <td className="px-6 py-5">
-                                <span className={`text-xs font-bold px-3 py-1 rounded-full ${
-                                    room.status === 'available' ? 'bg-green-100 text-green-700' :
-                                    room.status === 'full' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
-                                }`}>{room.status}</span>
-                            </td>
-                            <td className="px-6 py-5">
-                                <button onClick={() => onDelete(room.id)} className="p-2 hover:bg-red-50 rounded-xl text-gray-400 hover:text-red-500 transition-all">
-                                    <Trash2 className="w-4 h-4" />
-                                </button>
-                            </td>
-                        </motion.tr>
-                    ))}
-                </tbody>
-            </table>
+            <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                    <thead>
+                        <tr className="bg-gray-50/50 border-b border-gray-100">
+                            <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Room</th>
+                            <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Hostel</th>
+                            <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Floor</th>
+                            <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Beds</th>
+                            <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Status</th>
+                            <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                        {rooms.length === 0 ? (
+                            <tr><td colSpan={6} className="px-6 py-12 text-center text-gray-400">No rooms added yet.</td></tr>
+                        ) : rooms.map((room, roi) => (
+                            <motion.tr key={room.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(roi, 15) * 0.02 }} className="hover:bg-gray-50/30 transition-colors">
+                                <td className="px-6 py-5">
+                                    <div className="flex items-center space-x-3">
+                                        <div className="p-2 bg-gray-100 rounded-xl"><DoorOpen className="w-4 h-4 text-gray-600" /></div>
+                                        <span className="font-bold text-gray-800">{room.room_number}</span>
+                                    </div>
+                                </td>
+                                <td className="px-6 py-5 text-sm font-medium text-gray-600">{room.hostel?.name || '—'}</td>
+                                <td className="px-6 py-5 text-sm font-medium text-gray-600">Floor {room.floor}</td>
+                                <td className="px-6 py-5">
+                                    <span className="text-sm font-bold text-gray-700">{room.occupied_beds}/{room.bed_count}</span>
+                                </td>
+                                <td className="px-6 py-5">
+                                    <span className={`text-xs font-bold px-3 py-1 rounded-full ${
+                                        room.status === 'available' ? 'bg-green-100 text-green-700' :
+                                        room.status === 'full' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+                                    }`}>{room.status}</span>
+                                </td>
+                                <td className="px-6 py-5">
+                                    <button onClick={() => onDelete(room.id)} className="p-2 hover:bg-red-50 rounded-xl text-gray-400 hover:text-red-500 transition-all">
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </td>
+                            </motion.tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 );
@@ -218,41 +220,43 @@ const AllocationTab = ({ allocations, onAdd, onCheckout }: { allocations: Alloca
             </div>
         ) : (
             <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-                <table className="w-full text-left border-collapse">
-                    <thead>
-                        <tr className="bg-gray-50/50 border-b border-gray-100">
-                            <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Student</th>
-                            <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Room</th>
-                            <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Bed</th>
-                            <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Academic Year</th>
-                            <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Status</th>
-                            <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                        {allocations.map((a, ai) => (
-                            <motion.tr key={a.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(ai, 15) * 0.02 }} className="hover:bg-gray-50/30 transition-colors">
-                                <td className="px-6 py-5">
-                                    <div className="flex items-center space-x-3">
-                                        <div className="p-2 bg-gray-100 rounded-xl"><UserCheck className="w-4 h-4 text-gray-600" /></div>
-                                        <span className="font-bold text-gray-800">{a.student?.full_name || '—'}</span>
-                                    </div>
-                                </td>
-                                <td className="px-6 py-5 text-sm font-medium text-gray-600">{a.room?.hostel?.name ? `${a.room.hostel.name} · ` : ''}{a.room?.room_number || '—'}</td>
-                                <td className="px-6 py-5 text-sm font-bold text-gray-700">Bed {a.bed_number}</td>
-                                <td className="px-6 py-5 text-sm font-medium text-gray-600">{a.academic_year}</td>
-                                <td className="px-6 py-5">
-                                    <span className={`text-xs font-bold px-3 py-1 rounded-full ${a.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{a.status}</span>
-                                </td>
-                                <td className="px-6 py-5">
-                                    <button onClick={() => onCheckout(a.id)} className="p-2 hover:bg-red-50 rounded-xl text-gray-400 hover:text-red-500 transition-all">
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
-                                </td>
-                            </motion.tr>
-                        ))}
-                    </tbody>
-                </table>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="bg-gray-50/50 border-b border-gray-100">
+                                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Student</th>
+                                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Room</th>
+                                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Bed</th>
+                                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Academic Year</th>
+                                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Status</th>
+                                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                            {allocations.map((a, ai) => (
+                                <motion.tr key={a.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(ai, 15) * 0.02 }} className="hover:bg-gray-50/30 transition-colors">
+                                    <td className="px-6 py-5">
+                                        <div className="flex items-center space-x-3">
+                                            <div className="p-2 bg-gray-100 rounded-xl"><UserCheck className="w-4 h-4 text-gray-600" /></div>
+                                            <span className="font-bold text-gray-800">{a.student?.full_name || '—'}</span>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-5 text-sm font-medium text-gray-600">{a.room?.hostel?.name ? `${a.room.hostel.name} · ` : ''}{a.room?.room_number || '—'}</td>
+                                    <td className="px-6 py-5 text-sm font-bold text-gray-700">Bed {a.bed_number}</td>
+                                    <td className="px-6 py-5 text-sm font-medium text-gray-600">{a.academic_year}</td>
+                                    <td className="px-6 py-5">
+                                        <span className={`text-xs font-bold px-3 py-1 rounded-full ${a.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{a.status}</span>
+                                    </td>
+                                    <td className="px-6 py-5">
+                                        <button onClick={() => onCheckout(a.id)} className="p-2 hover:bg-red-50 rounded-xl text-gray-400 hover:text-red-500 transition-all">
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </td>
+                                </motion.tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         )}
     </div>
@@ -278,9 +282,9 @@ const VisitorTab = ({ visitors, onAdd }: { visitors: VisitorLog[]; onAdd: () => 
                 {visitors.map((v, vi) => (
                     <motion.div key={v.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(vi, 15) * 0.03 }} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-start space-x-4 hover:shadow-md transition-shadow">
                         <div className="p-3 bg-indigo-50 text-indigo-600 rounded-full">
-                            <Users className="w-6 h-6" />
+                            <Users className="w-6 h-6 shrink-0" />
                         </div>
-                        <div className="flex-grow">
+                        <div className="flex-grow min-w-0">
                             <div className="flex justify-between items-start">
                                 <div>
                                     <h3 className="font-bold text-gray-900">{v.visitor_name}</h3>
@@ -598,7 +602,7 @@ const HostelManagementScreen = () => {
             </header>
 
             {/* Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                 <StatsCard icon={Building2} label="Total Hostels" value={hostels.length} color="bg-indigo-50 text-indigo-600" />
                 <StatsCard icon={DoorOpen} label="Total Rooms" value={rooms.length} color="bg-blue-50 text-blue-600" />
                 <StatsCard icon={BedDouble} label="Beds Occupied" value={`${occupiedBeds}/${totalBeds}`} color="bg-emerald-50 text-emerald-600" />

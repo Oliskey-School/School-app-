@@ -149,8 +149,8 @@ export const FormFieldRenderer: React.FC<Props> = ({
     default:
       return (
         <div className="p-6 bg-amber-50 text-amber-600 rounded-2xl flex items-center gap-3 font-bold border border-amber-100">
-           <AlertTriangle className="w-5 h-5" />
-           <span>Field type "{field.type}" implementation pending...</span>
+           <AlertTriangle className="w-5 h-5 shrink-0" />
+           <span className="min-w-0">Field type "{field.type}" implementation pending...</span>
         </div>
       );
   }

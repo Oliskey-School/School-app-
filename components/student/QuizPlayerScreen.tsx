@@ -481,7 +481,7 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, cbtExamId, 
             disabled={currentQuestionIndex === 0}
             className="flex-1 py-4 px-6 font-bold text-slate-400 bg-slate-50 border border-slate-200 rounded-2xl disabled:opacity-30 transition-colors flex items-center justify-center gap-2"
           >
-            <ChevronLeftIcon className="w-5 h-5" />
+            <ChevronLeftIcon className="w-5 h-5 shrink-0" />
             Back
           </motion.button>
 
@@ -493,7 +493,7 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, cbtExamId, 
               className="flex-[2] py-4 px-6 font-bold text-white bg-slate-800 rounded-2xl shadow-lg hover:shadow-xl transition-shadow flex items-center justify-center gap-2"
             >
               Next Question
-              <ChevronRightIcon className="w-5 h-5" />
+              <ChevronRightIcon className="w-5 h-5 shrink-0" />
             </motion.button>
           ) : (
             <motion.button

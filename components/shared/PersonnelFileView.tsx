@@ -249,7 +249,7 @@ const PersonnelFileView: React.FC<PersonnelFileViewProps> = ({ teacherId, mode }
                 {t.avatar_url
                     ? <img src={t.avatar_url} alt={t.full_name} className="w-16 h-16 rounded-full object-cover" />
                     : <div className="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center">
-                        <User className="w-8 h-8 text-indigo-600" />
+                        <User className="w-8 h-8 text-indigo-600 shrink-0" />
                     </div>}
                 <div className="flex-1 min-w-0">
                     <h1 className="text-xl font-bold text-gray-900 font-outfit truncate">{t.full_name}</h1>

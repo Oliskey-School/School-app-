@@ -30,6 +30,13 @@ const risk = (src) => {
         if (n) h[k] = n;
     }
     if (/<table[\s>]/.test(src) && !/overflow-x-auto|overflow-auto|overflow-scroll/.test(src)) h['table-no-scroll'] = 1;
+    // an icon-beside-text card row whose text block was never made shrinkable
+    for (const card of src.split('\n')) {
+        if (/rounded-(?:xl|2xl|3xl)[^"`]*\bflex items-(?:center|start)[^"`]*(?:space-x-|gap-)[234]\b/.test(card)) {
+            h['card-row'] = (h['card-row'] || 0) + 1;
+        }
+    }
+    if (h['card-row'] && /min-w-0/.test(src)) delete h['card-row'];
     if (!/\b(sm|md|lg|xl):/.test(src) && src.length > 1500) h['no-breakpoints'] = 1;
     return h;
 };
@@ -58,6 +65,7 @@ const out = [
     '- `grid-no-bp` — a 3+ column grid with no breakpoint, i.e. that many columns on a 390px phone.',
     '- `table-no-scroll` — a table with no horizontal scroll container, so it pushes the page sideways.',
     '- `fixed-w` / `fixed-h` — a hard pixel size that cannot shrink (`max-w-full` clears `fixed-w`).',
+    '- `card-text-escape` — an icon-beside-text card row whose text cannot shrink, so the label is painted outside the card.',
     '- `no-breakpoints` — a sizeable file with no responsive prefix anywhere. Often fine for a small',
     '  presentational component; worth a look for anything full-screen.',
     '',
@@ -87,7 +95,7 @@ for (const role of ROLES) {
     summary.push({ role, total: rows.length, screens: rows.filter(r => r.isScreen).length, flagged, fixed });
 
     out.push(`## ${role} — ${rows.length} files, ${flagged} with remaining risk, ${fixed} touched in this branch`, '');
-    out.push('| Screen | Type | Remaining risk | Phase 1 |', '|---|---|---|---|');
+    out.push('| Screen | Type | Remaining risk | Fixed |', '|---|---|---|---|');
     for (const r of rows) {
         out.push(`| \`${r.name}\` | ${r.isScreen ? 'screen' : 'component'} | ${r.n === 0 ? 'ok' : Object.entries(r.h).map(([k, v]) => `${k}×${v}`).join(', ')} | ${r.fixed ? '✅ fixed' : '—'} |`);
     }

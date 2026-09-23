@@ -313,71 +313,73 @@ const PrivacyDashboard: React.FC = () => {
                             <h2 className="font-bold">Active Data Subject Requests</h2>
                             <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => setShowRequestModal(true)} className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold">+ Log New Request</motion.button>
                         </div>
-                        <table className="w-full">
-                            <thead className="bg-gray-50 border-b">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">ID</th>
-                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Subject</th>
-                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Type</th>
-                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Status</th>
-                                    <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y">
-                                {loadingDsar ? (
-                                    <tr><td colSpan={5} className="px-6 py-4 text-sm text-gray-500">Loading…</td></tr>
-                                ) : dsarRequests.length === 0 ? (
-                                    <tr><td colSpan={5} className="px-6 py-4 text-sm text-gray-500">No data subject requests yet.</td></tr>
-                                ) : dsarRequests.map(dsar => {
-                                    const subject = dsar.requester_name || dsar.student_name || 'Unknown';
-                                    const type = dsar.request_type || '—';
-                                    const status = (dsar.status || 'pending').toLowerCase();
-                                    return (
-                                        <motion.tr key={dsar.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="hover:bg-gray-50">
-                                            <td className="px-6 py-4 font-mono text-xs">{dsar.id.slice(0, 8)}</td>
-                                            <td className="px-6 py-4 text-sm font-medium">{subject}</td>
-                                            <td className="px-6 py-4 text-sm">{type}</td>
-                                            <td className="px-6 py-4">
-                                                <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${statusStyles[status] || statusStyles.pending}`}>
-                                                    {statusLabel(status)}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-right relative">
-                                                <motion.button
-                                                    whileTap={{ scale: 0.95 }}
-                                                    disabled={updatingId === dsar.id}
-                                                    onClick={() => setManageOpenId(manageOpenId === dsar.id ? null : dsar.id)}
-                                                    className="text-indigo-600 text-sm font-bold hover:underline inline-flex items-center gap-1 disabled:opacity-50"
-                                                >
-                                                    {updatingId === dsar.id ? 'Saving…' : 'Manage'} <ChevronDown className="w-3 h-3" />
-                                                </motion.button>
-                                                <AnimatePresence>
-                                                    {manageOpenId === dsar.id && (
-                                                        <motion.div
-                                                            initial={{ opacity: 0, y: -6, scale: 0.97 }}
-                                                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                                                            exit={{ opacity: 0, y: -6, scale: 0.97 }}
-                                                            transition={{ duration: 0.15 }}
-                                                            className="absolute right-6 top-full mt-1 bg-white border border-gray-100 rounded-xl shadow-lg z-10 w-40 overflow-hidden text-left"
-                                                        >
-                                                            {STATUS_OPTIONS.map(opt => (
-                                                                <button
-                                                                    key={opt}
-                                                                    onClick={() => handleUpdateStatus(dsar.id, opt)}
-                                                                    className={`w-full text-left px-3 py-2 text-xs font-medium hover:bg-gray-50 ${status === opt ? 'text-indigo-600 font-bold' : 'text-gray-600'}`}
-                                                                >
-                                                                    {statusLabel(opt)}
-                                                                </button>
-                                                            ))}
-                                                        </motion.div>
-                                                    )}
-                                                </AnimatePresence>
-                                            </td>
-                                        </motion.tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-gray-50 border-b">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">ID</th>
+                                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Subject</th>
+                                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Type</th>
+                                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Status</th>
+                                        <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y">
+                                    {loadingDsar ? (
+                                        <tr><td colSpan={5} className="px-6 py-4 text-sm text-gray-500">Loading…</td></tr>
+                                    ) : dsarRequests.length === 0 ? (
+                                        <tr><td colSpan={5} className="px-6 py-4 text-sm text-gray-500">No data subject requests yet.</td></tr>
+                                    ) : dsarRequests.map(dsar => {
+                                        const subject = dsar.requester_name || dsar.student_name || 'Unknown';
+                                        const type = dsar.request_type || '—';
+                                        const status = (dsar.status || 'pending').toLowerCase();
+                                        return (
+                                            <motion.tr key={dsar.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="hover:bg-gray-50">
+                                                <td className="px-6 py-4 font-mono text-xs">{dsar.id.slice(0, 8)}</td>
+                                                <td className="px-6 py-4 text-sm font-medium">{subject}</td>
+                                                <td className="px-6 py-4 text-sm">{type}</td>
+                                                <td className="px-6 py-4">
+                                                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${statusStyles[status] || statusStyles.pending}`}>
+                                                        {statusLabel(status)}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-right relative">
+                                                    <motion.button
+                                                        whileTap={{ scale: 0.95 }}
+                                                        disabled={updatingId === dsar.id}
+                                                        onClick={() => setManageOpenId(manageOpenId === dsar.id ? null : dsar.id)}
+                                                        className="text-indigo-600 text-sm font-bold hover:underline inline-flex items-center gap-1 disabled:opacity-50"
+                                                    >
+                                                        {updatingId === dsar.id ? 'Saving…' : 'Manage'} <ChevronDown className="w-3 h-3" />
+                                                    </motion.button>
+                                                    <AnimatePresence>
+                                                        {manageOpenId === dsar.id && (
+                                                            <motion.div
+                                                                initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                                                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                                exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                                                                transition={{ duration: 0.15 }}
+                                                                className="absolute right-6 top-full mt-1 bg-white border border-gray-100 rounded-xl shadow-lg z-10 w-40 overflow-hidden text-left"
+                                                            >
+                                                                {STATUS_OPTIONS.map(opt => (
+                                                                    <button
+                                                                        key={opt}
+                                                                        onClick={() => handleUpdateStatus(dsar.id, opt)}
+                                                                        className={`w-full text-left px-3 py-2 text-xs font-medium hover:bg-gray-50 ${status === opt ? 'text-indigo-600 font-bold' : 'text-gray-600'}`}
+                                                                    >
+                                                                        {statusLabel(opt)}
+                                                                    </button>
+                                                                ))}
+                                                            </motion.div>
+                                                        )}
+                                                    </AnimatePresence>
+                                                </td>
+                                            </motion.tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
                     </motion.div>
                 )}
 

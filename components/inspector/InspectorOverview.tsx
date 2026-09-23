@@ -201,7 +201,7 @@ export const InspectorOverview: React.FC<Props> = ({
                       className="px-6 py-3 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-indigo-600 transition-all flex items-center gap-2 group-hover:shadow-lg"
                     >
                       <span>Start Now</span>
-                      <ChevronRight className="w-4 h-4" />
+                      <ChevronRight className="w-4 h-4 shrink-0" />
                     </button>
                   </div>
                 </motion.div>

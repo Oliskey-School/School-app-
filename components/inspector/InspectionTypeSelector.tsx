@@ -151,7 +151,7 @@ export const InspectionTypeSelector: React.FC<Props> = ({
            `}
          >
            <span>Next: Select School</span>
-           <ClipboardList className="w-6 h-6" />
+           <ClipboardList className="w-6 h-6 shrink-0" />
          </button>
       </div>
     </div>

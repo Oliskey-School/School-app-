@@ -246,7 +246,7 @@ const CBTExamGame: React.FC<CBTExamGameProps> = ({ onBack }) => {
                                     onClick={startExam}
                                     className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2"
                                 >
-                                    <Sparkles className="w-5 h-5" />
+                                    <Sparkles className="w-5 h-5 shrink-0" />
                                     Start Exam
                                 </button>
                             </div>

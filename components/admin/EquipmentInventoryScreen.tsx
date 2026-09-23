@@ -199,74 +199,76 @@ const EquipmentInventoryScreen = () => {
                 <CenteredLoader message="Accessing inventory..." className="py-12" />
             ) : (
                 <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-                    <table className="w-full text-left border-collapse">
-                        <thead>
-                            <tr className="bg-gray-50/50 border-b border-gray-100">
-                                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Asset</th>
-                                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Location</th>
-                                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Status</th>
-                                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Next Service</th>
-                                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-50">
-                            {filtered.map((item, ii) => (
-                                <motion.tr key={item.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(ii, 15) * 0.02 }} className="hover:bg-gray-50/30 transition-colors group">
-                                    <td className="px-6 py-5">
-                                        <div className="flex items-center space-x-4">
-                                            <div className="p-3 bg-gray-100 rounded-xl group-hover:bg-white transition-colors">
-                                                {getCategoryIcon(item.category)}
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-gray-50/50 border-b border-gray-100">
+                                    <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Asset</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Location</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Status</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Next Service</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50">
+                                {filtered.map((item, ii) => (
+                                    <motion.tr key={item.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(ii, 15) * 0.02 }} className="hover:bg-gray-50/30 transition-colors group">
+                                        <td className="px-6 py-5">
+                                            <div className="flex items-center space-x-4">
+                                                <div className="p-3 bg-gray-100 rounded-xl group-hover:bg-white transition-colors">
+                                                    {getCategoryIcon(item.category)}
+                                                </div>
+                                                <div>
+                                                    <p className="font-bold text-gray-800">{item.name}</p>
+                                                    <p className="text-xs text-gray-400 font-medium font-mono">{item.serial_number || 'N/A'}</p>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <p className="font-bold text-gray-800">{item.name}</p>
-                                                <p className="text-xs text-gray-400 font-medium font-mono">{item.serial_number || 'N/A'}</p>
+                                        </td>
+                                        <td className="px-6 py-5">
+                                            <span className="text-sm font-semibold text-gray-600 bg-gray-100 px-3 py-1 rounded-lg">
+                                                {item.facility?.name || 'Unassigned'}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-5">
+                                            <span className={`text-xs font-bold px-3 py-1 rounded-full ${item.condition === 'New' || item.condition === 'Good' ? 'bg-green-100 text-green-700' :
+                                                item.condition === 'Fair' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+                                                }`}>
+                                                {item.condition}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-5">
+                                            {item.next_service_date ? (
+                                                <div className="flex items-center space-x-2">
+                                                    <Calendar className="w-4 h-4 text-gray-400" />
+                                                    <span className={`text-sm font-bold ${isOverdue(item.next_service_date) ? 'text-red-600' :
+                                                        isNearService(item.next_service_date) ? 'text-amber-600' : 'text-gray-600'
+                                                        }`}>
+                                                        {new Date(item.next_service_date).toLocaleDateString()}
+                                                    </span>
+                                                    {isOverdue(item.next_service_date) && <AlertCircle className="w-4 h-4 text-red-500 animate-pulse" />}
+                                                </div>
+                                            ) : (
+                                                <span className="text-sm text-gray-300">Not Scheduled</span>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-5">
+                                            <div className="flex space-x-2">
+                                                <button className="p-2 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-gray-100 transition-all text-gray-400 hover:text-indigo-600">
+                                                    <EditIcon className="w-4 h-4" />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDelete(item.id)}
+                                                    className="p-2 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-red-50 transition-all text-gray-400 hover:text-red-500"
+                                                >
+                                                    <TrashIcon className="w-4 h-4" />
+                                                </button>
                                             </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-5">
-                                        <span className="text-sm font-semibold text-gray-600 bg-gray-100 px-3 py-1 rounded-lg">
-                                            {item.facility?.name || 'Unassigned'}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-5">
-                                        <span className={`text-xs font-bold px-3 py-1 rounded-full ${item.condition === 'New' || item.condition === 'Good' ? 'bg-green-100 text-green-700' :
-                                            item.condition === 'Fair' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
-                                            }`}>
-                                            {item.condition}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-5">
-                                        {item.next_service_date ? (
-                                            <div className="flex items-center space-x-2">
-                                                <Calendar className="w-4 h-4 text-gray-400" />
-                                                <span className={`text-sm font-bold ${isOverdue(item.next_service_date) ? 'text-red-600' :
-                                                    isNearService(item.next_service_date) ? 'text-amber-600' : 'text-gray-600'
-                                                    }`}>
-                                                    {new Date(item.next_service_date).toLocaleDateString()}
-                                                </span>
-                                                {isOverdue(item.next_service_date) && <AlertCircle className="w-4 h-4 text-red-500 animate-pulse" />}
-                                            </div>
-                                        ) : (
-                                            <span className="text-sm text-gray-300">Not Scheduled</span>
-                                        )}
-                                    </td>
-                                    <td className="px-6 py-5">
-                                        <div className="flex space-x-2">
-                                            <button className="p-2 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-gray-100 transition-all text-gray-400 hover:text-indigo-600">
-                                                <EditIcon className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                                onClick={() => handleDelete(item.id)}
-                                                className="p-2 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-red-50 transition-all text-gray-400 hover:text-red-500"
-                                            >
-                                                <TrashIcon className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </motion.tr>
-                            ))}
-                        </tbody>
-                    </table>
+                                        </td>
+                                    </motion.tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             )}
 

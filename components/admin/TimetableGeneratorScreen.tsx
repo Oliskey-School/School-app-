@@ -272,7 +272,7 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ sch
                         onClick={() => handleOpenPage()}
                         className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg hover:shadow-indigo-200 transition-all flex items-center gap-2"
                     >
-                        <PlusIcon className="w-5 h-5" />
+                        <PlusIcon className="w-5 h-5 shrink-0" />
                         Create Global Timetable
                     </motion.button>
                 </div>
@@ -330,7 +330,7 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ sch
                                                         onClick={() => loadTimetable(cls)}
                                                         className="flex-1 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-2"
                                                     >
-                                                        <EditIcon className="w-4 h-4" />
+                                                        <EditIcon className="w-4 h-4 shrink-0" />
                                                         Edit
                                                     </button>
                                                     <button
@@ -363,7 +363,7 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ sch
                                                     onClick={() => navigateTo('timetableCreator', 'Create Timetable', { initialClasses: [cls] })}
                                                     className="w-full py-2.5 bg-white border border-gray-200 hover:border-indigo-200 hover:text-indigo-600 text-gray-600 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2"
                                                 >
-                                                    <SparklesIcon className="w-4 h-4" />
+                                                    <SparklesIcon className="w-4 h-4 shrink-0" />
                                                     Create New
                                                 </button>
                                             )}

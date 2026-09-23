@@ -353,7 +353,7 @@ const IncidentTab = ({ incidents, setIsAdding }: IncidentTabProps) => (
                             }`}>
                             <AlertCircle className="w-6 h-6" />
                         </div>
-                        <div className="flex-grow">
+                        <div className="flex-grow min-w-0">
                             <div className="flex justify-between">
                                 <h3 className="font-bold text-gray-900">{inc.incident_type} - {inc.student?.full_name || 'Unknown Student'}</h3>
                                 <span className="text-xs font-bold text-gray-400">{new Date(inc.incident_date).toLocaleString()}</span>
@@ -439,46 +439,48 @@ const PolicyTab = ({ policies, setIsAdding }: PolicyTabProps) => (
                 <p className="text-indigo-100 opacity-80">Manage institutional child protection standards and guidelines.</p>
             </div>
             <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => setIsAdding(true)} className="bg-white text-indigo-600 px-8 py-3 rounded-2xl font-bold shadow-xl hover:bg-gray-50 transition-all flex items-center space-x-2 group">
-                <UploadCloud className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                <span>Upload Policy</span>
+                <UploadCloud className="w-5 h-5 group-hover:scale-110 transition-transform shrink-0" />
+                <span className="min-w-0">Upload Policy</span>
             </motion.button>
         </div>
 
         <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-            <table className="w-full text-left">
-                <thead>
-                    <tr className="bg-gray-50/50 border-b border-gray-100">
-                        <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Policy Title</th>
-                        <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Version</th>
-                        <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Effective Date</th>
-                        <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest text-right">Actions</th>
-                    </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                    {policies.map((policy, pi) => (
-                        <motion.tr key={policy.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(pi, 15) * 0.02 }} className="hover:bg-gray-50/30 transition-colors">
-                            <td className="px-6 py-4">
-                                <div className="flex items-center space-x-3">
-                                    <FileText className="w-5 h-5 text-indigo-500" />
-                                    <span className="font-bold text-gray-800">{policy.title}</span>
-                                </div>
-                            </td>
-                            <td className="px-6 py-4 text-sm font-medium text-gray-500">v{policy.version}</td>
-                            <td className="px-6 py-4 text-sm font-medium text-gray-600">{new Date(policy.effective_date).toLocaleDateString()}</td>
-                            <td className="px-6 py-4 text-right">
-                                <a
-                                    href={policy.document_url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-indigo-600 hover:text-indigo-700 font-bold text-sm"
-                                >
-                                    Download
-                                </a>
-                            </td>
-                        </motion.tr>
-                    ))}
-                </tbody>
-            </table>
+            <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                    <thead>
+                        <tr className="bg-gray-50/50 border-b border-gray-100">
+                            <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Policy Title</th>
+                            <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Version</th>
+                            <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Effective Date</th>
+                            <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                        {policies.map((policy, pi) => (
+                            <motion.tr key={policy.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(pi, 15) * 0.02 }} className="hover:bg-gray-50/30 transition-colors">
+                                <td className="px-6 py-4">
+                                    <div className="flex items-center space-x-3">
+                                        <FileText className="w-5 h-5 text-indigo-500" />
+                                        <span className="font-bold text-gray-800">{policy.title}</span>
+                                    </div>
+                                </td>
+                                <td className="px-6 py-4 text-sm font-medium text-gray-500">v{policy.version}</td>
+                                <td className="px-6 py-4 text-sm font-medium text-gray-600">{new Date(policy.effective_date).toLocaleDateString()}</td>
+                                <td className="px-6 py-4 text-right">
+                                    <a
+                                        href={policy.document_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-indigo-600 hover:text-indigo-700 font-bold text-sm"
+                                    >
+                                        Download
+                                    </a>
+                                </td>
+                            </motion.tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 );
@@ -510,7 +512,7 @@ const StudentReportsTab = ({ reports, requests, onReportStatus, onRequestStatus 
                     </div>
                 ) : reports.map((r, i) => (
                     <motion.div key={r.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(i, 15) * 0.03 }} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-start space-x-4 hover:shadow-md transition-shadow">
-                        <div className={`p-3 rounded-full ${r.severity === 'Critical' || r.severity === 'High' ? 'bg-red-100 text-red-600' : r.severity === 'Medium' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>
+                        <div className={`p-3 rounded-full ${r.severity === 'Critical' || r.severity === 'High' ? 'bg-red-100 text-red-600' : r.severity === 'Medium' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'} shrink-0`}>
                             <AlertCircle className="w-6 h-6" />
                         </div>
                         <div className="flex-grow min-w-0">
@@ -549,7 +551,7 @@ const StudentReportsTab = ({ reports, requests, onReportStatus, onRequestStatus 
                     </div>
                 ) : requests.map((q, i) => (
                     <motion.div key={q.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(i, 15) * 0.03 }} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-start space-x-4 hover:shadow-md transition-shadow">
-                        <div className={`p-3 rounded-full ${q.status === 'pending' ? 'bg-pink-100 text-pink-600' : 'bg-green-100 text-green-600'}`}>
+                        <div className={`p-3 rounded-full ${q.status === 'pending' ? 'bg-pink-100 text-pink-600' : 'bg-green-100 text-green-600'} shrink-0`}>
                             <User className="w-6 h-6" />
                         </div>
                         <div className="flex-grow min-w-0">

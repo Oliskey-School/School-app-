@@ -198,8 +198,8 @@ export const DynamicFormEngine: React.FC<Props> = ({
                       ${isFirstSection ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-white border-2 border-slate-100 text-slate-600 hover:bg-slate-50'}
                     `}
                   >
-                    <ChevronLeft className="w-6 h-6" />
-                    <span>Previous Section</span>
+                    <ChevronLeft className="w-6 h-6 shrink-0" />
+                    <span className="min-w-0">Previous Section</span>
                   </button>
 
                   <button
@@ -207,7 +207,7 @@ export const DynamicFormEngine: React.FC<Props> = ({
                     className="px-12 py-5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-3xl font-black text-lg transition-all flex items-center gap-3 shadow-2xl shadow-indigo-100 hover:scale-105 active:scale-95"
                   >
                     <span>{isLastSection ? 'Review Summary' : 'Next Section'}</span>
-                    <ChevronRight className="w-6 h-6" />
+                    <ChevronRight className="w-6 h-6 shrink-0" />
                   </button>
                </div>
             </motion.div>

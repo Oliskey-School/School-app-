@@ -53,7 +53,7 @@ export default function InspectionReportPDF({
                         onClick={handleDownload}
                         className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
                     >
-                        <Download className="w-5 h-5" />
+                        <Download className="w-5 h-5 shrink-0" />
                         Download PDF
                     </button>
                 </div>

@@ -139,8 +139,8 @@ const NotificationDigestSettings = () => {
 
             {/* Emergency Warning */}
             <div className="bg-red-50 border border-red-100 rounded-2xl px-5 py-3 flex items-center space-x-3">
-                <AlertTriangle className="w-5 h-5 text-red-500" />
-                <p className="text-sm text-red-700"><strong>Emergency alerts</strong> always arrive instantly via all channels and cannot be muted or delayed.</p>
+                <AlertTriangle className="w-5 h-5 text-red-500 shrink-0" />
+                <p className="text-sm text-red-700 min-w-0"><strong>Emergency alerts</strong> always arrive instantly via all channels and cannot be muted or delayed.</p>
             </div>
 
             {/* Categories */}

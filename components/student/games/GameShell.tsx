@@ -94,7 +94,7 @@ const GameShell: React.FC<GameShellProps> = ({ title, onExit, children, score = 
                             </button>
                             {onRestart && (
                                 <button onClick={onRestart} className="px-8 py-3 bg-yellow-500 hover:bg-yellow-400 text-slate-900 rounded-xl font-bold shadow-lg flex items-center gap-2 transition-all hover:scale-105">
-                                    <RefreshCwIcon className="w-5 h-5" />
+                                    <RefreshCwIcon className="w-5 h-5 shrink-0" />
                                     Play Again
                                 </button>
                             )}

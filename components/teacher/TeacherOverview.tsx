@@ -44,7 +44,7 @@ const StatCard: React.FC<{ label: string; value: string | number; icon: React.Re
   const theme = THEME_CONFIG[DashboardType.Teacher];
   return (
     <div className={`${theme.cardBg} p-3 sm:p-4 rounded-xl flex items-center space-x-3`}>
-      <div className={`${theme.cardIconBg} p-1.5 sm:p-2 rounded-full flex-shrink-0`}>
+      <div className={`${theme.cardIconBg} p-1.5 sm:p-2 rounded-full flex-shrink-0 shrink-0`}>
         {React.cloneElement(icon, { className: `h-5 w-5 sm:h-6 sm:w-6 ${theme.iconColor}` })}
       </div>
       <div className="min-w-0">

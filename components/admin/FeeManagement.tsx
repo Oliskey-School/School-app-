@@ -210,8 +210,8 @@ const FeeManagement: React.FC<any> = (props) => {
           onClick={loadData}
           className="px-6 py-3 bg-white border border-gray-100 text-gray-600 rounded-2xl shadow-sm hover:bg-gray-50 flex items-center justify-center gap-2 font-medium transition-all"
         >
-          <Filter className="w-5 h-5" />
-          <span>Refresh</span>
+          <Filter className="w-5 h-5 shrink-0" />
+          <span className="min-w-0">Refresh</span>
         </motion.button>
       </div>
 

@@ -21,7 +21,7 @@ const TermBillingStatus: React.FC<TermBillingStatusProps> = ({ navigateTo }) => 
         <div className="space-y-2 mb-1">
             <TrialBanner onUpgradeClick={() => navigateTo('upgrade', 'Billing & Plan')} />
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-green-100 text-green-600 flex-shrink-0">
+                <div className="p-3 rounded-lg bg-green-100 text-green-600 flex-shrink-0 shrink-0">
                     <CreditCard className="h-6 w-6" />
                 </div>
                 <div className="flex-1 min-w-0">

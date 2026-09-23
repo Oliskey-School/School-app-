@@ -247,7 +247,7 @@ const InviteStaffScreen: React.FC<InviteStaffScreenProps> = ({ handleBack, navig
                         >
                             {isInviting ? (
                                 <>
-                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                    <Loader2 className="w-5 h-5 animate-spin shrink-0" />
                                     Sending Invitation...
                                 </>
                             ) : (

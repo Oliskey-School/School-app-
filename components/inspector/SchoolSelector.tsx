@@ -155,10 +155,10 @@ export const SchoolSelector: React.FC<Props> = ({
                     className="w-full py-5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black text-lg transition-all shadow-xl shadow-indigo-900/50 flex items-center justify-center gap-3"
                   >
                     <span>Proceed to Inspection</span>
-                    <BookOpen className="w-6 h-6" />
+                    <BookOpen className="w-6 h-6 shrink-0" />
                   </button>
 
-                  <p className="text-white/30 text-center text-xs italic font-medium leading-relaxed px-4">
+                  <p className="text-white/30 text-center text-xs italic font-medium leading-relaxed px-4 min-w-0">
                      "By proceeding, you verify that you are physically present at the above institution."
                   </p>
                </motion.div>

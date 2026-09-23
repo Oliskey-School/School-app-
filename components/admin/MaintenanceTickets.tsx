@@ -120,54 +120,56 @@ const MaintenanceTickets = () => {
                                 <p className="text-gray-500">No open maintenance tickets at the moment.</p>
                             </div>
                         ) : (
-                            <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
-                                    <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ticket #</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Asset / Location</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Issue</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
-                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
-                                    {tickets.map((ticket, ti) => (
-                                        <motion.tr key={ticket.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(ti, 15) * 0.02 }} className="hover:bg-gray-50">
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-indigo-600">
-                                                {ticket.ticket_number}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                {ticket.asset?.name || ticket.location || 'Unspecified'}
-                                            </td>
-                                            <td className="px-6 py-4 text-sm text-gray-500">
-                                                <div className="font-medium text-gray-900">{ticket.issue_title}</div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${ticket.priority === 'Urgent' ? 'bg-red-100 text-red-800' :
-                                                    ticket.priority === 'High' ? 'bg-orange-100 text-orange-800' :
-                                                        'bg-blue-100 text-blue-800'
-                                                    }`}>
-                                                    {ticket.priority}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                                                <div className="flex items-center justify-end gap-2">
-                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${ticket.status === 'Completed' ? 'bg-green-100 text-green-800' : ticket.status === 'In Progress' ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-800'
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full divide-y divide-gray-200">
+                                    <thead className="bg-gray-50">
+                                        <tr>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ticket #</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Asset / Location</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Issue</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
+                                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-200">
+                                        {tickets.map((ticket, ti) => (
+                                            <motion.tr key={ticket.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(ti, 15) * 0.02 }} className="hover:bg-gray-50">
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-indigo-600">
+                                                    {ticket.ticket_number}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                    {ticket.asset?.name || ticket.location || 'Unspecified'}
+                                                </td>
+                                                <td className="px-6 py-4 text-sm text-gray-500">
+                                                    <div className="font-medium text-gray-900">{ticket.issue_title}</div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${ticket.priority === 'Urgent' ? 'bg-red-100 text-red-800' :
+                                                        ticket.priority === 'High' ? 'bg-orange-100 text-orange-800' :
+                                                            'bg-blue-100 text-blue-800'
                                                         }`}>
-                                                        {ticket.status}
+                                                        {ticket.priority}
                                                     </span>
-                                                    {STATUS_FLOW[ticket.status]?.map(next => (
-                                                        <button key={next} disabled={updatingId === ticket.id} onClick={() => handleStatusChange(ticket.id, next)}
-                                                            className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 disabled:opacity-50">
-                                                            → {next}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </td>
-                                        </motion.tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${ticket.status === 'Completed' ? 'bg-green-100 text-green-800' : ticket.status === 'In Progress' ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-800'
+                                                            }`}>
+                                                            {ticket.status}
+                                                        </span>
+                                                        {STATUS_FLOW[ticket.status]?.map(next => (
+                                                            <button key={next} disabled={updatingId === ticket.id} onClick={() => handleStatusChange(ticket.id, next)}
+                                                                className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 disabled:opacity-50">
+                                                                → {next}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </td>
+                                            </motion.tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         )}
                     </div>
                 )}

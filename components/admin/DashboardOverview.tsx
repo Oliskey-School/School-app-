@@ -134,10 +134,10 @@ const AlertCard: React.FC<{ label: string; value: string | number; icon: React.R
         onClick={onClick}
         className="w-full bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow flex items-center space-x-4 text-left border border-gray-100 hover:border-gray-200"
     >
-        <div className={`${ALERT_COLOR_CLASSES[color] || 'bg-gray-100'} p-3 rounded-xl`}>
+        <div className={`${ALERT_COLOR_CLASSES[color] || 'bg-gray-100'} p-3 rounded-xl shrink-0`}>
             {React.cloneElement(icon, { className: `h-6 w-6 ${color}` })}
         </div>
-        <div>
+        <div className="min-w-0">
             <p className="font-bold text-gray-800 text-lg">{value} {label}</p>
             <p className="text-xs text-gray-500 font-medium">Action required</p>
         </div>

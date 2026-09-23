@@ -54,7 +54,7 @@ const SuspensionNoticeBanner: React.FC<SuspensionNoticeBannerProps> = ({ mode })
             <div className="space-y-3">
                 {active.map(s => (
                     <div key={s.id} className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-3">
-                        <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                        <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5 shrink-0" />
                         <div className="flex-1 min-w-0">
                             <p className="font-bold text-red-900">
                                 {mode === 'parent' && s.student_name ? `${s.student_name} — ` : ''}Suspension Notice

@@ -230,9 +230,9 @@ const TeacherAttendanceDetail: React.FC<{ teacher: Teacher }> = ({ teacher }) =>
                         {isSaving ? (
                             <div className="animate-spin h-5 w-5 border-2 border-white rounded-full border-t-transparent"></div>
                         ) : (
-                            <Save className="w-5 h-5" />
+                            <Save className="w-5 h-5 shrink-0" />
                         )}
-                        <span>Save Attendance ({pendingChanges.size})</span>
+                        <span className="min-w-0">Save Attendance ({pendingChanges.size})</span>
                     </motion.button>
                     <motion.button
                         whileHover={{ rotate: -20 }}

@@ -113,9 +113,9 @@ const AchievementsScreen: React.FC = () => {
                                         className="bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow flex items-center space-x-4"
                                     >
                                         <div className="flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center bg-blue-100">
-                                            <CertificateIcon className="w-6 h-6 text-blue-600" />
+                                            <CertificateIcon className="w-6 h-6 text-blue-600 shrink-0" />
                                         </div>
-                                        <div className="flex-grow">
+                                        <div className="flex-grow min-w-0">
                                             <p className="font-bold text-gray-800">{cert.title}</p>
                                             <p className="text-sm text-gray-500">Issued: {new Date(cert.date).toLocaleDateString()}</p>
                                         </div>
@@ -169,9 +169,9 @@ const AchievementsScreen: React.FC = () => {
                                     className="bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow flex items-center space-x-4 border border-indigo-200"
                                 >
                                     <div className="flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center bg-indigo-50">
-                                        <StarIcon className="w-6 h-6 text-indigo-600" />
+                                        <StarIcon className="w-6 h-6 text-indigo-600 shrink-0" />
                                     </div>
-                                    <div className="flex-grow">
+                                    <div className="flex-grow min-w-0">
                                         <p className="font-bold text-gray-800">{ach.title}</p>
                                         <p className="text-sm text-gray-500">{ach.description}</p>
                                         <p className="text-xs text-gray-400 mt-1">{new Date(ach.date).toLocaleDateString()}</p>

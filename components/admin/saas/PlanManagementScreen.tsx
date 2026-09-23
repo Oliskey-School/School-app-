@@ -107,54 +107,56 @@ const PlanManagementScreen: React.FC<PlanManagementScreenProps> = ({ navigateTo 
             {showComparison ? (
                 /* Plan Comparison Table */
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                    <table className="w-full text-left border-collapse">
-                        <thead>
-                            <tr className="bg-gray-50">
-                                <th className="p-6 border-b border-gray-200 font-bold text-gray-900 w-1/4">Feature</th>
-                                {plans.map(plan => (
-                                    <th key={plan.id} className="p-6 border-b border-gray-200 text-center">
-                                        <div className="font-bold text-gray-900">{plan.name}</div>
-                                        <div className="text-indigo-600 font-black">${plan.price_monthly}/mo</div>
-                                    </th>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-gray-50">
+                                    <th className="p-6 border-b border-gray-200 font-bold text-gray-900 w-1/4">Feature</th>
+                                    {plans.map(plan => (
+                                        <th key={plan.id} className="p-6 border-b border-gray-200 text-center">
+                                            <div className="font-bold text-gray-900">{plan.name}</div>
+                                            <div className="text-indigo-600 font-black">${plan.price_monthly}/mo</div>
+                                        </th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {/* Comparison Rows */}
+                                <tr className="bg-gray-50/50">
+                                    <td className="p-6 font-semibold text-gray-700 text-xs uppercase tracking-wider">Limits</td>
+                                    {plans.map(plan => <td key={plan.id} className="p-6 text-center" />)}
+                                </tr>
+                                {['max_students', 'max_teachers', 'storage_gb'].map(limit => (
+                                    <tr key={limit}>
+                                        <td className="p-6 text-gray-600 capitalize">{limit.replace('_', ' ')}</td>
+                                        {plans.map(plan => (
+                                            <td key={plan.id} className="p-6 text-center font-medium text-gray-900">
+                                                {plan.limits?.[limit] || '—'}
+                                            </td>
+                                        ))}
+                                    </tr>
                                 ))}
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                            {/* Comparison Rows */}
-                            <tr className="bg-gray-50/50">
-                                <td className="p-6 font-semibold text-gray-700 text-xs uppercase tracking-wider">Limits</td>
-                                {plans.map(plan => <td key={plan.id} className="p-6 text-center" />)}
-                            </tr>
-                            {['max_students', 'max_teachers', 'storage_gb'].map(limit => (
-                                <tr key={limit}>
-                                    <td className="p-6 text-gray-600 capitalize">{limit.replace('_', ' ')}</td>
-                                    {plans.map(plan => (
-                                        <td key={plan.id} className="p-6 text-center font-medium text-gray-900">
-                                            {plan.limits?.[limit] || '—'}
-                                        </td>
-                                    ))}
+                                <tr className="bg-gray-50/50">
+                                    <td className="p-6 font-semibold text-gray-700 text-xs uppercase tracking-wider">Features</td>
+                                    {plans.map(plan => <td key={plan.id} className="p-6 text-center" />)}
                                 </tr>
-                            ))}
-                            <tr className="bg-gray-50/50">
-                                <td className="p-6 font-semibold text-gray-700 text-xs uppercase tracking-wider">Features</td>
-                                {plans.map(plan => <td key={plan.id} className="p-6 text-center" />)}
-                            </tr>
-                            {allFeatures.map(feature => (
-                                <tr key={feature}>
-                                    <td className="p-6 text-gray-600 capitalize">{feature.replace('_', ' ')}</td>
-                                    {plans.map(plan => (
-                                        <td key={plan.id} className="p-6 text-center">
-                                            {plan.features?.[feature] ? (
-                                                <Check className="w-5 h-5 text-green-500 mx-auto" />
-                                            ) : (
-                                                <X className="w-5 h-5 text-gray-300 mx-auto" />
-                                            )}
-                                        </td>
-                                    ))}
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                                {allFeatures.map(feature => (
+                                    <tr key={feature}>
+                                        <td className="p-6 text-gray-600 capitalize">{feature.replace('_', ' ')}</td>
+                                        {plans.map(plan => (
+                                            <td key={plan.id} className="p-6 text-center">
+                                                {plan.features?.[feature] ? (
+                                                    <Check className="w-5 h-5 text-green-500 mx-auto" />
+                                                ) : (
+                                                    <X className="w-5 h-5 text-gray-300 mx-auto" />
+                                                )}
+                                            </td>
+                                        ))}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             ) : (
                 /* Plans Grid */
@@ -343,7 +345,7 @@ const PlanManagementScreen: React.FC<PlanManagementScreenProps> = ({ navigateTo 
                                 onClick={handleSave}
                                 className="flex-1 px-4 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition flex items-center justify-center gap-2"
                             >
-                                <Save className="w-5 h-5" /> Save Changes
+                                <Save className="w-5 h-5 shrink-0" /> Save Changes
                             </motion.button>
                         </div>
                     </motion.div>
