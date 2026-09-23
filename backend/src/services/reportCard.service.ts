@@ -106,13 +106,19 @@ export class ReportCardService {
 
         // Note: Prisma's 'update' only allows unique identifiers in 'where'. 
         // We use 'updateMany' to filter by multiple fields safely.
-        await prisma.reportCard.updateMany({
+        const { count } = await prisma.reportCard.updateMany({
             where,
             data: updateData
         });
 
-        const updated = await prisma.reportCard.findUnique({
-            where: { id }
+        // No row matched: the card belongs to another school/branch (or does not
+        // exist). Previously this fell through and read the row back with an
+        // UNSCOPED findUnique — which, on any connection that does not enforce
+        // RLS, handed the caller another school's report card.
+        if (!count) throw Object.assign(new Error('Report card not found'), { status: 404 });
+
+        const updated = await prisma.reportCard.findFirst({
+            where: { id, school_id: schoolId }
         });
 
         // Live-refresh the publishing screen, teacher gradebook, and the

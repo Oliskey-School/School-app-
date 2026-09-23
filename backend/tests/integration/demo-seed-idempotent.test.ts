@@ -36,6 +36,48 @@ describe('Demo seeding is idempotent and adopts pre-existing identities', () => 
         expect(rows.length).toBe(1);
     }, 180000);
 
+    it('seeding 5 more times in a row creates no duplicate user, school, branch or global ID', async () => {
+        for (let i = 0; i < 5; i++) await runAsPlatform(() => DemoSeederService.ensureDemoData());
+        const dupes = await runAsPlatform(async () => ({
+            byGlobalId: await prisma.$queryRawUnsafe<any[]>(`SELECT school_generated_id, count(*)::int AS n FROM "User" WHERE school_id = $1 AND school_generated_id IS NOT NULL GROUP BY 1 HAVING count(*) > 1`, DEMO_SCHOOL),
+            byEmail: await prisma.$queryRawUnsafe<any[]>(`SELECT email, count(*)::int AS n FROM "User" WHERE school_id = $1 GROUP BY 1 HAVING count(*) > 1`, DEMO_SCHOOL),
+            branches: await prisma.$queryRawUnsafe<any[]>(`SELECT code, count(*)::int AS n FROM "Branch" WHERE school_id = $1 GROUP BY 1 HAVING count(*) > 1`, DEMO_SCHOOL),
+            schools: await prisma.school.count({ where: { id: DEMO_SCHOOL } }),
+        }));
+        expect(dupes.byGlobalId, `duplicate global IDs: ${JSON.stringify(dupes.byGlobalId)}`).toEqual([]);
+        expect(dupes.byEmail, `duplicate demo emails: ${JSON.stringify(dupes.byEmail)}`).toEqual([]);
+        expect(dupes.branches, `duplicate branch codes: ${JSON.stringify(dupes.branches)}`).toEqual([]);
+        expect(dupes.schools).toBe(1);
+    }, 600000);
+
+    it('10 CONCURRENT seeds leave exactly one of everything, and demo logins keep working while they run', async () => {
+        const before = await runAsPlatform(() => prisma.user.count({ where: { school_id: DEMO_SCHOOL } }));
+        const errors: unknown[] = [];
+        // Seeds and logins race each other, which is what a burst of demo
+        // visitors arriving at a cold sandbox actually looks like.
+        const seeds = Array.from({ length: 10 }, () => runAsPlatform(() => DemoSeederService.ensureDemoData()).catch(e => errors.push(e)));
+        const logins = Array.from({ length: 10 }, (_, i) =>
+            request(app).post('/api/auth/demo/login').send({ role: ['admin', 'teacher', 'student', 'parent'][i % 4] })
+                .then(r => r.status).catch(() => 0));
+        const [, loginStatuses] = await Promise.all([Promise.all(seeds), Promise.all(logins)]);
+
+        const fatal = errors.map(e => (e as any)?.message ?? String(e)).filter(m => /P2002|P2028|duplicate key|Transaction already closed/i.test(m));
+        expect(fatal, `concurrent seeding failed:\n${fatal.slice(0, 3).join('\n')}`).toEqual([]);
+
+        const after = await runAsPlatform(async () => ({
+            users: await prisma.user.count({ where: { school_id: DEMO_SCHOOL } }),
+            dupIds: await prisma.$queryRawUnsafe<any[]>(`SELECT school_generated_id, count(*)::int AS n FROM "User" WHERE school_id = $1 AND school_generated_id IS NOT NULL GROUP BY 1 HAVING count(*) > 1`, DEMO_SCHOOL),
+            schools: await prisma.school.count({ where: { id: DEMO_SCHOOL } }),
+        }));
+        expect(after.dupIds, `duplicate global IDs after concurrent seeding: ${JSON.stringify(after.dupIds)}`).toEqual([]);
+        expect(after.schools).toBe(1);
+        expect(after.users, `user count grew from ${before} to ${after.users} across 10 identical seeds`).toBe(before);
+        // A login may legitimately answer 503 "warming up" while a sandbox seeds,
+        // but must never fail outright.
+        const broken = loginStatuses.filter(st => ![200, 503].includes(st));
+        expect(broken, `demo logins broke during seeding: ${broken.join(',')}`).toEqual([]);
+    }, 900000);
+
     it('every demo role can sign in (no 503 "warming up")', async () => {
         for (const role of ['admin', 'teacher', 'student', 'parent']) {
             const r = await request(app).post('/api/auth/demo/login').send({ role });

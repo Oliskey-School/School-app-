@@ -216,13 +216,14 @@ describe('Cross-tenant (cross-school) data isolation', () => {
             const student = await prisma.student.findUnique({ where: { id: bStudentId } });
             expect(student).not.toBeNull();
         });
-        it('School A admin cannot actually delete School B fee (deleteMany is school_id-scoped, but response is misleadingly 204)', async () => {
+        it('School A admin cannot delete School B fee, and is told so', async () => {
             const res = await request(app).delete(`/api/fees/${bFeeId}`).set('Authorization', `Bearer ${asAAdmin()}`);
-            // KNOWN BUG (non-critical): FeeService.deleteFee uses deleteMany({id, school_id}),
-            // which safely matches zero rows for a cross-tenant id, but the controller always
-            // responds 204 regardless of whether anything was deleted — no distinction between
-            // "deleted" and "not found/unauthorized". What matters for isolation is verified below.
-            expect(res.status).toBe(204);
+            // This used to answer 204 for a delete that matched nothing, so the
+            // API reported success for a row it had never touched. The scoped
+            // deleteMany now reports its count and the controller turns a
+            // zero-row result into 404.
+            expect(res.status, 'a cross-tenant delete must not report success').not.toBe(204);
+            expect(res.status).toBe(404);
             const fee = await prisma.studentFee.findUnique({ where: { id: bFeeId } });
             expect(fee).not.toBeNull();
             expect(fee?.school_id).toBe(SB);

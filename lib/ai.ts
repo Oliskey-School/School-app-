@@ -429,7 +429,26 @@ export const getAIClient = (apiKey?: string) => {
         return aiClientInstance;
     }
 
-    // Legacy Gemini path (VITE_AI_PROVIDER=gemini).
+    // Legacy Gemini path (VITE_AI_PROVIDER=gemini). This one talks to Google
+    // directly from the browser, so the key is inlined into the bundle by Vite
+    // and any visitor can read it. That is acceptable for local experiments and
+    // nowhere else, so a production build refuses it and stays on the
+    // server-side proxy instead of silently publishing the key.
+    const isProdBuild = (() => {
+        try {
+            if (typeof import.meta !== 'undefined' && (import.meta as any).env) return !!(import.meta as any).env.PROD;
+            return typeof process !== 'undefined' && process.env?.NODE_ENV === 'production';
+        } catch { return false; }
+    })();
+    if (isProdBuild) {
+        console.warn('[AI] VITE_AI_PROVIDER=gemini is a development-only path (it would ship the API key to the browser). Using the server-side proxy instead.');
+        if (!aiClientInstance || aiClientInstanceKey !== 'nvidia') {
+            aiClientInstance = new NvidiaClient();
+            aiClientInstanceKey = 'nvidia';
+        }
+        return aiClientInstance;
+    }
+
     let envKey = '';
     try {
         if (typeof import.meta !== 'undefined' && import.meta.env) {

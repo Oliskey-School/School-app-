@@ -373,7 +373,7 @@ export class AuthService {
 
     static async verify2FALogin(mfaToken: string, code: string) {
         try {
-            const decoded = jwt.verify(mfaToken, config.jwtSecret) as any;
+            const decoded = jwt.verify(mfaToken, config.jwtSecret, { algorithms: ['HS256'] }) as any;
             if (decoded.purpose !== 'mfa_verification') throw new Error('Invalid MFA token');
 
             // Raw client: without this the stripped secret made login-time 2FA
@@ -519,7 +519,7 @@ export class AuthService {
     static async refreshAccessToken(refreshToken: string) {
         try {
             // 1. Verify refresh token
-            const decoded = jwt.verify(refreshToken, config.refreshTokenSecret) as any;
+            const decoded = jwt.verify(refreshToken, config.refreshTokenSecret, { algorithms: ['HS256'] }) as any;
             if (decoded.type !== 'refresh') throw new Error('Invalid token type');
 
             // 2. Check if session is still active
@@ -1013,7 +1013,7 @@ export class AuthService {
 
     static async verifyEmail(token: string, enteredCode: string) {
         try {
-            const decoded = jwt.verify(token, config.jwtSecret) as any;
+            const decoded = jwt.verify(token, config.jwtSecret, { algorithms: ['HS256'] }) as any;
             if (decoded.purpose !== 'otp_verification') {
                 throw new Error('Invalid token purpose');
             }

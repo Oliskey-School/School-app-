@@ -73,6 +73,45 @@ jobs:
       - name: Enable the app role login for CI
         run: PGPASSWORD=postgres psql -h localhost -U postgres -d school_app_test -v ON_ERROR_STOP=1 -c "ALTER ROLE oliskey_app LOGIN PASSWORD 'oliskey_app';"
 
+      # ---------------------------------------------------------------------
+      # Security gate. Runs BEFORE the browser suite and fails the build.
+      #
+      # Until now this workflow ran nine Playwright tests and nothing else: the
+      # 60+ backend integration suites — every tenant-isolation, RLS, IDOR,
+      # payment and concurrency test in the repo — were never executed in CI,
+      # so a green pipeline said almost nothing about multi-tenant safety.
+      #
+      # These run as the NOBYPASSRLS app role (see the job-level DATABASE_URL),
+      # which is the only configuration in which the RLS policies are actually
+      # exercised.
+      # ---------------------------------------------------------------------
+      - name: Security gate (tenant isolation, RLS, IDOR, payments, concurrency)
+        run: |
+          npx tsx --tsconfig backend/tsconfig.json node_modules/vitest/vitest.mjs run \
+            --config backend/vitest.config.ts \
+            backend/tests/integration/hostile-tenant-sweep.test.ts \
+            backend/tests/integration/rls-child-tables.test.ts \
+            backend/tests/integration/school-branch-integrity.test.ts \
+            backend/tests/integration/parent-child-isolation.test.ts \
+            backend/tests/integration/cross_tenant_probe.test.ts \
+            backend/tests/integration/school-isolation.test.ts \
+            backend/tests/integration/branch-isolation-full.test.ts \
+            backend/tests/integration/write-isolation-sweep.test.ts \
+            backend/tests/integration/payment-security.test.ts \
+            backend/tests/integration/concurrency-stress.test.ts \
+            backend/tests/integration/no-plaintext-passwords.test.ts \
+            backend/tests/integration/auth-without-ambient-scope.test.ts \
+            backend/tests/integration/rate-limit-without-redis.test.ts \
+            backend/tests/integration/scoped-transactions.test.ts \
+            backend/tests/integration/demo-seed-idempotent.test.ts \
+            backend/tests/integration/auth-hardening.test.ts \
+            backend/tests/integration/isolation.test.ts
+
+      - name: Backend integration suite (full)
+        run: |
+          npx tsx --tsconfig backend/tsconfig.json node_modules/vitest/vitest.mjs run \
+            --config backend/vitest.config.ts
+
       - name: Build frontend
         run: npm run build
 

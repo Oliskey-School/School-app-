@@ -121,7 +121,10 @@ export const deleteFee = async (req: AuthRequest, res: Response) => {
     try {
         if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can delete fees' });
         const branchId = getEffectiveBranchId(req.user, req.body?.branch_id);
-        await FeeService.deleteFee(req.user.school_id, branchId, req.params.id as string);
+        const removed = await FeeService.deleteFee(req.user.school_id, branchId, req.params.id as string);
+        // A fee in another school (or a bad id) matches nothing — say so rather
+        // than reporting a delete that did not happen.
+        if (!removed?.count) return res.status(404).json({ message: 'Fee not found' });
         res.status(204).send();
     } catch (error: any) {
         sendError(res, error, 'fee.controller.ts');
@@ -237,7 +240,8 @@ export const deletePayment = async (req: AuthRequest, res: Response) => {
     try {
         if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can delete a payment' });
         const branchId = getEffectiveBranchId(req.user, (req.query.branchId || req.query.branch_id) as string);
-        await FeeService.deletePayment(req.user.school_id, branchId, req.params.id as string);
+        const removed = await FeeService.deletePayment(req.user.school_id, branchId, req.params.id as string);
+        if (!removed?.count) return res.status(404).json({ message: 'Payment not found' });
         res.status(204).send();
     } catch (error: any) {
         sendError(res, error, 'fee.controller.ts');
