@@ -106,11 +106,59 @@ describe('structured data', () => {
         expect(site?.url).toBe(APP);
     });
 
-    it('claims nothing that cannot be verified', () => {
-        const raw = blocks[0];
-        for (const forbidden of ['aggregateRating', 'ratingValue', 'reviewCount', 'review', 'award']) {
-            expect(raw, `unverifiable "${forbidden}" in structured data`).not.toContain(forbidden);
+    it('links third-party product profiles by identity only (sameAs), never by rating', () => {
+        const graph = JSON.parse(blocks[0])['@graph'] as any[];
+        const app = graph.find(n => n['@type'] === 'SoftwareApplication');
+        const sameAs: string[] = app.sameAs ?? [];
+        // The G2 listing is the same product entity, so sameAs is the right
+        // (and only) way to reference it from here.
+        expect(sameAs, 'G2 profile missing from sameAs').toContain('https://www.g2.com/products/oliskey-school-app/reviews');
+        for (const url of sameAs) {
+            expect(() => new URL(url), `sameAs entry is not a valid URL: ${url}`).not.toThrow();
+            expect(url.startsWith('https://'), `sameAs must be https: ${url}`).toBe(true);
         }
+        // Referencing a reviews page must never turn into publishing its numbers.
+        expect(JSON.stringify(app), 'a rating was attached to the product entity').not.toMatch(/aggregateRating|ratingValue|reviewCount|bestRating/);
+    });
+
+    it('claims nothing that cannot be verified', () => {
+        // Checked as PROPERTY NAMES, not substrings: a legitimate sameAs URL may
+        // legitimately contain the word "reviews" (the G2 profile does) without
+        // the page claiming any rating of its own.
+        const forbidden = ['aggregateRating', 'ratingValue', 'reviewCount', 'review', 'award', 'bestRating'];
+        const found: string[] = [];
+        const walk = (node: any, path: string) => {
+            if (!node || typeof node !== 'object') return;
+            if (Array.isArray(node)) return node.forEach((n, i) => walk(n, `${path}[${i}]`));
+            for (const [key, value] of Object.entries(node)) {
+                if (forbidden.includes(key)) found.push(`${path}.${key}`);
+                walk(value, `${path}.${key}`);
+            }
+        };
+        walk(JSON.parse(blocks[0]), '$');
+        expect(found, `unverifiable rating/award claims in structured data: ${found.join(', ')}`).toEqual([]);
+    });
+});
+
+describe('unverified marketing claims', () => {
+    it('no superlative or rating language appears in the page metadata', () => {
+        // Title, description, OG/Twitter text and JSON-LD are the strings search
+        // engines and social cards quote. Until a verified rating exists on a
+        // third-party profile, none of these may imply one.
+        const banned = [
+            /top[- ]rated/i, /best[- ](school|platform|app|software)/i,
+            /[0-9](\.[0-9])?\s*(\/\s*5|stars?)/i, /five[- ]star/i,
+            /#\s*1/, /number one/i, /award[- ]winning/i,
+            /most popular/i, /leading/i, /highest[- ]rated/i,
+        ];
+        const head = html.slice(0, html.indexOf('</head>'));
+        const quoted = [
+            ...[...head.matchAll(/<title>([\s\S]*?)<\/title>/g)].map(m => m[1]),
+            ...[...head.matchAll(/<meta[^>]+content="([^"]*)"/g)].map(m => m[1]),
+            ...[...head.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map(m => m[1]),
+        ].join(String.fromCharCode(10));
+        const hits = banned.filter(rx => rx.test(quoted)).map(rx => String(rx));
+        expect(hits, `unverified claim language in metadata: ${hits.join(', ')}`).toEqual([]);
     });
 });
 

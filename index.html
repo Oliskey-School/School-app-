@@ -59,7 +59,15 @@
        unconnected to the product. www.oliskey.com is used because oliskey.com
        permanently redirects (308) there, so it is the resolvable canonical.
        Only facts that can be verified from the product are asserted: no
-       ratings, reviews, counts, awards or social profiles are claimed. -->
+       ratings, reviews, counts, awards or social profiles are claimed.
+
+       sameAs lists third-party profiles that are the SAME product entity, so
+       search engines can reconcile them with this one. It is an identity link,
+       NOT a quality claim: no aggregateRating, ratingValue or reviewCount is
+       published here, and none may be added until a verified rating actually
+       exists on that profile. Schema.org rating fields describe ratings the
+       publisher can substantiate — asserting G2's numbers from here would be
+       both unverifiable and a structured-data violation. -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -90,7 +98,10 @@
         "inLanguage": "en-NG",
         "isAccessibleForFree": true,
         "publisher": { "@id": "https://www.oliskey.com/#organization" },
-        "brand": { "@id": "https://www.oliskey.com/#organization" }
+        "brand": { "@id": "https://www.oliskey.com/#organization" },
+        "sameAs": [
+          "https://www.g2.com/products/oliskey-school-app/reviews"
+        ]
       }
     ]
   }
