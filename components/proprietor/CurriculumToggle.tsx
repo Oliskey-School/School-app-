@@ -13,7 +13,14 @@ interface CurriculumStats {
     totalStudents: number;
     activeClasses: number;
     subjects: number;
-    averagePerformance: number;
+    /**
+     * Average performance per curriculum. null = no verified source yet.
+     * This was previously Math.random() * 30 + 70, i.e. a fabricated number
+     * between 70% and 100% shown to a school owner as if it were real. There
+     * is no query behind it, so it stays null until one exists and the UI
+     * says so rather than inventing a figure.
+     */
+    averagePerformance: number | null;
 }
 
 export const CurriculumToggle: React.FC<{ schoolId: string }> = ({ schoolId }) => {
@@ -61,7 +68,7 @@ export const CurriculumToggle: React.FC<{ schoolId: string }> = ({ schoolId }) =
                     totalStudents: studentCount || 0,
                     activeClasses: branchIds.length,
                     subjects: subjectCount || 0,
-                    averagePerformance: Math.random() * 30 + 70 // Mock for now
+                    averagePerformance: null, // no verified source; the UI shows "No data" rather than a fabricated figure
                 };
             });
 
@@ -232,14 +239,14 @@ export const CurriculumToggle: React.FC<{ schoolId: string }> = ({ schoolId }) =
                                         <div className="mt-4">
                                             <div className="flex justify-between items-center mb-2">
                                                 <span className="text-xs text-gray-600">Avg Performance</span>
-                                                <span className={`text-sm font-bold ${colors.text}`}>
-                                                    {curriculum.averagePerformance.toFixed(1)}%
+                                                <span className={`text-sm font-bold ${curriculum.averagePerformance === null ? 'text-gray-400' : colors.text}`}>
+                                                    {curriculum.averagePerformance === null ? 'No data' : `${curriculum.averagePerformance.toFixed(1)}%`}
                                                 </span>
                                             </div>
                                             <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
                                                 <div
                                                     className={`h-full bg-gradient-to-r ${colors.gradient} transition-all duration-1000`}
-                                                    style={{ width: `${curriculum.averagePerformance}%` }}
+                                                    style={{ width: `${curriculum.averagePerformance ?? 0}%` }}
                                                 />
                                             </div>
                                         </div>
@@ -278,7 +285,7 @@ export const CurriculumToggle: React.FC<{ schoolId: string }> = ({ schoolId }) =
                                             </div>
                                             <div className="flex justify-between">
                                                 <span className="opacity-90">Performance:</span>
-                                                <span className="font-bold">{curriculum.averagePerformance.toFixed(1)}%</span>
+                                                <span className="font-bold">{curriculum.averagePerformance === null ? 'No data' : `${curriculum.averagePerformance.toFixed(1)}%`}</span>
                                             </div>
                                         </div>
 

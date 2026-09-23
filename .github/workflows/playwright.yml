@@ -95,6 +95,10 @@ jobs:
       - name: AI knowledge layer checks
         run: npx tsx --tsconfig backend/tsconfig.json node_modules/vitest/vitest.mjs run --config backend/vitest.config.ts backend/tests/integration/ai-knowledge.test.ts
 
+      # Fails if a number shown to a school is generated rather than queried.
+      - name: No fabricated statistics
+        run: npx vitest run --config vite.config.mts tests/quality/no-fabricated-data.test.ts
+
       - name: SEO and brand-entity checks
         run: npx vitest run --config vite.config.mts tests/seo/seo-metadata.test.ts
 
