@@ -306,7 +306,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
 
     const AnalyticsWrapper = (props: any) => (
         <div className="space-y-6">
-            <Suspense fallback={<PremiumLoader message="Loading analytics..." />}>
+            <Suspense fallback={<PremiumLoader message="Loading analytics..." fullScreen={false} />}>
                 <AnalyticsScreen {...props} />
                 <AnalyticsAdminTools {...props} />
             </Suspense>
@@ -717,7 +717,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
                 </ErrorBoundary>
             </div>
 
-            <Suspense fallback={<PremiumLoader message="Searching school database..." />}>
+            <Suspense fallback={<PremiumLoader message="Searching school database..." fullScreen={false} />}>
                 {isSearchOpen && <GlobalSearchScreen dashboardType={DashboardType.Admin} navigateTo={navigateTo} onClose={() => setIsSearchOpen(false)} />}
             </Suspense>
 

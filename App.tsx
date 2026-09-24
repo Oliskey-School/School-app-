@@ -4,7 +4,7 @@ import { OfflineIndicator } from './components/shared/OfflineIndicator';
 import { RealtimeStatusIndicator } from './components/shared/RealtimeStatusIndicator';
 import { AppearanceSync } from './components/shared/LiquidGlassControl';
 import { Toaster } from 'react-hot-toast';
-import PremiumLoader from './components/ui/PremiumLoader';
+import PremiumLoader, { BOOT_MESSAGE } from './components/ui/PremiumLoader';
 import { runMigrations } from './lib/migrationManager';
 import { cacheCleanupScheduler } from './lib/cacheManager';
 import { useRealtimeSync } from './hooks/useRealtimeSync';
@@ -99,7 +99,7 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
 }
 
 const LoadingScreen: React.FC = () => (
-    <PremiumLoader message="Initializing School Workspace..." />
+    <PremiumLoader message={BOOT_MESSAGE} />
 );
 
 const AuthenticatedApp: React.FC = () => {
@@ -218,7 +218,10 @@ const AuthenticatedApp: React.FC = () => {
     // sessionStorage throws in hardened/private browser contexts. Treat that as
     // unauthenticated so the critical login shell stays reachable.
   }
-  if (loading && (hasStoredSession || !!user)) return <LoadingScreen />;
+  // `|| !!user` used to keep this true whenever auth revalidated in the
+  // background, so an already-rendered dashboard was replaced by the boot loader
+  // again. Once there is a user there is something to show: revalidate behind it.
+  if (loading && !user && hasStoredSession) return <LoadingScreen />;
   if (isInviteAccept) return <InviteAcceptScreen />;
   if (showAuthConfirm) return <AuthCallback />;
 
@@ -290,7 +293,7 @@ const AuthenticatedApp: React.FC = () => {
 
 const App: React.FC = () => {
   const [isInitializing, setIsInitializing] = useState(true);
-  const [initMessage] = useState('Initializing...');
+  const [initMessage] = useState(BOOT_MESSAGE);
 
   useEffect(() => {
     // These modules are not needed to paint the shell. Load them only after the

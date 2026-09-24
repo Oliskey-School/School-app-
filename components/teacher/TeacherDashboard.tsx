@@ -3,7 +3,7 @@ import DashboardLayout from '../layout/DashboardLayout';
 import { DashboardType } from '../../types';
 import { THEME_CONFIG } from '../../constants';
 import { formatSchoolId } from '../../utils/idFormatter';
-import PremiumLoader from '../ui/PremiumLoader';
+import PremiumLoader, { BOOT_MESSAGE } from '../ui/PremiumLoader';
 import ErrorBoundary from '../ui/ErrorBoundary';
 import { useAuth } from '../../context/AuthContext';
 import { getMyTeacherProfileCached } from '../../lib/queryClient';
@@ -111,7 +111,7 @@ import WorkloadCalculator from './WorkloadCalculator';
 const AddStudentScreen = lazyWithRetry(() => import('../admin/AddStudentScreen'));
 
 const DashboardSuspenseFallback = () => (
-  <PremiumLoader message="Loading teacher workspace..." />
+  <PremiumLoader message={BOOT_MESSAGE} />
 );
 
 interface TeacherDashboardProps {
@@ -387,7 +387,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
   };
 
   if (loadingProfile && !teacherId) {
-    return <PremiumLoader message="Fetching teacher profile..." />;
+    return <PremiumLoader message={BOOT_MESSAGE} />;
   }
 
   if (profileError && !teacherId) {

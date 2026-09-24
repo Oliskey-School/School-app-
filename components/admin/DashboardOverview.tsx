@@ -54,6 +54,7 @@ import { useApi } from '../../lib/hooks/useApi';
 import api from '../../lib/api';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { getStatCardLayout, PREFERENCES_APPLIED_EVENT, type StatCardLayout } from '../../lib/uiPreferences';
+import DashboardSkeletonLoader from '../ui/DashboardSkeletonLoader';
 
 
 // --- NEW, REFINED UI/UX COMPONENTS ---
@@ -453,7 +454,12 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
         return () => window.removeEventListener(PREFERENCES_APPLIED_EVENT, sync);
     }, []);
 
-    if (isLoadingStats && !stats) return <PremiumLoader message="Loading dashboard statistics..." />;
+    // Measured during boot: this used to be a full-screen PremiumLoader that
+    // mounted at t=3123ms — a second AFTER the dashboard was already interactive
+    // at t=2572ms — and covered the whole app for ~1s. That was the second
+    // "loading screen". Stats are only part of this page, so waiting for them
+    // now shows the page's own skeleton in place, not a screen over everything.
+    if (isLoadingStats && !stats) return <DashboardSkeletonLoader type="overview" />;
 
 
     const formatTrend = (val: number) => {
