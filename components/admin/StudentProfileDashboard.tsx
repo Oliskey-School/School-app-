@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    ChevronLeft,
     Sparkles,
     BookOpen,
     ClipboardList,
@@ -207,21 +206,33 @@ const StudentProfileDashboard: React.FC<StudentProfileDashboardProps> = ({
 
     return (
         <div className="flex flex-col h-full bg-[#FAFAFE]">
-            {/* Top Purple Header */}
-            <header className="bg-[#5D5CDE] text-white px-6 py-4 flex items-center gap-4 rounded-b-[2.5rem]">
-                <button onClick={handleBack} className="p-2 hover:bg-white/10 rounded-full transition-colors">
-                    <ChevronLeft className="w-6 h-6" />
-                </button>
-                <h1 className="text-2xl font-bold tracking-tight">{student.name}</h1>
-            </header>
-
+            {/* No header here on purpose.
+             *
+             * This screen was written as a standalone page and carried its own
+             * purple header with a back button and the student's name. It is
+             * rendered inside DashboardLayout, which already draws a header from
+             * the SAME data: the view title IS the student's name
+             * (navigateTo('studentProfileAdminView', student.name, …) in
+             * StudentListScreen / ClassListScreen) and its back button runs the
+             * same handleBack. So the screen stacked two headings and two back
+             * buttons on top of each other.
+             *
+             * The layout owns the chrome — title, back, branch switcher, avatar
+             * and the signed-in user's ID — so the duplicate belongs here.
+             *
+             * NOTE: this file is what the admin actually sees. AdminDashboard
+             * binds BOTH `StudentProfileAdminView` and `StudentProfileDashboard`
+             * to this same module, so StudentProfileAdminView.tsx never renders.
+             * Left as-is deliberately; correcting that alias would swap the
+             * screen entirely and is tracked separately.
+             */}
             <main className="flex-1 min-h-0 p-6 space-y-6 overflow-y-auto pb-[calc(var(--docked-bar-height,0px)+1.5rem)] lg:pb-6">
                 {/* Profile Card Overlay */}
                 <motion.div
                     initial={{ opacity: 0, y: 16 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3 }}
-                    className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-center gap-6 -mt-12 mx-2"
+                    className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-center gap-6 mx-2"
                 >
                     <img
                         src={s.avatarUrl || s.avatar_url || student.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${student.name}`}
