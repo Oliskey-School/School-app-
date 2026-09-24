@@ -940,13 +940,21 @@ export class ParentService {
             if (!feeOwned) throw new Error('Fee not found for this student');
         }
 
+        try {
         return await prisma.$transaction(async (tx) => {
             // A gateway reference pays exactly once. Serialise concurrent
             // attempts on the same reference, then refuse one already recorded
             // in this school — otherwise one real payment could be replayed to
             // mark any number of fees paid.
+            //
+            // This lookup can only see the caller's own tenant (RLS), so it
+            // cannot catch the same reference being replayed in a DIFFERENT
+            // school against the same gateway account. The partial unique index
+            // Payment_reference_key (migration 20260924120000) closes that gap
+            // at the database level; the P2002 it raises is translated to the
+            // same 409 below.
             if (reference) {
-                await tx.$executeRawUnsafe(`SELECT pg_advisory_xact_lock(hashtext($1))`, `payment-ref:${schoolId}:${reference}`);
+                await tx.$executeRawUnsafe(`SELECT pg_advisory_xact_lock(hashtext($1))`, `payment-ref:${reference}`);
                 const used = await tx.payment.findFirst({ where: { school_id: schoolId, reference }, select: { id: true } });
                 if (used) throw Object.assign(new Error('This payment reference has already been recorded'), { status: 409 });
             }
@@ -991,6 +999,16 @@ export class ParentService {
             SocketService.emitToSchool(schoolId, 'finance:updated', { action: 'record_payment', paymentId: payment.id, studentId: student_id });
             return payment;
         });
+        } catch (err: any) {
+            // Payment_reference_key — the same gateway reference is already
+            // recorded, possibly under another tenant this query cannot see.
+            // Report it as the same conflict the in-tenant check produces
+            // rather than leaking a Prisma error as a 500.
+            if (err?.code === 'P2002') {
+                throw Object.assign(new Error('This payment reference has already been recorded'), { status: 409 });
+            }
+            throw err;
+        }
     }
 
     // ==========================================

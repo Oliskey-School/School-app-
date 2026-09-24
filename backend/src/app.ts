@@ -260,7 +260,13 @@ app.get('/', (req, res) => {
 app.get('/live', (_req, res) => { res.status(200).json({ status: 'live' }); });
 app.get('/ready', async (_req, res) => {
     try {
-        const { default: prisma } = await import('./config/database');
+        const { default: prisma, rlsRoleGate } = await import('./config/database');
+        // A node whose database role has not yet been proven NOBYPASSRLS is not
+        // ready: reporting it ready would let the LB send tenant traffic during
+        // the window where isolation policies may be inert.
+        if (!rlsRoleGate.verified) {
+            return res.status(503).json({ status: 'not-ready', reason: 'database role not yet verified' });
+        }
         await prisma.$queryRaw`SELECT 1`;
         res.status(200).json({ status: 'ready' });
     } catch {
@@ -276,6 +282,19 @@ app.use('/uploads', staticSecurity, express.static(path.join(process.cwd(), 'upl
 
 
 // 7. API Routes - Standardized Mount
+//
+// Refuse tenant traffic until the database role has been proven unable to
+// bypass RLS. In production the check runs at boot while the socket is already
+// listening (see rlsRoleGate in config/database.ts); without this gate that
+// window serves real requests with every tenant policy potentially inert.
+app.use('/api', (req, res, next) => {
+    const { rlsRoleGate } = require('./config/database');
+    if (rlsRoleGate.verified) return next();
+    res.setHeader('Retry-After', '5');
+    return res.status(503).json({
+        message: 'Service starting: database tenant-isolation check has not completed yet.',
+    });
+});
 app.use('/api', routes);
 
 // 8. 404 Handler

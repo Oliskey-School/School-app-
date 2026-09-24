@@ -258,12 +258,33 @@ export async function assertDatabaseRoleCannotBypassRls(): Promise<void> {
   console.log(`🔒 [Prisma] Database role "${role.rolname}" cannot bypass RLS — tenant policies are enforced.`);
 }
 
+/**
+ * Traffic gate for the RLS role check.
+ *
+ * server.ts deliberately calls listen() before the database is reachable so
+ * health checks pass while the DB warms up. That means the assertion below
+ * resolves AFTER the socket is already accepting requests: for the length of a
+ * connect plus one query, a production node running on a bypassing role served
+ * real tenant traffic with every isolation policy inert, and only then exited.
+ * Under a restart loop that window repeats on every boot.
+ *
+ * So the check now gates the API rather than merely ending the process: until
+ * it has passed, /api answers 503. Outside production the check is not
+ * required, so the gate is open from the start.
+ */
+export const rlsRoleGate: { verified: boolean; error: string | null } = {
+  verified: process.env.NODE_ENV !== 'production',
+  error: null,
+};
+
 if (process.env.NODE_ENV === 'production') {
   prisma.$connect()
     .then(() => console.log('🚀 [Prisma] Production database connection established successfully.'))
     .then(() => assertDatabaseRoleCannotBypassRls())
+    .then(() => { rlsRoleGate.verified = true; })
     .catch((err) => {
-      console.error('❌ [Prisma] FATAL:', err instanceof Error ? err.message : 'unknown error');
+      rlsRoleGate.error = err instanceof Error ? err.message : 'unknown error';
+      console.error('❌ [Prisma] FATAL:', rlsRoleGate.error);
       process.exit(1);
     });
 }
