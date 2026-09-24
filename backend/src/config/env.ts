@@ -70,6 +70,14 @@ if (IS_PRODUCTION) {
     if (!resolvedDemoSchoolId) missing.push('DEMO_SCHOOL_ID (or DEFAULT_SCHOOL_ID)');
     if (!resolvedDemoBranchId) missing.push('DEMO_BRANCH_ID (or DEFAULT_BRANCH_ID)');
     if (!process.env.GOOGLE_CLIENT_ID && !process.env.VITE_GOOGLE_CLIENT_ID) missing.push('GOOGLE_CLIENT_ID');
+    // Without these, EmailService falls back to Ethereal — a public throwaway
+    // mailbox — so verification codes, password resets and invitations never
+    // reach the user. Fail at boot rather than at the first signup.
+    if (!process.env.SMTP_USER) missing.push('SMTP_USER');
+    if (!process.env.SMTP_PASS) missing.push('SMTP_PASS');
+    // Prisma reads DIRECT_URL for migrations; unset, `migrate deploy` silently
+    // runs through the pooled connection, which cannot execute DDL reliably.
+    if (!process.env.DIRECT_URL) missing.push('DIRECT_URL');
 
     if (process.env.JWT_SECRET === developmentJwtSecret) {
         missing.push('JWT_SECRET (must not be the dev fallback)');
