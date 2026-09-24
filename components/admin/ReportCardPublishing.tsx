@@ -440,7 +440,7 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
         ) : !selectedClass ? (
           /* ---- Class picker (landing page) ---- */
           classSummaries.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-3 xl:grid-cols-4 gap-6">
               {classSummaries.map((group, idx) => (
                 <motion.button
                   key={group.key}

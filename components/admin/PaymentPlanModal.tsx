@@ -113,7 +113,7 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Number of Installments
                         </label>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 md:grid-cols-6 gap-2">
+                        <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
                             {[2, 3, 4, 6, 9, 12].map(count => (
                                 <motion.button
                                     key={count}

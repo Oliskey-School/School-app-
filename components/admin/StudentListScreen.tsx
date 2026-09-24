@@ -103,7 +103,7 @@ const StudentRow: React.FC<{
         </motion.div>
         <div className="flex-grow min-w-0 text-left">
           <p className="font-bold text-sm text-gray-800 truncate">{student.name || student.full_name}</p>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-gray-500 truncate">
             ID: {student.schoolGeneratedId || student.school_generated_id || 'Pending'}
             {student.curriculum_type && (
               <span className="ml-2 text-gray-600 bg-gray-100 px-1 py-0.5 rounded text-xs">

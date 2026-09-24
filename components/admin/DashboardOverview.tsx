@@ -68,6 +68,10 @@ const StatCard: React.FC<{
     index?: number;
 }> = ({ label, value, icon, colorClasses, onClick, trend, trendColor, index = 0 }) => {
     const { t } = useTranslation();
+    // `formatTrend` yields "Stable" when nothing moved, "+n" for a rise and
+    // "-n" for a fall. Anything that is not a rise used to draw a down arrow,
+    // which made an unchanged figure look like a decline to a school owner.
+    const isStable = !trend.startsWith('+') && !trend.startsWith('-');
     return (
     <motion.button
         initial={{ opacity: 0, y: 12 }}
@@ -80,17 +84,42 @@ const StatCard: React.FC<{
     >
         {React.cloneElement(icon, { className: "absolute -right-6 -bottom-6 h-24 sm:h-32 w-24 sm:w-32 text-white/10" })}
         <div className="relative z-10">
-            <div className="flex justify-between items-start">
-                <p className="text-white/90 font-bold text-base sm:text-lg">{label}</p>
-                <div className="p-2 sm:p-3 bg-white/20 rounded-2xl backdrop-blur-sm">
-                    {React.cloneElement(icon, { className: "h-6 w-6 sm:h-10 sm:w-10" })}
+            {/*
+             * Four tiles share two thirds of the dashboard, so each one is
+             * narrow even on a large screen. Measured at 1440px the label was
+             * being handed a 55px box for an 82px word, and at 820px only 49px
+             * — the text then painted straight over the icon. The label now
+             * claims the leftover width rather than shrinking below it, long
+             * words break instead of spilling, and the icon only grows to its
+             * full size once the tile is genuinely wide enough to carry it.
+             */}
+            <div className="flex justify-between items-start gap-3">
+                <p className="text-white/90 font-bold text-base 2xl:text-lg flex-1 min-w-0 break-words">{label}</p>
+                <div className="p-2 2xl:p-3 bg-white/20 rounded-2xl backdrop-blur-sm shrink-0">
+                    {React.cloneElement(icon, { className: "h-6 w-6 2xl:h-10 2xl:w-10" })}
                 </div>
             </div>
             <p className="text-3xl sm:text-4xl lg:text-5xl font-bold mt-2 sm:mt-3 tracking-tight truncate">{value}</p>
-            <div className={`mt-1 sm:mt-2 text-xs sm:text-sm font-bold flex items-center space-x-1 ${trendColor}`}>
-                {trend.startsWith('+') ? <ArrowUpIcon className="w-4 h-4 sm:w-5 sm:h-5" /> : <ArrowDownIcon className="w-4 h-4 sm:w-5 sm:h-5" />}
-                <span>{trend}</span>
-                <span className="text-white/70 font-medium ml-1 hidden xs:inline">{t('dashboard.last30Days')}</span>
+            {/*
+             * The trend line reads as one sentence, so each part has to stay
+             * whole. Left to itself the flex row squeezes the suffix until it
+             * breaks mid-phrase — "last 30" on one line and "days" on the next,
+             * with the arrow floating beside it. Each part is now nowrap and the
+             * row wraps between them, so a narrow tile pushes the whole suffix
+             * onto its own line instead of tearing the phrase in half.
+             */}
+            <div className={`mt-1 sm:mt-2 text-xs sm:text-sm font-bold flex flex-wrap items-center gap-x-1.5 gap-y-0.5 ${trendColor}`}>
+                <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                    {/* A flat reading is not a decline, so it gets no arrow at all. */}
+                    {isStable
+                        ? null
+                        : trend.startsWith('+')
+                            ? <ArrowUpIcon className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
+                            : <ArrowDownIcon className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />}
+                    <span>{trend}</span>
+                </span>
+                {/* data-keep-whole: scripts/check-responsive-stages.mjs fails if this is ever split across lines. */}
+                <span data-keep-whole className="text-white/70 font-medium whitespace-nowrap hidden xs:inline">{t('dashboard.last30Days')}</span>
             </div>
         </div>
     </motion.button>
@@ -546,7 +575,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Main Content Column */}
                 <div className="lg:col-span-2 space-y-6">
-                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="bg-gradient-to-br from-indigo-700 to-indigo-900 p-6 rounded-3xl">
+                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="bg-gradient-to-br from-indigo-700 to-indigo-900 p-4 sm:p-6 rounded-3xl">
                         <h2 className="text-2xl font-bold text-white mb-1">
                             {t('dashboard.welcome', { name: (() => { const n = user?.full_name || profile?.full_name; if (!n) return 'Admin'; const first = n.split(' ')[0]; return ['school','admin','branch','main','demo'].includes(first.toLowerCase()) ? n : first; })() })}
                         </h2>
@@ -568,7 +597,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                             here also still appears in its normal department section below. */}
                         <div className="mb-6">
                             <h3 className="text-xs font-bold text-indigo-500 uppercase tracking-wider mb-2 px-1">Daily Essentials</h3>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 sm:gap-4">
+                            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 sm:gap-4">
                                 <QuickActionCard index={0} label="Approvals" icon={<CheckCircleIcon />} onClick={() => navigateTo('studentApprovals', 'Student Approvals')} color="bg-indigo-600" />
                                 <QuickActionCard index={1} label="Attendance" icon={<ClockIcon />} onClick={() => navigateTo('teacherAttendance', 'Teacher Attendance')} color="bg-amber-500" />
                                 <QuickActionCard index={2} label="Announce" icon={<MegaphoneIcon />} onClick={() => navigateTo('communicationHub', 'Communication Hub')} color="bg-teal-500" />
@@ -608,7 +637,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                                         {categoriesToShow.map(cat => (
                                             <div key={cat.id}>
                                                 <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-1">{cat.name}</h3>
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 sm:gap-4">
+                                                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 sm:gap-4">
                                                     {cat.items.map((item, i) => (
                                                         <QuickActionCard key={item.label} index={i} label={item.label} icon={item.icon} onClick={item.onClick} color={item.color} />
                                                     ))}

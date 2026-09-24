@@ -352,7 +352,7 @@ const Overview: React.FC<{
                 <div className="lg:col-span-1 space-y-6">
                     <div className="space-y-3">
                         <div className="h-5 bg-gray-200 rounded-lg w-32" />
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        <div className="grid grid-cols-3 gap-3">
                             {[0,1,2,3].map(i => <div key={i} className="bg-gray-200 rounded-2xl h-20" />)}
                         </div>
                     </div>
@@ -382,7 +382,7 @@ const Overview: React.FC<{
                     />
                     <div>
                         <h3 className="text-lg font-bold text-gray-800 mb-2 px-1">AI Tools</h3>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-3 gap-4">
                             {aiTools.map((tool, i) => (
                                 <motion.button
                                     key={tool.label}
@@ -440,7 +440,7 @@ const Overview: React.FC<{
                                 </motion.button>
                             )}
                         </AnimatePresence>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-center">
+                        <div className="grid grid-cols-3 gap-3 text-center">
                             {quickAccessItems.map((item, i) => (
                                 <motion.button
                                     key={item.label}

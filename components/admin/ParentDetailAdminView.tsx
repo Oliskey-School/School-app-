@@ -9,6 +9,7 @@ import { useAuth } from '../../context/AuthContext';
 import { linkStudentToParent, unlinkStudentFromParent, fetchChildrenForParent } from '../../services/studentService';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { UserPlus, X } from 'lucide-react';
+import { useDockedBar } from '../shared/useDockedBar';
 
 interface ParentDetailAdminViewProps {
     parent: Parent;
@@ -18,6 +19,9 @@ interface ParentDetailAdminViewProps {
 }
 
 const ParentDetailAdminView: React.FC<ParentDetailAdminViewProps> = ({ parent, navigateTo, forceUpdate, handleBack }) => {
+    // Publishes this bar's height so the floating install button sits above it.
+    const dockRef = useDockedBar();
+
     const { currentSchool } = useAuth();
     const [children, setChildren] = React.useState<any[]>([]);
     const [loading, setLoading] = useState(false);
@@ -138,7 +142,7 @@ const ParentDetailAdminView: React.FC<ParentDetailAdminViewProps> = ({ parent, n
                 <h2 className="text-xl font-bold text-gray-800">Parent Details</h2>
             </div>
 
-            <main className="flex-grow p-4 space-y-4 overflow-y-auto pb-32">
+            <main className="flex-grow p-4 space-y-4 overflow-y-auto pb-[calc(var(--docked-bar-height,0px)+1.5rem)] lg:pb-6">
                 {/* Profile Card */}
                 <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row items-center md:items-start space-y-4 md:space-y-0 md:space-x-6">
                     <img src={parent.avatarUrl || 'https://i.pravatar.cc/150'} alt={parent.name} className="w-24 h-24 rounded-full object-cover border-4 border-blue-50 shadow-md" />
@@ -239,7 +243,7 @@ const ParentDetailAdminView: React.FC<ParentDetailAdminViewProps> = ({ parent, n
             </main>
 
             {/* Sticky Actions */}
-            <div className="fixed bottom-0 left-0 right-0 md:relative p-4 bg-white/90 backdrop-blur-md border-t border-gray-100 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] md:shadow-none flex flex-col space-y-2">
+            <div ref={dockRef} className="fixed left-0 right-0 bottom-[var(--bottom-nav-height,0px)] z-30 lg:static p-4 bg-white border-t border-gray-100 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] lg:shadow-none flex flex-col space-y-2">
                 <h3 className="text-xs font-bold text-gray-400 text-center uppercase tracking-[0.2em] mb-1">Admin Management</h3>
                 <div className="grid grid-cols-2 gap-3">
                     <motion.button whileHover={{ y: -2 }} whileTap={{ scale: 0.97, y: 0 }} onClick={() => navigateTo('addParent', `Edit ${parent.name}`, { parentToEdit: parent })} className="flex items-center justify-center space-x-2 py-3 bg-indigo-50 text-indigo-700 rounded-xl font-bold hover:bg-indigo-100 transition-colors border border-indigo-100">

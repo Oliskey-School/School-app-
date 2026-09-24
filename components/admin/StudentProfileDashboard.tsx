@@ -20,6 +20,7 @@ import { getAIClient, AI_MODEL_NAME } from '../../lib/ai';
 import ConfirmationModal from '../ui/ConfirmationModal';
 import DonutChart from '../ui/DonutChart';
 import ReactMarkdown from 'react-markdown';
+import { useDockedBar } from '../shared/useDockedBar';
 
 const fadeUp = {
     hidden: { opacity: 0, y: 16 },
@@ -39,6 +40,9 @@ const StudentProfileDashboard: React.FC<StudentProfileDashboardProps> = ({
     forceUpdate,
     handleBack
 }) => {
+    // Publishes this bar's height so the floating install button sits above it.
+    const dockRef = useDockedBar();
+
     if (!student) {
         return <div className="p-6 text-center text-sm text-gray-500">No student selected.</div>;
     }
@@ -211,7 +215,7 @@ const StudentProfileDashboard: React.FC<StudentProfileDashboardProps> = ({
                 <h1 className="text-2xl font-bold tracking-tight">{student.name}</h1>
             </header>
 
-            <main className="flex-1 min-h-0 p-6 space-y-6 overflow-y-auto">
+            <main className="flex-1 min-h-0 p-6 space-y-6 overflow-y-auto pb-[calc(var(--docked-bar-height,0px)+1.5rem)] lg:pb-6">
                 {/* Profile Card Overlay */}
                 <motion.div
                     initial={{ opacity: 0, y: 16 }}
@@ -478,9 +482,9 @@ const StudentProfileDashboard: React.FC<StudentProfileDashboardProps> = ({
             </main>
 
             {/* Admin Action Bar (Docked Bottom) */}
-            <div className="bg-white/80 backdrop-blur-md border-t border-gray-100 p-4 sticky bottom-0 z-10">
+            <div ref={dockRef} className="bg-white border-t border-gray-100 p-4 fixed left-0 right-0 bottom-[var(--bottom-nav-height,0px)] z-30 lg:static">
                 <p className="text-xs font-bold text-gray-400 text-center uppercase tracking-widest mb-3">Admin Actions</p>
-                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="grid grid-cols-4 gap-3">
                     <motion.button
                         whileHover={{ y: -2, boxShadow: '0 8px 16px -4px rgba(93, 92, 222, 0.25)' }}
                         whileTap={{ scale: 0.95, y: 0 }}

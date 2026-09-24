@@ -26,6 +26,7 @@ import { api } from '../../lib/api';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import StudentTeacherTimeline from '../shared/StudentTeacherTimeline';
 import CenteredLoader from '../ui/CenteredLoader';
+import { useDockedBar } from '../shared/useDockedBar';
 
 
 interface StudentProfileAdminViewProps {
@@ -130,6 +131,9 @@ const SimpleBarChart = ({ data }: { data: { subject: string, score: number }[] }
 };
 
 const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ student: initialStudent, navigateTo, forceUpdate, handleBack }) => {
+    // Publishes this bar's height so the floating install button sits above it.
+    const dockRef = useDockedBar();
+
     const [student, setStudent] = useState(initialStudent);
     const [summary, setSummary] = useState('');
     const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
@@ -256,7 +260,7 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
 
     return (
         <div className="flex flex-col h-full bg-gray-50">
-            <main className="flex-grow p-4 overflow-y-auto pb-32">
+            <main className="flex-grow p-4 overflow-y-auto pb-[calc(var(--docked-bar-height,0px)+1.5rem)] lg:pb-6">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                     {/* Student Header */}
                     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="lg:col-span-3 bg-white p-4 sm:p-6 rounded-3xl shadow-sm flex flex-col sm:flex-row items-center sm:justify-between gap-4">
@@ -486,7 +490,7 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
             </main>
 
             {/* Sticky Action Footer */}
-            <div className="fixed bottom-0 left-0 right-0 p-4 sm:px-6 bg-white/80 backdrop-blur-lg border-t border-gray-100 grid grid-cols-2 sm:grid-cols-4 gap-3 z-40 lg:relative lg:bg-transparent lg:border-none lg:p-4 lg:grid-cols-4">
+            <div ref={dockRef} className="fixed left-0 right-0 bottom-[var(--bottom-nav-height,0px)] z-30 p-4 sm:px-6 bg-white border-t border-gray-100 grid grid-cols-2 sm:grid-cols-4 gap-3 lg:static lg:bg-transparent lg:border-none lg:p-4 lg:grid-cols-4">
                 <motion.button
                     whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.96 }}
                     onClick={() => setShowClassModal(true)}

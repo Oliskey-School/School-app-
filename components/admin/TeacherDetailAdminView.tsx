@@ -18,8 +18,12 @@ interface TeacherDetailAdminViewProps {
 
 // Removed legacy fetchTeacherById import
 import { useTeacherStats } from '../../hooks/useTeacherStats';
+import { useDockedBar } from '../shared/useDockedBar';
 
 const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher: initialTeacher, navigateTo, forceUpdate, handleBack }) => {
+    // Publishes this bar's height so the floating install button sits above it.
+    const dockRef = useDockedBar();
+
     const [teacher, setTeacher] = useState<Teacher | undefined>(initialTeacher);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [refreshKey, setRefreshKey] = useState(Date.now());
@@ -101,7 +105,7 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
 
     return (
         <div className="flex flex-col h-full bg-gray-50">
-            <main className="flex-grow p-4 overflow-y-auto">
+            <main className="flex-grow p-4 overflow-y-auto pb-[calc(var(--docked-bar-height,0px)+1.5rem)] lg:pb-6">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                     {/* Teacher Info */}
                     <motion.div
@@ -290,7 +294,7 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
                     </div>
                 </div>
             </main>
-            <div className="px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] mt-auto bg-white/90 backdrop-blur-md border-t border-gray-100 space-y-2 sticky bottom-0 z-10">
+            <div ref={dockRef} className="px-4 pt-3 pb-3 bg-white border-t border-gray-100 space-y-2 fixed left-0 right-0 bottom-[var(--bottom-nav-height,0px)] z-30 lg:static lg:mt-auto">
                 <h3 className="text-xs font-bold text-gray-400 text-center uppercase tracking-widest">Admin Actions</h3>
                 <div className="grid grid-cols-2 gap-3">
                     <motion.button

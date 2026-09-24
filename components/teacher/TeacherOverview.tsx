@@ -425,7 +425,7 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
             {quickActionGroups.filter(group => group.items.length > 0).map((group) => (
               <div key={group.title}>
                 <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-1">{group.title}</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 sm:gap-3">
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 sm:gap-3">
                   {group.items.map((action, i) => (
                     <motion.button
                       key={action.label}

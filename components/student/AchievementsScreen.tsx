@@ -75,7 +75,7 @@ const AchievementsScreen: React.FC = () => {
                 {categories.badges.length > 0 && (
                     <div>
                         <h2 className="text-xl font-bold text-gray-800 mb-3">My Badges</h2>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4">
+                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4">
                             {categories.badges.map((badge, i) => {
                                 const Icon = getIcon(badge.icon);
                                 return (

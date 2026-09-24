@@ -33,7 +33,7 @@ const DashboardSkeletonLoader: React.FC<{
                 <h2 className="text-xl font-bold text-gray-700 mb-3 px-1">
                   <div className="h-4 bg-gray-200 rounded w-32"></div>
                 </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 sm:gap-4">
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 sm:gap-4">
                   {[1,2,3,4,5,6,7,8,9,10].map((_, i) => (
                     <div key={i} className="bg-white p-3 sm:p-4 rounded-xl">
                       <div className="flex flex-col items-center justify-center space-y-1">
@@ -50,7 +50,7 @@ const DashboardSkeletonLoader: React.FC<{
                 <h2 className="text-xl font-bold text-gray-700 mb-3 px-1">
                   <div className="h-4 bg-gray-200 rounded w-32"></div>
                 </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 md:grid-cols-5 gap-4">
+                <div className="grid grid-cols-3 md:grid-cols-5 gap-4">
                   {[1,2,3,4,5,6,7,8].map((_, i) => (
                     <div key={i} className="bg-white p-3 sm:p-4 rounded-xl">
                       <div className="flex flex-col items-center justify-center space-y-1">

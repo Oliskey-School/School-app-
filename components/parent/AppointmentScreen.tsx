@@ -520,7 +520,7 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
 
                                         <div className="h-px bg-gray-100 w-full mb-6"></div>
 
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 md:grid-cols-4 gap-3">
+                                        <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
                                             {availableSlots.map(slot => (
                                                 <motion.button
                                                     key={slot.time}
