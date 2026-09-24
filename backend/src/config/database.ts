@@ -262,29 +262,27 @@ export async function assertDatabaseRoleCannotBypassRls(): Promise<void> {
  * Traffic gate for the RLS role check.
  *
  * server.ts deliberately calls listen() before the database is reachable so
- * health checks pass while the DB warms up. That means the assertion below
+ * health checks pass while the DB warms up. That means the assertion above
  * resolves AFTER the socket is already accepting requests: for the length of a
  * connect plus one query, a production node running on a bypassing role served
  * real tenant traffic with every isolation policy inert, and only then exited.
  * Under a restart loop that window repeats on every boot.
  *
  * So the check now gates the API rather than merely ending the process: until
- * it has passed, /api answers 503. Outside production the check is not
- * required, so the gate is open from the start.
+ * it has passed, /api answers 503 (see app.ts). The flag itself lives in
+ * config/rlsGate so that mocking THIS module cannot delete it.
  */
-export const rlsRoleGate: { verified: boolean; error: string | null } = {
-  verified: process.env.NODE_ENV !== 'production',
-  error: null,
-};
+export { rlsRoleGate } from './rlsGate';
+import { rlsRoleGate as gate } from './rlsGate';
 
 if (process.env.NODE_ENV === 'production') {
   prisma.$connect()
     .then(() => console.log('🚀 [Prisma] Production database connection established successfully.'))
     .then(() => assertDatabaseRoleCannotBypassRls())
-    .then(() => { rlsRoleGate.verified = true; })
+    .then(() => { gate.verified = true; })
     .catch((err) => {
-      rlsRoleGate.error = err instanceof Error ? err.message : 'unknown error';
-      console.error('❌ [Prisma] FATAL:', rlsRoleGate.error);
+      gate.error = err instanceof Error ? err.message : 'unknown error';
+      console.error('❌ [Prisma] FATAL:', gate.error);
       process.exit(1);
     });
 }

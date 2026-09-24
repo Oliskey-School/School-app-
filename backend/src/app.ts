@@ -12,7 +12,7 @@ import { config } from './config/env';
 import { doubleSubmitCookieMiddleware, csrfErrorHandler, ensureCsrfCookie } from './middleware/csrf.middleware';
 import { globalApiLimiter } from './middleware/rateLimiters';
 import { Sentry, sentryEnabled } from './config/instrument';
-import { rlsRoleGate } from './config/database';
+import { rlsRoleGate } from './config/rlsGate';
 import routes from './routes';
 
 const app = express();
@@ -261,7 +261,7 @@ app.get('/', (req, res) => {
 app.get('/live', (_req, res) => { res.status(200).json({ status: 'live' }); });
 app.get('/ready', async (_req, res) => {
     try {
-        const { default: prisma, rlsRoleGate } = await import('./config/database');
+        const { default: prisma } = await import('./config/database');
         // A node whose database role has not yet been proven NOBYPASSRLS is not
         // ready: reporting it ready would let the LB send tenant traffic during
         // the window where isolation policies may be inert.
