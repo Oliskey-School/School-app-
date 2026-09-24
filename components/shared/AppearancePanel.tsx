@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, RotateCcw, Check, Layers, Square, CloudCheck, MonitorSmartphone, Bell, Home, MessageSquare, Settings, Wand2, Sun, Moon, Laptop } from 'lucide-react';
+import { Sparkles, RotateCcw, Check, Layers, Square, CloudCheck, MonitorSmartphone, Bell, Home, MessageSquare, Settings, Wand2, Sun, Moon, Laptop, Rows2, Grid2x2 } from 'lucide-react';
 import {
   GlassParams, Appearance, DEFAULTS, DEFAULT_GLASS, ACCENTS,
   applyAppearance, loadAppearance, saveAppearance, useScope,
 } from './LiquidGlassControl';
 import { useAuth } from '../../context/AuthContext';
-import { ColorScheme, applyColorScheme, getColorScheme, PREFERENCES_APPLIED_EVENT } from '../../lib/uiPreferences';
+import { ColorScheme, applyColorScheme, getColorScheme, PREFERENCES_APPLIED_EVENT, StatCardLayout, applyStatCardLayout, getStatCardLayout } from '../../lib/uiPreferences';
 
 /**
  * Appearance & Theme — one screen shared by every role (admin, teacher,
@@ -88,12 +88,14 @@ const AppearancePanel: React.FC = () => {
   const [a, setA] = useState<Appearance>(DEFAULTS);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [scheme, setScheme] = useState<ColorScheme>(() => getColorScheme());
+  const [cardLayout, setCardLayout] = useState<StatCardLayout>(() => getStatCardLayout());
   useEffect(() => {
     const onApplied = () => setScheme(getColorScheme());
     window.addEventListener(PREFERENCES_APPLIED_EVENT, onApplied);
     return () => window.removeEventListener(PREFERENCES_APPLIED_EVENT, onApplied);
   }, []);
   const chooseScheme = (next: ColorScheme) => { applyColorScheme(next, { sync: !isDemo }); setScheme(next); setSavedAt(Date.now()); };
+  const chooseCardLayout = (next: StatCardLayout) => { applyStatCardLayout(next, { sync: !isDemo }); setCardLayout(next); setSavedAt(Date.now()); };
 
   useEffect(() => {
     const init = loadAppearance(scope);
@@ -180,6 +182,21 @@ const AppearancePanel: React.FC = () => {
           </div>
         </div>
 
+        {/* Dashboard total cards — how many sit on a row, and how big they read */}
+        <div className="mt-6">
+          <SectionTitle hint={cardLayout === 'compact' ? 'more per row' : 'roomier cards'}>Dashboard cards</SectionTitle>
+          <div className="grid grid-cols-2 gap-2">
+            {([['comfortable', 'Comfortable', Rows2, 'Bigger cards, one or two per row'],
+               ['compact', 'Compact', Grid2x2, 'Smaller cards, more per row']] as const).map(([key, label, Icon, hint]) => (
+              <motion.button key={key} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => chooseCardLayout(key)} aria-pressed={cardLayout === key}
+                className={`flex flex-col items-start gap-1 px-3 py-3 rounded-2xl border text-left transition-all ${cardLayout === key ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-900/20' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+                <span className="flex items-center gap-2 text-xs font-black uppercase tracking-wide"><Icon className="w-4 h-4 shrink-0" /> {label}</span>
+                <span className={`text-[10px] leading-tight ${cardLayout === key ? 'text-white/80' : 'text-gray-400'}`}>{hint}</span>
+              </motion.button>
+            ))}
+          </div>
+        </div>
+
         {/* Accent colour — re-themes the whole app */}
         <div className="mt-6">
           <SectionTitle hint={ACCENTS[a.accent]?.label}>Accent colour</SectionTitle>
@@ -229,7 +246,7 @@ const AppearancePanel: React.FC = () => {
 
         <motion.button
           whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
-          onClick={() => { save(DEFAULTS); chooseScheme('light'); }}
+          onClick={() => { save(DEFAULTS); chooseScheme('light'); chooseCardLayout('compact'); }}
           disabled={isDefault}
           className="mt-6 w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-2xl bg-indigo-600 text-white text-[11px] font-black uppercase tracking-wide hover:bg-indigo-500 transition-colors disabled:opacity-40 disabled:cursor-default"
         >
