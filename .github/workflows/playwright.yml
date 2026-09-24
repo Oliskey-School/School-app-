@@ -128,9 +128,30 @@ jobs:
         run: npm run build
 
       - name: Install Playwright browsers
+        id: playwright_install
         run: npx playwright install --with-deps chromium
 
+      # Prove the browser exists rather than discovering it inside a test run.
+      # Playwright resolves a build-numbered path per package version, so an
+      # install that silently no-ops (or installs a different revision) only
+      # surfaces later as "Executable doesn't exist", which reads like a browser
+      # problem when it is really an install problem.
+      - name: Verify Chromium is installed
+        run: |
+          node -e "
+            const { chromium } = require('@playwright/test');
+            const fs = require('fs');
+            const p = chromium.executablePath();
+            console.log('chromium executablePath:', p);
+            if (!fs.existsSync(p)) {
+              console.error('Chromium is NOT present at that path — the install step did not produce the build this package expects.');
+              process.exit(1);
+            }
+            console.log('chromium present, size:', fs.statSync(p).size, 'bytes');
+          "
+
       - name: Start backend and frontend preview
+        id: preview
         run: |
           npx tsx backend/src/server.ts > /tmp/e2e-backend.log 2>&1 &
           npx vite preview --port 4173 --strictPort > /tmp/e2e-preview.log 2>&1 &
@@ -211,8 +232,15 @@ jobs:
       # critical-path suite is admin-centric. This drives all four roles
       # through sign-in, navigation, reload, history, a phone viewport and
       # sign-out, failing on blank screens, stuck spinners, page errors or 5xx.
+      # `!cancelled()` alone let this run after an EARLIER step had already
+      # failed and its setup was skipped: no browsers installed, no frontend
+      # built, no preview server. It then failed with "Executable doesn't exist",
+      # which looked like a Playwright problem and hid the real failure further
+      # up the job. It still runs when the critical-path suite fails — that is
+      # the point of not using plain success() — but only once the browser stack
+      # is genuinely up.
       - name: Four-role browser sweep
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.preview.outcome == 'success' }}
         run: BASE_URL=http://localhost:4173 npx playwright test tests/e2e/four-role-sweep.spec.ts --project=chromium --workers=1
 
       - name: Server logs on failure
