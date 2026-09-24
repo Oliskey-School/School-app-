@@ -17,7 +17,23 @@ import {
 } from '../../lib/motion';
 import { useReducedMotion } from '../../lib/motion';
 
-export interface MotionButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+/**
+ * React's DOM attribute types and framer-motion's gesture props collide: both
+ * declare `onDrag`, `onDragStart`, `onDragEnd` and the `onAnimation*` trio, with
+ * incompatible signatures. React types them as DOM event handlers; framer-motion
+ * types them as `(event, info) => void`. Spreading React's attributes into a
+ * `motion.*` element is therefore a type error on every one of these components.
+ *
+ * Dropping just those six handlers keeps every other DOM prop intact and lets
+ * framer-motion own the gesture callbacks — which is what these components
+ * actually want, since none of them forwards a native drag handler.
+ */
+type WithoutMotionConflicts<T> = Omit<
+  T,
+  'onDrag' | 'onDragStart' | 'onDragEnd' | 'onAnimationStart' | 'onAnimationEnd' | 'onAnimationIteration'
+>;
+
+export interface MotionButtonProps extends WithoutMotionConflicts<React.ButtonHTMLAttributes<HTMLButtonElement>> {
   variant?: 'default' | 'outline' | 'link' | 'destructive' | 'ghost';
   size?: 'default' | 'sm' | 'lg' | 'icon';
   isLoading?: boolean;
@@ -83,7 +99,7 @@ export const MotionButton = forwardRef<HTMLButtonElement, MotionButtonProps>(
 
 MotionButton.displayName = 'MotionButton';
 
-export interface MotionCardProps extends React.HTMLAttributes<HTMLDivElement> {
+export interface MotionCardProps extends WithoutMotionConflicts<React.HTMLAttributes<HTMLDivElement>> {
   hover?: boolean;
   variant?: 'default' | 'elevated' | 'outlined';
 }
@@ -98,7 +114,7 @@ export const MotionCard = forwardRef<HTMLDivElement, MotionCardProps>(
       outlined: 'bg-white rounded-lg border-2 border-gray-200',
     };
 
-    const hoverAnimation = hover && !reducedMotion ? cardHover : {};
+    const hoverAnimation = hover && !reducedMotion ? cardHover : { whileHover: undefined, transition: undefined };
 
     return (
       <motion.div
@@ -117,7 +133,7 @@ export const MotionCard = forwardRef<HTMLDivElement, MotionCardProps>(
 
 MotionCard.displayName = 'MotionCard';
 
-export const MotionCardHeader = forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+export const MotionCardHeader = forwardRef<HTMLDivElement, WithoutMotionConflicts<React.HTMLAttributes<HTMLDivElement>>>(
   ({ children, className = '', ...props }, ref) => (
     <motion.div
       ref={ref}
@@ -134,7 +150,7 @@ export const MotionCardHeader = forwardRef<HTMLDivElement, React.HTMLAttributes<
 
 MotionCardHeader.displayName = 'MotionCardHeader';
 
-export const MotionCardTitle = forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTMLHeadingElement>>(
+export const MotionCardTitle = forwardRef<HTMLHeadingElement, WithoutMotionConflicts<React.HTMLAttributes<HTMLHeadingElement>>>(
   ({ children, className = '', ...props }, ref) => (
     <h3
       ref={ref}
@@ -148,7 +164,7 @@ export const MotionCardTitle = forwardRef<HTMLHeadingElement, React.HTMLAttribut
 
 MotionCardTitle.displayName = 'MotionCardTitle';
 
-export const MotionCardContent = forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+export const MotionCardContent = forwardRef<HTMLDivElement, WithoutMotionConflicts<React.HTMLAttributes<HTMLDivElement>>>(
   ({ children, className = '', ...props }, ref) => (
     <motion.div
       ref={ref}
@@ -165,7 +181,7 @@ export const MotionCardContent = forwardRef<HTMLDivElement, React.HTMLAttributes
 
 MotionCardContent.displayName = 'MotionCardContent';
 
-export interface MotionInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+export interface MotionInputProps extends WithoutMotionConflicts<React.InputHTMLAttributes<HTMLInputElement>> {
   label?: string;
   error?: string;
   helperText?: string;
@@ -196,7 +212,6 @@ export const MotionInput = forwardRef<HTMLInputElement, MotionInputProps>(
           } bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
             error ? 'focus:ring-red-500 focus:border-red-500' : 'focus:ring-indigo-600 focus:border-indigo-600'
           } disabled:cursor-not-allowed disabled:opacity-50 transition-colors ${className}`}
-          whileFocus={focusAnimation.whileFocus}
           transition={focusAnimation.transition}
           aria-invalid={error ? 'true' : 'false'}
           aria-describedby={error ? `${inputId}-error` : helperText ? `${inputId}-helper` : undefined}
@@ -225,7 +240,7 @@ export const MotionInput = forwardRef<HTMLInputElement, MotionInputProps>(
 
 MotionInput.displayName = 'MotionInput';
 
-export interface MotionSelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
+export interface MotionSelectProps extends WithoutMotionConflicts<React.SelectHTMLAttributes<HTMLSelectElement>> {
   label?: string;
   error?: string;
   helperText?: string;
@@ -257,7 +272,6 @@ export const MotionSelect = forwardRef<HTMLSelectElement, MotionSelectProps>(
           } bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 ${
             error ? 'focus:ring-red-500 focus:border-red-500' : 'focus:ring-indigo-600 focus:border-indigo-600'
           } disabled:cursor-not-allowed disabled:opacity-50 transition-colors ${className}`}
-          whileFocus={focusAnimation.whileFocus}
           transition={focusAnimation.transition}
           aria-invalid={error ? 'true' : 'false'}
           aria-describedby={error ? `${selectId}-error` : helperText ? `${selectId}-helper` : undefined}
@@ -297,7 +311,7 @@ export const MotionBadge = ({
   variant = 'default',
   className = '',
   ...props
-}: React.HTMLAttributes<HTMLSpanElement> & {
+}: WithoutMotionConflicts<React.HTMLAttributes<HTMLSpanElement>> & {
   variant?: 'default' | 'outline' | 'success' | 'warning' | 'destructive';
 }) => {
   const reducedMotion = useReducedMotion();
@@ -459,7 +473,7 @@ export const MotionList = ({
   delay = 0.1,
   reducedMotion = false,
   ...props
-}: React.HTMLAttributes<HTMLDivElement> & {
+}: WithoutMotionConflicts<React.HTMLAttributes<HTMLDivElement>> & {
   stagger?: number;
   delay?: number;
   reducedMotion?: boolean;
@@ -483,7 +497,7 @@ export const MotionListItem = ({
   duration = 0.3,
   reducedMotion = false,
   ...props
-}: React.HTMLAttributes<HTMLDivElement> & {
+}: WithoutMotionConflicts<React.HTMLAttributes<HTMLDivElement>> & {
   y?: number;
   x?: number;
   duration?: number;
@@ -792,7 +806,7 @@ export const MotionFadeIn = ({
   className = '',
   reducedMotion = false,
   ...props
-}: React.HTMLAttributes<HTMLDivElement> & {
+}: WithoutMotionConflicts<React.HTMLAttributes<HTMLDivElement>> & {
   delay?: number;
   duration?: number;
   reducedMotion?: boolean;
@@ -816,7 +830,7 @@ export const MotionSlideUp = ({
   className = '',
   reducedMotion = false,
   ...props
-}: React.HTMLAttributes<HTMLDivElement> & {
+}: WithoutMotionConflicts<React.HTMLAttributes<HTMLDivElement>> & {
   delay?: number;
   duration?: number;
   reducedMotion?: boolean;
@@ -840,7 +854,7 @@ export const MotionScaleIn = ({
   className = '',
   reducedMotion = false,
   ...props
-}: React.HTMLAttributes<HTMLDivElement> & {
+}: WithoutMotionConflicts<React.HTMLAttributes<HTMLDivElement>> & {
   delay?: number;
   duration?: number;
   reducedMotion?: boolean;
