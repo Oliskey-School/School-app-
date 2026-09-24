@@ -340,14 +340,14 @@ export default function InspectionChecklistScreen({
                             disabled={saving}
                             className="flex-1 py-3 px-6 bg-slate-100 text-slate-700 rounded-xl font-semibold hover:bg-slate-200 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                         >
-                            <Save className="w-5 h-5" />
+                            <Save className="w-5 h-5 shrink-0" />
                             {saving ? 'Saving...' : 'Save Progress'}
                         </button>
                         <button
                             onClick={completeInspection}
                             className="flex-1 py-3 px-6 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2"
                         >
-                            <Send className="w-5 h-5" />
+                            <Send className="w-5 h-5 shrink-0" />
                             Complete Inspection
                         </button>
                     </div>

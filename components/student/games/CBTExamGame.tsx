@@ -246,7 +246,7 @@ const CBTExamGame: React.FC<CBTExamGameProps> = ({ onBack }) => {
                                     onClick={startExam}
                                     className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2"
                                 >
-                                    <Sparkles className="w-5 h-5" />
+                                    <Sparkles className="w-5 h-5 shrink-0" />
                                     Start Exam
                                 </button>
                             </div>
@@ -273,7 +273,7 @@ const CBTExamGame: React.FC<CBTExamGameProps> = ({ onBack }) => {
                                     </h2>
                                     <p className="text-gray-500">You completed the {selectedSubject} exam.</p>
                                 </div>
-                                <div className="grid grid-cols-3 gap-4 w-full">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
                                     <div className="bg-gray-50 p-3 rounded-xl">
                                         <div className="text-xs text-gray-500 uppercase font-bold">Time</div>
                                         <div className="font-mono font-bold text-lg text-gray-800">{formatTime((15 * 60) - timeLeft)}</div>

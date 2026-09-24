@@ -94,7 +94,12 @@ const TeacherAssignmentsListScreen: React.FC<TeacherAssignmentsListScreenProps> 
                 <span className="text-xs text-green-700 font-medium">Live</span>
             </div>
 
-            <main className="flex-grow p-4 overflow-y-auto pb-24">
+            {/*
+             * The create button floats over this list, so the list reserves a
+             * lane the height of the button plus its offset. Without it the last
+             * card can only ever be read from under the button.
+             */}
+            <main className="flex-grow p-4 overflow-y-auto pb-40 lg:pb-28">
                 {loading && rawAssignments.length === 0 ? (
                     <CenteredLoader message="Loading assignments..." />
                 ) : (
@@ -122,20 +127,27 @@ const TeacherAssignmentsListScreen: React.FC<TeacherAssignmentsListScreenProps> 
                                 whileHover={{ y: -2 }}
                                 whileTap={{ scale: 0.98 }}
                                 onClick={() => navigateTo('classAssignments', `Assignments: ${className}`, { className })}
-                                className="w-full bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow flex justify-between items-center text-left"
+                                className="w-full bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow flex justify-between items-center gap-3 text-left"
                             >
-                                <div className="flex items-center space-x-4">
-                                    <div className="p-3 bg-purple-100 rounded-lg">
+                                {/*
+                                 * The submission count is the point of this card,
+                                 * so it keeps its width and the class name gives
+                                 * way instead. Without this the two halves fought
+                                 * over a narrow card and the count was the side
+                                 * that got clipped.
+                                 */}
+                                <div className="flex items-center space-x-4 min-w-0">
+                                    <div className="p-3 bg-purple-100 rounded-lg shrink-0">
                                         <ClipboardListIcon className="h-6 w-6 text-purple-600" />
                                     </div>
-                                    <div>
-                                        <h3 className="font-bold text-gray-800">{className}</h3>
-                                        <p className="text-sm text-gray-500">{classAssignments.length} Assignments</p>
+                                    <div className="min-w-0">
+                                        <h3 className="font-bold text-gray-800 truncate">{className}</h3>
+                                        <p className="text-sm text-gray-500 truncate">{classAssignments.length} Assignments</p>
                                     </div>
                                 </div>
-                                <div className="flex items-center space-x-3">
+                                <div className="flex items-center space-x-3 shrink-0">
                                     <div className="text-right">
-                                        <p className="font-semibold text-purple-700">{totalSubmissions} / {totalStudentsPossibleSubmissions}</p>
+                                        <p className="font-semibold text-purple-700 whitespace-nowrap">{totalSubmissions} / {totalStudentsPossibleSubmissions}</p>
                                         <p className="text-xs text-gray-500">Submissions</p>
                                     </div>
                                     <ChevronRightIcon className="h-5 w-5 text-gray-400" />

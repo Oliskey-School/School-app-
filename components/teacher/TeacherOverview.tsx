@@ -44,7 +44,7 @@ const StatCard: React.FC<{ label: string; value: string | number; icon: React.Re
   const theme = THEME_CONFIG[DashboardType.Teacher];
   return (
     <div className={`${theme.cardBg} p-3 sm:p-4 rounded-xl flex items-center space-x-3`}>
-      <div className={`${theme.cardIconBg} p-1.5 sm:p-2 rounded-full flex-shrink-0`}>
+      <div className={`${theme.cardIconBg} p-1.5 sm:p-2 rounded-full flex-shrink-0 shrink-0`}>
         {React.cloneElement(icon, { className: `h-5 w-5 sm:h-6 sm:w-6 ${theme.iconColor}` })}
       </div>
       <div className="min-w-0">
@@ -338,7 +338,7 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
         <div className="flex overflow-x-auto pb-2 gap-3 no-scrollbar">
           {classesLoading ? (
             Array(2).fill(0).map((_, i) => (
-              <div key={i} className="min-w-[160px] bg-white p-4 rounded-2xl shadow-sm animate-pulse">
+              <div key={i} className="min-w-[160px] max-w-full bg-white p-4 rounded-2xl shadow-sm animate-pulse">
                 <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
                 <div className="h-3 bg-gray-100 rounded w-1/2"></div>
               </div>
@@ -355,7 +355,7 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
                 onClick={() => navigateTo('classDetail', c.name || getFormattedClassName(c.grade, c.section, true, c.subject), {
                   classInfo: { ...c, schoolId, branchId: currentBranchId }
                 })}
-                className="min-w-[180px] bg-white p-4 rounded-2xl shadow-sm hover:shadow-md transition-shadow text-left border border-purple-100 hover:border-purple-300 group"
+                className="min-w-[180px] max-w-full bg-white p-4 rounded-2xl shadow-sm hover:shadow-md transition-shadow text-left border border-purple-100 hover:border-purple-300 group"
               >
                 <div className="flex justify-between items-start mb-1">
                   <p className="font-bold text-gray-800 text-base">{c.name || getFormattedClassName(c.grade, c.section)}</p>

@@ -311,7 +311,7 @@ const DonationPortal: React.FC<DonationPortalProps> = ({ schoolId }) => {
                             {/* Quick amounts */}
                             <div className="mb-4">
                                 <label className="block text-sm font-semibold text-gray-700 mb-2">Quick Select</label>
-                                <div className="grid grid-cols-3 gap-2">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                                     {suggestedAmounts.map(amount => (
                                         <motion.button
                                             key={amount}

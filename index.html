@@ -6,7 +6,7 @@
   <link rel="icon" type="image/x-icon" href="/favicon.ico" />
   <link rel="apple-touch-icon" sizes="180x180" href="/icons/app-icon-180.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Oliskey School App — Smart School Management System</title>
+  <title>Oliskey School App | School Management &amp; Engagement Platform</title>
 
   <!-- PWA Manifest -->
   <link rel="manifest" href="/manifest.json" />
@@ -24,44 +24,86 @@
 
   <!-- Description for SEO and PWA -->
   <meta name="description"
-    content="Complete school management system for students, teachers, parents and administrators. Works offline!" />
+    content="Oliskey School App connects administrators, teachers, students and parents in one school management and engagement platform. Manage academics, attendance, results, communication and everyday school work with AI-powered tools." />
   <meta name="robots" content="index, follow" />
   <meta name="author" content="Oliskey" />
   <link rel="canonical" href="https://app.oliskey.com/" />
 
   <!-- Open Graph -->
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="Oliskey School App — Smart School Management" />
-  <meta property="og:description" content="Multi-tenant school management platform for students, teachers, parents and administrators. Works offline." />
+  <meta property="og:title" content="Oliskey School App | School Management &amp; Engagement Platform" />
+  <meta property="og:description" content="Oliskey School App connects administrators, teachers, students and parents in one school management and engagement platform. Change how school feels." />
   <meta property="og:url" content="https://app.oliskey.com/" />
-  <meta property="og:image" content="https://app.oliskey.com/icons/app-icon-180.png" />
+  <!-- 1200x630: the card below declares summary_large_image, which the old
+       180x180 PWA icon could not satisfy (previews rendered tiny or not at all). -->
+  <meta property="og:image" content="https://app.oliskey.com/oliskey-school-app-social-card.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Oliskey School App — change how school feels. For administrators, teachers, students and parents." />
   <meta property="og:site_name" content="Oliskey" />
+  <meta property="og:locale" content="en_NG" />
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Oliskey School App — Smart School Management" />
-  <meta name="twitter:description" content="Multi-tenant school management platform for students, teachers, parents and administrators." />
-  <meta name="twitter:image" content="https://app.oliskey.com/icons/app-icon-180.png" />
+  <meta name="twitter:title" content="Oliskey School App | School Management &amp; Engagement Platform" />
+  <meta name="twitter:description" content="Oliskey School App connects administrators, teachers, students and parents in one school management and engagement platform." />
+  <meta name="twitter:image" content="https://app.oliskey.com/oliskey-school-app-social-card.png" />
+  <meta name="twitter:image:alt" content="Oliskey School App — change how school feels." />
 
-  <!-- Structured data: helps Google associate the "Oliskey" name with this
-       specific site (a Google Search Console brand/name search benefits
-       from this) — this makes the SIGNAL available, it doesn't guarantee
-       Google uses it or ranks the page for any given search. -->
+  <!-- Structured data.
+       Two distinct entities, deliberately kept separate:
+         Organization        = Oliskey, the company        -> www.oliskey.com
+         SoftwareApplication = Oliskey School App, the app -> app.oliskey.com
+       The publisher previously pointed at app.oliskey.com, which told search
+       engines the application WAS the company and left the real company site
+       unconnected to the product. www.oliskey.com is used because oliskey.com
+       permanently redirects (308) there, so it is the resolvable canonical.
+       Only facts that can be verified from the product are asserted: no
+       ratings, reviews, counts, awards or social profiles are claimed.
+
+       sameAs lists third-party profiles that are the SAME product entity, so
+       search engines can reconcile them with this one. It is an identity link,
+       NOT a quality claim: no aggregateRating, ratingValue or reviewCount is
+       published here, and none may be added until a verified rating actually
+       exists on that profile. Schema.org rating fields describe ratings the
+       publisher can substantiate — asserting G2's numbers from here would be
+       both unverifiable and a structured-data violation. -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    "name": "Oliskey School App",
-    "alternateName": "Oliskey",
-    "url": "https://app.oliskey.com/",
-    "applicationCategory": "EducationalApplication",
-    "operatingSystem": "Web",
-    "description": "Multi-tenant school management platform for students, teachers, parents and administrators.",
-    "publisher": {
-      "@type": "Organization",
-      "name": "Oliskey",
-      "url": "https://app.oliskey.com/"
-    }
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://www.oliskey.com/#organization",
+        "name": "Oliskey",
+        "url": "https://www.oliskey.com/",
+        "logo": "https://app.oliskey.com/icons/app-icon-512.png"
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://app.oliskey.com/#website",
+        "name": "Oliskey School App",
+        "url": "https://app.oliskey.com/",
+        "inLanguage": "en-NG",
+        "publisher": { "@id": "https://www.oliskey.com/#organization" }
+      },
+      {
+        "@type": "SoftwareApplication",
+        "@id": "https://app.oliskey.com/#software",
+        "name": "Oliskey School App",
+        "url": "https://app.oliskey.com/",
+        "applicationCategory": "EducationalApplication",
+        "operatingSystem": "Web",
+        "description": "Oliskey School App connects administrators, teachers, students and parents in one school management and engagement platform. Manage academics, attendance, results, communication and everyday school work.",
+        "inLanguage": "en-NG",
+        "isAccessibleForFree": true,
+        "publisher": { "@id": "https://www.oliskey.com/#organization" },
+        "brand": { "@id": "https://www.oliskey.com/#organization" },
+        "sameAs": [
+          "https://www.g2.com/products/oliskey-school-app/reviews"
+        ]
+      }
+    ]
   }
   </script>
 
@@ -91,9 +133,14 @@
 
 <body class="bg-gray-100">
   <noscript>
-    <div style="padding:24px;font-family:system-ui,sans-serif;text-align:center">
-      <h1>Oliskey School Management</h1>
-      <p>This application requires JavaScript to be enabled. Please turn on JavaScript in your browser settings and reload the page.</p>
+    <div style="padding:24px;font-family:system-ui,sans-serif;text-align:center;max-width:44rem;margin:0 auto">
+      <h1>Oliskey School App</h1>
+      <p><strong>Change how school feels.</strong> Less stress. More connection. A better school day.</p>
+      <p>Oliskey School App connects administrators, teachers, students and parents in one school
+        management and engagement platform &mdash; academics, attendance, results, communication and
+        the everyday work of running a school.</p>
+      <p>This application needs JavaScript. Please enable it in your browser settings and reload the page.</p>
+      <p><a href="https://www.oliskey.com/" rel="noopener">Learn more about Oliskey on the company website</a></p>
     </div>
   </noscript>
   <div id="root" role="main" aria-label="Oliskey School Management application"></div>

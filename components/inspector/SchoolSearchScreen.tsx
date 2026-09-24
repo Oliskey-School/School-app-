@@ -344,7 +344,7 @@ function SchoolCard({ school, onSelect, getComplianceColor, getComplianceIcon }:
 
             {/* Stats */}
             <div className="p-6 bg-slate-50/50">
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div className="text-center">
                         <Users className="w-5 h-5 mx-auto text-slate-400 mb-1" />
                         <p className="text-2xl font-bold text-slate-900">{school.studentCount}</p>

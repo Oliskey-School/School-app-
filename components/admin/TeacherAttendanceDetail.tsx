@@ -196,7 +196,7 @@ const TeacherAttendanceDetail: React.FC<{ teacher: Teacher }> = ({ teacher }) =>
                     <span className="flex items-center"><div className="w-3 h-3 rounded-full bg-amber-400 mr-1.5"></div>Leave</span>
                 </div>
             </div>
-            <div className="grid grid-cols-3 gap-3 text-center">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-center">
                 <motion.div layout className="bg-white p-3 rounded-xl shadow-sm border border-transparent hover:border-green-100 transition-colors">
                     <motion.p key={stats.present} initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="font-bold text-lg text-green-600">{stats.present}</motion.p>
                     <p className="text-xs text-gray-500">Present</p>
@@ -230,9 +230,9 @@ const TeacherAttendanceDetail: React.FC<{ teacher: Teacher }> = ({ teacher }) =>
                         {isSaving ? (
                             <div className="animate-spin h-5 w-5 border-2 border-white rounded-full border-t-transparent"></div>
                         ) : (
-                            <Save className="w-5 h-5" />
+                            <Save className="w-5 h-5 shrink-0" />
                         )}
-                        <span>Save Attendance ({pendingChanges.size})</span>
+                        <span className="min-w-0">Save Attendance ({pendingChanges.size})</span>
                     </motion.button>
                     <motion.button
                         whileHover={{ rotate: -20 }}

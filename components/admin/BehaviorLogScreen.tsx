@@ -138,21 +138,21 @@ const BehaviorLogScreen = () => {
             </header>
 
             {/* Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
-                    <div className="p-3 rounded-2xl bg-indigo-50 text-indigo-600"><BarChart3 className="w-6 h-6" /></div>
+                    <div className="p-3 rounded-2xl bg-indigo-50 text-indigo-600 shrink-0"><BarChart3 className="w-6 h-6" /></div>
                     <div><p className="text-2xl font-bold text-gray-900">{logs.length}</p><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Logs</p></div>
                 </motion.div>
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.05 }} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
-                    <div className="p-3 rounded-2xl bg-emerald-50 text-emerald-600"><ThumbsUp className="w-6 h-6" /></div>
+                    <div className="p-3 rounded-2xl bg-emerald-50 text-emerald-600 shrink-0"><ThumbsUp className="w-6 h-6" /></div>
                     <div><p className="text-2xl font-bold text-gray-900">{positiveCount}</p><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Positive</p></div>
                 </motion.div>
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.1 }} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
-                    <div className="p-3 rounded-2xl bg-red-50 text-red-600"><ThumbsDown className="w-6 h-6" /></div>
+                    <div className="p-3 rounded-2xl bg-red-50 text-red-600 shrink-0"><ThumbsDown className="w-6 h-6" /></div>
                     <div><p className="text-2xl font-bold text-gray-900">{negativeCount}</p><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Negative</p></div>
                 </motion.div>
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.15 }} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
-                    <div className="p-3 rounded-2xl bg-amber-50 text-amber-600"><TrendingUp className="w-6 h-6" /></div>
+                    <div className="p-3 rounded-2xl bg-amber-50 text-amber-600 shrink-0"><TrendingUp className="w-6 h-6" /></div>
                     <div><p className="text-2xl font-bold text-gray-900">{totalPoints > 0 ? `+${totalPoints}` : totalPoints}</p><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Net Points</p></div>
                 </motion.div>
             </div>

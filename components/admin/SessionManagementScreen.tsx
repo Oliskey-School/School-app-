@@ -101,21 +101,21 @@ const SessionManagementScreen = () => {
             </header>
 
             {/* Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
-                    <div className="p-3 rounded-2xl bg-indigo-50 text-indigo-600"><Monitor className="w-6 h-6" /></div>
+                    <div className="p-3 rounded-2xl bg-indigo-50 text-indigo-600 shrink-0"><Monitor className="w-6 h-6" /></div>
                     <div><p className="text-2xl font-bold text-gray-900">{sessions.length}</p><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Sessions</p></div>
                 </div>
                 <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
-                    <div className="p-3 rounded-2xl bg-emerald-50 text-emerald-600"><CheckCircle2 className="w-6 h-6" /></div>
+                    <div className="p-3 rounded-2xl bg-emerald-50 text-emerald-600 shrink-0"><CheckCircle2 className="w-6 h-6" /></div>
                     <div><p className="text-2xl font-bold text-gray-900">{activeSessions.length}</p><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Active (24h)</p></div>
                 </div>
                 <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
-                    <div className="p-3 rounded-2xl bg-blue-50 text-blue-600"><Smartphone className="w-6 h-6" /></div>
+                    <div className="p-3 rounded-2xl bg-blue-50 text-blue-600 shrink-0"><Smartphone className="w-6 h-6" /></div>
                     <div><p className="text-2xl font-bold text-gray-900">{sessions.filter(s => s.device_type === 'mobile').length}</p><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Mobile</p></div>
                 </div>
                 <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
-                    <div className="p-3 rounded-2xl bg-amber-50 text-amber-600"><Globe className="w-6 h-6" /></div>
+                    <div className="p-3 rounded-2xl bg-amber-50 text-amber-600 shrink-0"><Globe className="w-6 h-6" /></div>
                     <div><p className="text-2xl font-bold text-gray-900">{new Set(sessions.map(s => s.location)).size}</p><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Locations</p></div>
                 </div>
             </div>

@@ -394,7 +394,7 @@ const FinanceDashboard: React.FC = () => {
             {forecastData.length > 0 && (
                 <div className="bg-white rounded-xl shadow-sm p-6">
                     <h3 className="text-lg font-bold text-gray-900 mb-4">📈 Revenue Forecast (Next 3 Months)</h3>
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         {forecastData.map((item, fi) => (
                             <motion.div key={item.month} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: fi * 0.06 }} className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-lg p-4">
                                 <p className="text-sm text-gray-600">{item.month}</p>

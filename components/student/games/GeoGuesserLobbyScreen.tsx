@@ -54,7 +54,7 @@ const GeoGuesserLobbyScreen: React.FC<GeoGuesserLobbyScreenProps> = ({ navigateT
                     onClick={() => navigateTo('geoGuesserGame', 'GeoGuesser', { student })}
                     className="w-full py-4 text-xl font-bold text-white bg-green-500 rounded-2xl shadow-xl hover:bg-green-600 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3"
                 >
-                    <GlobeIcon className="w-6 h-6" />
+                    <GlobeIcon className="w-6 h-6 shrink-0" />
                     Start Exploring
                 </button>
 
@@ -62,8 +62,8 @@ const GeoGuesserLobbyScreen: React.FC<GeoGuesserLobbyScreenProps> = ({ navigateT
                     onClick={handleShareChallenge}
                     className="w-full py-4 text-lg font-bold text-green-700 bg-green-50 border-2 border-green-200 rounded-2xl hover:bg-green-100 transition-colors flex items-center justify-center space-x-2"
                 >
-                    <ShareIcon className="w-5 h-5" />
-                    <span>Challenge Friends</span>
+                    <ShareIcon className="w-5 h-5 shrink-0" />
+                    <span className="min-w-0">Challenge Friends</span>
                 </button>
             </div>
 

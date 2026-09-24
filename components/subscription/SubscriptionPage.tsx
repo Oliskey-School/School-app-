@@ -211,7 +211,7 @@ const SubscriptionPage: React.FC<SubscriptionPageProps> = ({ navigateTo, handleB
                 {/* Free period banner */}
                 {freePeriodActive && (
                     <div className="mb-6 rounded-2xl bg-emerald-50 border border-emerald-200 px-4 py-4 flex items-start gap-3">
-                        <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                        <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5 shrink-0" />
                         <div className="flex-1 min-w-0">
                             <p className="font-bold text-emerald-900 text-sm">
                                 Free Period Active — Term 1
@@ -232,8 +232,8 @@ const SubscriptionPage: React.FC<SubscriptionPageProps> = ({ navigateTo, handleB
                 {/* 30-day warning banner */}
                 {planStatus.days_until_exam_block !== null && !planStatus.exam_block_active && (
                     <div className="mb-6 rounded-2xl bg-amber-50 border border-amber-200 px-4 py-3.5 flex items-start gap-3">
-                        <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                        <div>
+                        <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5 shrink-0" />
+                        <div className="min-w-0">
                             <p className="font-bold text-amber-900 text-sm">
                                 {planStatus.days_until_exam_block} day{planStatus.days_until_exam_block === 1 ? '' : 's'} until access is locked
                             </p>
@@ -247,8 +247,8 @@ const SubscriptionPage: React.FC<SubscriptionPageProps> = ({ navigateTo, handleB
                 {/* Hard lock warning */}
                 {planStatus.exam_block_active && (
                     <div className="mb-6 rounded-2xl bg-red-50 border border-red-200 px-4 py-3.5 flex items-start gap-3">
-                        <Lock className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                        <div>
+                        <Lock className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5 shrink-0" />
+                        <div className="min-w-0">
                             <p className="font-bold text-red-900 text-sm">All users are currently locked out</p>
                             <p className="text-xs text-red-700 mt-0.5">
                                 Choose a plan and pay below to restore access immediately.
@@ -270,10 +270,10 @@ const SubscriptionPage: React.FC<SubscriptionPageProps> = ({ navigateTo, handleB
                 {/* Term info card */}
                 {term && (
                     <div className="mb-6 rounded-2xl bg-white border border-slate-200 p-4 flex items-start gap-3 shadow-sm">
-                        <div className="p-2 rounded-xl bg-indigo-50 flex-shrink-0">
+                        <div className="p-2 rounded-xl bg-indigo-50 flex-shrink-0 shrink-0">
                             <Clock className="w-4 h-4 text-indigo-600" />
                         </div>
-                        <div>
+                        <div className="min-w-0">
                             <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest">
                                 {term.is_vacation ? 'Paying for next term' : 'You are paying for'}
                             </p>

@@ -64,7 +64,7 @@ const InstallAppButton: React.FC = () => {
             <button
                 onClick={handleClick}
                 aria-label={t('pwa.installApp')}
-                className="fixed z-[9998] bottom-20 lg:bottom-4 left-4 flex items-center justify-center lg:justify-start gap-2 w-11 h-11 lg:w-auto lg:h-auto p-0 lg:px-4 lg:py-2.5 rounded-full bg-indigo-600 text-white text-sm font-bold shadow-lg shadow-indigo-300/40 hover:bg-indigo-700 active:scale-95 transition print:hidden"
+                className="fixed z-[9998] bottom-[calc(1rem+var(--bottom-nav-height,0px)+var(--docked-bar-height,0px))] left-4 flex items-center justify-center lg:justify-start gap-2 w-11 h-11 lg:w-auto lg:h-auto p-0 lg:px-4 lg:py-2.5 rounded-full bg-indigo-600 text-white text-sm font-bold shadow-lg shadow-indigo-300/40 hover:bg-indigo-700 active:scale-95 transition print:hidden"
             >
                 <Download size={18} className="shrink-0" />
                 <span className="hidden lg:inline">{t('pwa.installApp')}</span>

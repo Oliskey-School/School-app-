@@ -82,7 +82,7 @@ const LearningHubManagementScreen: React.FC<LearningHubManagementScreenProps> = 
           onClick={() => setShowForm(v => !v)}
           className="w-full py-3 bg-indigo-700 text-white rounded-xl font-bold shadow-md flex items-center justify-center gap-2"
         >
-          <PlusIcon className="w-5 h-5" />
+          <PlusIcon className="w-5 h-5 shrink-0" />
           {showForm ? 'Cancel' : 'Add Resource'}
         </motion.button>
 
@@ -157,7 +157,7 @@ const LearningHubManagementScreen: React.FC<LearningHubManagementScreenProps> = 
                   onClick={() => navigateTo('learningHubResource', resource.title, { url: resource.url, title: resource.title, sourceName: resource.source_name, themeColor: 'indigo' })}
                   className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center flex-shrink-0"
                 >
-                  <BookOpenIcon className="w-5 h-5" />
+                  <BookOpenIcon className="w-5 h-5 shrink-0" />
                 </button>
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-gray-900 truncate">{resource.title}</p>

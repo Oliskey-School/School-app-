@@ -210,8 +210,8 @@ const FeeManagement: React.FC<any> = (props) => {
           onClick={loadData}
           className="px-6 py-3 bg-white border border-gray-100 text-gray-600 rounded-2xl shadow-sm hover:bg-gray-50 flex items-center justify-center gap-2 font-medium transition-all"
         >
-          <Filter className="w-5 h-5" />
-          <span>Refresh</span>
+          <Filter className="w-5 h-5 shrink-0" />
+          <span className="min-w-0">Refresh</span>
         </motion.button>
       </div>
 
@@ -240,7 +240,7 @@ const FeeManagement: React.FC<any> = (props) => {
       {/* Fees Table */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left min-w-[640px]">
+          <table className="w-full text-left min-w-[640px] max-w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Student</th>

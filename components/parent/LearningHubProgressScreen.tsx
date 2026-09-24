@@ -79,7 +79,7 @@ const LearningHubProgressScreen: React.FC<LearningHubProgressScreenProps> = ({ s
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <div className="bg-white rounded-xl p-3 border border-gray-100 text-center">
                 <AwardIcon className="w-5 h-5 mx-auto text-green-600 mb-1" />
                 <p className="text-lg font-black text-gray-800">{summary?.lessons_completed ?? 0}</p>
@@ -114,7 +114,7 @@ const LearningHubProgressScreen: React.FC<LearningHubProgressScreenProps> = ({ s
                     className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm flex items-center gap-3"
                   >
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${p.status === 'completed' ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'}`}>
-                      <BookOpenIcon className="w-5 h-5" />
+                      <BookOpenIcon className="w-5 h-5 shrink-0" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-gray-900 truncate">{p.resource?.title}</p>

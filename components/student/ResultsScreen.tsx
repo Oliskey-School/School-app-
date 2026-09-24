@@ -156,7 +156,7 @@ const ReportCardView: React.FC<{ report: ReportCard, student?: Student, schoolNa
             {report.attendance && (report.attendance.present > 0 || report.attendance.absent > 0) && (
                 <div className="px-4 pb-4">
                     <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Attendance</h4>
-                    <div className="grid grid-cols-4 gap-2 text-xs">
+                    <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
                         <div className="bg-gray-50 p-2 rounded-lg text-center"><p className="text-gray-400">Total</p><p className="font-bold text-gray-800">{report.attendance.total}</p></div>
                         <div className="bg-green-50 p-2 rounded-lg text-center"><p className="text-green-500">Present</p><p className="font-bold text-green-700">{report.attendance.present}</p></div>
                         <div className="bg-red-50 p-2 rounded-lg text-center"><p className="text-red-500">Absent</p><p className="font-bold text-red-700">{report.attendance.absent}</p></div>

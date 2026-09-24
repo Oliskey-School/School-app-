@@ -116,19 +116,19 @@ const TeacherLearningHubScreen: React.FC<LearningHubScreenProps> = ({ navigateTo
             onClick={() => navigateTo('library', 'E-Learning Library', { schoolId })}
             className="py-3 bg-white border border-gray-200 rounded-xl font-bold text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
           >
-            <BookOpenIcon className="w-4 h-4 text-blue-600" />
+            <BookOpenIcon className="w-4 h-4 text-blue-600 shrink-0" />
             E-Learning Library
           </button>
           <button
             onClick={() => navigateTo('educationalGames', 'Educational Games', {})}
             className="py-3 bg-white border border-gray-200 rounded-xl font-bold text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
           >
-            <GameControllerIcon className="w-4 h-4 text-blue-600" />
+            <GameControllerIcon className="w-4 h-4 text-blue-600 shrink-0" />
             Educational Games
           </button>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 min-w-0">
           <button
             onClick={() => setTab('browse')}
             className={`flex-1 py-2 rounded-xl font-bold text-sm transition-colors ${tab === 'browse' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 border border-gray-200'}`}
@@ -198,7 +198,7 @@ const TeacherLearningHubScreen: React.FC<LearningHubScreenProps> = ({ navigateTo
                       onClick={() => navigateTo('learningHubResource', resource.title, { url: resource.url, title: resource.title, sourceName: resource.source_name, themeColor: 'blue' })}
                       className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0"
                     >
-                      <BookOpenIcon className="w-5 h-5" />
+                      <BookOpenIcon className="w-5 h-5 shrink-0" />
                     </button>
                     <button
                       onClick={() => navigateTo('learningHubResource', resource.title, { url: resource.url, title: resource.title, sourceName: resource.source_name, themeColor: 'blue' })}
@@ -255,8 +255,8 @@ const TeacherLearningHubScreen: React.FC<LearningHubScreenProps> = ({ navigateTo
                         <p className="text-xs text-gray-500">{sum?.lessons_completed ?? 0} completed · {Math.round(((sum?.time_spent_seconds) || 0) / 60)}m spent</p>
                       </div>
                       <div className="flex items-center gap-1 text-blue-600 flex-shrink-0">
-                        <AwardIcon className="w-4 h-4" />
-                        <span className="font-black text-sm">{sum?.average_score ?? '—'}</span>
+                        <AwardIcon className="w-4 h-4 shrink-0" />
+                        <span className="font-black text-sm min-w-0">{sum?.average_score ?? '—'}</span>
                       </div>
                     </div>
                   );

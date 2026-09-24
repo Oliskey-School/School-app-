@@ -410,7 +410,7 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
-                    <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 overflow-hidden min-w-[1000px]">
+                    <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 overflow-hidden min-w-[1000px] max-w-full">
                         <div className="grid gap-[1px] bg-gray-100" style={{ gridTemplateColumns: `80px repeat(${periods.length}, 1fr)` }}>
                             {/* Header Row */}
                             <div className="bg-gray-50/80 backdrop-blur p-4 z-10 sticky top-0 left-0 border-b border-gray-200"></div>

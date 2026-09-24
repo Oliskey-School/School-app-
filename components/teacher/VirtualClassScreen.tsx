@@ -346,7 +346,7 @@ const ClassSelectionScreen: React.FC<{
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">Duration</label>
-                                <div className="grid grid-cols-4 gap-2">
+                                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                                     {['30', '45', '60', '90'].map((m) => (
                                         <button key={m} onClick={() => setDuration(m)} className={`py-2 px-1 rounded-lg text-sm font-medium border transition-all ${duration === m ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300'}`}>{m}m</button>
                                     ))}
@@ -376,8 +376,8 @@ const ClassSelectionScreen: React.FC<{
                             </div>
                             <div className="mt-auto pt-4">
                                 <button disabled={!selectedClass} onClick={() => selectedClass && onStartClass(selectedClass, subject, topic, duration, lobbyMuted, lobbyCameraOff)} className={`w-full py-4 rounded-xl font-bold shadow-lg transition-all transform active:scale-[0.98] flex items-center justify-center space-x-2 text-sm md:text-base ${!selectedClass ? 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none' : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-200 hover:shadow-indigo-300'}`}>
-                                    <VideoIcon className="w-5 h-5" />
-                                    <span>{selectedClass ? 'Start Class Session' : 'Select a Class First'}</span>
+                                    <VideoIcon className="w-5 h-5 shrink-0" />
+                                    <span className="min-w-0">{selectedClass ? 'Start Class Session' : 'Select a Class First'}</span>
                                 </button>
                                 <p className="text-xs text-center text-slate-400 mt-3 flex items-center justify-center"><ShareIcon className="w-3 h-3 mr-1" />Students will be notified automatically</p>
                             </div>

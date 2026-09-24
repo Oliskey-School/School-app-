@@ -245,7 +245,7 @@ const SubjectsScreen: React.FC<SubjectsScreenProps> = ({ navigateTo, student }) 
                   onClick={() => navigateTo('classroom', `${selectedSubject.name} Classroom`, { subjectName: selectedSubject.name })}
                   className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black shadow-lg shadow-orange-200 hover:bg-orange-600 transition-colors flex items-center justify-center gap-2"
                 >
-                  <GlobeIcon className="w-5 h-5" />
+                  <GlobeIcon className="w-5 h-5 shrink-0" />
                   Go to {selectedSubject.name} Classroom
                 </motion.button>
               </div>

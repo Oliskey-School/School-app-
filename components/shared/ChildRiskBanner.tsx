@@ -44,7 +44,7 @@ const ChildRiskBanner = () => {
         <div className="space-y-3">
             {visible.map(f => (
                 <div key={f.student_id} className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
-                    <HeartHandshake className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <HeartHandshake className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5 shrink-0" />
                     <div className="flex-1 min-w-0">
                         <p className="font-bold text-amber-900">A Note About {f.student_name}</p>
                         <p className="text-sm text-amber-700 mt-0.5">{f.message}</p>

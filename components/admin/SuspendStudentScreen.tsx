@@ -48,8 +48,8 @@ const SuspendStudentScreen: React.FC<SuspendStudentScreenProps> = ({ student, ha
         return (
             <div className="p-4 lg:p-6 max-w-2xl mx-auto space-y-4 pb-24">
                 <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
-                    <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                    <p className="text-sm text-amber-700">No student was selected. Please go back and try again.</p>
+                    <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5 shrink-0" />
+                    <p className="text-sm text-amber-700 min-w-0">No student was selected. Please go back and try again.</p>
                 </div>
                 <button onClick={handleBack}
                     className="w-full py-3 border border-gray-200 rounded-2xl text-gray-600 font-bold hover:bg-gray-50 transition-colors">
@@ -77,8 +77,8 @@ const SuspendStudentScreen: React.FC<SuspendStudentScreenProps> = ({ student, ha
     return (
         <div className="p-4 lg:p-6 max-w-2xl mx-auto space-y-6 pb-24">
             <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
-                <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                <div>
+                <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5 shrink-0" />
+                <div className="min-w-0">
                     <p className="font-bold text-amber-900">Suspend {student.name}</p>
                     <p className="text-sm text-amber-700">This letter will be sent immediately to the student and their parent/guardian, and permanently stored in the student's record.</p>
                 </div>

@@ -123,21 +123,21 @@ const ConsentFormScreen = () => {
             </header>
 
             {/* Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
-                    <div className="p-3 rounded-2xl bg-indigo-50 text-indigo-600"><FileCheck className="w-6 h-6" /></div>
+                    <div className="p-3 rounded-2xl bg-indigo-50 text-indigo-600 shrink-0"><FileCheck className="w-6 h-6" /></div>
                     <div><p className="text-2xl font-bold text-gray-900">{records.length}</p><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Records</p></div>
                 </div>
                 <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
-                    <div className="p-3 rounded-2xl bg-emerald-50 text-emerald-600"><CheckCircle2 className="w-6 h-6" /></div>
+                    <div className="p-3 rounded-2xl bg-emerald-50 text-emerald-600 shrink-0"><CheckCircle2 className="w-6 h-6" /></div>
                     <div><p className="text-2xl font-bold text-gray-900">{granted}</p><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Granted</p></div>
                 </div>
                 <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
-                    <div className="p-3 rounded-2xl bg-amber-50 text-amber-600"><Clock className="w-6 h-6" /></div>
+                    <div className="p-3 rounded-2xl bg-amber-50 text-amber-600 shrink-0"><Clock className="w-6 h-6" /></div>
                     <div><p className="text-2xl font-bold text-gray-900">{pending}</p><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Pending</p></div>
                 </div>
                 <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
-                    <div className="p-3 rounded-2xl bg-emerald-50 text-emerald-600"><Shield className="w-6 h-6" /></div>
+                    <div className="p-3 rounded-2xl bg-emerald-50 text-emerald-600 shrink-0"><Shield className="w-6 h-6" /></div>
                     <div><p className="text-2xl font-bold text-gray-900">{complianceRate}%</p><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Compliance</p></div>
                 </div>
             </div>
@@ -189,64 +189,66 @@ const ConsentFormScreen = () => {
                             className="w-full pl-12 pr-4 py-3 bg-white border border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none" />
                     </div>
                     <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-                        <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr className="bg-gray-50/50 border-b border-gray-100">
-                                    <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Parent</th>
-                                    <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Student</th>
-                                    <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Consent Type</th>
-                                    <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Status</th>
-                                    <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Date</th>
-                                    <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-50">
-                                {loading ? (
-                                    <tr>
-                                        <td colSpan={6} className="px-6 py-12 text-center text-gray-400 font-bold">
-                                            <div className="flex flex-col items-center justify-center space-y-3">
-                                                <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
-                                                <p className="text-gray-500">Loading consent records...</p>
-                                            </div>
-                                        </td>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="bg-gray-50/50 border-b border-gray-100">
+                                        <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Parent</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Student</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Consent Type</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Status</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Date</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Action</th>
                                     </tr>
-                                ) : filteredRecords.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={6} className="px-6 py-12 text-center text-gray-400 font-bold">
-                                            <div className="flex flex-col items-center justify-center space-y-2">
-                                                <Shield className="w-8 h-8 text-gray-200" />
-                                                <p className="text-gray-500">No consent records found</p>
-                                                <p className="text-xs font-normal text-gray-400">Consent requests will appear here once sent to parents.</p>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ) : filteredRecords.map((record, ri) => (
-                                    <motion.tr key={record.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(ri, 15) * 0.02 }} className="hover:bg-gray-50/30 transition-colors">
-                                        <td className="px-6 py-4 font-bold text-gray-800 text-sm">{record.parent_name}</td>
-                                        <td className="px-6 py-4">
-                                            <div><span className="font-bold text-gray-700 text-sm">{record.student_name}</span></div>
-                                            <span className="text-xs text-gray-400">{record.student_class}</span>
-                                        </td>
-                                        <td className="px-6 py-4 text-sm text-gray-600 capitalize">{record.consent_type.replace(/_/g, ' ')}</td>
-                                        <td className="px-6 py-4">
-                                            <span className={`inline-flex items-center space-x-1 text-xs font-bold px-3 py-1 rounded-full capitalize ${statusBadge(record.status)}`}>
-                                                {statusIcon(record.status)}<span>{record.status}</span>
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-sm text-gray-500">
-                                            {record.granted_at ? new Date(record.granted_at).toLocaleDateString('en-NG') : '—'}
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            {record.status === 'pending' && (
-                                                <button onClick={() => handleSendReminder(record.id)} className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-all">
-                                                    Send Reminder
-                                                </button>
-                                            )}
-                                        </td>
-                                    </motion.tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody className="divide-y divide-gray-50">
+                                    {loading ? (
+                                        <tr>
+                                            <td colSpan={6} className="px-6 py-12 text-center text-gray-400 font-bold">
+                                                <div className="flex flex-col items-center justify-center space-y-3">
+                                                    <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+                                                    <p className="text-gray-500">Loading consent records...</p>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ) : filteredRecords.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={6} className="px-6 py-12 text-center text-gray-400 font-bold">
+                                                <div className="flex flex-col items-center justify-center space-y-2">
+                                                    <Shield className="w-8 h-8 text-gray-200" />
+                                                    <p className="text-gray-500">No consent records found</p>
+                                                    <p className="text-xs font-normal text-gray-400">Consent requests will appear here once sent to parents.</p>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ) : filteredRecords.map((record, ri) => (
+                                        <motion.tr key={record.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(ri, 15) * 0.02 }} className="hover:bg-gray-50/30 transition-colors">
+                                            <td className="px-6 py-4 font-bold text-gray-800 text-sm">{record.parent_name}</td>
+                                            <td className="px-6 py-4">
+                                                <div><span className="font-bold text-gray-700 text-sm">{record.student_name}</span></div>
+                                                <span className="text-xs text-gray-400">{record.student_class}</span>
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-gray-600 capitalize">{record.consent_type.replace(/_/g, ' ')}</td>
+                                            <td className="px-6 py-4">
+                                                <span className={`inline-flex items-center space-x-1 text-xs font-bold px-3 py-1 rounded-full capitalize ${statusBadge(record.status)}`}>
+                                                    {statusIcon(record.status)}<span>{record.status}</span>
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-gray-500">
+                                                {record.granted_at ? new Date(record.granted_at).toLocaleDateString('en-NG') : '—'}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                {record.status === 'pending' && (
+                                                    <button onClick={() => handleSendReminder(record.id)} className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-all">
+                                                        Send Reminder
+                                                    </button>
+                                                )}
+                                            </td>
+                                        </motion.tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             )}
@@ -278,8 +280,8 @@ const ConsentFormScreen = () => {
                         );
                     })}
                     <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex items-start space-x-3">
-                        <AlertTriangle className="w-5 h-5 text-blue-500 mt-0.5" />
-                        <div>
+                        <AlertTriangle className="w-5 h-5 text-blue-500 mt-0.5 shrink-0" />
+                        <div className="min-w-0">
                             <p className="text-sm font-bold text-blue-800">NDPR Compliance Note</p>
                             <p className="text-xs text-blue-600 mt-1">Under the Nigeria Data Protection Regulation (NDPR), you must obtain explicit consent before processing personal data. Consent must be freely given, informed, and revocable at any time.</p>
                         </div>

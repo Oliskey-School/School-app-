@@ -278,7 +278,7 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId,
                                                                     className="w-full bg-white border border-gray-100 rounded-xl p-3 shadow-sm hover:border-indigo-200 transition-all group"
                                                                 >
                                                                     <div className="flex flex-col md:flex-row md:items-center gap-4">
-                                                                        <div className="flex items-center flex-1 min-w-[200px]">
+                                                                        <div className="flex items-center flex-1 min-w-[200px] max-w-full">
                                                                             <img src={student.avatarUrl || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(student.name)} alt={student.name} className="w-10 h-10 rounded-full object-cover ring-2 ring-gray-50 mr-3" />
                                                                             <div>
                                                                                 <p className="text-sm font-bold text-gray-800">{student.name}</p>

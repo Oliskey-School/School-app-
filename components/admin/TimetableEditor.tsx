@@ -45,8 +45,8 @@ const Toast: React.FC<{ message: string; onClear: () => void; }> = ({ message, o
 
     return (
         <div className="fixed bottom-10 left-1/2 transform -translate-x-1/2 bg-gray-900/90 backdrop-blur-md text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center space-x-3 animate-slide-in-up z-[100] border border-white/10">
-            <CheckCircleIcon className="w-5 h-5 text-emerald-400" />
-            <span className="font-medium">{message}</span>
+            <CheckCircleIcon className="w-5 h-5 text-emerald-400 shrink-0" />
+            <span className="font-medium min-w-0">{message}</span>
         </div>
     );
 };
@@ -747,7 +747,7 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                             {isSaving ? (
                                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                             ) : (
-                                <CloudUploadIcon className="w-4 h-4" />
+                                <CloudUploadIcon className="w-4 h-4 shrink-0" />
                             )}
                             {isSaving ? 'Saving...' : (status === 'Published' ? 'Update Live' : 'Publish Live')}
                         </motion.button>

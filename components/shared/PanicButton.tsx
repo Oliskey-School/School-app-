@@ -193,8 +193,8 @@ const PanicButton: React.FC<PanicButtonProps> = ({ isFloating = true, schoolId }
                     exit={{ opacity: 0, y: 20 }}
                     className="fixed inset-x-4 bottom-24 z-50 mx-auto max-w-sm bg-red-600 text-white rounded-xl shadow-2xl p-4 flex items-start gap-3"
                 >
-                    <ExclamationCircleIcon className="w-6 h-6 flex-shrink-0 mt-0.5" />
-                    <div className="flex-1">
+                    <ExclamationCircleIcon className="w-6 h-6 flex-shrink-0 mt-0.5 shrink-0" />
+                    <div className="flex-1 min-w-0">
                         <p className="font-bold">Alert Sent — Help Is On The Way</p>
                         <p className="text-xs text-red-100 mt-0.5">
                             Sent at {sentAlert.time}{sentAlert.id ? ` · Ref #${sentAlert.id.slice(0, 8)}` : ''}. Security and admin have been notified.

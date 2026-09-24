@@ -312,8 +312,8 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
             onClick={fetchStudentsWithReports}
             className="flex-1 md:flex-none p-2 md:px-4 md:py-2 bg-white border border-gray-200 rounded-xl shadow-sm text-gray-600 hover:text-indigo-600 hover:border-indigo-100 transition-all flex items-center justify-center space-x-2 active:scale-95"
           >
-            <RefreshIcon className={`w-4 h-4 ${isLoading ? 'animate-spin text-indigo-500' : ''}`} />
-            <span className="text-xs md:text-sm font-bold">Refresh</span>
+            <RefreshIcon className={`w-4 h-4 ${isLoading ? 'animate-spin text-indigo-500' : ''} shrink-0`} />
+            <span className="text-xs md:text-sm font-bold min-w-0">Refresh</span>
           </button>
           {selectedClass && (
             <button
@@ -321,8 +321,8 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
               disabled={getRosterCount('Submitted') === 0}
               className="flex-[2] md:flex-none px-4 md:px-6 py-2 bg-indigo-600 text-white rounded-xl shadow-lg shadow-indigo-100 font-bold hover:bg-indigo-700 transition-all disabled:opacity-50 disabled:shadow-none flex items-center justify-center space-x-2 active:scale-95 text-xs md:text-sm"
             >
-              <PublishIcon className="w-4 h-4" />
-              <span>Publish All</span>
+              <PublishIcon className="w-4 h-4 shrink-0" />
+              <span className="min-w-0">Publish All</span>
             </button>
           )}
         </div>
@@ -440,7 +440,7 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
         ) : !selectedClass ? (
           /* ---- Class picker (landing page) ---- */
           classSummaries.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-3 xl:grid-cols-4 gap-6">
               {classSummaries.map((group, idx) => (
                 <motion.button
                   key={group.key}
@@ -636,7 +636,7 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
                     className="px-8 py-3 bg-white border border-gray-200 text-indigo-600 font-black uppercase tracking-widest text-xs rounded-2xl hover:bg-indigo-50 transition-all shadow-sm flex items-center gap-2 group"
                   >
                     <span>Show All Students</span>
-                    <ChevronRightIcon className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    <ChevronRightIcon className="w-4 h-4 group-hover:translate-x-1 transition-transform shrink-0" />
                   </button>
                 )}
                 {searchTerm && (

@@ -17,7 +17,7 @@ import { createPortal } from 'react-dom';
 import ErrorBoundary from '../ui/ErrorBoundary';
 import { StudentSidebar } from '../ui/DashboardSidebar';
 import DashboardLayout from '../layout/DashboardLayout';
-import PremiumLoader from '../ui/PremiumLoader';
+import PremiumLoader, { BOOT_MESSAGE } from '../ui/PremiumLoader';
 import { GamificationProvider } from '../../context/GamificationContext';
 import { realtimeService } from '../../services/RealtimeService';
 import { syncEngine } from '../../lib/syncEngine';
@@ -106,7 +106,7 @@ const LearningHubResourceViewer = lazyWithRetry(() => import('../shared/Learning
 const FreeLearningResourcesScreen = lazyWithRetry(() => import('./FreeLearningResourcesScreen'));
 
 const DashboardSuspenseFallback = () => (
-    <PremiumLoader message="Loading dashboard module..." />
+    <PremiumLoader message={BOOT_MESSAGE} />
 );
 
 import { NextUpTask } from './NextUpTask';
@@ -382,7 +382,7 @@ const Overview: React.FC<{
                     />
                     <div>
                         <h3 className="text-lg font-bold text-gray-800 mb-2 px-1">AI Tools</h3>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-3 gap-4">
                             {aiTools.map((tool, i) => (
                                 <motion.button
                                     key={tool.label}
@@ -830,7 +830,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
 
     // Optimistic UI: Only show full loading spinner if we are loading AND have no student data
     if (loadingStudent && !student) {
-        return <PremiumLoader message="Preparing your school experience..." />;
+        return <PremiumLoader message={BOOT_MESSAGE} />;
     }
 
     if (!student) {

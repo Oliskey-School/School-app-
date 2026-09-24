@@ -53,6 +53,8 @@ import { useProfile } from '../../context/ProfileContext';
 import { useApi } from '../../lib/hooks/useApi';
 import api from '../../lib/api';
 import { useAutoSync } from '../../hooks/useAutoSync';
+import { getStatCardLayout, PREFERENCES_APPLIED_EVENT, type StatCardLayout } from '../../lib/uiPreferences';
+import DashboardSkeletonLoader from '../ui/DashboardSkeletonLoader';
 
 
 // --- NEW, REFINED UI/UX COMPONENTS ---
@@ -66,8 +68,13 @@ const StatCard: React.FC<{
     trend: string;
     trendColor: string;
     index?: number;
-}> = ({ label, value, icon, colorClasses, onClick, trend, trendColor, index = 0 }) => {
+    layout?: StatCardLayout;
+}> = ({ label, value, icon, colorClasses, onClick, trend, trendColor, index = 0, layout = 'compact' }) => {
     const { t } = useTranslation();
+    // `formatTrend` yields "Stable" when nothing moved, "+n" for a rise and
+    // "-n" for a fall. Anything that is not a rise used to draw a down arrow,
+    // which made an unchanged figure look like a decline to a school owner.
+    const isStable = !trend.startsWith('+') && !trend.startsWith('-');
     return (
     <motion.button
         initial={{ opacity: 0, y: 12 }}
@@ -76,21 +83,46 @@ const StatCard: React.FC<{
         whileHover={{ y: -3 }}
         whileTap={{ scale: 0.98 }}
         onClick={onClick}
-        className={`w-full text-left p-4 sm:p-6 rounded-3xl text-white relative overflow-hidden ${colorClasses}`}
+        className={`w-full text-left ${layout === 'compact' ? 'p-3 sm:p-4' : 'p-4 sm:p-6'} rounded-3xl text-white relative overflow-hidden ${colorClasses}`}
     >
         {React.cloneElement(icon, { className: "absolute -right-6 -bottom-6 h-24 sm:h-32 w-24 sm:w-32 text-white/10" })}
         <div className="relative z-10">
-            <div className="flex justify-between items-start">
-                <p className="text-white/90 font-bold text-base sm:text-lg">{label}</p>
-                <div className="p-2 sm:p-3 bg-white/20 rounded-2xl backdrop-blur-sm">
-                    {React.cloneElement(icon, { className: "h-6 w-6 sm:h-10 sm:w-10" })}
+            {/*
+             * Four tiles share two thirds of the dashboard, so each one is
+             * narrow even on a large screen. Measured at 1440px the label was
+             * being handed a 55px box for an 82px word, and at 820px only 49px
+             * — the text then painted straight over the icon. The label now
+             * claims the leftover width rather than shrinking below it, long
+             * words break instead of spilling, and the icon only grows to its
+             * full size once the tile is genuinely wide enough to carry it.
+             */}
+            <div className="flex justify-between items-start gap-3">
+                <p className={`text-white/90 font-bold flex-1 min-w-0 ${layout === 'compact' ? 'text-xs sm:text-sm' : 'text-base'}`}>{label}</p>
+                <div className={`bg-white/20 rounded-2xl backdrop-blur-sm shrink-0 ${layout === 'compact' ? 'p-1.5 sm:p-2' : 'p-2'}`}>
+                    {React.cloneElement(icon, { className: layout === 'compact' ? 'h-5 w-5 sm:h-6 sm:w-6' : 'h-6 w-6' })}
                 </div>
             </div>
-            <p className="text-3xl sm:text-4xl lg:text-5xl font-bold mt-2 sm:mt-3 tracking-tight truncate">{value}</p>
-            <div className={`mt-1 sm:mt-2 text-xs sm:text-sm font-bold flex items-center space-x-1 ${trendColor}`}>
-                {trend.startsWith('+') ? <ArrowUpIcon className="w-4 h-4 sm:w-5 sm:h-5" /> : <ArrowDownIcon className="w-4 h-4 sm:w-5 sm:h-5" />}
-                <span>{trend}</span>
-                <span className="text-white/70 font-medium ml-1 hidden xs:inline">{t('dashboard.last30Days')}</span>
+            <p className={`font-bold mt-2 sm:mt-3 tracking-tight truncate ${layout === 'compact' ? 'text-2xl sm:text-3xl' : 'text-3xl sm:text-4xl lg:text-5xl'}`}>{value}</p>
+            {/*
+             * The trend line reads as one sentence, so each part has to stay
+             * whole. Left to itself the flex row squeezes the suffix until it
+             * breaks mid-phrase — "last 30" on one line and "days" on the next,
+             * with the arrow floating beside it. Each part is now nowrap and the
+             * row wraps between them, so a narrow tile pushes the whole suffix
+             * onto its own line instead of tearing the phrase in half.
+             */}
+            <div className={`mt-1 sm:mt-2 text-xs sm:text-sm font-bold flex flex-wrap items-center gap-x-1.5 gap-y-0.5 ${trendColor}`}>
+                <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                    {/* A flat reading is not a decline, so it gets no arrow at all. */}
+                    {isStable
+                        ? null
+                        : trend.startsWith('+')
+                            ? <ArrowUpIcon className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
+                            : <ArrowDownIcon className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />}
+                    <span>{trend}</span>
+                </span>
+                {/* data-keep-whole: scripts/check-responsive-stages.mjs fails if this is ever split across lines. */}
+                <span data-keep-whole className="text-white/70 font-medium whitespace-nowrap hidden xs:inline">{t('dashboard.last30Days')}</span>
             </div>
         </div>
     </motion.button>
@@ -134,10 +166,10 @@ const AlertCard: React.FC<{ label: string; value: string | number; icon: React.R
         onClick={onClick}
         className="w-full bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow flex items-center space-x-4 text-left border border-gray-100 hover:border-gray-200"
     >
-        <div className={`${ALERT_COLOR_CLASSES[color] || 'bg-gray-100'} p-3 rounded-xl`}>
+        <div className={`${ALERT_COLOR_CLASSES[color] || 'bg-gray-100'} p-3 rounded-xl shrink-0`}>
             {React.cloneElement(icon, { className: `h-6 w-6 ${color}` })}
         </div>
-        <div>
+        <div className="min-w-0">
             <p className="font-bold text-gray-800 text-lg">{value} {label}</p>
             <p className="text-xs text-gray-500 font-medium">Action required</p>
         </div>
@@ -412,7 +444,23 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
         { year: new Date().getFullYear(), count: totalStudents }
     ];
 
-    if (isLoadingStats && !stats) return <PremiumLoader message="Loading dashboard statistics..." />;
+    // The owner chooses how the total cards sit; the choice follows the account,
+    // so it applies on a new device too. PREFERENCES_APPLIED_EVENT fires both when
+    // this device changes it and when a newer account copy arrives at sign-in.
+    const [statCardLayout, setStatCardLayout] = useState<StatCardLayout>(() => getStatCardLayout());
+    useEffect(() => {
+        const sync = () => setStatCardLayout(getStatCardLayout());
+        window.addEventListener(PREFERENCES_APPLIED_EVENT, sync);
+        return () => window.removeEventListener(PREFERENCES_APPLIED_EVENT, sync);
+    }, []);
+
+    // Measured during boot: this used to be a full-screen PremiumLoader that
+    // mounted at t=3123ms — a second AFTER the dashboard was already interactive
+    // at t=2572ms — and covered the whole app for ~1s. That was the second
+    // "loading screen". Stats are only part of this page, so waiting for them
+    // now shows the page's own skeleton in place, not a screen over everything.
+    if (isLoadingStats && !stats) return <DashboardSkeletonLoader type="overview" />;
+
 
     const formatTrend = (val: number) => {
         if (val === 0) return 'Stable';
@@ -546,16 +594,16 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Main Content Column */}
                 <div className="lg:col-span-2 space-y-6">
-                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="bg-gradient-to-br from-indigo-700 to-indigo-900 p-6 rounded-3xl">
+                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="bg-gradient-to-br from-indigo-700 to-indigo-900 p-4 sm:p-6 rounded-3xl">
                         <h2 className="text-2xl font-bold text-white mb-1">
                             {t('dashboard.welcome', { name: (() => { const n = user?.full_name || profile?.full_name; if (!n) return 'Admin'; const first = n.split(' ')[0]; return ['school','admin','branch','main','demo'].includes(first.toLowerCase()) ? n : first; })() })}
                         </h2>
                         <p className="text-white/80">{t('dashboard.commandCenter')}</p>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-                            <StatCard index={0} label={t('dashboard.totalStudents')} value={totalStudents} icon={<StudentsIcon />} colorClasses="bg-gradient-to-br from-blue-500 to-blue-700" onClick={() => navigateTo('studentList', 'Manage Students', {})} trend={formatTrend(studentTrend)} trendColor="text-blue-200" />
-                            <StatCard index={1} label={t('dashboard.totalStaff')} value={totalStaff} icon={<StaffIcon />} colorClasses="bg-gradient-to-br from-purple-400 to-purple-600" onClick={() => navigateTo('teacherList', 'Manage Teachers', {})} trend={formatTrend(teacherTrend)} trendColor="text-purple-200" />
-                            <StatCard index={2} label={t('dashboard.totalParents')} value={totalParents} icon={<UsersIcon />} colorClasses="bg-gradient-to-br from-orange-400 to-orange-600" onClick={() => navigateTo('parentList', 'Manage Parents', {})} trend={formatTrend(parentTrend)} trendColor="text-orange-200" />
-                            <StatCard index={3} label={t('dashboard.academicLevels')} value={stats?.totalAcademicLevels || 0} icon={<ViewGridIcon />} colorClasses="bg-gradient-to-br from-indigo-400 to-indigo-600" onClick={() => navigateTo('classList', 'Manage Classes', {})} trend={formatTrend(classTrend)} trendColor="text-indigo-200" />
+                        <div className={`grid gap-3 sm:gap-4 mt-6 ${statCardLayout === 'compact' ? 'grid-cols-2 2xl:grid-cols-4' : 'grid-cols-1 xs:grid-cols-2'}`}>
+                            <StatCard layout={statCardLayout} index={0} label={t('dashboard.totalStudents')} value={totalStudents} icon={<StudentsIcon />} colorClasses="bg-gradient-to-br from-blue-500 to-blue-700" onClick={() => navigateTo('studentList', 'Manage Students', {})} trend={formatTrend(studentTrend)} trendColor="text-blue-200" />
+                            <StatCard layout={statCardLayout} index={1} label={t('dashboard.totalStaff')} value={totalStaff} icon={<StaffIcon />} colorClasses="bg-gradient-to-br from-purple-400 to-purple-600" onClick={() => navigateTo('teacherList', 'Manage Teachers', {})} trend={formatTrend(teacherTrend)} trendColor="text-purple-200" />
+                            <StatCard layout={statCardLayout} index={2} label={t('dashboard.totalParents')} value={totalParents} icon={<UsersIcon />} colorClasses="bg-gradient-to-br from-orange-400 to-orange-600" onClick={() => navigateTo('parentList', 'Manage Parents', {})} trend={formatTrend(parentTrend)} trendColor="text-orange-200" />
+                            <StatCard layout={statCardLayout} index={3} label={t('dashboard.academicLevels')} value={stats?.totalAcademicLevels || 0} icon={<ViewGridIcon />} colorClasses="bg-gradient-to-br from-indigo-400 to-indigo-600" onClick={() => navigateTo('classList', 'Manage Classes', {})} trend={formatTrend(classTrend)} trendColor="text-indigo-200" />
                         </div>
                     </motion.div>
 

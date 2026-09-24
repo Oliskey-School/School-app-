@@ -226,9 +226,9 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ userType, nav
                     <div className="absolute top-3 right-3 h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse"></div>
                   )}
                   <div className={`flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center ${config.bg}`}>
-                    <Icon className={`w-6 h-6 ${config.color}`} />
+                    <Icon className={`w-6 h-6 ${config.color} shrink-0`} />
                   </div>
-                  <div className="flex-grow">
+                  <div className="flex-grow min-w-0">
                     <div className="flex justify-between items-center">
                       <p className={`font-bold ${notification.is_read ? 'text-gray-700' : 'text-gray-900'}`}>{notification.title}</p>
                       <p className="text-xs text-gray-500 flex-shrink-0 ml-2">

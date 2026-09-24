@@ -257,7 +257,7 @@ const fetchExamDetails = useCallback(async () => {
             </Card>
 
             {/* Statistics */}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <Card>
                     <CardContent className="p-4 text-center">
                         <p className="text-sm text-gray-600">Students</p>
@@ -384,7 +384,7 @@ const fetchExamDetails = useCallback(async () => {
                 </CardHeader>
                 <CardContent>
                     {selectedCurriculum === 'Nigerian' ? (
-                        <div className="grid grid-cols-6 gap-2 text-xs">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-xs">
                             <div className="p-2 bg-green-100 rounded text-center">
                                 <strong>A:</strong> 70-100
                             </div>
@@ -405,7 +405,7 @@ const fetchExamDetails = useCallback(async () => {
                             </div>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-4 gap-2 text-xs">
+                        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
                             <div className="p-2 bg-green-100 rounded text-center">
                                 <strong>A*:</strong> 90-100
                             </div>

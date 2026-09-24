@@ -64,10 +64,10 @@ interface TransportAssignment {
 
 const StatsCard = ({ icon: Icon, label, value, color }: { icon: any; label: string; value: string | number; color: string }) => (
     <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
-        <div className={`p-3 rounded-2xl ${color}`}>
+        <div className={`p-3 rounded-2xl ${color} shrink-0`}>
             <Icon className="w-6 h-6" />
         </div>
-        <div>
+        <div className="min-w-0">
             <p className="text-2xl font-bold text-gray-900">{value}</p>
             <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">{label}</p>
         </div>
@@ -190,7 +190,7 @@ const TransportManagementScreen = () => {
                 </div>
             </header>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                 <StatsCard icon={Route} label="Active Routes" value={activeRoutesCount} color="bg-indigo-50 text-indigo-600" />
                 <StatsCard icon={Bus} label="Total Buses" value={routes.length} color="bg-blue-50 text-blue-600" />
                 <StatsCard icon={Users} label="Students on Bus" value={totalStudentsOnBus} color="bg-emerald-50 text-emerald-600" />
@@ -237,7 +237,7 @@ const TransportManagementScreen = () => {
                                                 <div className="flex items-center space-x-1"><Users className="w-4 h-4 text-gray-400" /><span className="font-bold">{route.driver_name}</span></div>
                                                 <div className="flex items-center space-x-1"><Phone className="w-3 h-3 text-gray-400" /><span>{route.driver_phone}</span></div>
                                             </div>
-                                            <div className="grid grid-cols-3 gap-4 pt-4 border-t border-gray-50">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-4 border-t border-gray-50">
                                                 <div>
                                                     <p className="text-xs uppercase font-bold text-gray-400">Morning</p>
                                                     <p className="font-bold text-gray-700">{route.morning_departure}</p>
@@ -275,34 +275,36 @@ const TransportManagementScreen = () => {
                                 </motion.button>
                             </div>
                             <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-                                <table className="w-full text-left border-collapse">
-                                    <thead>
-                                        <tr className="bg-gray-50/50 border-b border-gray-100">
-                                            <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Stop</th>
-                                            <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Route</th>
-                                            <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Order</th>
-                                            <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Pickup</th>
-                                            <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Drop-off</th>
-                                            <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-50">
-                                        {stops.length === 0 ? (
-                                            <tr><td colSpan={6} className="px-6 py-12 text-center text-gray-400">No stops added yet.</td></tr>
-                                        ) : stops.map((stop, si) => (
-                                            <motion.tr key={stop.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(si, 15) * 0.02 }} className="hover:bg-gray-50/30 transition-colors">
-                                                <td className="px-6 py-5"><div className="flex items-center space-x-3"><div className="p-2 bg-amber-50 rounded-xl"><MapPin className="w-4 h-4 text-amber-600" /></div><span className="font-bold text-gray-800">{stop.stop_name}</span></div></td>
-                                                <td className="px-6 py-5 text-sm font-medium text-gray-600">{stop.route?.route_name || '—'}</td>
-                                                <td className="px-6 py-5"><span className="bg-gray-100 text-gray-700 text-xs font-bold px-3 py-1 rounded-full">#{stop.stop_order}</span></td>
-                                                <td className="px-6 py-5 text-sm font-bold text-gray-700">{stop.pickup_time || '—'}</td>
-                                                <td className="px-6 py-5 text-sm font-bold text-gray-700">{stop.dropoff_time || '—'}</td>
-                                                <td className="px-6 py-5">
-                                                    <button onClick={() => handleDelete('stops', stop.id)} className="p-2 hover:bg-red-50 rounded-xl text-gray-400 hover:text-red-500 transition-all"><Trash2 className="w-4 h-4" /></button>
-                                                </td>
-                                            </motion.tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr className="bg-gray-50/50 border-b border-gray-100">
+                                                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Stop</th>
+                                                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Route</th>
+                                                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Order</th>
+                                                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Pickup</th>
+                                                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Drop-off</th>
+                                                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-50">
+                                            {stops.length === 0 ? (
+                                                <tr><td colSpan={6} className="px-6 py-12 text-center text-gray-400">No stops added yet.</td></tr>
+                                            ) : stops.map((stop, si) => (
+                                                <motion.tr key={stop.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(si, 15) * 0.02 }} className="hover:bg-gray-50/30 transition-colors">
+                                                    <td className="px-6 py-5"><div className="flex items-center space-x-3"><div className="p-2 bg-amber-50 rounded-xl"><MapPin className="w-4 h-4 text-amber-600" /></div><span className="font-bold text-gray-800">{stop.stop_name}</span></div></td>
+                                                    <td className="px-6 py-5 text-sm font-medium text-gray-600">{stop.route?.route_name || '—'}</td>
+                                                    <td className="px-6 py-5"><span className="bg-gray-100 text-gray-700 text-xs font-bold px-3 py-1 rounded-full">#{stop.stop_order}</span></td>
+                                                    <td className="px-6 py-5 text-sm font-bold text-gray-700">{stop.pickup_time || '—'}</td>
+                                                    <td className="px-6 py-5 text-sm font-bold text-gray-700">{stop.dropoff_time || '—'}</td>
+                                                    <td className="px-6 py-5">
+                                                        <button onClick={() => handleDelete('stops', stop.id)} className="p-2 hover:bg-red-50 rounded-xl text-gray-400 hover:text-red-500 transition-all"><Trash2 className="w-4 h-4" /></button>
+                                                    </td>
+                                                </motion.tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -409,7 +411,7 @@ const TransportManagementScreen = () => {
                                             {routes.map(r => <option key={r.id} value={r.id}>{r.route_name}</option>)}
                                         </select>
                                     </div>
-                                    <div className="grid grid-cols-3 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                         <div>
                                             <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Order</label>
                                             <input type="number" className="w-full px-5 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold" value={formData.stop_order || 1} onChange={e => setFormData({ ...formData, stop_order: parseInt(e.target.value) || 1 })} />

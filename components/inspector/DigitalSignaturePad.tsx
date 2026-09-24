@@ -188,7 +188,7 @@ export default function DigitalSignaturePad({
                             disabled={isEmpty}
                             className="flex-1 py-3 px-4 bg-white border border-slate-200 text-slate-700 rounded-xl font-semibold hover:bg-slate-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                         >
-                            <RotateCcw className="w-5 h-5" />
+                            <RotateCcw className="w-5 h-5 shrink-0" />
                             Clear
                         </button>
                         <button
@@ -196,12 +196,12 @@ export default function DigitalSignaturePad({
                             disabled={isEmpty}
                             className="flex-1 py-3 px-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                         >
-                            <Check className="w-5 h-5" />
+                            <Check className="w-5 h-5 shrink-0" />
                             Save Signature
                         </button>
                     </div>
 
-                    <p className="text-xs text-slate-500 text-center mt-4">
+                    <p className="text-xs text-slate-500 text-center mt-4 min-w-0">
                         By signing, you certify that this inspection report is accurate and complete.
                     </p>
                 </div>

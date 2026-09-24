@@ -103,7 +103,7 @@ const StudentRow: React.FC<{
         </motion.div>
         <div className="flex-grow min-w-0 text-left">
           <p className="font-bold text-sm text-gray-800 truncate">{student.name || student.full_name}</p>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-gray-500 truncate">
             ID: {student.schoolGeneratedId || student.school_generated_id || 'Pending'}
             {student.curriculum_type && (
               <span className="ml-2 text-gray-600 bg-gray-100 px-1 py-0.5 rounded text-xs">
@@ -152,7 +152,7 @@ const StudentRow: React.FC<{
                 exit={{ opacity: 0, y: menuPos.openUpward ? 10 : -10, scale: 0.96 }}
                 transition={{ type: 'spring', stiffness: 400, damping: 25 }}
                 style={{ position: 'fixed', top: menuPos.top, bottom: menuPos.bottom, right: menuPos.right }}
-                className="z-50 bg-white rounded-xl shadow-lg border border-gray-100 py-1.5 min-w-[150px]"
+                className="z-50 bg-white rounded-xl shadow-lg border border-gray-100 py-1.5 min-w-[150px] max-w-full"
               >
                 <p className="text-[9px] text-gray-400 px-3 pb-1.5 font-semibold uppercase tracking-widest">Change status</p>
                 {otherStatuses.map(s => (

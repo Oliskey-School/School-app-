@@ -225,7 +225,7 @@ const MathSprintGameScreen: React.FC<MathSprintGameScreenProps> = ({ navigateTo,
                     <div className="flex gap-3">
                         <button onClick={() => navigateTo('gamesHub', 'Games Hub')} className="px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 font-bold transition">Exit</button>
                         <button onClick={() => setGameState('playing')} className="px-8 py-3 rounded-xl bg-green-500 hover:bg-green-600 text-white font-bold shadow-lg transition transform hover:scale-105 flex items-center gap-2">
-                            <PlayIcon className="w-5 h-5" /> Resume
+                            <PlayIcon className="w-5 h-5 shrink-0" /> Resume
                         </button>
                     </div>
                 </div>

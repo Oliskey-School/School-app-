@@ -235,7 +235,7 @@ const InspectionFlowPage = () => {
                             </button>
                             <button onClick={() => setStep(3)} className="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-bold hover:bg-indigo-700 transition-all flex items-center space-x-2 shadow-lg shadow-indigo-100">
                                 <span>Continue to Review</span>
-                                <ChevronRight className="w-5 h-5" />
+                                <ChevronRight className="w-5 h-5 shrink-0" />
                             </button>
                         </div>
                     </div>

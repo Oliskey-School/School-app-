@@ -149,7 +149,7 @@ const LearningHubScreen: React.FC<LearningHubScreenProps> = ({ navigateTo, stude
         </div>
 
         {summary && (
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <div className="bg-white rounded-xl p-3 border border-gray-100 text-center">
               <AwardIcon className="w-5 h-5 mx-auto text-orange-500 mb-1" />
               <p className="text-lg font-black text-gray-800">{summary.lessons_completed}</p>
@@ -174,11 +174,11 @@ const LearningHubScreen: React.FC<LearningHubScreenProps> = ({ navigateTo, stude
           onClick={() => navigateTo('studyBuddy', 'AI Study Buddy')}
           className="w-full py-3 bg-orange-500 text-white rounded-xl font-bold shadow-md shadow-orange-200 hover:bg-orange-600 transition-colors flex items-center justify-center gap-2"
         >
-          <SparklesIcon className="w-5 h-5" />
+          <SparklesIcon className="w-5 h-5 shrink-0" />
           Ask the AI Study Assistant
         </motion.button>
 
-        <div className="relative">
+        <div className="relative min-w-0">
           <SearchIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
@@ -308,7 +308,7 @@ const LearningHubScreen: React.FC<LearningHubScreenProps> = ({ navigateTo, stude
                           className="w-full bg-white rounded-2xl p-4 border border-gray-100 shadow-sm hover:shadow-md transition-shadow text-left flex items-center gap-3"
                         >
                           <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${isCompleted ? 'bg-green-50 text-green-600' : 'bg-orange-50 text-orange-600'}`}>
-                            <BookOpenIcon className="w-5 h-5" />
+                            <BookOpenIcon className="w-5 h-5 shrink-0" />
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="font-bold text-gray-900 truncate">{resource.title}</p>

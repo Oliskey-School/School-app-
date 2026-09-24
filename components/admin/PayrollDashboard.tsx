@@ -287,8 +287,8 @@ const PayrollDashboard: React.FC<PayrollDashboardProps> = ({ navigateTo }) => {
                 {/* Arrears Alert */}
                 {stats.outstandingArrears > 0 && (
                     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="bg-orange-50 border border-orange-200 rounded-xl p-4 flex items-start space-x-3">
-                        <ExclamationCircleIcon className="w-6 h-6 text-orange-600 flex-shrink-0 mt-0.5" />
-                        <div className="flex-1">
+                        <ExclamationCircleIcon className="w-6 h-6 text-orange-600 flex-shrink-0 mt-0.5 shrink-0" />
+                        <div className="flex-1 min-w-0">
                             <h4 className="font-semibold text-orange-900">Outstanding Arrears</h4>
                             <p className="text-sm text-orange-800 mt-1">
                                 {formatCurrency(stats.outstandingArrears)} in unpaid arrears requires attention

@@ -140,7 +140,7 @@ const TermReport: React.FC<{ report: ReportCard, student: Student, schoolName?: 
         {report.attendance && (report.attendance.present > 0 || report.attendance.absent > 0) && (
             <>
                 <SectionHeader title="Attendance Record" />
-                <div className="grid grid-cols-4 gap-4 text-sm font-sans">
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm font-sans">
                     <div className="bg-gray-50 p-3 rounded-lg text-center">
                         <p className="text-xs text-gray-500 font-medium">Total Days</p>
                         <p className="text-lg font-bold text-gray-800">{report.attendance.total}</p>

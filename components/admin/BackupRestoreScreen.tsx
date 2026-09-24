@@ -96,19 +96,19 @@ const BackupRestoreScreen = () => {
             {/* Stats */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
-                    <div className="p-3 rounded-2xl bg-indigo-50 text-indigo-600"><Database className="w-6 h-6" /></div>
+                    <div className="p-3 rounded-2xl bg-indigo-50 text-indigo-600 shrink-0"><Database className="w-6 h-6" /></div>
                     <div><p className="text-2xl font-bold text-gray-900">{backups.length}</p><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Backups</p></div>
                 </motion.div>
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.03 }} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
-                    <div className="p-3 rounded-2xl bg-emerald-50 text-emerald-600"><CheckCircle2 className="w-6 h-6" /></div>
+                    <div className="p-3 rounded-2xl bg-emerald-50 text-emerald-600 shrink-0"><CheckCircle2 className="w-6 h-6" /></div>
                     <div><p className="text-2xl font-bold text-gray-900">{backups.filter(b => b.status === 'completed').length}</p><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Successful</p></div>
                 </motion.div>
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.06 }} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
-                    <div className="p-3 rounded-2xl bg-blue-50 text-blue-600"><HardDrive className="w-6 h-6" /></div>
+                    <div className="p-3 rounded-2xl bg-blue-50 text-blue-600 shrink-0"><HardDrive className="w-6 h-6" /></div>
                     <div><p className="text-2xl font-bold text-gray-900">24.3 MB</p><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Latest Size</p></div>
                 </motion.div>
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.09 }} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
-                    <div className="p-3 rounded-2xl bg-amber-50 text-amber-600"><Clock className="w-6 h-6" /></div>
+                    <div className="p-3 rounded-2xl bg-amber-50 text-amber-600 shrink-0"><Clock className="w-6 h-6" /></div>
                     <div><p className="text-2xl font-bold text-gray-900">Daily</p><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Auto Schedule</p></div>
                 </motion.div>
             </div>
@@ -117,7 +117,7 @@ const BackupRestoreScreen = () => {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div className="bg-blue-50 border border-blue-100 rounded-2xl px-5 py-3 flex items-center space-x-3 flex-grow">
                     <Info className="w-5 h-5 text-blue-500 shrink-0" />
-                    <p className="text-sm text-blue-700"><strong>Your database is backed up automatically.</strong> Manual backups create an additional snapshot you can restore from at any time.</p>
+                    <p className="text-sm text-blue-700 min-w-0"><strong>Your database is backed up automatically.</strong> Manual backups create an additional snapshot you can restore from at any time.</p>
                 </div>
                 <motion.button whileHover={!isBackingUp ? { scale: 1.02 } : {}} whileTap={!isBackingUp ? { scale: 0.98 } : {}} onClick={handleCreateBackup} disabled={isBackingUp}
                     className="flex items-center space-x-2 bg-indigo-600 text-white px-6 py-3 rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 font-bold disabled:opacity-60">
@@ -128,55 +128,57 @@ const BackupRestoreScreen = () => {
 
             {/* Backup List */}
             <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-                <table className="w-full text-left border-collapse">
-                    <thead>
-                        <tr className="bg-gray-50/50 border-b border-gray-100">
-                            <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Backup</th>
-                            <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Type</th>
-                            <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Size</th>
-                            <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Tables</th>
-                            <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Status</th>
-                            <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Created</th>
-                            <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                        {backups.map((backup, bi) => (
-                            <motion.tr key={backup.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(bi, 15) * 0.02 }} className="hover:bg-gray-50/30 transition-colors">
-                                <td className="px-6 py-5">
-                                    <div className="flex items-center space-x-3">
-                                        <div className={`p-2 rounded-xl bg-purple-50`}>
-                                            <FileArchive className={`w-4 h-4 text-purple-600`} />
-                                        </div>
-                                        <span className="font-bold text-gray-800">{backup.filename}</span>
-                                    </div>
-                                </td>
-                                <td className="px-6 py-5"><span className={`text-xs font-bold px-3 py-1 rounded-full capitalize bg-purple-100 text-purple-700`}>manual</span></td>
-                                <td className="px-6 py-5 text-sm font-bold text-gray-700">{backup.size} KB</td>
-                                <td className="px-6 py-5 text-sm font-bold text-gray-700">All</td>
-                                <td className="px-6 py-5">
-                                    <span className={`text-xs font-bold px-3 py-1 rounded-full ${backup.status.includes('Completed') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{backup.status}</span>
-                                </td>
-                                <td className="px-6 py-5 text-sm text-gray-500">{new Date(backup.created_at).toLocaleString('en-NG')}</td>
-                                <td className="px-6 py-5">
-                                    <div className="flex items-center space-x-2">
-                                        <button onClick={() => handleRestore(backup.id)} disabled={isRestoring}
-                                            className="flex items-center space-x-1 px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-bold hover:bg-indigo-100 transition-all disabled:opacity-50">
-                                            {isRestoring && selectedBackup === backup.id ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
-                                            <span>Restore</span>
-                                        </button>
-                                        <button onClick={() => handleDelete(backup.id)} className="p-1.5 hover:bg-red-50 rounded-xl text-gray-400 hover:text-red-500 transition-all"><Trash2 className="w-4 h-4" /></button>
-                                    </div>
-                                </td>
-                            </motion.tr>
-                        ))}
-                        {backups.length === 0 && !loading && (
-                            <tr>
-                                <td colSpan={7} className="px-6 py-10 text-center text-gray-500">No backups found. Create one to get started.</td>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="bg-gray-50/50 border-b border-gray-100">
+                                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Backup</th>
+                                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Type</th>
+                                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Size</th>
+                                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Tables</th>
+                                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Status</th>
+                                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Created</th>
+                                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Actions</th>
                             </tr>
-                        )}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                            {backups.map((backup, bi) => (
+                                <motion.tr key={backup.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(bi, 15) * 0.02 }} className="hover:bg-gray-50/30 transition-colors">
+                                    <td className="px-6 py-5">
+                                        <div className="flex items-center space-x-3">
+                                            <div className={`p-2 rounded-xl bg-purple-50`}>
+                                                <FileArchive className={`w-4 h-4 text-purple-600`} />
+                                            </div>
+                                            <span className="font-bold text-gray-800">{backup.filename}</span>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-5"><span className={`text-xs font-bold px-3 py-1 rounded-full capitalize bg-purple-100 text-purple-700`}>manual</span></td>
+                                    <td className="px-6 py-5 text-sm font-bold text-gray-700">{backup.size} KB</td>
+                                    <td className="px-6 py-5 text-sm font-bold text-gray-700">All</td>
+                                    <td className="px-6 py-5">
+                                        <span className={`text-xs font-bold px-3 py-1 rounded-full ${backup.status.includes('Completed') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{backup.status}</span>
+                                    </td>
+                                    <td className="px-6 py-5 text-sm text-gray-500">{new Date(backup.created_at).toLocaleString('en-NG')}</td>
+                                    <td className="px-6 py-5">
+                                        <div className="flex items-center space-x-2">
+                                            <button onClick={() => handleRestore(backup.id)} disabled={isRestoring}
+                                                className="flex items-center space-x-1 px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-bold hover:bg-indigo-100 transition-all disabled:opacity-50">
+                                                {isRestoring && selectedBackup === backup.id ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                                                <span>Restore</span>
+                                            </button>
+                                            <button onClick={() => handleDelete(backup.id)} className="p-1.5 hover:bg-red-50 rounded-xl text-gray-400 hover:text-red-500 transition-all"><Trash2 className="w-4 h-4" /></button>
+                                        </div>
+                                    </td>
+                                </motion.tr>
+                            ))}
+                            {backups.length === 0 && !loading && (
+                                <tr>
+                                    <td colSpan={7} className="px-6 py-10 text-center text-gray-500">No backups found. Create one to get started.</td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     );

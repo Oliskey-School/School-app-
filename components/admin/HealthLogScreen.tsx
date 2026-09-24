@@ -421,7 +421,7 @@ const HealthLogScreen: React.FC<HealthLogProps> = ({ schoolId, currentUserId }) 
                                     type="submit"
                                     className="flex-[2] py-4 px-6 bg-rose-600 text-white font-bold rounded-2xl hover:bg-rose-700 shadow-xl shadow-rose-200 transition-all flex items-center justify-center gap-2"
                                 >
-                                    <PlusIcon className="w-5 h-5" />
+                                    <PlusIcon className="w-5 h-5 shrink-0" />
                                     Save Health Record
                                 </motion.button>
                             </div>
@@ -449,20 +449,20 @@ const HealthLogScreen: React.FC<HealthLogProps> = ({ schoolId, currentUserId }) 
                         </div>
 
                         <div className="flex gap-3 overflow-x-auto pb-1 md:pb-0 no-scrollbar">
-                            <div className="px-4 py-2 bg-rose-50 border border-rose-100 rounded-xl flex items-center gap-3 min-w-[140px]">
+                            <div className="px-4 py-2 bg-rose-50 border border-rose-100 rounded-xl flex items-center gap-3 min-w-[140px] max-w-full">
                                 <div className="p-2 bg-white rounded-lg text-rose-500 shadow-sm">
-                                    <ExclamationCircleIcon className="w-4 h-4" />
+                                    <ExclamationCircleIcon className="w-4 h-4 shrink-0" />
                                 </div>
-                                <div>
+                                <div className="min-w-0">
                                     <p className="text-xs text-rose-600 font-bold uppercase tracking-wider">Today</p>
                                     <p className="text-lg font-bold text-gray-900">{stats.today}</p>
                                 </div>
                             </div>
-                            <div className="px-4 py-2 bg-blue-50 border border-blue-100 rounded-xl flex items-center gap-3 min-w-[140px]">
+                            <div className="px-4 py-2 bg-blue-50 border border-blue-100 rounded-xl flex items-center gap-3 min-w-[140px] max-w-full">
                                 <div className="p-2 bg-white rounded-lg text-blue-500 shadow-sm">
-                                    <TrendingUpIcon className="w-4 h-4" />
+                                    <TrendingUpIcon className="w-4 h-4 shrink-0" />
                                 </div>
-                                <div>
+                                <div className="min-w-0">
                                     <p className="text-xs text-blue-600 font-bold uppercase tracking-wider">This Week</p>
                                     <p className="text-lg font-bold text-gray-900">{stats.week}</p>
                                 </div>
@@ -474,8 +474,8 @@ const HealthLogScreen: React.FC<HealthLogProps> = ({ schoolId, currentUserId }) 
                                 onClick={() => setView('add')}
                                 className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl shadow-lg shadow-rose-200 transition-all flex items-center gap-2 whitespace-nowrap"
                             >
-                                <PlusIcon className="w-5 h-5" />
-                                <span className="font-bold text-sm">New Entry</span>
+                                <PlusIcon className="w-5 h-5 shrink-0" />
+                                <span className="font-bold text-sm min-w-0">New Entry</span>
                             </motion.button>
                         </div>
                     </div>

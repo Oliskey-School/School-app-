@@ -15,15 +15,28 @@ import { api } from './api';
 
 export type ColorScheme = 'light' | 'dark' | 'system';
 
+/**
+ * How the dashboard's total cards are laid out.
+ *
+ * `comfortable` gives each card room for its full label on one or two lines;
+ * `compact` fits more cards per row and shortens the label to suit. Both were
+ * measured in the running app at 360-1600px: neither lets a label overflow its
+ * card or split a word, which is what the fixed four-up layout did beside the
+ * 256px sidebar (a 26px box for a 66px word at 1280).
+ */
+export type StatCardLayout = 'comfortable' | 'compact';
+
 export interface UiPreferences {
     /** Legacy boolean kept for older saved copies; colorScheme wins when present. */
     darkMode?: boolean;
     colorScheme?: ColorScheme;
+    statCardLayout?: StatCardLayout;
     appearance?: Record<string, unknown>;
     updated_at?: string;
 }
 
 const SCHEME_KEY = 'colorScheme';
+const STAT_CARDS_KEY = 'statCardLayout';
 const systemDark = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-color-scheme: dark)').matches;
 
 export function getColorScheme(): ColorScheme {
@@ -44,6 +57,20 @@ export function applyColorScheme(scheme: ColorScheme, opts: { sync?: boolean } =
     } catch { /* storage unavailable */ }
     if (opts.sync) syncUiPreference({ colorScheme: scheme, darkMode: dark });
     window.dispatchEvent(new CustomEvent(PREFERENCES_APPLIED_EVENT, { detail: { colorScheme: scheme } }));
+}
+
+export function getStatCardLayout(): StatCardLayout {
+    try {
+        // Compact is the default: it is what the owner chose as the standard look.
+        return localStorage.getItem(STAT_CARDS_KEY) === 'comfortable' ? 'comfortable' : 'compact';
+    } catch { return 'compact'; }
+}
+
+/** Apply on this device, remember it, and (optionally) push to the account. */
+export function applyStatCardLayout(layout: StatCardLayout, opts: { sync?: boolean } = {}): void {
+    try { localStorage.setItem(STAT_CARDS_KEY, layout); } catch { /* storage unavailable */ }
+    if (opts.sync) syncUiPreference({ statCardLayout: layout });
+    window.dispatchEvent(new CustomEvent(PREFERENCES_APPLIED_EVENT, { detail: { statCardLayout: layout } }));
 }
 
 let systemListener: MediaQueryList | null = null;
@@ -94,6 +121,9 @@ export function applyAccountPreferences(prefs: UiPreferences | null | undefined,
         applyColorScheme(prefs.colorScheme);
     } else if (typeof prefs.darkMode === 'boolean') {
         applyColorScheme(prefs.darkMode ? 'dark' : 'light');
+    }
+    if (prefs.statCardLayout === 'comfortable' || prefs.statCardLayout === 'compact') {
+        applyStatCardLayout(prefs.statCardLayout);
     }
     if (prefs.appearance && typeof prefs.appearance === 'object') {
         // Same storage the appearance control reads, keyed per user+role.

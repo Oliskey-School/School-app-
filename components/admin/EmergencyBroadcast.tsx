@@ -275,7 +275,7 @@ export function EmergencyBroadcast({ onClose }: EmergencyBroadcastProps) {
             {/* Target Audience */}
             <div className="mb-6">
                 <label className="block font-semibold text-gray-900 mb-3">Target Audience</label>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {audiences.map((audience) => (
                         <motion.button
                             key={audience.id}

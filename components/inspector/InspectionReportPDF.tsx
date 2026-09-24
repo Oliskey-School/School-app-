@@ -53,7 +53,7 @@ export default function InspectionReportPDF({
                         onClick={handleDownload}
                         className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
                     >
-                        <Download className="w-5 h-5" />
+                        <Download className="w-5 h-5 shrink-0" />
                         Download PDF
                     </button>
                 </div>
@@ -112,7 +112,7 @@ export default function InspectionReportPDF({
                             <Calendar className="w-6 h-6 text-indigo-600" />
                             Inspection Details
                         </h2>
-                        <div className="grid grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                             <InfoField
                                 label="Inspection Date"
                                 value={new Date(inspection.inspection_date).toLocaleDateString('en-GB', {
@@ -133,7 +133,7 @@ export default function InspectionReportPDF({
                     <div className="p-8 border-b border-slate-200">
                         <h2 className="text-xl font-bold text-slate-900 mb-4">Performance Summary</h2>
                         <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-6 mb-6">
-                            <div className="grid grid-cols-3 gap-6 text-center">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 text-center">
                                 <div>
                                     <p className="text-sm text-slate-600 mb-2">Total Score</p>
                                     <p className="text-4xl font-bold text-indigo-600">{inspection.total_score}</p>

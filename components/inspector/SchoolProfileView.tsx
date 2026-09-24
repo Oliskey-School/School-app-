@@ -42,8 +42,8 @@ export const SchoolProfileView: React.FC<Props> = ({
           onClick={onStartInspection}
           className="bg-indigo-600 text-white px-8 py-3.5 rounded-2xl font-black shadow-xl shadow-indigo-100 hover:bg-indigo-500 transition-all flex items-center gap-2"
         >
-          <Plus className="w-5 h-5" />
-          <span>Conduct New Inspection</span>
+          <Plus className="w-5 h-5 shrink-0" />
+          <span className="min-w-0">Conduct New Inspection</span>
         </button>
       </div>
 
@@ -216,8 +216,8 @@ export const SchoolProfileView: React.FC<Props> = ({
                
                {profile.teacher_summary?.flagged_count > 0 && (
                  <div className="p-4 bg-red-400/10 border border-red-400/20 rounded-2xl flex items-center gap-3 text-red-400">
-                    <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                    <p className="text-xs font-bold leading-snug">
+                    <AlertCircle className="w-5 h-5 flex-shrink-0 shrink-0" />
+                    <p className="text-xs font-bold leading-snug min-w-0">
                       Alert: {profile.teacher_summary.flagged_count} teachers have expired or missing TRCN certificates.
                     </p>
                  </div>

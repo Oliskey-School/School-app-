@@ -136,7 +136,7 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Payment Frequency
                         </label>
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                             <motion.button
                                 whileHover={{ scale: 1.02 }}
                                 whileTap={{ scale: 0.98 }}
@@ -193,28 +193,30 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
                     <div>
                         <h3 className="text-sm font-medium text-gray-700 mb-3">Payment Schedule Preview</h3>
                         <div className="border border-gray-200 rounded-lg overflow-hidden">
-                            <table className="w-full text-sm">
-                                <thead className="bg-gray-50">
-                                    <tr>
-                                        <th className="text-left px-4 py-2 font-medium text-gray-700">#</th>
-                                        <th className="text-left px-4 py-2 font-medium text-gray-700">Due Date</th>
-                                        <th className="text-right px-4 py-2 font-medium text-gray-700">Amount</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100">
-                                    {previewDates.map((date, index) => (
-                                        <tr key={index} className="hover:bg-gray-50">
-                                            <td className="px-4 py-3 text-gray-600">Installment {index + 1}</td>
-                                            <td className="px-4 py-3 text-gray-900">
-                                                {date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-                                            </td>
-                                            <td className="px-4 py-3 text-right font-medium text-gray-900">
-                                                {new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(installmentAmount)}
-                                            </td>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead className="bg-gray-50">
+                                        <tr>
+                                            <th className="text-left px-4 py-2 font-medium text-gray-700">#</th>
+                                            <th className="text-left px-4 py-2 font-medium text-gray-700">Due Date</th>
+                                            <th className="text-right px-4 py-2 font-medium text-gray-700">Amount</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {previewDates.map((date, index) => (
+                                            <tr key={index} className="hover:bg-gray-50">
+                                                <td className="px-4 py-3 text-gray-600">Installment {index + 1}</td>
+                                                <td className="px-4 py-3 text-gray-900">
+                                                    {date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                                                </td>
+                                                <td className="px-4 py-3 text-right font-medium text-gray-900">
+                                                    {new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(installmentAmount)}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>

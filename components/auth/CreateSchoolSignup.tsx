@@ -428,10 +428,10 @@ const CreateSchoolSignup: React.FC<CreateSchoolSignupProps> = ({ onNavigateToLog
                                                 <button
                                                     type="submit"
                                                     disabled={isLoading || otpCode.length < 6}
-                                                    className="w-full sm:w-auto min-w-[200px] bg-indigo-600 text-white font-black py-4 px-8 rounded-2xl shadow-xl shadow-indigo-600/20 hover:bg-indigo-700 hover:shadow-indigo-600/40 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:scale-100"
+                                                    className="w-full sm:w-auto min-w-[200px] max-w-full bg-indigo-600 text-white font-black py-4 px-8 rounded-2xl shadow-xl shadow-indigo-600/20 hover:bg-indigo-700 hover:shadow-indigo-600/40 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:scale-100"
                                                 >
                                                     {isLoading ? (
-                                                        <Loader2 className="w-5 h-5 animate-spin" />
+                                                        <Loader2 className="w-5 h-5 animate-spin shrink-0" />
                                                     ) : 'Verify & Login'}
                                                 </button>
                                             </div>
@@ -685,7 +685,7 @@ const CreateSchoolSignup: React.FC<CreateSchoolSignupProps> = ({ onNavigateToLog
                                                         onClick={prevStep}
                                                         className="w-full sm:w-auto px-8 py-4 text-slate-500 font-bold hover:text-slate-700 hover:bg-slate-100 rounded-2xl transition-all flex items-center justify-center gap-2"
                                                     >
-                                                        <ChevronLeftIcon className="w-5 h-5" /> Back
+                                                        <ChevronLeftIcon className="w-5 h-5 shrink-0" /> Back
                                                     </button>
                                                 ) : (
                                                     <div className="hidden sm:block" />
@@ -694,10 +694,10 @@ const CreateSchoolSignup: React.FC<CreateSchoolSignupProps> = ({ onNavigateToLog
                                                 <button
                                                     type="submit"
                                                     disabled={isLoading}
-                                                    className="w-full sm:w-auto min-w-[200px] bg-indigo-600 text-white font-black py-4 px-8 rounded-2xl shadow-xl shadow-indigo-600/20 hover:bg-indigo-700 hover:shadow-indigo-600/40 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                                                    className="w-full sm:w-auto min-w-[200px] max-w-full bg-indigo-600 text-white font-black py-4 px-8 rounded-2xl shadow-xl shadow-indigo-600/20 hover:bg-indigo-700 hover:shadow-indigo-600/40 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                                                 >
                                                     {isLoading ? (
-                                                        <Loader2 className="w-5 h-5 animate-spin" />
+                                                        <Loader2 className="w-5 h-5 animate-spin shrink-0" />
                                                     ) : (
                                                         <>
                                                             {step === 1 ? 'Continue' : 'Create School & Send Code'}
@@ -760,7 +760,7 @@ const BackgroundDecor = React.memo(() => {
                 <motion.div
                     animate={{ x: [0, -40, 0], y: [0, 50, 0], scale: [1, 1.2, 1] }}
                     transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
-                    className="absolute bottom-[10%] right-[10%] w-[500px] h-[500px] bg-purple-100 rounded-full blur-3xl opacity-30"
+                    className="absolute bottom-[10%] right-[10%] w-[500px] max-w-full h-[500px] bg-purple-100 rounded-full blur-3xl opacity-30"
                 />
             </div>
         </>

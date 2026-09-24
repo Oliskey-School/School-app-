@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback, lazy, Suspense } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import DashboardLayout from '../layout/DashboardLayout';
 import { DEFAULT_AVATAR } from '../../lib/avatar';
@@ -27,7 +27,7 @@ import {
     getFormattedClassName
 } from '../../constants';
 import { formatSchoolId } from '../../utils/idFormatter';
-import PremiumLoader from '../ui/PremiumLoader';
+import PremiumLoader, { BOOT_MESSAGE } from '../ui/PremiumLoader';
 import PremiumModal from '../ui/PremiumModal';
 import ErrorBoundary from '../ui/ErrorBoundary';
 import SchoolContextSwitcher from '../ui/SchoolContextSwitcher';
@@ -98,7 +98,7 @@ import PanicButton from '../shared/PanicButton';
 import MentalHealthResources from '../shared/MentalHealthResources';
 
 const DashboardSuspenseFallback = () => (
-    <PremiumLoader message="Syncing children's data..." />
+    <PremiumLoader message={BOOT_MESSAGE} />
 );
 
 const StatItem = ({ icon, label, value, colorClass }: { icon: React.ReactNode, label: string, value: string | React.ReactNode, colorClass: string }) => (
@@ -425,7 +425,7 @@ const AttendanceTab = ({ student }: { student: Student }) => {
                 <span className="flex items-center"><div className="w-3 h-3 rounded-full bg-blue-400 mr-1.5"></div>Late</span>
             </div>
             {termDays && (
-                <div className="grid grid-cols-4 gap-2 text-center mt-4">
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-center mt-4">
                     <div className="bg-gray-50 rounded-lg p-2"><p className="font-bold text-gray-800">{termDays.total}</p><p className="text-xs text-gray-500">School days</p></div>
                     <div className="bg-green-50 rounded-lg p-2"><p className="font-bold text-green-600">{termDays.present}</p><p className="text-xs text-gray-500">Present</p></div>
                     <div className="bg-red-50 rounded-lg p-2"><p className="font-bold text-red-600">{termDays.absent}</p><p className="text-xs text-gray-500">Absent</p></div>
@@ -741,12 +741,19 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
         </div>
     ));
 
+    const hasRenderedRef = useRef(false);
+
     const commonProps = { navigateTo, onLogout, handleBack, forceUpdate, parentId, currentUser: user, currentUserId, schoolId, currentBranchId, version, students, loading: loadingStudents };
 
-    // Only show loading for parent profile if we have schoolId and it's actually loading
-    if (loadingProfile && !parentId && schoolId) {
-        return <PremiumLoader message="Syncing parent profile..." />;
+    // Only before anything has been shown. `schoolId` arrives after the first
+    // render, so this condition turned true a second time and replaced an
+    // already-painted dashboard with a full-screen loader — measured at 3803ms
+    // on the production build, a second after the dashboard appeared at 3713ms.
+    // Once the shell has been shown, the profile finishes loading behind it.
+    if (loadingProfile && !parentId && schoolId && !hasRenderedRef.current) {
+        return <PremiumLoader message={BOOT_MESSAGE} />;
     }
+    hasRenderedRef.current = true;
 
     if (profileError && !parentId) {
         return (

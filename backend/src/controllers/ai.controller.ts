@@ -1,4 +1,5 @@
 import { Response } from 'express';
+import { withOliskeyKnowledge } from '../services/aiKnowledge.service';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { AiService } from '../services/ai.service';
 import { NvidiaAIService, NVIDIA_MODELS } from '../services/nvidiaAI.service';
@@ -28,7 +29,24 @@ export const aiChat = async (req: AuthRequest, res: Response) => {
         // Central gateway: NVIDIA first, Gemini on a transient failure. The
         // user id scopes in-flight de-duplication so two users with the same
         // prompt never share a response.
-        const result = await AIGateway.chat(req.body, String(req.user?.id || ''));
+        // Oliskey product knowledge, the security rules and the user's context
+        // are attached HERE, before the gateway picks a provider — so NVIDIA and
+        // the Gemini fallback receive exactly the same system messages. Role,
+        // school and branch come from the verified session; the client may only
+        // supply presentational hints (which page/module it is showing).
+        const body = withOliskeyKnowledge(req.body || {}, {
+            role: req.user?.role,
+            userId: req.user?.id,
+            schoolId: req.user?.school_id,
+            branchId: (req.user as any)?.active_branch_id || req.user?.branch_id,
+            page: typeof req.body?.context?.page === 'string' ? req.body.context.page.slice(0, 120) : null,
+            module: typeof req.body?.context?.module === 'string' ? req.body.context.module.slice(0, 120) : null,
+            session: typeof req.body?.context?.session === 'string' ? req.body.context.session.slice(0, 40) : null,
+            term: typeof req.body?.context?.term === 'string' ? req.body.context.term.slice(0, 40) : null,
+        });
+        delete (body as any).context;   // a UI hint, not part of the provider payload
+
+        const result = await AIGateway.chat(body, String(req.user?.id || ''));
         res.json(result);
     } catch (error: any) { sendAiError(res, error); }
 };

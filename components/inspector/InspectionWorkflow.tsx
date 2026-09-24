@@ -239,7 +239,7 @@ export const InspectionWorkflow: React.FC<Props> = ({
                 className="px-8 py-4 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-200 flex items-center gap-2"
               >
                 <span>Continue to Summary</span>
-                <ChevronRight className="w-5 h-5" />
+                <ChevronRight className="w-5 h-5 shrink-0" />
               </button>
             </div>
           </motion.div>
@@ -284,15 +284,15 @@ export const InspectionWorkflow: React.FC<Props> = ({
                 onClick={() => setCurrentStep('checklist')}
                 className="px-8 py-4 bg-white border border-slate-200 text-slate-600 rounded-2xl font-bold hover:bg-slate-50 transition-all flex items-center gap-2"
               >
-                <ChevronLeft className="w-5 h-5" />
-                <span>Back to Checklist</span>
+                <ChevronLeft className="w-5 h-5 shrink-0" />
+                <span className="min-w-0">Back to Checklist</span>
               </button>
               <button 
                 onClick={() => setCurrentStep('finalize')}
                 className="px-8 py-4 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-200 flex items-center gap-2"
               >
                 <span>Review & Sign</span>
-                <ChevronRight className="w-5 h-5" />
+                <ChevronRight className="w-5 h-5 shrink-0" />
               </button>
             </div>
           </motion.div>
@@ -321,7 +321,7 @@ export const InspectionWorkflow: React.FC<Props> = ({
                         onClick={() => setShowSignaturePad(true)}
                         className="w-full py-4 border-2 border-dashed border-indigo-200 text-indigo-600 rounded-2xl font-bold hover:bg-indigo-50 hover:border-indigo-400 transition-all flex items-center justify-center gap-2"
                        >
-                         <PenTool className="w-5 h-5" />
+                         <PenTool className="w-5 h-5 shrink-0" />
                          Click to Sign Digitally
                        </button>
                      ) : (
@@ -355,16 +355,16 @@ export const InspectionWorkflow: React.FC<Props> = ({
                 onClick={() => setCurrentStep('summary')}
                 className="px-8 py-4 bg-white border border-slate-200 text-slate-600 rounded-2xl font-bold hover:bg-slate-50 transition-all flex items-center gap-2"
               >
-                <ChevronLeft className="w-5 h-5" />
-                <span>Back to Summary</span>
+                <ChevronLeft className="w-5 h-5 shrink-0" />
+                <span className="min-w-0">Back to Summary</span>
               </button>
               <button 
                 onClick={handleFinalize}
                 disabled={updateMutation.isPending}
                 className="px-10 py-4 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-2xl font-black hover:shadow-xl hover:shadow-emerald-200 transition-all disabled:opacity-50 flex items-center gap-2"
               >
-                <CheckCircle2 className="w-6 h-6" />
-                <span>FINALIZE & SUBMIT REPORT</span>
+                <CheckCircle2 className="w-6 h-6 shrink-0" />
+                <span className="min-w-0">FINALIZE & SUBMIT REPORT</span>
               </button>
             </div>
           </motion.div>

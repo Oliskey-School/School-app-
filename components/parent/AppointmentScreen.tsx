@@ -321,7 +321,7 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
                                 className="mt-8 px-8 py-3 bg-green-600 text-white font-bold rounded-xl shadow-lg shadow-green-100 hover:bg-green-700 transition-colors flex items-center mx-auto space-x-2"
                             >
                                 <span>Link a Student Now</span>
-                                <ChevronRightIcon className="w-5 h-5" />
+                                <ChevronRightIcon className="w-5 h-5 shrink-0" />
                             </motion.button>
                         </div>
                     ) : (
@@ -565,7 +565,7 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
                                             className="w-full py-4 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg shadow-green-100 disabled:bg-gray-200 disabled:shadow-none disabled:text-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2"
                                         >
                                             <span>{isBooking ? 'Booking...' : 'Confirm Appointment'}</span>
-                                            <ChevronRightIcon className="w-5 h-5" />
+                                            <ChevronRightIcon className="w-5 h-5 shrink-0" />
                                         </motion.button>
                                     </div>
                                 </section>

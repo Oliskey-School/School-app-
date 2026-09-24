@@ -221,7 +221,7 @@ export const FeesPiggyBank: React.FC<{ studentId: string }> = ({ studentId }) =>
                                 className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg shadow-indigo-200 flex items-center justify-center gap-2"
                             >
                                 DEPOSIT FUNDS
-                                <ArrowRight className="w-4 h-4" />
+                                <ArrowRight className="w-4 h-4 shrink-0" />
                             </motion.button>
                         )}
                     </AnimatePresence>

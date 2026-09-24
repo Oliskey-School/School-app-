@@ -311,7 +311,7 @@ const ReportCardPreview: React.FC<ReportCardPreviewProps> = ({ student, schoolId
                                 >
                                 {/* Static Watermark */}
                                 <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] pointer-events-none select-none">
-                                    <SchoolIcon className="w-[400px] h-[400px] text-indigo-900" />
+                                    <SchoolIcon className="w-[400px] max-w-full h-[400px] text-indigo-900" />
                                 </div>
 
                                 <div ref={contentRef} className="relative">

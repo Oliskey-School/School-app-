@@ -56,7 +56,7 @@ const CodeChallengeLobbyScreen: React.FC<CodeChallengeLobbyScreenProps> = ({ nav
                     onClick={() => navigateTo('codeChallengeGame', 'Code Challenge', { student })}
                     className="w-full py-4 text-xl font-bold text-white bg-purple-600 rounded-2xl shadow-xl hover:bg-purple-700 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3"
                 >
-                    <CpuIcon className="w-6 h-6" />
+                    <CpuIcon className="w-6 h-6 shrink-0" />
                     Start Coding
                 </button>
 
@@ -64,8 +64,8 @@ const CodeChallengeLobbyScreen: React.FC<CodeChallengeLobbyScreenProps> = ({ nav
                     onClick={handleShareChallenge}
                     className="w-full py-4 text-lg font-bold text-purple-700 bg-purple-50 border-2 border-purple-200 rounded-2xl hover:bg-purple-100 transition-colors flex items-center justify-center space-x-2"
                 >
-                    <ShareIcon className="w-5 h-5" />
-                    <span>Invite Programmers</span>
+                    <ShareIcon className="w-5 h-5 shrink-0" />
+                    <span className="min-w-0">Invite Programmers</span>
                 </button>
             </div>
 

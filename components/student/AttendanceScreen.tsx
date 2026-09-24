@@ -181,7 +181,7 @@ const AttendanceScreen: React.FC<AttendanceScreenProps> = ({ studentId }) => {
         return (
             <div className="p-4 space-y-5 bg-gray-50 animate-pulse">
                 <div className="bg-white rounded-xl shadow-sm p-4 h-72" />
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {[0, 1, 2].map(i => <div key={i} className="bg-white p-3 rounded-xl shadow-sm h-16" />)}
                 </div>
                 <div className="bg-white rounded-xl shadow-sm p-4 h-48" />
@@ -238,7 +238,7 @@ const AttendanceScreen: React.FC<AttendanceScreenProps> = ({ studentId }) => {
                 </div>
             </motion.div>
 
-            <div className="grid grid-cols-3 gap-3 text-center">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-center">
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: 0.05 }} className="bg-white p-3 rounded-xl shadow-sm hover:shadow-md transition-shadow"><p className="font-bold text-lg text-green-600">{monthlyStats.present}</p><p className="text-xs text-gray-500">Present</p></motion.div>
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: 0.1 }} className="bg-white p-3 rounded-xl shadow-sm hover:shadow-md transition-shadow"><p className="font-bold text-lg text-red-600">{monthlyStats.absent}</p><p className="text-xs text-gray-500">Absent</p></motion.div>
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: 0.15 }} className="bg-white p-3 rounded-xl shadow-sm hover:shadow-md transition-shadow"><p className="font-bold text-lg text-blue-600">{monthlyStats.late}</p><p className="text-xs text-gray-500">Late</p></motion.div>
@@ -263,7 +263,7 @@ const AttendanceScreen: React.FC<AttendanceScreenProps> = ({ studentId }) => {
                     </div>
                 </div>
                 {termSummary && (
-                    <div className="grid grid-cols-4 gap-2 text-center mb-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-center mb-3">
                         <div className="bg-gray-50 rounded-lg p-2"><p className="font-bold text-gray-800">{termSummary.total}</p><p className="text-xs text-gray-500">School days</p></div>
                         <div className="bg-green-50 rounded-lg p-2"><p className="font-bold text-green-600">{termSummary.present}</p><p className="text-xs text-gray-500">Present</p></div>
                         <div className="bg-red-50 rounded-lg p-2"><p className="font-bold text-red-600">{termSummary.absent}</p><p className="text-xs text-gray-500">Absent</p></div>

@@ -89,8 +89,8 @@ const ComplianceDashboard = () => {
                     <p className="text-gray-500 mt-1">Real-time governance monitoring and regulatory oversight.</p>
                 </div>
                 <div className={`px-6 py-3 rounded-2xl border-2 flex items-center space-x-3 ${getStatusColor(overallScore)}`}>
-                    <ShieldCheck className="w-6 h-6" />
-                    <div>
+                    <ShieldCheck className="w-6 h-6 shrink-0" />
+                    <div className="min-w-0">
                         <p className="text-xs uppercase font-black tracking-widest opacity-70">Overall Status</p>
                         <p className="text-xl font-bold">{overallScore}% Compliant</p>
                     </div>

@@ -5,6 +5,7 @@ import { Routes, Route } from 'react-router';
 import VerifiedAdminRoute from './auth/VerifiedAdminRoute';
 import { lazyWithRetry } from '../lib/lazyRetry';
 import { prefetchRoleChunks } from '../lib/rolePrefetch';
+import PremiumLoader, { BOOT_MESSAGE } from './ui/PremiumLoader';
 
 const PremiumErrorPage = lazyWithRetry(() => import('./ui/PremiumErrorPage'));
 
@@ -21,11 +22,16 @@ const CounselorDashboard = lazyWithRetry(() => import('./admin/CounselorDashboar
 const SubscriptionPage = lazyWithRetry(() => import('./subscription/SubscriptionPage'));
 const ExternalExamsPage = lazyWithRetry(() => import('./admin/ExternalExamsPage'));
 
-const LoadingScreen = () => (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
-    </div>
-);
+/**
+ * The router shows the same Oliskey loader as the rest of the app.
+ *
+ * It used to render a bare indigo spinner on grey. Starting the app crosses this
+ * router between two phases that both show the branded loader, so the sequence
+ * read as branded screen, then a completely different spinner, then branded
+ * again — the "two loading screens" people were seeing. Same component now, so
+ * there is nothing to cut between.
+ */
+const LoadingScreen = () => <PremiumLoader message={BOOT_MESSAGE} />;
 
 interface DashboardRouterProps {
     onLogout?: () => void;
@@ -70,7 +76,9 @@ const DashboardRouter: React.FC<DashboardRouterProps> = (props) => {
         };
     }, [loading, role]);
 
-    if (loading) return <LoadingScreen />;
+    // Only before we know the role. After that the dashboard is rendered, and a
+    // background auth refresh must not swap it out for a full-screen loader.
+    if (loading && !role) return <LoadingScreen />;
 
     const renderDashboard = () => {
         switch (role) {

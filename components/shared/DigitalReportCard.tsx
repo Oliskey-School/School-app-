@@ -22,7 +22,7 @@ export const DigitalReportCard: React.FC<ReportProps> = ({ summary, grades, scho
             </div>
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-4 gap-4 mb-8">
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                 <div className="bg-indigo-50 p-4 rounded-2xl text-center">
                     <p className="text-xs font-bold text-indigo-400 uppercase mb-1">Position</p>
                     <p className="text-2xl font-black text-indigo-700">{summary.position_in_class} / {summary.total_students_in_class}</p>

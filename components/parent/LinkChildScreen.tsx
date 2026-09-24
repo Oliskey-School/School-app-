@@ -199,8 +199,8 @@ const LinkChildScreen: React.FC<LinkChildScreenProps> = ({ handleBack, forceUpda
                             </div>
 
                             <div className="bg-blue-50 p-4 rounded-xl flex items-start space-x-3">
-                                <ShieldCheckIcon className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                                <p className="text-xs text-blue-800 leading-relaxed font-medium">
+                                <ShieldCheckIcon className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5 shrink-0" />
+                                <p className="text-xs text-blue-800 leading-relaxed font-medium min-w-0">
                                     For security, linking requires the exact unique ID and the child's date of birth. Once linked, you can view grades, attendance, and pay fees instantly.
                                 </p>
                             </div>

@@ -173,7 +173,7 @@ const SessionPromotionScreen: React.FC<SessionPromotionScreenProps> = ({ schoolI
                             disabled={promoting || loading || students.length === 0 || !toSession.trim()}
                             className="flex-1 py-3 px-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2"
                         >
-                            <ArrowUpCircle className="w-5 h-5" />
+                            <ArrowUpCircle className="w-5 h-5 shrink-0" />
                             {promoting ? 'Promoting…' : `Promote ${students.length} Students to ${toSession}`}
                         </motion.button>
                     </div>

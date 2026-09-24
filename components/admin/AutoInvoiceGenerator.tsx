@@ -161,21 +161,21 @@ const AutoInvoiceGenerator = () => {
             </header>
 
             {/* Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
-                    <div className="p-3 rounded-2xl bg-indigo-50 text-indigo-600"><FileText className="w-6 h-6" /></div>
+                    <div className="p-3 rounded-2xl bg-indigo-50 text-indigo-600 shrink-0"><FileText className="w-6 h-6" /></div>
                     <div><p className="text-2xl font-bold text-gray-900">{totalGenerated}</p><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Generated</p></div>
                 </motion.div>
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.05 }} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
-                    <div className="p-3 rounded-2xl bg-amber-50 text-amber-600"><Send className="w-6 h-6" /></div>
+                    <div className="p-3 rounded-2xl bg-amber-50 text-amber-600 shrink-0"><Send className="w-6 h-6" /></div>
                     <div><p className="text-2xl font-bold text-gray-900">{totalSent}</p><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Sent</p></div>
                 </motion.div>
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.1 }} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
-                    <div className="p-3 rounded-2xl bg-emerald-50 text-emerald-600"><CheckCircle2 className="w-6 h-6" /></div>
+                    <div className="p-3 rounded-2xl bg-emerald-50 text-emerald-600 shrink-0"><CheckCircle2 className="w-6 h-6" /></div>
                     <div><p className="text-2xl font-bold text-gray-900">{totalPaid}</p><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Paid</p></div>
                 </motion.div>
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.15 }} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center space-x-4">
-                    <div className="p-3 rounded-2xl bg-red-50 text-red-600"><Clock className="w-6 h-6" /></div>
+                    <div className="p-3 rounded-2xl bg-red-50 text-red-600 shrink-0"><Clock className="w-6 h-6" /></div>
                     <div><p className="text-2xl font-bold text-gray-900">{totalOverdue}</p><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Overdue</p></div>
                 </motion.div>
             </div>
@@ -189,52 +189,54 @@ const AutoInvoiceGenerator = () => {
 
             {/* Invoice Table */}
             <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-                <table className="w-full text-left border-collapse">
-                    <thead>
-                        <tr className="bg-gray-50/50 border-b border-gray-100">
-                            <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Invoice #</th>
-                            <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Student</th>
-                            <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Description</th>
-                            <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Amount</th>
-                            <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Status</th>
-                            <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Due Date</th>
-                            <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                        {loading ? (
-                            <tr>
-                                <td colSpan={7} className="px-6 py-20 text-center"><RefreshCw className="w-8 h-8 text-indigo-500 animate-spin mx-auto" /></td>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="bg-gray-50/50 border-b border-gray-100">
+                                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Invoice #</th>
+                                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Student</th>
+                                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Description</th>
+                                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Amount</th>
+                                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Status</th>
+                                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Due Date</th>
+                                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Actions</th>
                             </tr>
-                        ) : filteredInvoices.map((inv, ii) => (
-                            <motion.tr key={inv.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(ii, 15) * 0.02 }} className="hover:bg-gray-50/30 transition-colors">
-                                <td className="px-6 py-4 font-bold text-indigo-600 text-sm">{inv.invoice_number}</td>
-                                <td className="px-6 py-4"><div><span className="font-bold text-gray-800 text-sm">{inv.student_name}</span></div><span className="text-xs text-gray-400">{inv.class_name} • {inv.parent_name}</span></td>
-                                <td className="px-6 py-4 text-sm text-gray-600">{inv.fee_description}</td>
-                                <td className="px-6 py-4 font-bold text-gray-800">₦{inv.amount.toLocaleString()}</td>
-                                <td className="px-6 py-4"><span className={`text-xs font-bold px-3 py-1 rounded-full capitalize ${statusStyles[inv.status]}`}>{inv.status}</span></td>
-                                <td className="px-6 py-4 text-sm text-gray-500">{new Date(inv.due_date).toLocaleDateString('en-NG')}</td>
-                                <td className="px-6 py-4">
-                                    <div className="flex items-center space-x-2">
-                                        <button className="p-1.5 hover:bg-gray-100 rounded-xl text-gray-400 hover:text-indigo-600 transition-all" title="Preview"><Eye className="w-4 h-4" /></button>
-                                        <button className="p-1.5 hover:bg-gray-100 rounded-xl text-gray-400 hover:text-indigo-600 transition-all" title="Download PDF"><Download className="w-4 h-4" /></button>
-                                        {inv.has_qr && <button className="p-1.5 hover:bg-gray-100 rounded-xl text-gray-400 hover:text-indigo-600 transition-all" title="QR Receipt"><QrCode className="w-4 h-4" /></button>}
-                                        {inv.status === 'generated' && (
-                                            <button onClick={() => handleSendInvoice(inv.id)} className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-bold hover:bg-indigo-100 transition-all flex items-center space-x-1">
-                                                <Send className="w-3 h-3" /><span>Send</span>
-                                            </button>
-                                        )}
-                                    </div>
-                                </td>
-                            </motion.tr>
-                        ))}
-                        {!loading && filteredInvoices.length === 0 && (
-                            <tr>
-                                <td colSpan={7} className="px-6 py-20 text-center text-gray-400">No invoices found.</td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                            {loading ? (
+                                <tr>
+                                    <td colSpan={7} className="px-6 py-20 text-center"><RefreshCw className="w-8 h-8 text-indigo-500 animate-spin mx-auto" /></td>
+                                </tr>
+                            ) : filteredInvoices.map((inv, ii) => (
+                                <motion.tr key={inv.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: Math.min(ii, 15) * 0.02 }} className="hover:bg-gray-50/30 transition-colors">
+                                    <td className="px-6 py-4 font-bold text-indigo-600 text-sm">{inv.invoice_number}</td>
+                                    <td className="px-6 py-4"><div><span className="font-bold text-gray-800 text-sm">{inv.student_name}</span></div><span className="text-xs text-gray-400">{inv.class_name} • {inv.parent_name}</span></td>
+                                    <td className="px-6 py-4 text-sm text-gray-600">{inv.fee_description}</td>
+                                    <td className="px-6 py-4 font-bold text-gray-800">₦{inv.amount.toLocaleString()}</td>
+                                    <td className="px-6 py-4"><span className={`text-xs font-bold px-3 py-1 rounded-full capitalize ${statusStyles[inv.status]}`}>{inv.status}</span></td>
+                                    <td className="px-6 py-4 text-sm text-gray-500">{new Date(inv.due_date).toLocaleDateString('en-NG')}</td>
+                                    <td className="px-6 py-4">
+                                        <div className="flex items-center space-x-2">
+                                            <button className="p-1.5 hover:bg-gray-100 rounded-xl text-gray-400 hover:text-indigo-600 transition-all" title="Preview"><Eye className="w-4 h-4" /></button>
+                                            <button className="p-1.5 hover:bg-gray-100 rounded-xl text-gray-400 hover:text-indigo-600 transition-all" title="Download PDF"><Download className="w-4 h-4" /></button>
+                                            {inv.has_qr && <button className="p-1.5 hover:bg-gray-100 rounded-xl text-gray-400 hover:text-indigo-600 transition-all" title="QR Receipt"><QrCode className="w-4 h-4" /></button>}
+                                            {inv.status === 'generated' && (
+                                                <button onClick={() => handleSendInvoice(inv.id)} className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-bold hover:bg-indigo-100 transition-all flex items-center space-x-1">
+                                                    <Send className="w-3 h-3" /><span>Send</span>
+                                                </button>
+                                            )}
+                                        </div>
+                                    </td>
+                                </motion.tr>
+                            ))}
+                            {!loading && filteredInvoices.length === 0 && (
+                                <tr>
+                                    <td colSpan={7} className="px-6 py-20 text-center text-gray-400">No invoices found.</td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             {/* Generate Invoice Modal */}
