@@ -296,6 +296,36 @@ html.glass .bg-white.rounded-\[2rem\]:not(.liquid-glass):not(.liquid-glass-solid
   animation: slideInUp 0.4s ease-out forwards;
 }
 
+/*
+ * Entrance for the routed screen wrapper in DashboardLayout.
+ *
+ * It deliberately animates opacity ONLY. `slideInUp` ends on
+ * `transform: translateY(0)` with `forwards`, and a retained transform — even
+ * an identity one — makes that element the containing block for every
+ * `position: fixed` descendant, and gives it its own stacking context. Applied
+ * to the wrapper around every screen, that quietly broke every fixed element in
+ * the app: docked action bars measured `bottom` from the bottom of the page
+ * content instead of the viewport, so they scrolled away with the page and sat
+ * inset rather than edge to edge, and no z-index could lift them.
+ *
+ * Opacity creates a stacking context while it is below 1, but never a
+ * containing block, so `fixed` keeps resolving against the viewport throughout
+ * the animation and afterwards.
+ */
+@keyframes contentFadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-content-fade {
+  animation: contentFadeIn 0.3s ease-out forwards;
+}
+
 @keyframes checkmark-pop {
   0% {
     transform: scale(0.5);

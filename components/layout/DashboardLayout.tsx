@@ -304,7 +304,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
                     ) : (
                         <main className={`${hidePadding || stickyFooterLayout ? 'h-full flex flex-col' : 'min-h-full'} ${!hideHeader ? 'pt-8 sm:pt-10 md:pt-12 lg:pt-16' : ''} ${!hidePadding ? 'px-4 sm:px-6 lg:px-8 max-w-7xl' : 'px-0 max-w-none'} mx-auto w-full`}>
                             <RenewalBanner />
-                            <div className={`animate-slide-in-up w-full ${hidePadding || stickyFooterLayout ? 'flex-1 min-h-0' : 'h-full'}`}>
+                            <div className={`animate-content-fade w-full ${hidePadding || stickyFooterLayout ? 'flex-1 min-h-0' : 'h-full'}`}>
                                 {children}
                             </div>
                         </main>

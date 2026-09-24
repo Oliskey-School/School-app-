@@ -179,7 +179,7 @@ const TeacherPerformanceScreen: React.FC<TeacherPerformanceScreenProps> = ({ tea
                 {/* Term-wise Performance */}
                  <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: 0.15 }} className="bg-white p-4 rounded-xl shadow-sm space-y-4">
                     <h3 className="font-bold text-gray-800">Term-wise Performance Scores</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-3 gap-4">
                         {['Term 1', 'Term 2', 'Term 3'].map((term, index) => (
                             <div key={term} className="space-y-1">
                                 <label className="text-xs font-semibold text-gray-500 uppercase">{term}</label>
