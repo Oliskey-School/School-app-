@@ -12,6 +12,7 @@ import { config } from './config/env';
 import { doubleSubmitCookieMiddleware, csrfErrorHandler, ensureCsrfCookie } from './middleware/csrf.middleware';
 import { globalApiLimiter } from './middleware/rateLimiters';
 import { Sentry, sentryEnabled } from './config/instrument';
+import { rlsRoleGate } from './config/database';
 import routes from './routes';
 
 const app = express();
@@ -287,8 +288,11 @@ app.use('/uploads', staticSecurity, express.static(path.join(process.cwd(), 'upl
 // bypass RLS. In production the check runs at boot while the socket is already
 // listening (see rlsRoleGate in config/database.ts); without this gate that
 // window serves real requests with every tenant policy potentially inert.
-app.use('/api', (req, res, next) => {
-    const { rlsRoleGate } = require('./config/database');
+// rlsRoleGate is imported statically at the top: `routes` already pulls
+// config/database in, so this adds no new load-time side effect, and it keeps
+// the check synchronous — an async middleware here would add an unhandled
+// rejection path on the hot request path for no benefit.
+app.use('/api', (_req, res, next) => {
     if (rlsRoleGate.verified) return next();
     res.setHeader('Retry-After', '5');
     return res.status(503).json({

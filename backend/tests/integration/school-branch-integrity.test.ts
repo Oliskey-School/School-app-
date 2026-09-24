@@ -96,4 +96,57 @@ describe('school_id / branch_id pairing', () => {
         });
         expect(offenders, `tables holding cross-school branch references:\n${offenders.join('\n')}`).toEqual([]);
     }, 300000);
+
+    // The scan above proves only what is already stored; it cannot stop the
+    // next INSERT. Migration 20260922093000 constrained 12 core tables and left
+    // ~165 to that scan, so this asserts the constraint now exists on ALL of
+    // them (20260924130000) — otherwise the invariant depends on a test run
+    // rather than on the database.
+    it('every table storing school_id + branch_id carries the composite foreign key', async () => {
+        const unprotected = await runAsPlatform(() => prisma.$queryRawUnsafe<any[]>(`
+            SELECT c.relname AS tbl
+              FROM pg_class c
+              JOIN pg_namespace n ON n.oid = c.relnamespace
+             WHERE n.nspname = 'public' AND c.relkind = 'r' AND c.relname <> 'Branch'
+               AND EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attname='school_id'  AND a.attnum>0 AND NOT a.attisdropped)
+               AND EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attname='branch_id' AND a.attnum>0 AND NOT a.attisdropped)
+               AND NOT EXISTS (
+                     SELECT 1 FROM pg_constraint pc
+                      WHERE pc.conrelid = c.oid AND pc.contype = 'f'
+                        AND pc.conname = c.relname || '_school_branch_fkey')
+             ORDER BY 1`));
+        const names = unprotected.map(r => r.tbl);
+        expect(names, `these tables can still be written with another school's branch:\n${names.join(', ')}`).toEqual([]);
+    }, 120000);
+
+    it('a non-core table also refuses a School A row pointing at School B’s branch', async () => {
+        // Pick a constrained table that is NOT one of the original twelve, so
+        // this fails if the constraint only ever reached the core tables.
+        const core = ['User', 'Student', 'Teacher', 'Parent', 'Class', 'Subject',
+            'StudentFee', 'Payment', 'ReportCard', 'Attendance', 'Assignment', 'Exam'];
+        const candidates = await runAsPlatform(() => prisma.$queryRawUnsafe<any[]>(`
+            SELECT c.relname AS tbl
+              FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+              JOIN pg_constraint pc ON pc.conrelid=c.oid AND pc.contype='f'
+                   AND pc.conname = c.relname || '_school_branch_fkey'
+             WHERE n.nspname='public'
+               AND NOT EXISTS (SELECT 1 FROM pg_attribute a
+                                WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
+                                  AND a.attnotnull AND a.atthasdef = false
+                                  AND a.attname NOT IN ('id','school_id','branch_id','created_at','updated_at'))
+             ORDER BY 1`));
+        const target = candidates.map(r => r.tbl).find(t => !core.includes(t));
+        if (!target) return; // nothing trivially insertable; the structural test above still covers it
+
+        let accepted = false;
+        await runWithTenantContext({ schoolId: SA, branchId: null, allowedBranchIds: [] }, async () => {
+            try {
+                await prisma.$executeRawUnsafe(
+                    `INSERT INTO "${target}" (id, school_id, branch_id, created_at, updated_at)
+                     VALUES (gen_random_uuid()::text, $1, $2, now(), now())`, SA, BB);
+                accepted = true;
+            } catch { /* refused, as it must be */ }
+        });
+        expect(accepted, `${target} accepted a school/branch pair from two different schools`).toBe(false);
+    }, 120000);
 });
