@@ -1,6 +1,6 @@
 {
   "name": "school-app-oliskey",
-  "version": "0.7.53",
+  "version": "0.7.56",
   "scripts": {
     "dev": "vite",
     "prebuild": "node scripts/check-env.mjs",
@@ -33,7 +33,7 @@
     "start:all": "concurrently \"npm run dev\" \"npm run server\"",
     "prestart:all": "npm run kill-ports",
     "clean": "npx rimraf node_modules/.vite .vite",
-    "setup": "npm install && echo '\n\u00e2\u0153\u2026 Dependencies installed!\n\nNext steps:\n1. Run: npm run db:migrate\n2. Run: npm run db:seed\n3. Run: npm run start:all\n4. Visit: http://localhost:5173\n'",
+    "setup": "npm install && echo '\nâœ… Dependencies installed!\n\nNext steps:\n1. Run: npm run db:migrate\n2. Run: npm run db:seed\n3. Run: npm run start:all\n4. Visit: http://localhost:5173\n'",
     "dark-theme": "node scripts/generate-dark-theme.mjs"
   },
   "prisma": {
