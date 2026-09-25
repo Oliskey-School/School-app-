@@ -35,6 +35,9 @@ interface NotificationCategory {
 const NotificationDigestSettings = () => {
     const { user } = useAuth();
     const [digestTime, setDigestTime] = useState('19:00');
+    // Which channels this deployment can actually send on. The API reports it;
+    // anything false is shown disabled rather than offered as if it worked.
+    const [available, setAvailable] = useState<Record<string, boolean>>({ inapp: true });
     const [isSaving, setIsSaving] = useState(false);
     const [loading, setLoading] = useState(true);
 
@@ -57,6 +60,7 @@ const NotificationDigestSettings = () => {
         try {
             const settings = await api.getNotificationSettings();
             if (settings) {
+                if (settings.channels) setAvailable(settings.channels);
                 setDigestTime(settings.digest_time || '19:00');
                 if (settings.categories) {
                     setCategories(prev => prev.map(c => {
@@ -76,6 +80,10 @@ const NotificationDigestSettings = () => {
     const updateCategory = (id: string, field: 'mode' | 'channel', value: string) => {
         if (id === 'emergency' && field === 'mode' && value !== 'instant') {
             toast.error('Emergency alerts must always be instant!');
+            return;
+        }
+        if (field === 'channel' && available[value] === false) {
+            toast.error(`${value === 'sms' ? 'SMS' : value === 'whatsapp' ? 'WhatsApp' : 'Push'} is not set up for this school yet.`);
             return;
         }
         setCategories(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c));
@@ -103,10 +111,11 @@ const NotificationDigestSettings = () => {
     ];
 
     const channels = [
+        { value: 'inapp', label: 'In-app', icon: <Bell className="w-4 h-4" /> },
+        { value: 'email', label: 'Email', icon: <Mail className="w-4 h-4" /> },
         { value: 'push', label: 'Push', icon: <Smartphone className="w-4 h-4" /> },
         { value: 'sms', label: 'SMS', icon: <MessageSquare className="w-4 h-4" /> },
         { value: 'whatsapp', label: 'WhatsApp', icon: <MessageSquare className="w-4 h-4" /> },
-        { value: 'email', label: 'Email', icon: <Mail className="w-4 h-4" /> },
     ];
 
     if (loading) {
@@ -146,31 +155,37 @@ const NotificationDigestSettings = () => {
             {/* Categories */}
             <div className="space-y-4">
                 {categories.map((cat, ci) => (
-                    <motion.div key={cat.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(ci, 15) * 0.03 }} className={`bg-white p-5 rounded-2xl shadow-sm border transition-all ${cat.id === 'emergency' ? 'border-red-200 bg-red-50/30' : 'border-gray-100'}`}>
-                        <div className="flex items-start space-x-4">
-                            <div className="p-2 rounded-xl bg-gray-50 text-gray-600 mt-1">{cat.icon}</div>
-                            <div className="flex-grow">
+                    <motion.div key={cat.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: Math.min(ci, 15) * 0.03 }} className={`bg-white p-4 sm:p-5 rounded-2xl shadow-sm border transition-all ${cat.id === 'emergency' ? 'border-red-200 bg-red-50/30' : 'border-gray-100'}`}>
+                        <div className="flex items-start gap-3 sm:gap-4">
+                            <div className="p-2 rounded-xl bg-gray-50 text-gray-600 mt-1 flex-shrink-0">{cat.icon}</div>
+                            <div className="flex-grow min-w-0">
                                 <div className="flex items-center justify-between mb-1">
                                     <h3 className="font-bold text-gray-800">{cat.label}</h3>
                                     {cat.id === 'emergency' && <span className="text-xs font-bold bg-red-100 text-red-700 px-2 py-0.5 rounded-full">Always Instant</span>}
                                 </div>
                                 <p className="text-xs text-gray-500 mb-3">{cat.description}</p>
-                                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
                                     {/* Mode Selector */}
-                                    <div className="flex p-0.5 bg-gray-100 rounded-lg">
+                                    <div className="flex flex-wrap p-0.5 bg-gray-100 rounded-lg gap-0.5">
                                         {modes.map(m => (
                                             <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} key={m.value} onClick={() => updateCategory(cat.id, 'mode', m.value)}
-                                                className={`flex items-center space-x-1 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${cat.mode === m.value ? `${m.color} border` : 'text-gray-400'}`}>
+                                                className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap ${cat.mode === m.value ? `${m.color} border` : 'text-gray-400'}`}>
                                                 {m.icon}<span>{m.label}</span>
                                             </motion.button>
                                         ))}
                                     </div>
                                     {/* Channel Selector */}
                                     {cat.mode !== 'off' && (
-                                        <div className="flex p-0.5 bg-gray-100 rounded-lg">
+                                        <div className="flex flex-wrap p-0.5 bg-gray-100 rounded-lg gap-0.5">
                                             {channels.map(ch => (
                                                 <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} key={ch.value} onClick={() => updateCategory(cat.id, 'channel', ch.value)}
-                                                    className={`flex items-center space-x-1 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${cat.channel === ch.value ? 'bg-white shadow-sm text-indigo-600 border border-indigo-200' : 'text-gray-400'}`}>
+                                                    title={available[ch.value] === false ? `${ch.label} is not set up for this school yet` : undefined}
+                                                    className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap ${
+                                                        cat.channel === ch.value
+                                                            ? 'bg-white shadow-sm text-indigo-600 border border-indigo-200'
+                                                            : available[ch.value] === false
+                                                                ? 'text-gray-300 cursor-not-allowed'
+                                                                : 'text-gray-400'}`}>
                                                     {ch.icon}<span>{ch.label}</span>
                                                 </motion.button>
                                             ))}

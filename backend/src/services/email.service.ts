@@ -74,6 +74,43 @@ export class EmailService {
     /**
      * Sends an email listing all accounts linked to this email address.
      */
+    /**
+     * A single notification delivered by email, used by
+     * NotificationDeliveryService when the recipient chose the Email channel
+     * for a category (and for the daily digest summary).
+     *
+     * `message` is plain text — it is escaped and newlines become breaks, so a
+     * digest body of "• item
+• item" renders as a list and no notification
+     * content can inject markup into the email.
+     */
+    static async sendNotificationEmail(email: string, fullName: string, title: string, message: string): Promise<void> {
+        const transport = await initTransporter();
+        const esc = (v: string) => String(v)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        const body = esc(message).split(String.fromCharCode(10)).join('<br>');
+
+        await transport.sendMail({
+            from: '"Oliskey School Management" <no-reply@oliskey.com>',
+            to: email,
+            subject: title,
+            html: `
+                <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px;">
+                    <h1 style="color: #4f46e5; font-size: 22px; margin: 0 0 16px;">Oliskey</h1>
+                    <p style="color: #1f2937; margin: 0 0 8px;">Hello ${esc(fullName)},</p>
+                    <h2 style="color: #111827; font-size: 18px; margin: 16px 0 8px;">${esc(title)}</h2>
+                    <div style="color: #4b5563; line-height: 1.6;">${body}</div>
+                    <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;">
+                    <p style="color: #9ca3af; font-size: 12px;">
+                        You are receiving this because of your notification preferences.
+                        Change them any time under Settings &rsaquo; Notifications.
+                    </p>
+                </div>
+            `
+        });
+    }
+
     static async sendAccountLookupEmail(email: string): Promise<void> {
         try {
             const transport = await initTransporter();

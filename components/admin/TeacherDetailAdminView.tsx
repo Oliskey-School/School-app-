@@ -294,7 +294,27 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
                     </div>
                 </div>
             </main>
-            <div ref={dockRef} className="px-4 pt-3 pb-3 bg-white border-t border-gray-100 space-y-2 fixed left-0 right-0 bottom-[var(--bottom-nav-height,0px)] z-30 lg:static lg:mt-auto">
+            {/* Admin actions: the LAST element of this screen's flex column, so it
+             * sits at the bottom of the page.
+             *
+             * It used to be pinned with `fixed left-0 right-0
+             * bottom-[var(--bottom-nav-height,0px)] lg:static`. That only lands in
+             * the right place when the screen is mounted in DashboardLayout's
+             * sticky-footer mode AND no ancestor creates a containing block for
+             * fixed children — a retained transform on the screen wrapper had
+             * already broken every fixed element in the app once before (see the
+             * contentFadeIn note in index.css). Two of the three admin detail views
+             * were never registered in stickyFooterViews either, so the bar
+             * resolved against a collapsed box and rendered at the TOP of the
+             * screen, dragging the floating install button up with it — both stack
+             * against the heights published by useDockedBar.
+             *
+             * Normal flow needs none of that. useDockedBar still measures it and
+             * publishes 0px, because it only reports a height for an element that
+             * is genuinely fixed/sticky — so the bottom navigation and the install
+             * button stop reserving space for a bar that is now part of the page.
+             */}
+            <div ref={dockRef} className="px-4 pt-3 pb-3 bg-white border-t border-gray-100 space-y-2 mt-auto">
                 <h3 className="text-xs font-bold text-gray-400 text-center uppercase tracking-widest">Admin Actions</h3>
                 <div className="grid grid-cols-2 gap-3">
                     <motion.button

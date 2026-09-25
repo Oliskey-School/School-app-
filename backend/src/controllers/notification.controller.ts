@@ -1,6 +1,8 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { NotificationService } from '../services/notification.service';
+import { channelAvailability } from '../services/notificationPreferences';
+import { toCategoryId, NotificationDeliveryService } from '../services/notificationDelivery.service';
 import { getEffectiveBranchId } from '../utils/branchScope';
 import prisma from '../config/database';
 import { sendError } from '../utils/httpError';
@@ -30,6 +32,27 @@ export const createNotification = async (req: AuthRequest, res: Response) => {
             if (!targetUser) {
                 return res.status(403).json({ message: 'Recipient not found in your school' });
             }
+        }
+
+        // A notification aimed at ONE person goes through the delivery service, so
+        // that person's choices on the Notification Digest screen actually apply:
+        // "Off" suppresses it, "Digest" holds it for their daily summary, and the
+        // chosen channel (in-app / email) is used. Before this, those preferences
+        // were stored and then ignored — every notification was written in-app and
+        // emitted immediately regardless.
+        //
+        // Broadcasts (no single recipient) keep the direct path: there is no one
+        // set of preferences to apply to a whole-school announcement.
+        if (targetUserId) {
+            const delivery = await NotificationDeliveryService.deliver({
+                schoolId: req.user.school_id,
+                branchId,
+                userId: targetUserId,
+                category: toCategoryId(req.body.category),
+                title: req.body.title,
+                message: req.body.message || req.body.summary || 'No details provided.',
+            });
+            return res.status(201).json({ ok: true, ...delivery });
         }
 
         const result = await NotificationService.createNotification(req.user.school_id, branchId, req.body);
@@ -98,7 +121,13 @@ export const getNotificationSettings = async (req: AuthRequest, res: Response) =
     try {
         const userId = req.user.id;
         const result = await NotificationService.getSettingsByUserId(userId);
-        res.json(result.categories);
+        // Return the whole preference set. This used to return `result.categories`
+        // — the inner blob — so the client's `settings.digest_time` and
+        // `settings.categories` were both undefined and nothing ever restored.
+        // `channels` tells the UI which delivery channels this deployment can
+        // actually use, so it can mark the rest unavailable instead of offering
+        // options that would silently drop the message.
+        res.json({ ...result, channels: channelAvailability() });
     } catch (error: any) {
         sendError(res, error, 'notification.controller.ts');
     }
@@ -113,7 +142,7 @@ export const updateNotificationSettings = async (req: AuthRequest, res: Response
             req.user.school_id,
             (req.user as any).active_branch_id ?? req.user.branch_id ?? null
         );
-        res.json(result.categories);
+        res.json({ ...result, channels: channelAvailability() });
     } catch (error: any) {
         sendError(res, error, 'notification.controller.ts');
     }

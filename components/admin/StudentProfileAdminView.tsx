@@ -490,7 +490,16 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
             </main>
 
             {/* Sticky Action Footer */}
-            <div ref={dockRef} className="fixed left-0 right-0 bottom-[var(--bottom-nav-height,0px)] z-30 p-4 sm:px-6 bg-white border-t border-gray-100 grid grid-cols-2 sm:grid-cols-4 gap-3 lg:static lg:bg-transparent lg:border-none lg:p-4 lg:grid-cols-4">
+            {/* Same change as the other admin detail screens: the action bar is the
+             * last element of the flex column instead of a position:fixed bar
+             * offset by --bottom-nav-height. See the note in
+             * StudentProfileDashboard.tsx for why the pinned version landed at the
+             * top. This screen is currently unreachable — AdminDashboard binds BOTH
+             * StudentProfileAdminView and StudentProfileDashboard to the
+             * StudentProfileDashboard module — but it is fixed here so the defect
+             * does not come back the moment that alias is corrected.
+             */}
+            <div ref={dockRef} className="mt-auto p-4 sm:px-6 bg-white border-t border-gray-100 grid grid-cols-2 sm:grid-cols-4 gap-3 lg:bg-transparent lg:border-none lg:grid-cols-4">
                 <motion.button
                     whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.96 }}
                     onClick={() => setShowClassModal(true)}

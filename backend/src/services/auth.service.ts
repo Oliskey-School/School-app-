@@ -263,6 +263,9 @@ export class AuthService {
         const candidates = await (getRawPrisma().user.findMany as any)({
             where: {
                 is_active: true,
+                // A soft delete stamps deleted_at and leaves is_active alone, so
+                // without this a deleted account still passed the filter above.
+                deleted_at: null,
                 OR: [
                     { email: normalizedIdentifier },
                     { school_generated_id: identifier.trim().toUpperCase() }
@@ -602,8 +605,22 @@ export class AuthService {
         const normalizedEmail = email.trim().toLowerCase();
 
         // 1. Find user by email (email is not unique alone — compound key includes school_id)
+        //
+        // deleted_at/is_active are part of the WHERE on purpose. Deleting a person
+        // from the admin screens is a SOFT delete — StudentService.deleteStudent
+        // and friends stamp deleted_at on the Student/Teacher/Parent row AND on
+        // the User row, but the User row stays. This lookup used to match on email
+        // alone, so a deleted account could still sign in with Google and get a
+        // full token: the profile was gone from every list while its owner kept
+        // access. The school check mirrors the password path, so an account in a
+        // deactivated school cannot get in through Google either.
         let user = await prisma.user.findFirst({
-            where: { email: normalizedEmail },
+            where: {
+                email: normalizedEmail,
+                deleted_at: null,
+                is_active: true,
+                school: { is_active: true },
+            },
             include: {
                 school: {
                     select: { id: true, name: true, code: true }
@@ -615,7 +632,9 @@ export class AuthService {
         });
 
         if (!user) {
-            console.warn(`❌ [Auth] Google Login failed: Account not found for ${normalizedEmail}`);
+            // Deliberately the same message whether the account never existed, was
+            // deleted or was deactivated — it must not reveal which.
+            console.warn(`❌ [Auth] Google Login refused for ${normalizedEmail} (absent, deleted or deactivated)`);
             throw new Error('This Google account is not registered. Please sign up first.');
         }
 
