@@ -7,7 +7,7 @@ import {
 } from '../controllers/academic.controller';
 import { getAcademicSettings, saveAcademicSettings } from '../controllers/academicSettings.controller';
 import { authenticate } from '../middleware/auth.middleware';
-import { requireTenant } from '../middleware/tenant.middleware';
+import { requireTenant, requireRole } from '../middleware/tenant.middleware';
 
 const router = Router();
 
@@ -19,7 +19,7 @@ router.get('/settings', getAcademicSettings);
 router.put('/settings', saveAcademicSettings);
 
 router.get('/subjects', getSubjects);
-router.get('/analytics', getAnalytics);
+router.get('/analytics', requireRole(['admin', 'proprietor', 'superadmin', 'super_admin']), getAnalytics); // school-wide results incl. top performer — admin analytics screen only
 router.get('/performance', getPerformance);
 router.get('/report-card-details', getReportCardDetails);
 router.get('/curricula', getCurricula);

@@ -13,10 +13,10 @@ const router = Router();
 router.use(authenticate);
 router.use(requireTenant);
 
-router.get('/', listPermissions);
+router.get('/', requireRole(['admin', 'proprietor', 'superadmin', 'super_admin']), listPermissions);
 router.post('/', requireRole(['admin', 'proprietor', 'superadmin', 'super_admin']), grantPermission);
 router.delete('/:id', requireRole(['admin', 'proprietor', 'superadmin', 'super_admin']), revokePermission);
-router.get('/parents', listParentsForPicker);
-router.get('/teachers', listTeachersForPicker);
+router.get('/parents', requireRole(['admin', 'proprietor', 'superadmin', 'super_admin']), listParentsForPicker);
+router.get('/teachers', requireRole(['admin', 'proprietor', 'superadmin', 'super_admin']), listTeachersForPicker);
 
 export default router;
