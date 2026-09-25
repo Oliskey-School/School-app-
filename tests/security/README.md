@@ -35,6 +35,18 @@ same fixture, refresh them first:
 // re-run seed-tenants.ts to create a fresh pair.
 ```
 
+## What it checks
+
+- **Cross-school** (School A token/header/body aimed at School B, and back).
+- **Cross-branch** (main-branch teacher → sub-branch; sub-branch admin → main branch).
+- **Inside one school (ownership):** student #1 → student #2's records, and a
+  parent → a child that is not theirs. Student #2's rows carry a private token
+  that is never sent, so it can only appear if another student's data leaked.
+- **Role escalation:** any write a student or parent token gets a 2xx for must
+  be on `STUDENT_PARENT_WRITE_ALLOWLIST` in `attack.ts` (self-service,
+  own-child, submissions). A canary can't catch a write that returns no data —
+  a student token once deleted a class and upgraded the school's plan silently.
+
 ## What it does NOT replace
 
 `backend/tests/integration/multi-tenant-security.test.ts` is the fast CI
