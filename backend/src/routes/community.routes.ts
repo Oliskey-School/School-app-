@@ -12,6 +12,7 @@ import {
     deleteVolunteeringOpportunity
 } from '../controllers/community.controller';
 import { authenticate } from '../middleware/auth.middleware';
+import { requireRole } from '../middleware/tenant.middleware';
 
 const router = Router();
 
@@ -24,8 +25,8 @@ router.get('/mental-health', getMentalHealthResources);
 router.get('/helplines', getCrisisHelplines);
 router.post('/panic/activate', triggerPanicAlert);
 router.get('/volunteering', getVolunteeringOpportunities);
-router.post('/volunteering', createVolunteeringOpportunity);
-router.delete('/volunteering/:id', deleteVolunteeringOpportunity);
+router.post('/volunteering', requireRole(['admin', 'proprietor', 'superadmin', 'super_admin']), createVolunteeringOpportunity);
+router.delete('/volunteering/:id', requireRole(['admin', 'proprietor', 'superadmin', 'super_admin']), deleteVolunteeringOpportunity);
 router.get('/photos', getPhotos);
 
 

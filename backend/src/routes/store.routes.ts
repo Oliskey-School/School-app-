@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { StoreService } from '../services/store.service';
 import { authenticate } from '../middleware/auth.middleware';
-import { requireTenant } from '../middleware/tenant.middleware';
+import { requireTenant, requireRole } from '../middleware/tenant.middleware';
 
 const router = Router();
 
@@ -26,7 +26,7 @@ router.get('/products/:id', async (req: any, res) => {
     }
 });
 
-router.post('/products', async (req: any, res) => {
+router.post('/products', requireRole(['admin', 'proprietor', 'superadmin', 'super_admin']), async (req: any, res) => {
     try {
         const product = await StoreService.createProduct(req.user.school_id, req.body);
         res.status(201).json(product);
@@ -35,7 +35,7 @@ router.post('/products', async (req: any, res) => {
     }
 });
 
-router.patch('/products/:id', async (req: any, res) => {
+router.patch('/products/:id', requireRole(['admin', 'proprietor', 'superadmin', 'super_admin']), async (req: any, res) => {
     try {
         const product = await StoreService.updateProduct(req.user.school_id, req.params.id, req.body);
         res.json(product);
@@ -44,7 +44,7 @@ router.patch('/products/:id', async (req: any, res) => {
     }
 });
 
-router.delete('/products/:id', async (req: any, res) => {
+router.delete('/products/:id', requireRole(['admin', 'proprietor', 'superadmin', 'super_admin']), async (req: any, res) => {
     try {
         await StoreService.deleteProduct(req.user.school_id, req.params.id);
         res.status(204).send();
@@ -81,7 +81,7 @@ router.post('/orders', async (req: any, res) => {
     }
 });
 
-router.patch('/orders/:id/status', async (req: any, res) => {
+router.patch('/orders/:id/status', requireRole(['admin', 'proprietor', 'superadmin', 'super_admin']), async (req: any, res) => {
     try {
         const order = await StoreService.updateOrderStatus(req.user.school_id, req.params.id, req.body.status);
         res.json(order);

@@ -18,8 +18,13 @@ router.get('/', requireRole(['ADMIN', 'PROPRIETOR', 'SUPER_ADMIN']), UserControl
 // Self-service: any authenticated user may edit THEIR OWN profile (name/phone/avatar).
 // Self-scoped to req.user.id — no id in the path, so no IDOR.
 router.put('/me/profile', UserController.updateMyProfile);
-router.get('/:id', UserController.getUserById);
-router.get('/email/:email', UserController.getUserByEmail);
+// Looking up ANOTHER account (email, phone, role) is an admin capability; a
+// student/parent/teacher token could otherwise enumerate the whole school.
+// Self-lookup by id stays open. No screen calls either route for non-admins.
+router.get('/:id', (req: any, res, next) =>
+    req.params.id === req.user?.id ? next() : requireRole(ADMIN_ROLES)(req, res, next),
+    UserController.getUserById);
+router.get('/email/:email', requireRole(ADMIN_ROLES), UserController.getUserByEmail);
 // Mutations are admin-only: prevents privilege escalation / arbitrary account edits
 // by low-privilege roles (student/parent/teacher).
 router.put('/:id', requireRole(ADMIN_ROLES), UserController.updateUser);

@@ -14,12 +14,16 @@ router.get('/public', SchoolController.listPublicSchools);
 // PWA install branding — fetched by the browser without auth (see controller).
 router.get('/:id/manifest.webmanifest', schoolManifest);
 router.get('/:id/icon/:size', schoolIcon); // Express 5 path syntax (no inline regex); size is validated in the controller
-router.post('/', SchoolController.createSchool); // Public registration
+// Raw school-row insert (any fields, incl. plan/status). Not called by the app —
+// real signup is POST /onboard — so it is platform-staff only, not public.
+router.post('/', authenticate, requireRole(['SUPER_ADMIN']), SchoolController.createSchool);
 router.post('/onboard', SchoolController.onboardSchool);
 
 // Pilot Onboarding Routes (must be before /:id)
 router.get('/pilot-onboarding', authenticate, SchoolController.getPilotOnboarding);
-router.put('/pilot-onboarding', authenticate, SchoolController.savePilotProgress);
+// Renames the school and flips its onboarding flags — owner/admin only (the admin
+// PilotOnboardingPage is the sole caller). Any student token could do it before.
+router.put('/pilot-onboarding', authenticate, requireRole(['admin', 'proprietor', 'superadmin', 'super_admin']), SchoolController.savePilotProgress);
 
 router.get('/', authenticate, requireRole(['SUPER_ADMIN']), SchoolController.listSchools);
 router.get('/:id', authenticate, SchoolController.getSchoolById);

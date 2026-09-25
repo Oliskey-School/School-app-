@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { authenticate } from '../middleware/auth.middleware';
-import { requireTenant } from '../middleware/tenant.middleware';
+import { requireTenant, requireRole } from '../middleware/tenant.middleware';
 import {
     listPermissions,
     grantPermission,
@@ -14,8 +14,8 @@ router.use(authenticate);
 router.use(requireTenant);
 
 router.get('/', listPermissions);
-router.post('/', grantPermission);
-router.delete('/:id', revokePermission);
+router.post('/', requireRole(['admin', 'proprietor', 'superadmin', 'super_admin']), grantPermission);
+router.delete('/:id', requireRole(['admin', 'proprietor', 'superadmin', 'super_admin']), revokePermission);
 router.get('/parents', listParentsForPicker);
 router.get('/teachers', listTeachersForPicker);
 

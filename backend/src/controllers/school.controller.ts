@@ -4,6 +4,21 @@ import { SchoolService } from '../services/school.service';
 import { isMainAdmin } from '../utils/permissions';
 import { sendError } from '../utils/httpError';
 
+// Billing / platform fields. A school changes its plan only through the verified
+// payment flow (POST /api/subscription/activate); platform staff use the
+// SUPER_ADMIN subscription route. The generic settings update must never touch
+// them — a student token was able to set plan_type 'enterprise' / status 'active'.
+const PLATFORM_ONLY_SCHOOL_FIELDS = [
+    'id', 'slug', 'subscription_status', 'is_premium', 'is_active', 'plan_type', 'plan_id',
+    'trial_ends_at', 'trial_used', 'paystack_auth_code', 'paystack_customer_code',
+    'student_count', 'user_count', 'platform_version', 'created_at', 'updated_at',
+];
+const withoutPlatformFields = (body: any) => {
+    const clean = { ...(body || {}) };
+    for (const k of PLATFORM_ONLY_SCHOOL_FIELDS) delete clean[k];
+    return clean;
+};
+
 export const getPilotOnboarding = async (req: AuthRequest, res: Response) => {
     try {
         const schoolId = req.user.school_id;
@@ -93,7 +108,7 @@ export const updateSchool = async (req: AuthRequest, res: Response) => {
         // tenant here — otherwise any main admin could edit another school.
         if (!isMainAdmin(req.user)) return res.status(403).json({ message: 'Only the main admin can change school settings.' });
         if (req.user.school_id !== req.params.id) return res.status(403).json({ message: 'Unauthorized' });
-        const result = await SchoolService.updateSchool(req.user.school_id, req.params.id as string, req.body);
+        const result = await SchoolService.updateSchool(req.user.school_id, req.params.id as string, withoutPlatformFields(req.body));
         res.json(result);
     } catch (error: any) {
         sendError(res, error, 'school.controller.ts');
@@ -105,8 +120,10 @@ export const updateMySchool = async (req: AuthRequest, res: Response) => {
         const schoolId = req.user.school_id;
         if (!schoolId) return res.status(400).json({ message: 'School context required' });
         
+        // Same rule as PUT /schools/:id: school settings are the main admin's.
+        if (!isMainAdmin(req.user)) return res.status(403).json({ message: 'Only the main admin can change school settings.' });
         // Use the school_id from token as both the actor context and the target ID
-        const result = await SchoolService.updateSchool(schoolId, schoolId, req.body);
+        const result = await SchoolService.updateSchool(schoolId, schoolId, withoutPlatformFields(req.body));
         res.json(result);
     } catch (error: any) {
         sendError(res, error, 'school.controller.ts');

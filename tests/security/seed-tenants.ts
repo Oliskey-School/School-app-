@@ -159,7 +159,47 @@ async function seedSchool(tag: string, canary: string) {
 
     const teacherToken = await login(teacherEmail, PASSWORD);
 
+    // --- Intra-school ownership fixtures (BOLA inside one tenant) ---
+    // A second student in the SAME branch whose records carry a private token
+    // that does NOT contain the school canary, so it can only reach a response
+    // if one student/parent read another student's data.
+    const priv = `PRIV${canary}S2`.replace(/^PRIVZCAN/, 'PRVX');
+    const student2User = await bypass<any>(prisma.user.create({
+        data: { email: `${tag}-student2-${canary}@example.com`.toLowerCase(), password_hash: hash, full_name: `${priv} Pupil`, role: 'STUDENT', school_id: schoolId, branch_id: mainBranch.id, email_verified: true, is_active: true },
+    }), "user.create(student2)");
+    const student2 = await bypass<any>(prisma.student.create({
+        data: { school_id: schoolId, branch_id: mainBranch.id, full_name: `${priv} Pupil`, user_id: student2User.id } as any,
+    }), "student.create(student2)");
+    const s2Attendance = await bypass<any>(prisma.attendance.create({
+        data: { school_id: schoolId, branch_id: mainBranch.id, student_id: student2.id, class_id: klass.id, status: 'absent', remark: `${priv} attendance remark`, date: new Date() } as any,
+    }), "attendance.create(student2)");
+    const s2ReportCard = await bypass<any>(prisma.reportCard.create({
+        data: { school_id: schoolId, branch_id: mainBranch.id, student_id: student2.id, session: '2026/2027', term: 'First Term', teacher_remark: `${priv} teacher remark` } as any,
+    }), "reportCard.create(student2)");
+    const s2Fee = await bypass<any>(prisma.studentFee.create({
+        data: { school_id: schoolId, branch_id: mainBranch.id, student_id: student2.id, title: `${priv} Fee`, amount: 777, due_date: new Date() } as any,
+    }), "studentFee.create(student2)");
+    const s2Invoice = await bypass<any>(prisma.invoice.create({
+        data: { school_id: schoolId, branch_id: mainBranch.id, student_id: student2.id, amount: 777, due_date: new Date(), invoice_number: `INV-${priv}`, description: `${priv} invoice` } as any,
+    }), "invoice.create(student2)");
+    // Parent is linked to student #1 ONLY.
+    await bypass(prisma.parentChild.create({ data: { parent_id: parent.id, student_id: student.id, school_id: schoolId, branch_id: mainBranch.id } as any }), "parentChild.create");
+    // A branch admin pinned to the SUB branch (must not see main-branch data).
+    const subAdminEmail = `${tag}-subadmin-${canary}@example.com`.toLowerCase();
+    await bypass(prisma.user.create({
+        data: { email: subAdminEmail, password_hash: hash, full_name: mk('Sub Admin'), role: 'ADMIN', school_id: schoolId, branch_id: subBranch.id, email_verified: true, is_active: true },
+    }), "user.create(subadmin)");
+
+    const studentToken = await login(studentUser.email, PASSWORD);
+    const parentToken = await login(parentUser.email, PASSWORD);
+    const subAdminToken = await login(subAdminEmail, PASSWORD);
+
     return {
+        studentToken, parentToken, subAdminToken,
+        intra: {
+            priv, student2: student2.id, student2User: student2User.id,
+            attendance: s2Attendance.id, reportCard: s2ReportCard.id, studentFee: s2Fee.id, invoice: s2Invoice.id,
+        },
         tag, canary, schoolId, schoolCode: school.code,
         mainBranchId: mainBranch.id, subBranchId: subBranch.id,
         adminEmail, adminUserId: adminUser.id, adminToken,

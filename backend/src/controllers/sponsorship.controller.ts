@@ -126,6 +126,9 @@ export const getSponsorships = async (req: AuthRequest, res: Response) => {
 
 export const createSponsorship = async (req: AuthRequest, res: Response) => {
     try {
+        // Same gate as updateSponsorship: a student/parent token could otherwise
+        // record an arbitrary committed amount and status against any student.
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can create sponsorships' });
         const schoolId = req.user.school_id;
         const branchId = getEffectiveBranchId(req.user, req.headers['x-branch-id'] as string);
 

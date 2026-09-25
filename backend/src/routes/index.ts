@@ -3,7 +3,7 @@ import authRoutes from './auth.routes';
 import translateRoutes from './translate.routes';
 import onboardingRoutes from './onboarding.routes';
 import { authenticate } from '../middleware/auth.middleware';
-import { requireTenant } from '../middleware/tenant.middleware';
+import { requireTenant, requireRole } from '../middleware/tenant.middleware';
 import {
     getSchoolDocuments, getExternalIntegrations, getThirdPartyApps, getAppInstallations,
     updateExternalIntegration, syncExternalIntegration, installApp, uninstallApp,
@@ -224,24 +224,29 @@ router.use('/pwa', authenticate, pwaRoutes);
 
 // Tenant-scoped read endpoints consumed by the admin UI via api.from(...)
 router.get('/school-documents', authenticate, requireTenant, getSchoolDocuments);
+// Admin-only school management: integrations, marketplace installs, payroll
+// (salaries, payslips, budgets), PTA meeting management and compliance runs.
+// Every caller is an admin screen; before this gate a student or parent token
+// could read every teacher's salary and payslip, and write to all of these.
+const ADMIN_ONLY = requireRole(['admin', 'proprietor', 'superadmin', 'super_admin']);
 router.get('/external-integrations', authenticate, requireTenant, getExternalIntegrations);
-router.put('/external-integrations/:id', authenticate, requireTenant, updateExternalIntegration);
-router.post('/external-integrations/:id/sync', authenticate, requireTenant, syncExternalIntegration);
+router.put('/external-integrations/:id', authenticate, requireTenant, ADMIN_ONLY, updateExternalIntegration);
+router.post('/external-integrations/:id/sync', authenticate, requireTenant, ADMIN_ONLY, syncExternalIntegration);
 router.get('/third-party-apps', authenticate, getThirdPartyApps);
 router.get('/app-installations', authenticate, requireTenant, getAppInstallations);
-router.post('/app-installations', authenticate, requireTenant, installApp);
-router.delete('/app-installations/by-app/:appId', authenticate, requireTenant, uninstallApp);
-router.get('/teacher-salaries', authenticate, requireTenant, getTeacherSalaries);
-router.post('/teacher-salaries', authenticate, requireTenant, createTeacherSalary);
-router.put('/teacher-salaries/:id', authenticate, requireTenant, updateTeacherSalary);
-router.get('/payroll/budgets', authenticate, requireTenant, getBudgets);
-router.post('/payroll/budgets', authenticate, requireTenant, createBudget);
+router.post('/app-installations', authenticate, requireTenant, ADMIN_ONLY, installApp);
+router.delete('/app-installations/by-app/:appId', authenticate, requireTenant, ADMIN_ONLY, uninstallApp);
+router.get('/teacher-salaries', authenticate, requireTenant, ADMIN_ONLY, getTeacherSalaries);
+router.post('/teacher-salaries', authenticate, requireTenant, ADMIN_ONLY, createTeacherSalary);
+router.put('/teacher-salaries/:id', authenticate, requireTenant, ADMIN_ONLY, updateTeacherSalary);
+router.get('/payroll/budgets', authenticate, requireTenant, ADMIN_ONLY, getBudgets);
+router.post('/payroll/budgets', authenticate, requireTenant, ADMIN_ONLY, createBudget);
 router.get('/community/pta-meetings', authenticate, requireTenant, getPtaMeetings);
-router.post('/community/pta-meetings', authenticate, requireTenant, createPtaMeeting);
-router.delete('/community/pta-meetings/:id', authenticate, requireTenant, deletePtaMeeting);
+router.post('/community/pta-meetings', authenticate, requireTenant, ADMIN_ONLY, createPtaMeeting);
+router.delete('/community/pta-meetings/:id', authenticate, requireTenant, ADMIN_ONLY, deletePtaMeeting);
 router.get('/accessibility-settings', authenticate, getAccessibilitySettings);
-router.get('/payslips', authenticate, requireTenant, getPayslips);
-router.put('/payslips/:id', authenticate, requireTenant, updatePayslipStatus);
+router.get('/payslips', authenticate, requireTenant, ADMIN_ONLY, getPayslips);
+router.put('/payslips/:id', authenticate, requireTenant, ADMIN_ONLY, updatePayslipStatus);
 router.get('/payment-transactions', authenticate, requireTenant, getPaymentTransactions);
 router.post('/payment-transactions', authenticate, requireTenant, createPaymentTransaction);
 router.get('/leave-requests', authenticate, requireTenant, getLeaveRequestsTop);
@@ -249,10 +254,11 @@ router.use('/leave-balances', leaveBalanceRoutes);
 router.use('/scholarships', scholarshipRoutes);
 router.use('/scholarship-applications', scholarshipApplicationRoutes);
 router.use('/scholarship-recipients', scholarshipRecipientRoutes);
-router.get('/id-verification-requests', authenticate, requireTenant, getVerificationRequests);
-router.put('/id-verification-requests/:id', authenticate, requireTenant, reviewVerificationRequest);
+// Admin ID-verification panel only: lists every student and lets the caller approve/reject.
+router.get('/id-verification-requests', authenticate, requireTenant, requireRole(['admin', 'proprietor', 'superadmin', 'super_admin']), getVerificationRequests);
+router.put('/id-verification-requests/:id', authenticate, requireTenant, requireRole(['admin', 'proprietor', 'superadmin', 'super_admin']), reviewVerificationRequest);
 router.get('/compliance-checklists', authenticate, requireTenant, getComplianceChecks);
-router.post('/compliance-checklists/run', authenticate, requireTenant, runComplianceChecks);
+router.post('/compliance-checklists/run', authenticate, requireTenant, ADMIN_ONLY, runComplianceChecks);
 router.get('/arrears', authenticate, requireTenant, getArrears);
 router.use('/sponsorships', sponsorshipRoutes);
 router.use('/sponsorship-requests', sponsorshipRequestRoutes);

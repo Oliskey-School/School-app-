@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import * as InspectionController from '../controllers/inspection.controller';
 import { authenticate } from '../middleware/auth.middleware';
+import { requireRole } from '../middleware/tenant.middleware';
 import prisma from '../config/database';
 
 const router = Router();
@@ -25,7 +26,7 @@ router.get('/', authenticate, async (req: any, res) => {
 router.get('/templates/:type', authenticate, InspectionController.getTemplateByType);
 
 // Submit full inspection results
-router.post('/submit', authenticate, InspectionController.submitInspection);
+router.post('/submit', authenticate, requireRole(['inspector', 'super_admin', 'superadmin']), InspectionController.submitInspection);
 
 // Get school inspection history
 router.get('/history/:schoolId', authenticate, InspectionController.getSchoolInspectionHistory);

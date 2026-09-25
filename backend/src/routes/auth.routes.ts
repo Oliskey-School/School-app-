@@ -49,7 +49,10 @@ router.post('/create-user', authenticate, requireRole(ADMIN_ROLES), AuthControll
 router.post('/resend-verification', otpLimiter, AuthController.resendVerification);
 // Identity-mutating endpoints: must be authenticated and act on the caller's own
 // account only (userId is derived from the verified JWT, never the request body).
-router.post('/confirm-email', authenticate, AuthController.confirmEmail);
+// Marks the CALLER's email verified with no code - a user could change their
+// email to one they do not own and self-verify it. No screen calls it; users
+// verify via /verify-email (code). Platform staff only.
+router.post('/confirm-email', authenticate, requireRole(['super_admin', 'superadmin']), AuthController.confirmEmail);
 // verify-email stays public: it is bound to a signed, single-use token+code (pre-login flow).
 router.post('/verify-email', otpLimiter, AuthController.verifyEmail);
 router.post('/update-email', authenticate, AuthController.updateEmail);

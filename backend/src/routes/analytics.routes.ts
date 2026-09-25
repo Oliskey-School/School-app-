@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { heavyTaskQueue } from '../services/queue.service';
 import { authenticate } from '../middleware/auth.middleware';
+import { requireRole } from '../middleware/tenant.middleware';
 import prisma from '../config/database';
 
 const router = Router();
@@ -33,7 +34,7 @@ router.get('/', authenticate, async (req: any, res) => {
  * to the background queue and returns immediately, protecting the API
  * from resource exhaustion.
  */
-router.post('/trigger-audit', authenticate, async (req: any, res) => {
+router.post('/trigger-audit', authenticate, requireRole(['admin', 'proprietor', 'superadmin', 'super_admin']), async (req: any, res) => {
     try {
         const { school_id, id: user_id } = req.user;
 

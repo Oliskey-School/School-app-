@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { authenticate } from '../middleware/auth.middleware';
-import { requireTenant } from '../middleware/tenant.middleware';
+import { requireTenant, requireRole } from '../middleware/tenant.middleware';
 import * as QuizController from '../controllers/quiz.controller';
 
 const router = Router();
@@ -10,7 +10,7 @@ router.use(authenticate);
 router.use(requireTenant);
 
 router.get('/', QuizController.getQuizzes);
-router.post('/upload', QuizController.createQuizWithQuestions);
+router.post('/upload', requireRole(['admin', 'proprietor', 'superadmin', 'super_admin', 'teacher']), QuizController.createQuizWithQuestions);
 router.post('/submit', QuizController.submitQuizResult);
 router.get('/:id', QuizController.getQuiz);
 router.get('/:id/submissions', QuizController.getQuizSubmissions);

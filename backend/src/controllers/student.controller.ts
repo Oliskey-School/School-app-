@@ -364,6 +364,13 @@ export const linkGuardian = async (req: AuthRequest, res: Response) => {
             }
         }
 
+        // A missing code must not reach the query: Prisma drops an `undefined`
+        // filter, so `{ school_generated_id: undefined }` matched the FIRST student
+        // in the school and linked the caller to a child that isn't theirs.
+        if (typeof studentCode !== 'string' || !studentCode.trim()) {
+            return res.status(400).json({ message: 'studentCode is required.' });
+        }
+
         // Find Student
         const student = await prisma.student.findFirst({ where: { school_generated_id: studentCode, school_id: schoolId } });
         if (!student) return res.status(404).json({ message: 'Student with provided code not found.' });

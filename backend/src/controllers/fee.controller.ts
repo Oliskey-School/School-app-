@@ -296,6 +296,9 @@ export const getTransactions = async (req: AuthRequest, res: Response) => {
 
 export const getStudentFeesLegacy = async (req: AuthRequest, res: Response) => {
     try {
+        // Same whole-school data as GET /fees, so the same admin-only gate. Only
+        // admin tools (reminders, reconciliation) read this legacy path.
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can view the full fee list' });
         const { id, single } = req.query;
         const branchId = getEffectiveBranchId(req.user, (req.query.branchId || req.query.branch_id) as string);
         

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { OfflineChannelController } from '../controllers/offline-channel.controller';
 import { authenticate } from '../middleware/auth.middleware';
-import { requireTenant } from '../middleware/tenant.middleware';
+import { requireTenant, requireRole } from '../middleware/tenant.middleware';
 
 const router = Router();
 
@@ -10,18 +10,18 @@ router.use(requireTenant);
 
 // Radio
 router.get('/radio-content', OfflineChannelController.getRadioContent);
-router.post('/radio-content', OfflineChannelController.createRadioContent);
+router.post('/radio-content', requireRole(['admin', 'proprietor', 'superadmin', 'super_admin', 'teacher']), OfflineChannelController.createRadioContent);
 router.get('/radio-broadcasts', OfflineChannelController.getRadioBroadcasts);
 router.get('/radio-partners', OfflineChannelController.getRadioPartners);
 
 // IVR
 router.get('/ivr-lessons', OfflineChannelController.getIVRLessons);
-router.post('/ivr-lessons', OfflineChannelController.createIVRLesson);
+router.post('/ivr-lessons', requireRole(['admin', 'proprietor', 'superadmin', 'super_admin', 'teacher']), OfflineChannelController.createIVRLesson);
 router.get('/ivr-calls', OfflineChannelController.getIVRCalls);
 
 // SMS
 router.get('/sms-lessons', OfflineChannelController.getSMSLessons);
-router.post('/sms-lessons', OfflineChannelController.createSMSLesson);
+router.post('/sms-lessons', requireRole(['admin', 'proprietor', 'superadmin', 'super_admin', 'teacher']), OfflineChannelController.createSMSLesson);
 router.get('/sms-schedules', OfflineChannelController.getSMSSchedules);
 
 // USSD

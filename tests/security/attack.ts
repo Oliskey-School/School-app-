@@ -20,6 +20,29 @@ const routes: { method: string; path: string }[] = JSON.parse(fs.readFileSync('t
 
 type Tenant = typeof fx.A;
 
+// Writes a student or parent token is SUPPOSED to be able to make (see the
+// escalation check at the bottom). Reviewed one by one — keep it that way.
+const STUDENT_PARENT_WRITE_ALLOWLIST: string[] = [
+    // self-service on the caller's own account / session / inbox
+    'PUT /api/users/me/profile', 'PATCH /api/auth/update-username', 'POST /api/auth/update-username',
+    'DELETE /api/auth/sessions', 'PUT /api/notifications/:id/read', 'PUT /api/notifications/mark-read',
+    'PUT /api/notifications/settings', 'POST /api/chat/rooms/:roomId/read', 'POST /api/conversations/rooms/:roomId/read',
+    // messaging: open to every role by design, target must be in the caller's school
+    'POST /api/notifications/',
+    // submissions a student/parent is meant to make
+    'POST /api/community/surveys/responses', 'POST /api/student-reports/discreet', 'POST /api/store/orders',
+    'POST /api/learning-hub/study-plans', 'POST /api/community/panic/activate',
+    // parent links their OWN profile to a child by the child's code
+    'POST /api/students/link-guardian',
+    // read-only despite the verb (results are ownership-filtered)
+    'POST /api/academic/grades', 'POST /api/timetables/check-conflict',
+    // no-op placeholder (responds 200, writes nothing)
+    'POST /api/invite/complete',
+    // NOT listed on purpose: PATCH /api/academic-policies/permission-slips/:id — a
+    // parent's approve/decline overwrites the school-wide slip status. Known open
+    // design flaw (needs a per-child response record); keep it failing until fixed.
+];
+
 // Resolve a path parameter to the VICTIM tenant's matching id.
 function paramValue(name: string, segBefore: string, victim: Tenant): string {
     const ids = victim.ids;
@@ -121,6 +144,23 @@ async function pool<T>(items: (() => Promise<T>)[], n: number): Promise<T[]> {
             buildPath(r.path, { ...A, ids: { ...A.ids, student: A.ids.subStudent }, mainBranchId: A.subBranchId } as any).url,
             A.teacherToken, { 'X-Branch-Id': A.subBranchId }, isWrite ? forged(A) : null,
             { ...A, canary: `${A.canary} SubBranch Student`, ids: { subStudent: A.ids.subStudent } } as any, [A.ids.subStudent, A.subBranchId]));
+        // Intra-school ownership (BOLA). The victim is A's student #2, whose rows
+        // carry a private token; only that token and student #2's own ids count.
+        const s2Ids = { ...A.ids, student: A.intra.student2, studentUser: A.intra.student2User, attendance: A.intra.attendance,
+            reportCard: A.intra.reportCard, invoice: A.intra.invoice, fee: A.intra.studentFee };
+        const pS2 = buildPath(r.path, { ...A, ids: s2Ids } as any);
+        const onlyS2 = {
+            canary: A.intra.priv, schoolId: '', mainBranchId: '', subBranchId: '', adminEmail: '', teacherEmail: '',
+            adminUserId: '', teacherUserId: '', generatedIds: {},
+            ids: { s2: A.intra.student2, s2u: A.intra.student2User, a: A.intra.attendance, rc: A.intra.reportCard, sf: A.intra.studentFee, inv: A.intra.invoice },
+        } as any;
+        const s2Body = isWrite ? { student_id: A.intra.student2, studentId: A.intra.student2, user_id: A.intra.student2User, id: A.intra.student2, title: 'probe', content: 'probe', status: 'present', amount: 1 } : null;
+        // 7. A STUDENT #1 → student #2's records
+        jobs.push(() => fire('A_student+A_student2', r.method, r.path, pS2.url, A.studentToken, {}, s2Body, onlyS2, pS2.sent));
+        // 8. A PARENT (linked to #1 only) → student #2's records
+        jobs.push(() => fire('A_parent+unlinked_child', r.method, r.path, pS2.url, A.parentToken, {}, s2Body, onlyS2, pS2.sent));
+        // 9. A SUB-BRANCH ADMIN → main-branch student #2 (a branch admin must stay in its branch)
+        jobs.push(() => fire('A_subadmin+A_mainbranch', r.method, r.path, pS2.url, A.subAdminToken, {}, isWrite ? forged(A) : null, onlyS2, pS2.sent));
     }
     console.error(`firing ${jobs.length} requests across ${ordered.length} routes...`);
     const results = await pool(jobs, 8);
@@ -131,10 +171,27 @@ async function pool<T>(items: (() => Promise<T>)[], n: number): Promise<T[]> {
     //    message text + a first-name/role label; never school_id, branch, email,
     //    surname or ids. (A fixture canary can appear only because our seed names
     //    literally start with the canary token — that is the author's first name.)
+    //  - GET /api/schools/:id/manifest.webmanifest : PWA install branding fetched by
+    //    the browser before login (school name + colour — same as /schools/public).
+    // Inside one school, by design:
+    //  - GET /api/{chat,conversations}/contacts/role : a student's chat contacts are
+    //    the classmates in their branch (name, avatar, grade — no email/phone).
     // A leak anywhere else is a real failure.
-    const INTENTIONAL = /^\/api\/schools\/public|^\/api\/global-forum\//;
-    const leaks = results.filter(r => r.leak.length && !INTENTIONAL.test(r.path));
-    const intentional = results.filter(r => r.leak.length && INTENTIONAL.test(r.path));
+    const INTENTIONAL = /^\/api\/schools\/public|^\/api\/global-forum\/|^\/api\/schools\/:id\/manifest\.webmanifest$/;
+    const INTENTIONAL_INTRA = /^\/api\/(chat|conversations)\/contacts\/role$/;
+    const isIntentional = (r: Result) => INTENTIONAL.test(r.path)
+        || (r.attack === 'A_student+A_student2' && INTENTIONAL_INTRA.test(r.path));
+    const leaks = results.filter(r => r.leak.length && !isIntentional(r));
+    const intentional = results.filter(r => r.leak.length && isIntentional(r));
+
+    // Role escalation: a canary can't see a write that returns no data (a student
+    // token deleted a class and upgraded the school's plan without leaking a byte).
+    // Any write a STUDENT or PARENT token gets a 2xx for must be on this list of
+    // actions those roles legitimately perform — self-service, own-child, or
+    // submissions. Anything else is an escalation.
+    const STUDENT_PARENT_WRITES = new Set<string>(STUDENT_PARENT_WRITE_ALLOWLIST);
+    const escalations = results.filter(r => /^A_(student|parent)\+/.test(r.attack) && r.method !== 'GET'
+        && r.status >= 200 && r.status < 300 && !STUDENT_PARENT_WRITES.has(`${r.method} ${r.path}`));
     const byAttack: Record<string, { total: number; leaks: number }> = {};
     for (const r of results) { byAttack[r.attack] ||= { total: 0, leaks: 0 }; byAttack[r.attack].total++; if (r.leak.length) byAttack[r.attack].leaks++; }
     const statusHist: Record<string, number> = {}; results.forEach(r => statusHist[r.status] = (statusHist[r.status] || 0) + 1);
@@ -145,7 +202,10 @@ async function pool<T>(items: (() => Promise<T>)[], n: number): Promise<T[]> {
     const uniqRoutes = [...new Set(leaks.map(l => l.method + ' ' + l.path))];
     console.log('LEAKING ROUTES:', uniqRoutes.length);
     for (const l of leaks.slice(0, 60)) console.log(`  LEAK ${l.attack.padEnd(22)} ${l.status} ${l.method} ${l.path}  <- ${l.leak.slice(0, 2).join(',')}`);
-    if (leaks.length) { console.log('VERDICT: NOT SAFE'); process.exit(1); }
+    const escRoutes = [...new Set(escalations.map(e => `${e.attack.replace(/\+.*/, '')} ${e.status} ${e.method} ${e.path}`))];
+    console.log('ROLE ESCALATIONS (student/parent write accepted, not allowlisted):', escRoutes.length);
+    for (const e of escRoutes) console.log(`  ESCALATION ${e}`);
+    if (leaks.length || escalations.length) { console.log('VERDICT: NOT SAFE'); process.exit(1); }
     console.log('VERDICT: SAFE (this run)');
     process.exit(0);
 })();

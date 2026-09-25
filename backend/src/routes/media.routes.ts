@@ -22,8 +22,8 @@ router.post('/repair-avatars', requireRole(['admin', 'proprietor', 'superadmin',
 // for that storage mode. Matches the /api/media/file/<bucket>/<schoolId>/...
 // URLs storeUploadedFile hands out when running without S3/Supabase Storage.
 router.get('/file/*splat', downloadFile);
-router.post('/sms-lesson', sendSMSLesson);
-router.post('/radio-schedule', scheduleRadioBroadcast);
-router.post('/ivr-record', recordIVRLesson);
+router.post('/sms-lesson', requireRole(['admin', 'proprietor', 'superadmin', 'super_admin', 'teacher']), sendSMSLesson);
+router.post('/radio-schedule', requireRole(['admin', 'proprietor', 'superadmin', 'super_admin', 'teacher']), scheduleRadioBroadcast);
+router.post('/ivr-record', requireRole(['admin', 'proprietor', 'superadmin', 'super_admin', 'teacher']), recordIVRLesson);
 
 export default router;
