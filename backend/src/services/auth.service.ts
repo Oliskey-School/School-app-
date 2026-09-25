@@ -456,7 +456,11 @@ export class AuthService {
             config.refreshTokenSecret,
             {
                 expiresIn: '7d',
-                algorithm: 'HS256'
+                algorithm: 'HS256',
+                // JWTs are deterministic: without a unique id, two logins of the
+                // same user in the same second got byte-identical tokens and so
+                // shared one session (logging out one device logged out both).
+                jwtid: crypto.randomUUID()
             }
         );
 
@@ -553,11 +557,14 @@ export class AuthService {
                 allowed_branch_ids: decoded.allowed_branch_ids ?? user.allowed_branch_ids ?? [],
             };
 
-            // Optional: revoke old session
-            await (prisma as any).userSession.update({
-                where: { id: session.id },
+            // Rotate: retire the old session. Conditional on is_active so two
+            // concurrent refreshes with the same token cannot BOTH succeed (a
+            // replayed/stolen refresh token loses the race instead of forking).
+            const retired = await (prisma as any).userSession.updateMany({
+                where: { id: session.id, is_active: true },
                 data: { is_active: false }
             });
+            if (retired.count !== 1) throw new Error('Session inactive or revoked');
 
             return await this.generateTokens(sessionUser);
         } catch (err: any) {
@@ -793,7 +800,46 @@ export class AuthService {
         return { token, refreshToken, user: { ...user, role: membership?.base_role || user.role } };
     }
 
-    static async updatePassword(userId: string, currentPassword: string, newPassword: string) {
+    /**
+     * Ends a user's sessions server-side so their refresh tokens stop working.
+     * `exceptTokenId` keeps the caller's own session (password change on this device).
+     */
+    static async revokeUserSessions(userId: string, exceptTokenId?: string) {
+        await (prisma as any).userSession.updateMany({
+            where: { user_id: userId, is_active: true, ...(exceptTokenId ? { token_id: { not: exceptTokenId } } : {}) },
+            data: { is_active: false }
+        });
+    }
+
+    /**
+     * Logout: retire the session behind the caller's tokens. The access token's
+     * `sid` IS the session's token_id; the refresh token's id is its signature.
+     * An expired access token still identifies the session, so it is accepted
+     * here (signature still verified). Never throws — logout must always succeed.
+     */
+    static async revokeSessionForLogout(accessToken?: string, refreshToken?: string) {
+        const ids = new Set<string>();
+        try {
+            if (accessToken) {
+                const d: any = jwt.verify(accessToken, config.jwtSecret, { algorithms: ['HS256'], ignoreExpiration: true });
+                if (d?.sid) ids.add(d.sid);
+            }
+        } catch { /* invalid token: nothing to revoke */ }
+        try {
+            if (refreshToken) {
+                jwt.verify(refreshToken, config.refreshTokenSecret, { algorithms: ['HS256'], ignoreExpiration: true });
+                ids.add(refreshToken.split('.')[2]);
+            }
+        } catch { /* invalid token: nothing to revoke */ }
+        if (!ids.size) return;
+        try {
+            await (prisma as any).userSession.updateMany({ where: { token_id: { in: [...ids] } }, data: { is_active: false } });
+        } catch (err: any) {
+            console.warn('[AuthService] logout session revoke failed:', err.message);
+        }
+    }
+
+    static async updatePassword(userId: string, currentPassword: string, newPassword: string, currentSid?: string) {
         const user = await getRawPrisma().user.findUnique({
             where: { id: userId }
         });
@@ -814,6 +860,10 @@ export class AuthService {
                 password_hash: hashedPassword
             }
         });
+
+        // Sign out every OTHER device: a password change is how a user evicts
+        // someone who got into the account.
+        await this.revokeUserSessions(userId, currentSid);
 
         if (updatedUser.school_id) {
             SocketService.emitToSchool(updatedUser.school_id, 'auth:updated', { action: 'password_update', userId });
@@ -952,6 +1002,10 @@ export class AuthService {
             }
         });
 
+        // A reset means the old password may be known to someone else — end
+        // every existing session, not just future logins.
+        await this.revokeUserSessions(user.id);
+
         return { success: true, message: 'Password has been reset successfully.' };
     }
 
@@ -967,19 +1021,27 @@ export class AuthService {
         const allChars = uppercase + lowercase + numbers + special;
         let password = '';
         
+        // Cryptographic randomness: Math.random is predictable from its outputs.
+        const pick = (set: string) => set.charAt(crypto.randomInt(set.length));
+
         // Ensure at least one of each type
-        password += uppercase.charAt(Math.floor(Math.random() * uppercase.length));
-        password += lowercase.charAt(Math.floor(Math.random() * lowercase.length));
-        password += numbers.charAt(Math.floor(Math.random() * numbers.length));
-        password += special.charAt(Math.floor(Math.random() * special.length));
-        
+        password += pick(uppercase);
+        password += pick(lowercase);
+        password += pick(numbers);
+        password += pick(special);
+
         // Fill the rest randomly
         for (let i = 4; i < length; i++) {
-            password += allChars.charAt(Math.floor(Math.random() * allChars.length));
+            password += pick(allChars);
         }
-        
-        // Shuffle the password
-        return password.split('').sort(() => Math.random() - 0.5).join('');
+
+        // Shuffle the password (Fisher–Yates)
+        const chars = password.split('');
+        for (let i = chars.length - 1; i > 0; i--) {
+            const j = crypto.randomInt(i + 1);
+            [chars[i], chars[j]] = [chars[j], chars[i]];
+        }
+        return chars.join('');
     }
 
     static async resendVerification(email: string) {

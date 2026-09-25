@@ -51,3 +51,46 @@ describe('Auth session resilience', () => {
         expect(refreshed2Claims.branch_id).toBe(loginClaims.branch_id);
     });
 });
+
+describe('Session revocation', () => {
+    it('rejects a refresh token once it has been rotated', async () => {
+        const login = await AuthService.generateDemoToken('student');
+        await AuthService.refreshAccessToken(login.refreshToken);
+        await expect(AuthService.refreshAccessToken(login.refreshToken)).rejects.toThrow();
+    });
+
+    it('lets only ONE of two concurrent refreshes with the same token succeed', async () => {
+        const login = await AuthService.generateDemoToken('student');
+        const results = await Promise.allSettled([
+            AuthService.refreshAccessToken(login.refreshToken),
+            AuthService.refreshAccessToken(login.refreshToken),
+        ]);
+        expect(results.filter(r => r.status === 'fulfilled')).toHaveLength(1);
+    });
+
+    it('logout ends the server session, so the refresh token stops working', async () => {
+        const login = await AuthService.generateDemoToken('student');
+        const res = await request(app).post('/api/auth/logout').set('Authorization', `Bearer ${login.token}`).send({});
+        expect(res.status).toBe(200);
+        await expect(AuthService.refreshAccessToken(login.refreshToken)).rejects.toThrow();
+    });
+
+    it('logout with a forged token revokes nothing and still succeeds', async () => {
+        const login = await AuthService.generateDemoToken('student');
+        const forged = jwt.sign({ sid: login.refreshToken.split('.')[2] }, 'not-the-secret');
+        const res = await request(app).post('/api/auth/logout').set('Authorization', `Bearer ${forged}`).send({});
+        expect(res.status).toBe(200);
+        await expect(AuthService.refreshAccessToken(login.refreshToken)).resolves.toBeTruthy();
+    });
+
+    it('password change signs out other sessions but keeps the current one', async () => {
+        const current = await AuthService.generateDemoToken('teacher');
+        // Same user, same second: each login must still be its own session.
+        const other = await AuthService.generateDemoToken('teacher');
+        expect(other.refreshToken).not.toBe(current.refreshToken);
+        const sid = (jwt.verify(current.token, config.jwtSecret) as any).sid;
+        await AuthService.revokeUserSessions(current.user.id, sid);
+        await expect(AuthService.refreshAccessToken(other.refreshToken)).rejects.toThrow();
+        await expect(AuthService.refreshAccessToken(current.refreshToken)).resolves.toBeTruthy();
+    });
+});

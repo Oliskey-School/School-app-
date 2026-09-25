@@ -287,7 +287,7 @@ export const updatePassword = async (req: Request, res: Response) => {
             return res.status(400).json({ message: 'Current password and new password are required' });
         }
         
-        const result = await AuthService.updatePassword(userId, currentPassword, newPassword);
+        const result = await AuthService.updatePassword(userId, currentPassword, newPassword, (req as any).user?.sid);
         res.json(result);
     } catch (error: any) {
         sendError(res, error, 'auth.controller.ts', undefined, 400);
@@ -606,6 +606,13 @@ export const revokeAllSessions = async (req: Request, res: Response) => {
 };
 
 export const logout = async (req: Request, res: Response) => {
+    // Clearing cookies alone left the server session alive: a copied 7-day
+    // refresh token kept minting access tokens after the user logged out.
+    const bearer = req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.split(' ')[1] : undefined;
+    await AuthService.revokeSessionForLogout(
+        bearer || req.cookies?.access_token,
+        req.body?.refreshToken || req.cookies?.refresh_token,
+    );
     res.clearCookie('access_token', COOKIE_OPTIONS);
     res.clearCookie('refresh_token', COOKIE_OPTIONS);
     res.json({ success: true, message: 'Logged out successfully' });

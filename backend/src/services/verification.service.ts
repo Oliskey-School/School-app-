@@ -1,5 +1,6 @@
 import prisma from '../config/database';
 import bcrypt from 'bcrypt';
+import crypto from 'crypto';
 import { EmailService } from './email.service';
 
 import { TestOTPStore } from './test-otp.store';
@@ -21,8 +22,10 @@ export class VerificationService {
     static generateOTP(length: number = this.OTP_LENGTH): string {
         const digits = '0123456789';
         let otp = '';
+        // crypto.randomInt, not Math.random: Math.random's state can be recovered
+        // from its outputs, which would make reset/verification codes predictable.
         for (let i = 0; i < length; i++) {
-            otp += digits.charAt(Math.floor(Math.random() * digits.length));
+            otp += digits.charAt(crypto.randomInt(digits.length));
         }
         return otp;
     }

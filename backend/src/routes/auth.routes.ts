@@ -36,7 +36,9 @@ router.get('/demo/roles', demoLoginLimiter, AuthController.demoRoles);
 
 router.post('/signup', signupLimiter, AuthController.signup);
 router.post('/login', loginLimiter, validateRequest(loginSchema), AuthController.login);
-router.post('/verify-2fa-login', AuthController.verify2FALogin);
+// A 6-digit TOTP guessed at the global limit (~1800/min/IP) is breakable once
+// the password is known; same strict budget as the other code-entry endpoints.
+router.post('/verify-2fa-login', otpLimiter, AuthController.verify2FALogin);
 router.post('/logout', AuthController.logout);
 
 // 2FA Management
