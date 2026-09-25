@@ -1,4 +1,5 @@
 import prisma from '../config/database';
+import { sanitisePreferences, defaultPreferences } from './notificationPreferences';
 import { SocketService } from './socket.service';
 
 export class NotificationService {
@@ -173,20 +174,21 @@ export class NotificationService {
     }
 
     // Notification Settings
+    /**
+     * The user's notification preferences, always in the canonical shape
+     * { digest_time, categories: [{ id, mode, channel }] }.
+     *
+     * Rows written before this shape existed hold a flat boolean blob; they are
+     * normalised on read by sanitisePreferences rather than migrated, because
+     * the old blob carried no per-category mode or channel to migrate.
+     */
     static async getSettingsByUserId(userId: string) {
         let settings = await prisma.notificationSetting.findUnique({
             where: { user_id: userId }
         });
 
         if (!settings) {
-            const defaultCategories = {
-                emailAlerts: true,
-                pushNotifications: true,
-                weeklySummary: false,
-                assignmentReminders: true,
-                attendanceAlerts: true,
-                paymentReminders: true
-            };
+            const defaults = defaultPreferences();
 
             // Demo / virtual sessions: the user may not be a real DB row, and
             // NotificationSetting.user_id has a hard FK to users.id, so create()
@@ -195,14 +197,14 @@ export class NotificationService {
             // without persisting rather than let the FK violation surface.
             const owner = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, school_id: true } });
             if (!owner) {
-                return { categories: defaultCategories, digest_time: '19:00' };
+                return defaults;
             }
 
             settings = await prisma.notificationSetting.create({
                 data: {
                     user_id: userId,
-                    categories: defaultCategories,
-                    digest_time: '19:00',
+                    categories: defaults.categories as any,
+                    digest_time: defaults.digest_time,
                     // The caller's own school. (Defaults used to be written under a
                     // fake 'GLOBAL' tenant, which only ever worked with a superuser
                     // connection — RLS correctly refuses that row.)
@@ -212,7 +214,10 @@ export class NotificationService {
             });
         }
 
-        return settings;
+        return sanitisePreferences({
+            digest_time: settings.digest_time,
+            categories: settings.categories,
+        });
     }
 
     static async updateSettingsByUserId(userId: string, data: any, schoolId?: string, branchId?: string | null) {
@@ -221,37 +226,48 @@ export class NotificationService {
         // daily) — return the preferences as a successful no-op.
         const owner = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, school_id: true } });
         if (!owner) {
-            return { categories: data, digest_time: data?.digest_time || '19:00' };
+            return sanitisePreferences(data);
         }
 
         // school_id is REQUIRED on NotificationSetting — was missing, causing the
         // "Failed to save preferences" 500. Resolve it (from the request, else the user).
         const sid = schoolId || owner.school_id;
 
-        // Keep only the boolean category toggles the settings screen actually
-        // sends. Persisting the body verbatim let any extra keys a caller included
-        // (school_id, branch_id, other ids…) land in the JSON column and come back
-        // on every read. The row itself is RLS-checked; the blob was not.
-        const categories: Record<string, boolean> = {};
-        for (const [key, value] of Object.entries(data || {})) {
-            if (typeof value === "boolean") categories[key] = value;
-        }
+        // Validate against the known preference shape.
+        //
+        // This used to keep only values where `typeof value === "boolean"`, which
+        // was meant to stop a caller's stray keys (school_id, other ids…) landing
+        // in the JSON column. It did stop that — but the settings screen sends an
+        // ARRAY of { id, mode, channel } plus a digest_time string, none of which
+        // are booleans, so every real preference was dropped and an empty object
+        // was written. Whitelisting the actual shape keeps the original guarantee
+        // (nothing unknown reaches the column) while persisting what the user
+        // chose. Emergency alerts are forced back to 'instant' here too, since a
+        // client can send anything.
+        const prefs = sanitisePreferences(data);
+        const categories = prefs.categories;
 
-        return await prisma.notificationSetting.upsert({
+        await prisma.notificationSetting.upsert({
             where: { user_id: userId },
             update: {
-                categories,
+                categories: categories as any,
+                digest_time: prefs.digest_time,
                 school_id: sid,
                 ...(branchId !== undefined ? { branch_id: branchId } : {}),
                 updated_at: new Date()
             },
             create: {
                 user_id: userId,
-                categories,
+                categories: categories as any,
                 school_id: sid,
                 branch_id: branchId ?? null,
-                digest_time: data?.digest_time || '19:00'
+                digest_time: prefs.digest_time
             }
         });
+
+        // Return what was actually stored, so the screen reflects the server's
+        // decision (e.g. emergency forced back to instant) rather than its own
+        // optimistic state.
+        return prefs;
     }
 }
