@@ -915,7 +915,14 @@ export class StudentService {
         const now = new Date();
         await prisma.$transaction([
             prisma.student.update({ where: { id: student.id }, data: { deleted_at: now } }),
-            ...(student.user_id ? [prisma.user.update({ where: { id: student.user_id }, data: { deleted_at: now } })] : [])
+            // is_active:false as well as deleted_at. The auth lookups now reject
+            // deleted_at, but every other "is this account usable" check in the
+            // codebase keys off is_active, and leaving it true meant a deleted
+            // person still looked live to all of them.
+            ...(student.user_id ? [prisma.user.update({ where: { id: student.user_id }, data: { deleted_at: now, is_active: false } })] : []),
+            // Existing sessions must not outlive the account: without this the
+            // person stays signed in on whatever device they already had.
+            ...(student.user_id ? [prisma.userSession.updateMany({ where: { user_id: student.user_id, is_active: true }, data: { is_active: false } })] : [])
         ]);
         SocketService.emitToSchool(schoolId, 'student:updated', { action: 'delete', studentId: id });
         return true;
