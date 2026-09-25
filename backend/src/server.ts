@@ -170,6 +170,14 @@ const start = async () => {
                         console.warn('⚠️ [SubscriptionCron] start skipped:', cronErr.message);
                     }
 
+                    // Daily notification digests, at each user's chosen time.
+                    try {
+                        const { NotificationDigestCron } = require('./services/notificationDigestCron.service');
+                        NotificationDigestCron.init();
+                    } catch (cronErr: any) {
+                        console.warn('⚠️ [NotificationDigest] start skipped:', cronErr.message);
+                    }
+
                     // Student Early Warning System — nightly risk scan, production-only by default.
                     try {
                         const { startRiskScanCron } = require('./services/riskScanCron.service');
