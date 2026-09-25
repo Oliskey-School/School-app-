@@ -243,7 +243,27 @@ const ParentDetailAdminView: React.FC<ParentDetailAdminViewProps> = ({ parent, n
             </main>
 
             {/* Sticky Actions */}
-            <div ref={dockRef} className="fixed left-0 right-0 bottom-[var(--bottom-nav-height,0px)] z-30 lg:static p-4 bg-white border-t border-gray-100 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] lg:shadow-none flex flex-col space-y-2">
+            {/* Admin actions: the LAST element of this screen's flex column, so it
+             * sits at the bottom of the page.
+             *
+             * It used to be pinned with `fixed left-0 right-0
+             * bottom-[var(--bottom-nav-height,0px)] lg:static`. That only lands in
+             * the right place when the screen is mounted in DashboardLayout's
+             * sticky-footer mode AND no ancestor creates a containing block for
+             * fixed children — a retained transform on the screen wrapper had
+             * already broken every fixed element in the app once before (see the
+             * contentFadeIn note in index.css). Two of the three admin detail views
+             * were never registered in stickyFooterViews either, so the bar
+             * resolved against a collapsed box and rendered at the TOP of the
+             * screen, dragging the floating install button up with it — both stack
+             * against the heights published by useDockedBar.
+             *
+             * Normal flow needs none of that. useDockedBar still measures it and
+             * publishes 0px, because it only reports a height for an element that
+             * is genuinely fixed/sticky — so the bottom navigation and the install
+             * button stop reserving space for a bar that is now part of the page.
+             */}
+            <div ref={dockRef} className="mt-auto p-4 bg-white border-t border-gray-100 flex flex-col space-y-2">
                 <h3 className="text-xs font-bold text-gray-400 text-center uppercase tracking-[0.2em] mb-1">Admin Management</h3>
                 <div className="grid grid-cols-2 gap-3">
                     <motion.button whileHover={{ y: -2 }} whileTap={{ scale: 0.97, y: 0 }} onClick={() => navigateTo('addParent', `Edit ${parent.name}`, { parentToEdit: parent })} className="flex items-center justify-center space-x-2 py-3 bg-indigo-50 text-indigo-700 rounded-xl font-bold hover:bg-indigo-100 transition-colors border border-indigo-100">

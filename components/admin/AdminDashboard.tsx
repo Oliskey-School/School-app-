@@ -674,7 +674,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
     // scroll + bottom spacing, so the layout's blanket pb-24/lg:pb-12 stacks on top of
     // their bar and leaves a dead gap beneath it. Unlike fullWidthViews, this keeps the
     // normal centered/padded content width — only the vertical scroll+padding mechanics change.
-    const stickyFooterViews = ['studentProfileAdminView', 'studentProfileDashboard'];
+    // Screens whose last element is an action bar that must sit at the bottom.
+    // This mode gives DashboardLayout's main a real height (h-full flex flex-col)
+    // so the bar's `mt-auto` has something to push against; without it the
+    // column collapses and the bar rides up to the top of the screen.
+    const stickyFooterViews = ['studentProfileAdminView', 'studentProfileDashboard',
+        'teacherDetailAdminView', 'TeacherDetailAdminView', 'parentDetailAdminView'];
     const stickyFooterLayout = stickyFooterViews.includes(view);
     const hideBottomNav = hideLayoutNav || view === 'chat';
     // Identifies THIS exact screen (view + its data, e.g. which student) so scroll

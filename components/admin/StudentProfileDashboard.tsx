@@ -492,8 +492,27 @@ const StudentProfileDashboard: React.FC<StudentProfileDashboardProps> = ({
                 </motion.div>
             </main>
 
-            {/* Admin Action Bar (Docked Bottom) */}
-            <div ref={dockRef} className="bg-white border-t border-gray-100 p-4 fixed left-0 right-0 bottom-[var(--bottom-nav-height,0px)] z-30 lg:static">
+            {/* Admin actions: the LAST element of this screen's flex column, so it
+             * sits at the bottom of the page.
+             *
+             * It used to be pinned with `fixed left-0 right-0
+             * bottom-[var(--bottom-nav-height,0px)] lg:static`. That only lands in
+             * the right place when the screen is mounted in DashboardLayout's
+             * sticky-footer mode AND no ancestor creates a containing block for
+             * fixed children — a retained transform on the screen wrapper had
+             * already broken every fixed element in the app once before (see the
+             * contentFadeIn note in index.css). Two of the three admin detail views
+             * were never registered in stickyFooterViews either, so the bar
+             * resolved against a collapsed box and rendered at the TOP of the
+             * screen, dragging the floating install button up with it — both stack
+             * against the heights published by useDockedBar.
+             *
+             * Normal flow needs none of that. useDockedBar still measures it and
+             * publishes 0px, because it only reports a height for an element that
+             * is genuinely fixed/sticky — so the bottom navigation and the install
+             * button stop reserving space for a bar that is now part of the page.
+             */}
+            <div ref={dockRef} className="bg-white border-t border-gray-100 p-4 mt-auto">
                 <p className="text-xs font-bold text-gray-400 text-center uppercase tracking-widest mb-3">Admin Actions</p>
                 <div className="grid grid-cols-4 gap-3">
                     <motion.button
