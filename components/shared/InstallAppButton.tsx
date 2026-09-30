@@ -61,10 +61,16 @@ const InstallAppButton: React.FC = () => {
 
     return (
         <>
+            {/* The offset is clamped. It stacks above the bottom navigation and any
+                docked action bar by adding the heights those publish as CSS
+                variables (see useDockedBar) — but nothing bounded the result, so a
+                stale or oversized value sent this button climbing to the TOP of the
+                screen, over the sidebar header. min() keeps it on screen whatever
+                the variables say; 6rem leaves room for the button itself. */}
             <button
                 onClick={handleClick}
                 aria-label={t('pwa.installApp')}
-                className="fixed z-[9998] bottom-[calc(1rem+var(--bottom-nav-height,0px)+var(--docked-bar-height,0px))] left-4 flex items-center justify-center lg:justify-start gap-2 w-11 h-11 lg:w-auto lg:h-auto p-0 lg:px-4 lg:py-2.5 rounded-full bg-indigo-600 text-white text-sm font-bold shadow-lg shadow-indigo-300/40 hover:bg-indigo-700 active:scale-95 transition print:hidden"
+                className="fixed z-[9998] bottom-[min(calc(1rem+var(--bottom-nav-height,0px)+var(--docked-bar-height,0px)),calc(100dvh-6rem))] left-4 flex items-center justify-center lg:justify-start gap-2 w-11 h-11 lg:w-auto lg:h-auto p-0 lg:px-4 lg:py-2.5 rounded-full bg-indigo-600 text-white text-sm font-bold shadow-lg shadow-indigo-300/40 hover:bg-indigo-700 active:scale-95 transition print:hidden"
             >
                 <Download size={18} className="shrink-0" />
                 <span className="hidden lg:inline">{t('pwa.installApp')}</span>
