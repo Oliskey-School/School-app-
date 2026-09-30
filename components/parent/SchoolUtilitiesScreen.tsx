@@ -179,7 +179,7 @@ const SchoolUtilitiesScreen: React.FC<SchoolUtilitiesScreenProps> = ({ navigateT
                         <p className="text-gray-600">Access all school tools and resources in one place.</p>
                     </div>
 
-                    <div className="grid grid-cols-3 xl:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
                         {utilities.map((item, i) => (
                             <motion.button
                                 key={item.id}
