@@ -8,11 +8,18 @@ on:
   push:
     branches:
       - main
-      - 'codex/**'
   pull_request:
     branches: [main]
   schedule:
     - cron: '0 3 * * *'
+
+# Do not spend a full runner on obsolete commits while a PR is being updated.
+# A new commit supersedes the previous E2E run for that PR/ref. This prevents
+# duplicate push + pull_request runs and prevents a rapid hardening sequence
+# from leaving several expensive Playwright jobs running at once.
+concurrency:
+  group: e2e-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   e2e:
@@ -227,9 +234,8 @@ jobs:
       # run, not just whatever fit in the last 200 lines. A backend that logs
       # one line per request across 9 tests x 3 retries x dozens of requests
       # each easily buries the one call (or its absence) that actually matters
-      # well before the tail window, which is exactly what made an earlier
-      # investigation on this branch look like "the demo-login endpoint is
-      # never called" when the log simply no longer contained that far back.
+      # well before the tail window, which was exactly what made an earlier
+      # investigation look like the demo-login endpoint was never called.
       - name: Save full server logs
         if: always()
         run: |
@@ -240,13 +246,6 @@ jobs:
       # critical-path suite is admin-centric. This drives all four roles
       # through sign-in, navigation, reload, history, a phone viewport and
       # sign-out, failing on blank screens, stuck spinners, page errors or 5xx.
-      # `!cancelled()` alone let this run after an EARLIER step had already
-      # failed and its setup was skipped: no browsers installed, no frontend
-      # built, no preview server. It then failed with "Executable doesn't exist",
-      # which looked like a Playwright problem and hid the real failure further
-      # up the job. It still runs when the critical-path suite fails — that is
-      # the point of not using plain success() — but only once the browser stack
-      # is genuinely up.
       - name: Four-role browser sweep
         if: ${{ !cancelled() && steps.preview.outcome == 'success' }}
         run: BASE_URL=http://localhost:4173 npx playwright test tests/e2e/four-role-sweep.spec.ts --project=chromium --workers=1
@@ -261,15 +260,6 @@ jobs:
           tail -100 /tmp/e2e-preview.log || true
           echo "::endgroup::"
 
-      # .playwright-report/ is the HTML summary (only produced if the html
-      # reporter finishes writing it); .playwright-results/ is where Playwright
-      # actually puts the per-test failure evidence this repo's own tests
-      # reference on every failure — trace.zip, error-context.md (a DOM/ARIA
-      # snapshot at the moment of failure), and screenshots. Only the summary
-      # was ever uploaded before, so a genuinely broken run produced no
-      # artifact at all ("No files were found with the provided path:
-      # .playwright-report/") and every past investigation had to guess from
-      # stdout text alone.
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
