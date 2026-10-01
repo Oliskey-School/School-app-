@@ -123,7 +123,7 @@ function userOrIpKeyGenerator(req: any, res: any): string {
     const authHeader = req.headers?.authorization;
     if (authHeader?.startsWith('Bearer ')) {
         try {
-            const decoded: any = jwt.verify(authHeader.slice(7), config.jwtSecret);
+            const decoded: any = jwt.verify(authHeader.slice(7), config.jwtSecret, { algorithms: ['HS256'] });
             if (decoded?.id) return `user:${decoded.id}`;
         } catch { /* fall through to IP keying */ }
     }

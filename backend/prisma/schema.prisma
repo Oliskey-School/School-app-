@@ -206,6 +206,10 @@ model Branch {
   sop_cases              SOPCase[]
 
   @@unique([school_id, code])
+  // Target for the composite (school_id, branch_id) foreign keys added in
+  // migration 20260922093000 — a branch_id must belong to the same school.
+  @@unique([school_id, id], map: "Branch_school_id_id_key")
+
 }
 
 model User {
@@ -221,9 +225,9 @@ model User {
   allowed_branch_ids     String[]               @default([])
   email_verified         Boolean                @default(false)
   is_active              Boolean                @default(true)
-  // Demo sandbox sessions are flagged here so generateTokens() can stamp the
-  // is_demo claim onto the JWT (auth.service.ts). The auth middleware trusts
-  // that claim to route demo traffic through the sandbox branch path.
+  // Demo accounts (Prisma-side twin of migration 20260909120000). Read by
+  // auth.service to put the is_demo claim onto the JWT; the auth middleware
+  // trusts that claim to route demo traffic through the sandbox branch path.
   is_demo                Boolean                @default(false)
   school_generated_id    String?                @unique
   avatar_url             String?
@@ -355,7 +359,7 @@ model Student {
 
   @@unique([school_id, admission_number])
   @@unique([school_id, school_generated_id])
-  @@index([school_id, branch_id])
+  @@index([school_id, branch_id], map: "idx_Student_school_branch")
 }
 
 // A formal, permanent suspension letter. Survives the student's eventual
@@ -388,6 +392,8 @@ model StudentSuspension {
 
   @@index([student_id, status])
   @@index([school_id, student_id])
+  @@index([school_id, branch_id], map: "idx_StudentSuspension_school_branch")
+
 }
 
 model Teacher {
@@ -455,8 +461,7 @@ model Teacher {
   department_id            String?
   department               Department?                   @relation("DepartmentTeachers", fields: [department_id], references: [id], onDelete: SetNull)
   headed_departments       Department[]                  @relation("DepartmentHead")
-
-  @@index([school_id, branch_id])
+  @@index([school_id, branch_id], map: "idx_Teacher_school_branch")
   @@index([school_id, created_at])
 }
 
@@ -478,6 +483,8 @@ model TeacherAttendance {
   deleted_at      DateTime?
 
   @@unique([teacher_id, date, branch_id])
+  @@index([school_id, branch_id], map: "idx_TeacherAttendance_school_branch")
+
 }
 
 model Parent {
@@ -510,8 +517,7 @@ model Parent {
   pta_meeting_attendances PtaMeetingAttendee[]
   updated_by              String?
   deleted_at              DateTime?
-
-  @@index([school_id, branch_id])
+  @@index([school_id, branch_id], map: "idx_Parent_school_branch")
   @@index([school_id, created_at])
 }
 
@@ -550,6 +556,8 @@ model ParentChild {
   deleted_at DateTime?
 
   @@unique([parent_id, student_id])
+  @@index([school_id, branch_id], map: "idx_ParentChild_school_branch")
+
 }
 
 model AcademicPerformance {
@@ -569,7 +577,7 @@ model AcademicPerformance {
   deleted_at   DateTime?
 
   @@unique([school_id, student_id, subject, term, session])
-  @@index([school_id, branch_id])
+  @@index([school_id, branch_id], map: "idx_AcademicPerformance_school_branch")
 }
 
 model BehaviorNote {
@@ -590,8 +598,7 @@ model BehaviorNote {
   created_by     String?
   updated_by     String?
   deleted_at     DateTime?
-
-  @@index([school_id, branch_id])
+  @@index([school_id, branch_id], map: "idx_BehaviorNote_school_branch")
   @@index([school_id, created_at])
 }
 
@@ -611,6 +618,8 @@ model SchoolMembership {
   deleted_at DateTime?
 
   @@unique([school_id, user_id])
+  @@index([school_id, branch_id], map: "idx_SchoolMembership_school_branch")
+
 }
 
 model Class {
@@ -640,8 +649,7 @@ model Class {
   created_by     String?
   updated_by     String?
   deleted_at     DateTime?
-
-  @@index([school_id, branch_id])
+  @@index([school_id, branch_id], map: "idx_Class_school_branch")
   @@index([school_id, created_at])
 }
 
@@ -663,6 +671,7 @@ model StudentEnrollment {
   deleted_at      DateTime?
 
   @@unique([student_id, class_id])
+  @@index([school_id, branch_id], map: "idx_StudentEnrollment_school_branch")
   @@index([class_id, status])
 }
 
@@ -703,6 +712,8 @@ model ClassTeacher {
   @@unique([class_id, teacher_id, subject_id])
   @@index([teacher_id, status])
   @@index([class_id, role, status])
+  @@index([school_id, branch_id], map: "idx_ClassTeacher_school_branch")
+
 }
 
 model Attendance {
@@ -722,7 +733,7 @@ model Attendance {
   deleted_at DateTime?
 
   @@unique([student_id, class_id, date])
-  @@index([school_id, branch_id])
+  @@index([school_id, branch_id], map: "idx_Attendance_school_branch")
   @@index([class_id, date])
   @@index([student_id, date])
 }
@@ -747,6 +758,7 @@ model Assignment {
   created_by     String?
   updated_by     String?
   deleted_at     DateTime?
+  @@index([school_id, branch_id], map: "idx_Assignment_school_branch")
 }
 
 model AssignmentSubmission {
@@ -769,6 +781,8 @@ model AssignmentSubmission {
   deleted_at      DateTime?
 
   @@unique([student_id, assignment_id])
+  @@index([school_id, branch_id], map: "idx_AssignmentSubmission_school_branch")
+
 }
 
 model ReportCard {
@@ -797,8 +811,7 @@ model ReportCard {
   created_by              String?
   updated_by              String?
   deleted_at              DateTime?
-
-  @@index([school_id, branch_id])
+  @@index([school_id, branch_id], map: "idx_ReportCard_school_branch")
 }
 
 model Fee {
@@ -817,6 +830,7 @@ model Fee {
   created_by      String?
   updated_by      String?
   deleted_at      DateTime?
+  @@index([school_id, branch_id], map: "idx_Fee_school_branch")
 }
 
 model StudentFee {
@@ -837,8 +851,7 @@ model StudentFee {
   created_by  String?
   updated_by  String?
   deleted_at  DateTime?
-
-  @@index([school_id, branch_id])
+  @@index([school_id, branch_id], map: "idx_StudentFee_school_branch")
 }
 
 model Payment {
@@ -860,8 +873,7 @@ model Payment {
   created_by     String?
   updated_by     String?
   deleted_at     DateTime?
-
-  @@index([school_id, branch_id])
+  @@index([school_id, branch_id], map: "idx_Payment_school_branch")
   @@index([school_id, student_id])
   @@index([reference])
 }
@@ -882,6 +894,7 @@ model Announcement {
   created_by String?
   updated_by String?
   deleted_at DateTime?
+  @@index([school_id, branch_id], map: "idx_Announcement_school_branch")
 }
 
 model Event {
@@ -900,6 +913,7 @@ model Event {
   created_by   String?
   updated_by   String?
   deleted_at   DateTime?
+  @@index([school_id, branch_id], map: "idx_Event_school_branch")
 }
 
 model EventRSVP {
@@ -918,6 +932,8 @@ model EventRSVP {
   deleted_at DateTime?
 
   @@unique([event_id, parent_id])
+  @@index([school_id, branch_id], map: "idx_EventRSVP_school_branch")
+
 }
 
 model SavingsPlan {
@@ -940,6 +956,7 @@ model SavingsPlan {
   created_by     String?
   updated_by     String?
   deleted_at     DateTime?
+  @@index([school_id, branch_id], map: "idx_SavingsPlan_school_branch")
 }
 
 model TeacherOfficeHour {
@@ -955,6 +972,7 @@ model TeacherOfficeHour {
   created_by  String?
   updated_by  String?
   deleted_at  DateTime?
+  @@index([school_id, branch_id], map: "idx_TeacherOfficeHour_school_branch")
 }
 
 model Notification {
@@ -973,7 +991,7 @@ model Notification {
   created_by String?
   updated_by String?
   deleted_at DateTime?
-
+  @@index([school_id, branch_id], map: "idx_Notification_school_branch")
   @@index([school_id, user_id])
   @@index([school_id, created_at])
 }
@@ -1009,6 +1027,7 @@ model Appointment {
   created_by  String?
   updated_by  String?
   deleted_at  DateTime?
+  @@index([school_id, branch_id], map: "idx_Appointment_school_branch")
 }
 
 model VolunteeringOpportunity {
@@ -1030,6 +1049,7 @@ model VolunteeringOpportunity {
   created_by   String?
   updated_by   String?
   deleted_at   DateTime?
+  @@index([school_id, branch_id], map: "idx_VolunteeringOpportunity_school_branch")
 }
 
 model VolunteerSignup {
@@ -1047,6 +1067,7 @@ model VolunteerSignup {
   created_by     String?
   updated_by     String?
   deleted_at     DateTime?
+  @@index([school_id, branch_id], map: "idx_VolunteerSignup_school_branch")
 }
 
 model VerificationCode {
@@ -1070,6 +1091,8 @@ model VerificationCode {
   @@index([user_id])
   @@index([email])
   @@index([code])
+  @@index([school_id, branch_id], map: "idx_VerificationCode_school_branch")
+
 }
 
 model TransportBus {
@@ -1088,6 +1111,7 @@ model TransportBus {
   updated_by   String?
   deleted_at   DateTime?
   students     Student[]
+  @@index([school_id, branch_id], map: "idx_TransportBus_school_branch")
 }
 
 model TransportRoute {
@@ -1112,6 +1136,7 @@ model TransportRoute {
   created_by          String?
   updated_by          String?
   deleted_at          DateTime?
+  @@index([school_id, branch_id], map: "idx_TransportRoute_school_branch")
 }
 
 model TransportStop {
@@ -1129,6 +1154,7 @@ model TransportStop {
   created_by   String?
   updated_by   String?
   deleted_at   DateTime?
+  @@index([school_id, branch_id], map: "idx_TransportStop_school_branch")
 }
 
 model TransportAssignment {
@@ -1147,6 +1173,7 @@ model TransportAssignment {
   created_by    String?
   updated_by    String?
   deleted_at    DateTime?
+  @@index([school_id, branch_id], map: "idx_TransportAssignment_school_branch")
 }
 
 model Hostel {
@@ -1166,6 +1193,7 @@ model Hostel {
   created_by   String?
   updated_by   String?
   deleted_at   DateTime?
+  @@index([school_id, branch_id], map: "idx_Hostel_school_branch")
 }
 
 model HostelRoom {
@@ -1185,6 +1213,7 @@ model HostelRoom {
   created_by    String?
   updated_by    String?
   deleted_at    DateTime?
+  @@index([school_id, branch_id], map: "idx_HostelRoom_school_branch")
 }
 
 model HostelAllocation {
@@ -1204,6 +1233,7 @@ model HostelAllocation {
   created_by    String?
   updated_by    String?
   deleted_at    DateTime?
+  @@index([school_id, branch_id], map: "idx_HostelAllocation_school_branch")
 }
 
 model HostelVisitorLog {
@@ -1225,6 +1255,7 @@ model HostelVisitorLog {
   created_by   String?
   updated_by   String?
   deleted_at   DateTime?
+  @@index([school_id, branch_id], map: "idx_HostelVisitorLog_school_branch")
 }
 
 model Subject {
@@ -1249,6 +1280,7 @@ model Subject {
   created_by        String?
   updated_by        String?
   deleted_at        DateTime?
+  @@index([school_id, branch_id], map: "idx_Subject_school_branch")
 }
 
 model ExamBody {
@@ -1267,6 +1299,7 @@ model ExamBody {
   created_by    String?
   updated_by    String?
   deleted_at    DateTime?
+  @@index([school_id, branch_id], map: "idx_ExamBody_school_branch")
 }
 
 model ExamRegistration {
@@ -1289,6 +1322,7 @@ model ExamRegistration {
   created_by   String?
   updated_by   String?
   deleted_at   DateTime?
+  @@index([school_id, branch_id], map: "idx_ExamRegistration_school_branch")
 }
 
 model Exam {
@@ -1317,6 +1351,7 @@ model Exam {
   created_by    String?
   updated_by    String?
   deleted_at    DateTime?
+  @@index([school_id, branch_id], map: "idx_Exam_school_branch")
 }
 
 model ExamResult {
@@ -1339,8 +1374,7 @@ model ExamResult {
   created_by String?
   updated_by String?
   deleted_at DateTime?
-
-  @@index([school_id, branch_id])
+  @@index([school_id, branch_id], map: "idx_ExamResult_school_branch")
   @@index([student_id, created_at])
   @@index([exam_id])
 }
@@ -1372,8 +1406,7 @@ model Timetable {
   created_by             String?
   updated_by             String?
   deleted_at             DateTime?
-
-  @@index([school_id, branch_id])
+  @@index([school_id, branch_id], map: "idx_Timetable_school_branch")
 }
 
 // Physical classroom (per branch) with a permanent QR token used for teacher
@@ -1398,6 +1431,8 @@ model Classroom {
   lesson_attendance LessonAttendance[]
 
   @@unique([branch_id, name])
+  @@index([school_id, branch_id], map: "idx_Classroom_school_branch")
+
 }
 
 // One record per teacher-lesson-day, created on the first QR scan (or by the
@@ -1438,6 +1473,8 @@ model LessonAttendance {
   @@unique([timetable_id, date])
   @@index([school_id, date])
   @@index([teacher_id, date])
+  @@index([school_id, branch_id], map: "idx_LessonAttendance_school_branch")
+
 }
 
 // Permanent personnel-file entry for a teacher: promotions, warnings,
@@ -1465,6 +1502,8 @@ model TeacherRecord {
 
   @@index([teacher_id, type])
   @@index([school_id, teacher_id])
+  @@index([school_id, branch_id], map: "idx_TeacherRecord_school_branch")
+
 }
 
 // A formal query letter issued by an admin to a teacher, with the teacher's
@@ -1502,6 +1541,8 @@ model QueryLetter {
 
   @@index([teacher_id, status])
   @@index([school_id, teacher_id])
+  @@index([school_id, branch_id], map: "idx_QueryLetter_school_branch")
+
 }
 
 model VirtualClassSession {
@@ -1531,6 +1572,7 @@ model VirtualClassSession {
   created_by    String?
   updated_by    String?
   deleted_at    DateTime?
+  @@index([school_id, branch_id], map: "idx_VirtualClassSession_school_branch")
 }
 
 model VirtualClassAttendance {
@@ -1549,6 +1591,8 @@ model VirtualClassAttendance {
   deleted_at DateTime?
 
   @@unique([session_id, student_id])
+  @@index([school_id, branch_id], map: "idx_VirtualClassAttendance_school_branch")
+
 }
 
 model Resource {
@@ -1599,6 +1643,8 @@ model Resource {
   @@index([school_id, grade_level, subject])
   @@index([school_id, is_curated])
   @@index([school_id, subject_area])
+  @@index([school_id, branch_id], map: "idx_Resource_school_branch")
+
 }
 
 // Per-student completion/score tracking for a Learning Hub resource.
@@ -1622,6 +1668,8 @@ model StudentResourceProgress {
   @@unique([student_id, resource_id])
   @@index([school_id, student_id])
   @@index([school_id, resource_id])
+  @@index([school_id, branch_id], map: "idx_StudentResourceProgress_school_branch")
+
 }
 
 // AI/teacher-generated personalized study plan for a student.
@@ -1640,6 +1688,8 @@ model StudyPlan {
   items        StudyPlanItem[]
 
   @@index([school_id, student_id])
+  @@index([school_id, branch_id], map: "idx_StudyPlan_school_branch")
+
 }
 
 model StudyPlanItem {
@@ -1674,6 +1724,7 @@ model AnonymousReport {
   created_by   String?
   updated_by   String?
   deleted_at   DateTime?
+  @@index([school_id, branch_id], map: "idx_AnonymousReport_school_branch")
 }
 
 model MenstrualSupportRequest {
@@ -1692,6 +1743,7 @@ model MenstrualSupportRequest {
   created_by   String?
   updated_by   String?
   deleted_at   DateTime?
+  @@index([school_id, branch_id], map: "idx_MenstrualSupportRequest_school_branch")
 }
 
 model HealthLog {
@@ -1715,6 +1767,7 @@ model HealthLog {
   created_by              String?
   updated_by              String?
   deleted_at              DateTime?
+  @@index([school_id, branch_id], map: "idx_HealthLog_school_branch")
 }
 
 model ComplianceReport {
@@ -1730,6 +1783,7 @@ model ComplianceReport {
   created_by  String?
   updated_by  String?
   deleted_at  DateTime?
+  @@index([school_id, branch_id], map: "idx_ComplianceReport_school_branch")
 }
 
 model AuditLog {
@@ -1756,7 +1810,7 @@ model AuditLog {
   created_by         String?
   updated_by         String?
   deleted_at         DateTime?
-
+  @@index([school_id, branch_id], map: "idx_AuditLog_school_branch")
   @@index([school_id, performed_at])
 }
 
@@ -1781,6 +1835,7 @@ model ForumTopic {
   created_by        String?
   updated_by        String?
   deleted_at        DateTime?
+  @@index([school_id, branch_id], map: "idx_ForumTopic_school_branch")
 }
 
 model ForumPost {
@@ -1800,6 +1855,7 @@ model ForumPost {
   created_by        String?
   updated_by        String?
   deleted_at        DateTime?
+  @@index([school_id, branch_id], map: "idx_ForumPost_school_branch")
 }
 
 model GeneratedResource {
@@ -1818,6 +1874,7 @@ model GeneratedResource {
   created_by   String?
   updated_by   String?
   deleted_at   DateTime?
+  @@index([school_id, branch_id], map: "idx_GeneratedResource_school_branch")
 }
 
 model LessonNote {
@@ -1841,6 +1898,7 @@ model LessonNote {
   created_by String?
   updated_by String?
   deleted_at DateTime?
+  @@index([school_id, branch_id], map: "idx_LessonNote_school_branch")
 }
 
 model Quiz {
@@ -1869,6 +1927,7 @@ model Quiz {
   created_by   String?
   updated_by   String?
   deleted_at   DateTime?
+  @@index([school_id, branch_id], map: "idx_Quiz_school_branch")
 }
 
 model QuizQuestion {
@@ -1889,6 +1948,7 @@ model QuizQuestion {
   created_by     String?
   updated_by     String?
   deleted_at     DateTime?
+  @@index([school_id, branch_id], map: "idx_QuizQuestion_school_branch")
 }
 
 model QuizSubmission {
@@ -1909,6 +1969,7 @@ model QuizSubmission {
   created_by       String?
   updated_by       String?
   deleted_at       DateTime?
+  @@index([school_id, branch_id], map: "idx_QuizSubmission_school_branch")
 }
 
 model PTAMeeting {
@@ -1927,6 +1988,7 @@ model PTAMeeting {
   updated_by String?
   deleted_at DateTime?
   attendees  PtaMeetingAttendee[]
+  @@index([school_id, branch_id], map: "idx_PTAMeeting_school_branch")
 }
 
 model PtaMeetingAttendee {
@@ -1959,7 +2021,7 @@ model Message {
   created_by  String?
   updated_by  String?
   deleted_at  DateTime?
-
+  @@index([school_id, branch_id], map: "idx_Message_school_branch")
   @@index([school_id, receiver_id])
   @@index([school_id, sender_id])
 }
@@ -1979,6 +2041,7 @@ model CurriculumTopic {
   created_by  String?
   updated_by  String?
   deleted_at  DateTime?
+  @@index([school_id, branch_id], map: "idx_CurriculumTopic_school_branch")
 }
 
 model ExtracurricularActivity {
@@ -2001,6 +2064,7 @@ model ExtracurricularActivity {
   created_by         String?
   updated_by         String?
   deleted_at         DateTime?
+  @@index([school_id, branch_id], map: "idx_ExtracurricularActivity_school_branch")
 }
 
 model StudentActivity {
@@ -2017,6 +2081,8 @@ model StudentActivity {
   deleted_at  DateTime?
 
   @@unique([student_id, activity_id])
+  @@index([school_id, branch_id], map: "idx_StudentActivity_school_branch")
+
 }
 
 model ExtracurricularEvent {
@@ -2034,6 +2100,7 @@ model ExtracurricularEvent {
   created_by  String?
   updated_by  String?
   deleted_at  DateTime?
+  @@index([school_id, branch_id], map: "idx_ExtracurricularEvent_school_branch")
 }
 
 model Achievement {
@@ -2054,6 +2121,7 @@ model Achievement {
   created_by  String?
   updated_by  String?
   deleted_at  DateTime?
+  @@index([school_id, branch_id], map: "idx_Achievement_school_branch")
 }
 
 model Budget {
@@ -2073,6 +2141,7 @@ model Budget {
   created_by       String?
   updated_by       String?
   deleted_at       DateTime?
+  @@index([school_id, branch_id], map: "idx_Budget_school_branch")
 }
 
 // DEPARTMENT MANAGEMENT — Science, Mathematics, ICT, etc. A department has a
@@ -2096,6 +2165,8 @@ model Department {
   deleted_at      DateTime?
 
   @@unique([school_id, branch_id, name])
+  @@index([school_id, branch_id], map: "idx_Department_school_branch")
+
 }
 
 model DepartmentMeeting {
@@ -2117,6 +2188,8 @@ model DepartmentMeeting {
   deleted_at    DateTime?
 
   @@index([department_id, date])
+  @@index([school_id, branch_id], map: "idx_DepartmentMeeting_school_branch")
+
 }
 
 // SCHOOL CLUBS — attendance at a specific club event, separate from the
@@ -2136,6 +2209,8 @@ model ClubAttendance {
 
   @@unique([activity_id, student_id, date])
   @@index([activity_id, date])
+  @@index([school_id, branch_id], map: "idx_ClubAttendance_school_branch")
+
 }
 
 model TeacherSalary {
@@ -2156,6 +2231,7 @@ model TeacherSalary {
   created_by        String?
   updated_by        String?
   deleted_at        DateTime?
+  @@index([school_id, branch_id], map: "idx_TeacherSalary_school_branch")
 }
 
 model SalaryComponent {
@@ -2175,6 +2251,7 @@ model SalaryComponent {
   created_by        String?
   updated_by        String?
   deleted_at        DateTime?
+  @@index([school_id, branch_id], map: "idx_SalaryComponent_school_branch")
 }
 
 model Payslip {
@@ -2204,6 +2281,7 @@ model Payslip {
   created_by       String?
   updated_by       String?
   deleted_at       DateTime?
+  @@index([school_id, branch_id], map: "idx_Payslip_school_branch")
 }
 
 model PayslipItem {
@@ -2220,6 +2298,7 @@ model PayslipItem {
   created_by String?
   updated_by String?
   deleted_at DateTime?
+  @@index([school_id, branch_id], map: "idx_PayslipItem_school_branch")
 }
 
 model PaymentTransaction {
@@ -2238,6 +2317,7 @@ model PaymentTransaction {
   created_by     String?
   updated_by     String?
   deleted_at     DateTime?
+  @@index([school_id, branch_id], map: "idx_PaymentTransaction_school_branch")
 }
 
 model SalaryArrear {
@@ -2257,6 +2337,7 @@ model SalaryArrear {
   created_by  String?
   updated_by  String?
   deleted_at  DateTime?
+  @@index([school_id, branch_id], map: "idx_SalaryArrear_school_branch")
 }
 
 model Plan {
@@ -2306,6 +2387,7 @@ model SecureAnonymousReport {
   created_by            String?
   updated_by            String?
   deleted_at            DateTime?
+  @@index([school_id, branch_id], map: "idx_SecureAnonymousReport_school_branch")
 }
 
 model GameScore {
@@ -2326,6 +2408,8 @@ model GameScore {
 
   @@index([game_id, score(sort: Desc)])
   @@index([school_id, game_id])
+  @@index([school_id, branch_id], map: "idx_GameScore_school_branch")
+
 }
 
 // Every AI-generated question a student has been shown, so future rounds can
@@ -2347,6 +2431,8 @@ model GameQuestionHistory {
   deleted_at    DateTime?
 
   @@index([student_id, game_type, subject])
+  @@index([school_id, branch_id], map: "idx_GameQuestionHistory_school_branch")
+
 }
 
 model EducationalGame {
@@ -2369,6 +2455,7 @@ model EducationalGame {
   created_by  String?
   updated_by  String?
   deleted_at  DateTime?
+  @@index([school_id, branch_id], map: "idx_EducationalGame_school_branch")
 }
 
 model SchoolGallery {
@@ -2384,6 +2471,7 @@ model SchoolGallery {
   created_by String?
   updated_by String?
   deleted_at DateTime?
+  @@index([school_id, branch_id], map: "idx_SchoolGallery_school_branch")
 }
 
 model Curriculum {
@@ -2399,6 +2487,7 @@ model Curriculum {
   created_by      String?
   updated_by      String?
   deleted_at      DateTime?
+  @@index([school_id, branch_id], map: "idx_Curriculum_school_branch")
 }
 
 // Configurable academics. One row per (school, branch). branch_id NULL = the school
@@ -2417,6 +2506,8 @@ model AcademicSettings {
 
   @@unique([school_id, branch_id])
   @@index([school_id])
+  @@index([school_id, branch_id], map: "idx_AcademicSettings_school_branch")
+
 }
 
 model AcademicTrack {
@@ -2436,6 +2527,8 @@ model AcademicTrack {
   deleted_at    DateTime?
 
   @@unique([student_id, curriculum_id])
+  @@index([school_id, branch_id], map: "idx_AcademicTrack_school_branch")
+
 }
 
 model ChatRoom {
@@ -2455,6 +2548,7 @@ model ChatRoom {
   created_by      String?
   updated_by      String?
   deleted_at      DateTime?
+  @@index([school_id, branch_id], map: "idx_ChatRoom_school_branch")
 }
 
 model ChatParticipant {
@@ -2473,6 +2567,8 @@ model ChatParticipant {
   deleted_at   DateTime?
 
   @@unique([room_id, user_id])
+  @@index([school_id, branch_id], map: "idx_ChatParticipant_school_branch")
+
 }
 
 model ChatMessage {
@@ -2494,7 +2590,7 @@ model ChatMessage {
   created_by String?
   updated_by String?
   deleted_at DateTime?
-
+  @@index([school_id, branch_id], map: "idx_ChatMessage_school_branch")
   @@index([room_id, created_at])
 }
 
@@ -2513,6 +2609,7 @@ model LeaveType {
   created_by   String?
   updated_by   String?
   deleted_at   DateTime?
+  @@index([school_id, branch_id], map: "idx_LeaveType_school_branch")
 }
 
 model LeaveBalance {
@@ -2536,6 +2633,8 @@ model LeaveBalance {
 
   @@index([school_id])
   @@index([teacher_id])
+  @@index([school_id, branch_id], map: "idx_LeaveBalance_school_branch")
+
 }
 
 model Scholarship {
@@ -2563,6 +2662,8 @@ model Scholarship {
   recipients           ScholarshipRecipient[]
 
   @@index([school_id])
+  @@index([school_id, branch_id], map: "idx_Scholarship_school_branch")
+
 }
 
 model ScholarshipApplication {
@@ -2586,6 +2687,8 @@ model ScholarshipApplication {
   @@index([school_id])
   @@index([scholarship_id])
   @@index([student_id])
+  @@index([school_id, branch_id], map: "idx_ScholarshipApplication_school_branch")
+
 }
 
 model ScholarshipRecipient {
@@ -2608,6 +2711,8 @@ model ScholarshipRecipient {
   @@index([school_id])
   @@index([scholarship_id])
   @@index([student_id])
+  @@index([school_id, branch_id], map: "idx_ScholarshipRecipient_school_branch")
+
 }
 
 model Donor {
@@ -2626,6 +2731,8 @@ model Donor {
   sponsorships Sponsorship[]
 
   @@index([school_id])
+  @@index([school_id, branch_id], map: "idx_Donor_school_branch")
+
 }
 
 model SponsorshipRequest {
@@ -2647,6 +2754,8 @@ model SponsorshipRequest {
 
   @@index([school_id])
   @@index([student_id])
+  @@index([school_id, branch_id], map: "idx_SponsorshipRequest_school_branch")
+
 }
 
 model Sponsorship {
@@ -2670,6 +2779,8 @@ model Sponsorship {
   @@index([school_id])
   @@index([student_id])
   @@index([status])
+  @@index([school_id, branch_id], map: "idx_Sponsorship_school_branch")
+
 }
 
 model LeaveRequest {
@@ -2693,6 +2804,7 @@ model LeaveRequest {
   created_by     String?
   updated_by     String?
   deleted_at     DateTime?
+  @@index([school_id, branch_id], map: "idx_LeaveRequest_school_branch")
 }
 
 model LessonPlan {
@@ -2718,6 +2830,7 @@ model LessonPlan {
   created_by      String?
   updated_by      String?
   deleted_at      DateTime?
+  @@index([school_id, branch_id], map: "idx_LessonPlan_school_branch")
 }
 
 model PDCourse {
@@ -2738,6 +2851,7 @@ model PDCourse {
   created_by     String?
   updated_by     String?
   deleted_at     DateTime?
+  @@index([school_id, branch_id], map: "idx_PDCourse_school_branch")
 }
 
 model PDEnrollment {
@@ -2755,6 +2869,7 @@ model PDEnrollment {
   created_by          String?
   updated_by          String?
   deleted_at          DateTime?
+  @@index([school_id, branch_id], map: "idx_PDEnrollment_school_branch")
 }
 
 model PDBadge {
@@ -2770,6 +2885,7 @@ model PDBadge {
   created_by  String?
   updated_by  String?
   deleted_at  DateTime?
+  @@index([school_id, branch_id], map: "idx_PDBadge_school_branch")
 }
 
 model TeacherBadge {
@@ -2786,6 +2902,8 @@ model TeacherBadge {
   deleted_at DateTime?
 
   @@unique([teacher_id, badge_id])
+  @@index([school_id, branch_id], map: "idx_TeacherBadge_school_branch")
+
 }
 
 model TeacherRecognition {
@@ -2803,6 +2921,7 @@ model TeacherRecognition {
   created_by    String?
   updated_by    String?
   deleted_at    DateTime?
+  @@index([school_id, branch_id], map: "idx_TeacherRecognition_school_branch")
 }
 
 model MentoringMatch {
@@ -2819,6 +2938,7 @@ model MentoringMatch {
   created_by   String?
   updated_by   String?
   deleted_at   DateTime?
+  @@index([school_id, branch_id], map: "idx_MentoringMatch_school_branch")
 }
 
 // A substitute teacher covering one specific period for an absent teacher.
@@ -2853,6 +2973,8 @@ model SubstituteAssignment {
   @@index([timetable_id, date])
   @@index([school_id, date])
   @@index([substitute_teacher_id, status])
+  @@index([school_id, branch_id], map: "idx_SubstituteAssignment_school_branch")
+
 }
 
 // STUDENT EARLY WARNING SYSTEM — rules-based nightly scan flags at-risk
@@ -2878,6 +3000,8 @@ model StudentRiskFlag {
 
   @@unique([student_id])
   @@index([school_id, status])
+  @@index([school_id, branch_id], map: "idx_StudentRiskFlag_school_branch")
+
 }
 
 // SCHOOL TIMELINE — a chronological life-event feed per student or teacher.
@@ -2902,6 +3026,8 @@ model LifeEvent {
   school       School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
 
   @@index([school_id, subject_type, subject_id])
+  @@index([school_id, branch_id], map: "idx_LifeEvent_school_branch")
+
 }
 
 // CLASSROOM OBSERVATION MODULE — a versioned scoring rubric (lesson prep,
@@ -2941,6 +3067,8 @@ model ClassroomObservation {
 
   @@index([teacher_id, date])
   @@index([school_id, date])
+  @@index([school_id, branch_id], map: "idx_ClassroomObservation_school_branch")
+
 }
 
 model ObservationResponse {
@@ -2967,6 +3095,7 @@ model PDCertificate {
   created_by String?
   updated_by String?
   deleted_at DateTime?
+  @@index([school_id, branch_id], map: "idx_PDCertificate_school_branch")
 }
 
 model InspectionTemplate {
@@ -3005,6 +3134,7 @@ model Inspection {
   created_by          String?
   updated_by          String?
   deleted_at          DateTime?
+  @@index([school_id, branch_id], map: "idx_Inspection_school_branch")
 }
 
 model InspectionResponse {
@@ -3021,6 +3151,7 @@ model InspectionResponse {
   created_by    String?
   updated_by    String?
   deleted_at    DateTime?
+  @@index([school_id, branch_id], map: "idx_InspectionResponse_school_branch")
 }
 
 model InspectionPhoto {
@@ -3036,6 +3167,7 @@ model InspectionPhoto {
   created_by    String?
   updated_by    String?
   deleted_at    DateTime?
+  @@index([school_id, branch_id], map: "idx_InspectionPhoto_school_branch")
 }
 
 model InspectionEscalation {
@@ -3051,6 +3183,7 @@ model InspectionEscalation {
   created_by    String?
   updated_by    String?
   deleted_at    DateTime?
+  @@index([school_id, branch_id], map: "idx_InspectionEscalation_school_branch")
 }
 
 model SchoolPolicy {
@@ -3066,6 +3199,7 @@ model SchoolPolicy {
   created_by  String?
   updated_by  String?
   deleted_at  DateTime?
+  @@index([school_id, branch_id], map: "idx_SchoolPolicy_school_branch")
 }
 
 model PermissionSlip {
@@ -3082,6 +3216,7 @@ model PermissionSlip {
   created_by  String?
   updated_by  String?
   deleted_at  DateTime?
+  @@index([school_id, branch_id], map: "idx_PermissionSlip_school_branch")
 }
 
 model Facility {
@@ -3101,6 +3236,7 @@ model Facility {
   created_by String?
   updated_by String?
   deleted_at DateTime?
+  @@index([school_id, branch_id], map: "idx_Facility_school_branch")
 }
 
 model Asset {
@@ -3132,6 +3268,8 @@ model Asset {
   deleted_at          DateTime?
 
   @@unique([qr_code])
+  @@index([school_id, branch_id], map: "idx_Asset_school_branch")
+
 }
 
 // asset_id is optional: a teacher reporting "the fan in JSS2A is broken" has
@@ -3156,6 +3294,7 @@ model MaintenanceTicket {
   created_by        String?
   updated_by        String?
   deleted_at        DateTime?
+  @@index([school_id, branch_id], map: "idx_MaintenanceTicket_school_branch")
 }
 
 model SchoolDocument {
@@ -3175,6 +3314,8 @@ model SchoolDocument {
   deleted_at          DateTime?
 
   @@unique([school_id, type])
+  @@index([school_id, branch_id], map: "idx_SchoolDocument_school_branch")
+
 }
 
 model VisitorLog {
@@ -3200,6 +3341,7 @@ model VisitorLog {
   created_by          String?
   updated_by          String?
   deleted_at          DateTime?
+  @@index([school_id, branch_id], map: "idx_VisitorLog_school_branch")
 }
 
 // STUDENT DEPARTURE (Gate Pass + Pickup Authorization, combined). Parents
@@ -3223,6 +3365,8 @@ model AuthorizedPickupPerson {
   student      Student  @relation(fields: [student_id], references: [id], onDelete: Cascade)
 
   @@index([student_id, is_active])
+  @@index([school_id, branch_id], map: "idx_AuthorizedPickupPerson_school_branch")
+
 }
 
 model StudentDeparture {
@@ -3247,6 +3391,8 @@ model StudentDeparture {
 
   @@index([school_id, status])
   @@index([student_id])
+  @@index([school_id, branch_id], map: "idx_StudentDeparture_school_branch")
+
 }
 
 // TEACHER WORKLOAD — non-teaching duties an admin assigns (exam supervision,
@@ -3265,6 +3411,8 @@ model TeacherDuty {
   teacher    Teacher  @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
 
   @@index([teacher_id])
+  @@index([school_id, branch_id], map: "idx_TeacherDuty_school_branch")
+
 }
 
 model EmergencyAlert {
@@ -3285,6 +3433,8 @@ model EmergencyAlert {
   deleted_at       DateTime?
 
   @@index([school_id, sent_at])
+  @@index([school_id, branch_id], map: "idx_EmergencyAlert_school_branch")
+
 }
 
 model UserSession {
@@ -3304,6 +3454,7 @@ model UserSession {
   created_by  String?
   updated_by  String?
   deleted_at  DateTime?
+  @@index([school_id, branch_id], map: "idx_UserSession_school_branch")
 }
 
 model SavedReport {
@@ -3320,6 +3471,7 @@ model SavedReport {
   created_by  String?
   updated_by  String?
   deleted_at  DateTime?
+  @@index([school_id, branch_id], map: "idx_SavedReport_school_branch")
 }
 
 model DataRequest {
@@ -3337,6 +3489,7 @@ model DataRequest {
   created_by      String?
   updated_by      String?
   deleted_at      DateTime?
+  @@index([school_id, branch_id], map: "idx_DataRequest_school_branch")
 }
 
 model Invoice {
@@ -3357,6 +3510,7 @@ model Invoice {
   created_by     String?
   updated_by     String?
   deleted_at     DateTime?
+  @@index([school_id, branch_id], map: "idx_Invoice_school_branch")
 }
 
 model Backup {
@@ -3377,6 +3531,7 @@ model Backup {
   created_by  String?
   updated_by  String?
   deleted_at  DateTime?
+  @@index([school_id, branch_id], map: "idx_Backup_school_branch")
 }
 
 model ParentalConsent {
@@ -3396,6 +3551,7 @@ model ParentalConsent {
   created_by   String?
   updated_by   String?
   deleted_at   DateTime?
+  @@index([school_id, branch_id], map: "idx_ParentalConsent_school_branch")
 }
 
 model NotificationSetting {
@@ -3411,6 +3567,7 @@ model NotificationSetting {
   created_by  String?
   updated_by  String?
   deleted_at  DateTime?
+  @@index([school_id, branch_id], map: "idx_NotificationSetting_school_branch")
 }
 
 model KanbanColumn {
@@ -3425,6 +3582,7 @@ model KanbanColumn {
   created_by String?
   updated_by String?
   deleted_at DateTime?
+  @@index([school_id, branch_id], map: "idx_KanbanColumn_school_branch")
 }
 
 model KanbanTask {
@@ -3445,6 +3603,7 @@ model KanbanTask {
   created_by  String?
   updated_by  String?
   deleted_at  DateTime?
+  @@index([school_id, branch_id], map: "idx_KanbanTask_school_branch")
 }
 
 model HealthIncident {
@@ -3472,6 +3631,8 @@ model HealthIncident {
 
   @@index([school_id, incident_date])
   @@map("health_incident_logs")
+  @@index([school_id, branch_id], map: "idx_health_incident_logs_school_branch")
+
 }
 
 model EmergencyDrill {
@@ -3496,6 +3657,8 @@ model EmergencyDrill {
 
   @@index([school_id, drill_date])
   @@map("emergency_drills")
+  @@index([school_id, branch_id], map: "idx_emergency_drills_school_branch")
+
 }
 
 model SafeguardingPolicy {
@@ -3518,6 +3681,8 @@ model SafeguardingPolicy {
 
   @@index([school_id])
   @@map("safeguarding_policies")
+  @@index([school_id, branch_id], map: "idx_safeguarding_policies_school_branch")
+
 }
 
 model Vendor {
@@ -3538,6 +3703,7 @@ model Vendor {
   created_by     String?
   updated_by     String?
   deleted_at     DateTime?
+  @@index([school_id, branch_id], map: "idx_Vendor_school_branch")
 }
 
 model ExternalIntegration {
@@ -3558,6 +3724,7 @@ model ExternalIntegration {
   created_by                 String?
   updated_by                 String?
   deleted_at                 DateTime?
+  @@index([school_id, branch_id], map: "idx_ExternalIntegration_school_branch")
 }
 
 model ThirdPartyApp {
@@ -3578,6 +3745,7 @@ model ThirdPartyApp {
   created_by     String?
   updated_by     String?
   deleted_at     DateTime?
+  @@index([school_id, branch_id], map: "idx_ThirdPartyApp_school_branch")
 }
 
 model AppInstallation {
@@ -3593,6 +3761,7 @@ model AppInstallation {
   created_by     String?
   updated_by     String?
   deleted_at     DateTime?
+  @@index([school_id, branch_id], map: "idx_AppInstallation_school_branch")
 }
 
 model SyncLog {
@@ -3611,6 +3780,7 @@ model SyncLog {
   created_by        String?
   updated_by        String?
   deleted_at        DateTime?
+  @@index([school_id, branch_id], map: "idx_SyncLog_school_branch")
 }
 
 model TeacherAvailability {
@@ -3630,6 +3800,7 @@ model TeacherAvailability {
   created_by      String?
   updated_by      String?
   deleted_at      DateTime?
+  @@index([school_id, branch_id], map: "idx_TeacherAvailability_school_branch")
 }
 
 model ParentTeacherConference {
@@ -3657,6 +3828,7 @@ model ParentTeacherConference {
   created_by       String?
   updated_by       String?
   deleted_at       DateTime?
+  @@index([school_id, branch_id], map: "idx_ParentTeacherConference_school_branch")
 }
 
 model CounselingAppointment {
@@ -3678,6 +3850,7 @@ model CounselingAppointment {
   created_by       String?
   updated_by       String?
   deleted_at       DateTime?
+  @@index([school_id, branch_id], map: "idx_CounselingAppointment_school_branch")
 }
 
 model Complaint {
@@ -3700,6 +3873,8 @@ model Complaint {
   deleted_at DateTime?
 
   @@index([school_id, parent_id])
+  @@index([school_id, branch_id], map: "idx_Complaint_school_branch")
+
 }
 
 // Documents uploaded against a student record (report cards, certificates, etc.).
@@ -3720,6 +3895,8 @@ model StudentDocument {
   deleted_at DateTime?
 
   @@index([school_id, student_id])
+  @@index([school_id, branch_id], map: "idx_StudentDocument_school_branch")
+
 }
 
 model TeacherEvaluation {
@@ -3737,6 +3914,7 @@ model TeacherEvaluation {
   created_by       String?
   updated_by       String?
   deleted_at       DateTime?
+  @@index([school_id, branch_id], map: "idx_TeacherEvaluation_school_branch")
 }
 
 model AppVersion {
@@ -3766,7 +3944,8 @@ model IdVerificationRequest {
   deleted_at    DateTime?
 
   @@unique([school_id, student_id])
-  @@index([school_id, branch_id])
+  @@index([school_id, branch_id], map: "idx_IdVerificationRequest_school_branch")
+
 }
 
 model ComplianceCheck {
@@ -3787,6 +3966,8 @@ model ComplianceCheck {
   deleted_at      DateTime?
 
   @@unique([school_id, check_key])
+  @@index([school_id, branch_id], map: "idx_ComplianceCheck_school_branch")
+
 }
 
 // ============================================
@@ -3851,7 +4032,8 @@ model BranchUserIdentity {
 
   @@unique([user_id, branch_id])
   @@unique([school_id, branch_id, role, number])
-  @@index([school_id, branch_id])
+  @@index([school_id, branch_id], map: "idx_BranchUserIdentity_school_branch")
+
 }
 
 // ============================================
@@ -3876,6 +4058,7 @@ model RadioContent {
   created_by       String?
   updated_by       String?
   deleted_at       DateTime?
+  @@index([school_id, branch_id], map: "idx_RadioContent_school_branch")
 }
 
 model RadioPartner {
@@ -3895,6 +4078,7 @@ model RadioPartner {
   created_by         String?
   updated_by         String?
   deleted_at         DateTime?
+  @@index([school_id, branch_id], map: "idx_RadioPartner_school_branch")
 }
 
 model RadioBroadcast {
@@ -3915,6 +4099,7 @@ model RadioBroadcast {
   created_by          String?
   updated_by          String?
   deleted_at          DateTime?
+  @@index([school_id, branch_id], map: "idx_RadioBroadcast_school_branch")
 }
 
 model IVRLesson {
@@ -3935,6 +4120,7 @@ model IVRLesson {
   created_by       String?
   updated_by       String?
   deleted_at       DateTime?
+  @@index([school_id, branch_id], map: "idx_IVRLesson_school_branch")
 }
 
 model IVRCall {
@@ -3951,6 +4137,7 @@ model IVRCall {
   created_by            String?
   updated_by            String?
   deleted_at            DateTime?
+  @@index([school_id, branch_id], map: "idx_IVRCall_school_branch")
 }
 
 model SMSLesson {
@@ -3970,6 +4157,7 @@ model SMSLesson {
   created_by   String?
   updated_by   String?
   deleted_at   DateTime?
+  @@index([school_id, branch_id], map: "idx_SMSLesson_school_branch")
 }
 
 model SMSSchedule {
@@ -3991,6 +4179,7 @@ model SMSSchedule {
   created_by       String?
   updated_by       String?
   deleted_at       DateTime?
+  @@index([school_id, branch_id], map: "idx_SMSSchedule_school_branch")
 }
 
 model USSDMenuStructure {
@@ -4013,6 +4202,7 @@ model USSDMenuStructure {
   created_by        String?
   updated_by        String?
   deleted_at        DateTime?
+  @@index([school_id, branch_id], map: "idx_USSDMenuStructure_school_branch")
 }
 
 model USSDSession {
@@ -4029,6 +4219,7 @@ model USSDSession {
   created_by       String?
   updated_by       String?
   deleted_at       DateTime?
+  @@index([school_id, branch_id], map: "idx_USSDSession_school_branch")
 }
 
 model USSDTransaction {
@@ -4044,6 +4235,7 @@ model USSDTransaction {
   created_by       String?
   updated_by       String?
   deleted_at       DateTime?
+  @@index([school_id, branch_id], map: "idx_USSDTransaction_school_branch")
 }
 
 model RolePermission {
@@ -4060,6 +4252,8 @@ model RolePermission {
   deleted_at    DateTime?
 
   @@unique([school_id, role, permission_id])
+  @@index([school_id, branch_id], map: "idx_RolePermission_school_branch")
+
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -4093,6 +4287,8 @@ model StudentIDCard {
 
   @@index([school_id])
   @@index([student_id])
+  @@index([school_id, branch_id], map: "idx_StudentIDCard_school_branch")
+
 }
 
 model PaymentPlan {
@@ -4115,6 +4311,8 @@ model PaymentPlan {
 
   @@index([student_id])
   @@index([fee_id])
+  @@index([school_id, branch_id], map: "idx_PaymentPlan_school_branch")
+
 }
 
 model Installment {
@@ -4136,6 +4334,8 @@ model Installment {
 
   @@index([payment_plan_id])
   @@index([due_date])
+  @@index([school_id, branch_id], map: "idx_Installment_school_branch")
+
 }
 
 model StoreProduct {
@@ -4158,6 +4358,8 @@ model StoreProduct {
 
   @@index([school_id])
   @@index([category])
+  @@index([school_id, branch_id], map: "idx_StoreProduct_school_branch")
+
 }
 
 model StoreOrder {
@@ -4179,6 +4381,8 @@ model StoreOrder {
 
   @@index([school_id])
   @@index([status])
+  @@index([school_id, branch_id], map: "idx_StoreOrder_school_branch")
+
 }
 
 model StoreOrderItem {
@@ -4196,6 +4400,8 @@ model StoreOrderItem {
   deleted_at   DateTime?
 
   @@index([order_id])
+  @@index([school_id, branch_id], map: "idx_StoreOrderItem_school_branch")
+
 }
 
 enum Role {
@@ -4251,6 +4457,8 @@ model PwaInstallEvent {
   @@index([school_id])
   @@index([action])
   @@index([created_at])
+  @@index([school_id, branch_id], map: "idx_PwaInstallEvent_school_branch")
+
 }
 
 model SupportTicket {
@@ -4277,6 +4485,8 @@ model SupportTicket {
   @@index([user_id])
   @@index([status])
   @@index([created_at])
+  @@index([school_id, branch_id], map: "idx_SupportTicket_school_branch")
+
 }
 
 model TeacherWorkload {
@@ -4299,6 +4509,8 @@ model TeacherWorkload {
   @@index([teacher_id])
   @@index([school_id])
   @@index([week_start_date])
+  @@index([school_id, branch_id], map: "idx_TeacherWorkload_school_branch")
+
 }
 
 // ============================================================================
@@ -4336,6 +4548,8 @@ model SOPIncidentType {
   cases             SOPCase[]
 
   @@index([school_id, is_active])
+  @@index([school_id, branch_id], map: "idx_SOPIncidentType_school_branch")
+
 }
 
 // One ordered stage in an incident type's workflow (e.g. "Vice Principal
@@ -4396,6 +4610,8 @@ model SOPCase {
 
   @@index([school_id, status])
   @@index([incident_type_id])
+  @@index([school_id, branch_id], map: "idx_SOPCase_school_branch")
+
 }
 
 // Permanent, append-only history of every stage a case passed through.

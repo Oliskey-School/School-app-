@@ -10,6 +10,15 @@ async function initTransporter() {
         const pass = process.env.SMTP_PASS?.trim();
 
         if (!user || !pass) {
+            // Never in production. Ethereal is a PUBLIC throwaway mailbox: this
+            // fallback silently delivered every verification code, password
+            // reset and invitation there instead of to the real recipient — so
+            // nobody could complete a signup — while the OTP was additionally
+            // written to the logs below. Fail loudly instead; config/env.ts also
+            // refuses to boot a production process without SMTP credentials.
+            if (process.env.NODE_ENV === 'production') {
+                throw new Error('SMTP_USER / SMTP_PASS are not configured; refusing to fall back to a public test mailbox in production.');
+            }
             console.warn("⚠️ SMTP_USER or SMTP_PASS not set in .env. Falling back to Ethereal for testing.");
             const testAccount = await nodemailer.createTestAccount();
             transporter = nodemailer.createTransport({
@@ -57,7 +66,10 @@ export class EmailService {
                 `
             });
 
-            if (!process.env.SMTP_USER) {
+            // The OTP is printed only on the local/test transport, and never
+            // when running as production (defence in depth — the Ethereal
+            // fallback above is already refused there).
+            if (!process.env.SMTP_USER && process.env.NODE_ENV !== 'production') {
                 console.log('✅ OTP Email sent! Preview URL: %s', nodemailer.getTestMessageUrl(info));
                 console.log(`[TESTING OTP CODE]: ${code}`);
             } else {

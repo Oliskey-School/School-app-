@@ -971,8 +971,11 @@ vi.mock('../../src/config/database', () => {
     // tests resilient as the app grows new models (game scores, workload, etc.).
     const DEFAULTS: Record<string, any> = {
         findUnique: null, findFirst: null, findMany: [], create: { id: 'mock-id' },
-        createMany: { count: 0 }, update: { id: 'mock-id' }, updateMany: { count: 0 },
-        upsert: { id: 'mock-id' }, delete: { id: 'mock-id' }, deleteMany: { count: 0 },
+        // A scoped updateMany/deleteMany that matches nothing now means 404 in
+        // several controllers, so the default here must represent the ordinary
+        // "the caller's own row was updated" case, not a no-op.
+        createMany: { count: 1 }, update: { id: 'mock-id' }, updateMany: { count: 1 },
+        upsert: { id: 'mock-id' }, delete: { id: 'mock-id' }, deleteMany: { count: 1 },
         count: 0, aggregate: { _count: 0, _sum: {}, _avg: {} }, groupBy: [],
     };
     const makeModelMock = () => {

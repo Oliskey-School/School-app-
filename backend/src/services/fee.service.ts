@@ -382,9 +382,13 @@ export class FeeService {
     }
 
     static async deleteFee(schoolId: string, branchId: string | undefined, id: string) {
-        return await prisma.studentFee.deleteMany({
+        // Scoped delete: a fee belonging to another school matches nothing. Tell
+        // the caller so, instead of letting the controller answer 204 for a
+        // delete that never happened (see the not-found throw there).
+        const { count } = await prisma.studentFee.deleteMany({
             where: { id, school_id: schoolId }
         });
+        return { count };
     }
 
     static async getFeesByStudentIds(schoolId: string, branchId: string | undefined, studentIds: string[], statusList?: string[]) {

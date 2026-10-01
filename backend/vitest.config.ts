@@ -19,6 +19,10 @@ import { defineConfig } from 'vite';
  * Files run serially (single fork) so the shared database isn't mutated by two
  * suites at once — that was a source of flaky cross-suite failures.
  */
+// `test` is a Vitest key, and defineConfig is deliberately imported from 'vite'
+// (see the note above) whose config type does not declare it. The shape is
+// correct at runtime — Vitest reads this file — so widen the parameter type
+// rather than leave a permanent error that would mask real ones.
 export default defineConfig({
   root: __dirname,
   test: {
@@ -40,4 +44,4 @@ export default defineConfig({
     // in the full run purely on ordering. Serial + isolated is deterministic.
     isolate: true,
   },
-});
+} as Parameters<typeof defineConfig>[0] & Record<string, unknown>);
