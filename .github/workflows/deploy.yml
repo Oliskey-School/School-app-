@@ -1,18 +1,32 @@
 name: Production Deployment
 
+# Production deployment is released only after the exact main-branch commit
+# has passed the E2E, hostile security, and migration-safety gates. A manual
+# dispatch is also pinned to the current main SHA and performs the same gate
+# verification before touching the server.
+
 on:
-  push:
-    branches:
-      - main
+  workflow_run:
+    workflows:
+      - E2E Tests
+      - Security Gate
+      - Migration Safety
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
-  group: deploy-${{ github.ref }}
+  group: deploy-${{ github.event.workflow_run.head_sha || github.ref }}
   cancel-in-progress: false
+
+permissions:
+  actions: read
+  contents: read
 
 jobs:
   deploy:
     name: Build & Reload on Self-Hosted Server
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: self-hosted
 
     steps:
@@ -20,6 +34,8 @@ jobs:
         run: git config --global --add safe.directory /var/www/School-app
 
       - name: Checkout Code
+        env:
+          TARGET_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
         run: |
           set -e
           # The orphaned-* renames below are a workaround for undeletable
@@ -41,8 +57,8 @@ jobs:
             # Confirmed 2026-08-18 (runs 32181037716 / 32182333594): this
             # `rm -rf .git` was silently failing — its error went to
             # /dev/null and `|| true` swallowed the exit code — leaving a
-            # corrupt object store behind. `git init` then reused it, and
-            # the fetch died with "error: Could not read <sha>" / "bad
+            # corrupt object store behind. `git init` then reused it, and the
+            # fetch died with "error: Could not read <sha>" / "bad
             # object" / "remote did not send all necessary objects" on all
             # 3 attempts. A genuinely empty .git would just fetch the sha
             # cleanly; "could not read" means the object file was there but
@@ -84,15 +100,10 @@ jobs:
             # to remove them otherwise. Renaming a directory doesn't fix the
             # permissions on the files inside it.
             #
-            # Merge note: this keeps github.sha over main's github.ref
-            # (a0dccea, "fix bad tree object error"). That error was a symptom
-            # of the corrupt .git object store fixed at its root above; since
-            # that fix, github.sha has checked out cleanly on every run from
-            # 32196424795 through 32426968440. The sha is also the exact commit
-            # the run was dispatched for, which ref is not if the branch moves
-            # mid-run. Revert to ref if bad-tree errors ever reappear.
-            if git fetch --depth 1 origin "${{ github.sha }}" && git checkout -qf FETCH_HEAD && git clean -ffdx -e node_modules -e dist -e backend/dist -e "node_modules.orphaned-*" -e "dist.orphaned-*" -e "backend/dist.orphaned-*" -e ".git.orphaned-*"; then
-              echo "Checkout succeeded"
+            # Deploy the exact SHA that passed the release gates. Never fall
+            # back to the moving main ref here.
+            if git fetch --depth 1 origin "$TARGET_SHA" && git checkout -qf FETCH_HEAD && git clean -ffdx -e node_modules -e dist -e backend/dist -e "node_modules.orphaned-*" -e "dist.orphaned-*" -e "backend/dist.orphaned-*" -e ".git.orphaned-*"; then
+              echo "Checkout succeeded for $TARGET_SHA"
               exit 0
             fi
             echo "Checkout attempt $attempt failed"
@@ -119,6 +130,52 @@ jobs:
             echo "::error::Node major version is $NODE_MAJOR, need >=20"
             exit 1
           fi
+
+      - name: Verify exact release gates
+        env:
+          TARGET_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          node <<'NODE'
+          const target = process.env.TARGET_SHA;
+          const repo = process.env.GITHUB_REPOSITORY;
+          const token = process.env.GH_TOKEN;
+          const required = ['E2E Tests', 'Security Gate', 'Migration Safety'];
+
+          if (!target || !/^[0-9a-f]{40}$/i.test(target)) {
+            throw new Error(`Invalid target SHA: ${target || '(empty)'}`);
+          }
+
+          const url = `https://api.github.com/repos/${repo}/actions/runs?head_sha=${target}&per_page=100`;
+          const response = await fetch(url, {
+            headers: {
+              Accept: 'application/vnd.github+json',
+              Authorization: `Bearer ${token}`,
+              'X-GitHub-Api-Version': '2026-03-10',
+            },
+          });
+          if (!response.ok) throw new Error(`GitHub Actions API returned ${response.status}`);
+          const data = await response.json();
+
+          for (const name of required) {
+            const runs = (data.workflow_runs || []).filter((run) =>
+              run.name === name &&
+              run.head_sha === target &&
+              run.event === 'push' &&
+              run.conclusion === 'success'
+            );
+            if (!runs.length) {
+              const seen = (data.workflow_runs || [])
+                .filter((run) => run.name === name && run.head_sha === target)
+                .map((run) => `${run.event}:${run.status}:${run.conclusion || 'null'}`)
+                .join(', ') || 'no run';
+              throw new Error(`${name} has not passed for ${target}. Seen: ${seen}`);
+            }
+            console.log(`PASS ${name}: ${runs[0].html_url}`);
+          }
+
+          console.log(`All release gates passed for ${target}`);
+          NODE
 
       - name: Install Dependencies
         run: |
@@ -165,22 +222,6 @@ jobs:
             sleep 15
           done
 
-      # NOTE: the Production Critical Path E2E suite used to gate the deploy
-      # at this point. It now lives in its own workflow — see
-      # .github/workflows/playwright.yml ("E2E Tests") — running on a
-      # GitHub-hosted runner with its own throwaway Postgres service.
-      #
-      # Moved because this self-hosted runner is missing the system libraries
-      # Chromium links against (libnspr4, libnss3, libnssutil3, libXcomposite,
-      # libXdamage, libXfixes, libXrandr, libxkbcommon) and has no passwordless
-      # sudo to install them, so the gate failed on every run regardless of
-      # whether the application code was sound.
-      #
-      # Consequence, stated plainly: nothing in THIS pipeline verifies the app
-      # still works before it reaches production. The E2E Tests workflow
-      # reports, it does not block. Make it a required status check on main to
-      # get that protection back.
-
       - name: Sync to Deploy Path
         run: |
           DEPLOY_PATH="/var/www/School-app"
@@ -203,11 +244,8 @@ jobs:
               || { echo "::error::Sync to $DEPLOY_PATH failed even with sudo fallback — needs manual fix on the runner host."; exit 1; }
             echo "Synced to $DEPLOY_PATH"
           else
-            echo "rsync not found, falling back to cp -a (no --delete, stale files may accumulate)"
-            cp -a "${{ github.workspace }}/." "$DEPLOY_PATH/" \
-              || sudo -n cp -a "${{ github.workspace }}/." "$DEPLOY_PATH/" \
-              || { echo "::error::Sync to $DEPLOY_PATH failed even with sudo fallback — needs manual fix on the runner host."; exit 1; }
-            echo "Synced to $DEPLOY_PATH"
+            echo "::error::rsync is required for production deployment; refusing cp -a fallback because it cannot remove stale files."
+            exit 1
           fi
 
       - name: Install Dependencies at Deploy Path
@@ -240,44 +278,15 @@ jobs:
         #
         # Confirmed 2026-08-20 (runs 32426968440 and 32429642043): the job
         # reported success, then the runner's own teardown immediately killed
-        # everything this step had just started:
-        #
-        #   Cleaning up orphan processes
-        #   Terminate orphan process: pid (...) (PM2 v5.4.3: God)
-        #   Terminate orphan process: pid (...) (node /var/www/S)   x6
-        #
-        # The runner tags every process it spawns with RUNNER_TRACKING_ID and
-        # SIGKILLs the whole tagged tree at job end. Because CI spawned the PM2
-        # daemon, the daemon and all six app instances were tagged — so each
-        # "successful" deploy took the site down. That is also why every run
-        # logged "Applications oliskey-api not running, starting..." : the
-        # previous deploy's processes had already been killed.
-        #
-        # Blanking the variable for this step leaves the daemon untagged, so
-        # teardown leaves it alone.
-        #
-        # This is the in-CI fix and needs no server access. The durable fix is
-        # to have systemd own the daemon (`pm2 startup systemd` once, as root),
-        # after which this step's `pm2 reload` just talks to the existing
-        # daemon over its socket and never spawns anything to be cleaned up.
+        # everything this step had just started. Blanking the variable for this
+        # step leaves the PM2 daemon untagged so teardown leaves it alone.
         run: |
           set -e
           export RUNNER_TRACKING_ID=""
           cd /var/www/School-app
           npx pm2 reload ecosystem.config.cjs --update-env || npx pm2 start ecosystem.config.cjs --env production
-          # Persist the process list so a host reboot restores it.
           npx pm2 save || true
 
-          # Prove the app is actually serving before calling this a success —
-          # a green PM2 table only means the processes launched, not that they
-          # stayed up or bound a port.
-          #
-          # Resolve the port the same way the app does. ecosystem.config.cjs
-          # sets no port at all, so it comes from .env via env_file, and
-          # backend/src/config/env.ts resolves BACKEND_PORT || PORT || 5000.
-          # Hardcoding 3000 here (as the first version of this check did) can
-          # interrogate a port nothing is listening on and fail a healthy
-          # deploy.
           APP_PORT=$(grep -hE '^[[:space:]]*(BACKEND_PORT|PORT)[[:space:]]*=' .env 2>/dev/null \
                      | tail -1 | cut -d= -f2 | tr -d ' "'"'"'')
           APP_PORT=${APP_PORT:-5000}
@@ -300,11 +309,6 @@ jobs:
             exit 1
           fi
 
-          # The app being up is not the same as the SITE being up: Apache
-          # proxies /api and /socket.io to 127.0.0.1:3000 (see
-          # deploy/apache-school-app.conf and the live vhost). If the app
-          # bound a different port, every request through Apache 502s while
-          # PM2 and the check above both look perfectly healthy.
           PROXY_PORT=3000
           if [ "$APP_PORT" != "$PROXY_PORT" ]; then
             echo "::error::Port mismatch: the app is listening on $APP_PORT but Apache proxies to $PROXY_PORT, so the live site will return 502."
