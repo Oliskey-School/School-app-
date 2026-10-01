@@ -56,13 +56,11 @@ async function loadPreferences(userId: string) {
     try {
         const row = await prisma.notificationSetting.findUnique({ where: { user_id: userId } });
         if (!row) return defaultPreferences();
-        // The `categories` column holds the whole preference document; rows
-        // written before email_alerts/weekly_summary existed still hold a bare
-        // array. Accept both, or the per-category choices read back as defaults.
-        const stored: any = row.categories;
         return sanitisePreferences({
             digest_time: row.digest_time,
-            ...(Array.isArray(stored) ? { categories: stored } : (stored || {})),
+            categories: row.categories,
+            email_alerts: row.email_alerts,
+            weekly_summary: row.weekly_summary,
         });
     } catch {
         // A preference lookup must never stop a notification going out.
@@ -240,7 +238,7 @@ export class NotificationDeliveryService {
     static async runWeeklySummaryForTime(hhmm: string): Promise<{ users: number; sent: number }> {
         const settings = await runAsPlatform(() => prisma.notificationSetting.findMany({
             where: { digest_time: hhmm },
-            select: { user_id: true, school_id: true, categories: true },
+            select: { user_id: true, school_id: true, weekly_summary: true },
         }));
 
         const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
@@ -248,7 +246,7 @@ export class NotificationDeliveryService {
 
         for (const s of settings) {
             try {
-                if (!sanitisePreferences(s.categories).weekly_summary) continue;
+                if (!s.weekly_summary) continue;
                 users++;
 
                 const week = await runAsPlatform(() => prisma.notification.findMany({

@@ -218,6 +218,8 @@ export class NotificationService {
                     user_id: userId,
                     categories: defaults.categories as any,
                     digest_time: defaults.digest_time,
+                    email_alerts: defaults.email_alerts,
+                    weekly_summary: defaults.weekly_summary,
                     // The caller's own school. (Defaults used to be written under a
                     // fake 'GLOBAL' tenant, which only ever worked with a superuser
                     // connection — RLS correctly refuses that row.)
@@ -227,14 +229,13 @@ export class NotificationService {
             });
         }
 
-        // The `categories` column holds the whole preference document, not just
-        // the array. Rows written before email_alerts / weekly_summary existed
-        // still hold a bare array, so accept both shapes — sanitisePreferences
-        // fills in anything absent from defaults.
-        const stored: any = settings.categories;
+        // `categories` holds the category ARRAY and nothing else; the two
+        // switches live in their own columns (migration 20261001100000).
         return sanitisePreferences({
             digest_time: settings.digest_time,
-            ...(Array.isArray(stored) ? { categories: stored } : (stored || {})),
+            categories: settings.categories,
+            email_alerts: settings.email_alerts,
+            weekly_summary: settings.weekly_summary,
         });
     }
 
@@ -263,17 +264,15 @@ export class NotificationService {
         // chose. Emergency alerts are forced back to 'instant' here too, since a
         // client can send anything.
         const prefs = sanitisePreferences(data);
-        // Persist the whole validated document (categories + the email_alerts and
-        // weekly_summary switches). Storing only `prefs.categories` meant those
-        // two switches had nowhere to live: the write appeared to succeed and the
-        // next read handed back the defaults again.
-        const categories = prefs;
+        const categories = prefs.categories;
 
         await prisma.notificationSetting.upsert({
             where: { user_id: userId },
             update: {
                 categories: categories as any,
                 digest_time: prefs.digest_time,
+                email_alerts: prefs.email_alerts,
+                weekly_summary: prefs.weekly_summary,
                 school_id: sid,
                 ...(branchId !== undefined ? { branch_id: branchId } : {}),
                 updated_at: new Date()
@@ -283,7 +282,9 @@ export class NotificationService {
                 categories: categories as any,
                 school_id: sid,
                 branch_id: branchId ?? null,
-                digest_time: prefs.digest_time
+                digest_time: prefs.digest_time,
+                email_alerts: prefs.email_alerts,
+                weekly_summary: prefs.weekly_summary
             }
         });
 

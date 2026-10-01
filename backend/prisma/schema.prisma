@@ -3559,6 +3559,12 @@ model NotificationSetting {
   user_id     String    @unique
   digest_time String    @default("19:00")
   categories  Json
+  /// Master switch for email delivery; a category routed to email is delivered
+  /// in-app instead when this is off. Its own column rather than a key inside
+  /// `categories`, which holds the category ARRAY and nothing else.
+  email_alerts   Boolean @default(true)
+  /// Send a roll-up of the week's notifications on Monday at digest_time.
+  weekly_summary Boolean @default(false)
   created_at  DateTime  @default(now())
   updated_at  DateTime  @updatedAt
   user        User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
