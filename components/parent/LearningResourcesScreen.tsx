@@ -176,7 +176,7 @@ const LearningResourcesScreen: React.FC = () => {
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
                     </div>
                 ) : filteredResources.length > 0 ? (
-                    <div className="grid grid-cols-3 xl:grid-cols-4 gap-6 pb-20">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 pb-20">
                         {filteredResources.map((resource, i) => (
                             <ResourceCard key={resource.id} resource={resource} index={i} />
                         ))}
