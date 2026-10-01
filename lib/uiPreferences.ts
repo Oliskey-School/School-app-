@@ -12,6 +12,7 @@
  *     a stale server copy.
  */
 import { api } from './api';
+import { setLowDataMode } from './lowDataMode';
 
 export type ColorScheme = 'light' | 'dark' | 'system';
 
@@ -32,6 +33,12 @@ export interface UiPreferences {
     colorScheme?: ColorScheme;
     statCardLayout?: StatCardLayout;
     appearance?: Record<string, unknown>;
+    /**
+     * Low Data Mode. It is still stored per device (a shared school computer
+     * keeps it across sign-ins), but the user's own choice now also rides on
+     * the account so it follows them to a new phone or laptop.
+     */
+    lowDataMode?: boolean;
     updated_at?: string;
 }
 
@@ -124,6 +131,10 @@ export function applyAccountPreferences(prefs: UiPreferences | null | undefined,
     }
     if (prefs.statCardLayout === 'comfortable' || prefs.statCardLayout === 'compact') {
         applyStatCardLayout(prefs.statCardLayout);
+    }
+    if (typeof prefs.lowDataMode === 'boolean') {
+        // Apply without syncing back — this value came FROM the account.
+        setLowDataMode(prefs.lowDataMode, { sync: false });
     }
     if (prefs.appearance && typeof prefs.appearance === 'object') {
         // Same storage the appearance control reads, keyed per user+role.

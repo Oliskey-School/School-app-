@@ -88,4 +88,79 @@ describe('Payment security', () => {
         expect(school!.plan_type).toBe('free');
         expect(school!.subscription_status).toBe('trial');
     });
+
+    // ── currency ────────────────────────────────────────────────────────────
+    // verifyPayment reports the currency the gateway actually collected, and
+    // recordPayment used to read only `amount` and drop it. On a gateway
+    // account enabled for more than one currency that credits "20000" against
+    // a ₦ fee no matter what the 20000 was actually paid in.
+    it('a payment collected in a currency the school does not bill in is refused', async () => {
+        vi.spyOn(TransactionService, 'verifyPayment').mockResolvedValue({
+            reference: 'PAY-REF-USD', gateway: 'paystack', amount: 20000, currency: 'USD', paid_at: null, metadata: null,
+        });
+        const before = await prisma.studentFee.findUnique({ where: { id: FEEID } });
+        const res = await request(app).post('/api/parents/me/payments').set(parentAuth)
+            .send({ fee_id: FEEID, student_id: SID, reference: 'PAY-REF-USD', gateway: 'paystack' });
+
+        expect(res.status, JSON.stringify(res.body)).toBe(422);
+        expect(await prisma.payment.count({ where: { reference: 'PAY-REF-USD' } })).toBe(0);
+        const after = await prisma.studentFee.findUnique({ where: { id: FEEID } });
+        expect(Number(after!.paid_amount)).toBe(Number(before!.paid_amount));
+    });
+
+    it('the gateway currency is accepted case-insensitively when the deployment bills in it', async () => {
+        vi.spyOn(TransactionService, 'verifyPayment').mockResolvedValue({
+            reference: 'PAY-REF-NGN-OK', gateway: 'paystack', amount: 100, currency: 'ngn', paid_at: null, metadata: null,
+        });
+        const res = await request(app).post('/api/parents/me/payments').set(parentAuth)
+            .send({ fee_id: FEEID, student_id: SID, reference: 'PAY-REF-NGN-OK', gateway: 'paystack' });
+        expect(res.status, JSON.stringify(res.body)).toBe(201);
+    });
+
+    // ── cross-tenant replay ─────────────────────────────────────────────────
+    // The in-tenant duplicate check runs under RLS, so it cannot see a payment
+    // recorded by another school. Because every school verifies against the
+    // SAME gateway account, a reference that succeeded for school A is equally
+    // valid when presented by school B. Migration 20260924120000 adds the
+    // partial unique index that closes this across tenants.
+    it('the same gateway reference cannot be recorded again by a different school', async () => {
+        const S2 = '7d5f1c1e-9999-4999-8999-999999999999', M2 = 'pay-main-2';
+        const PU2 = 'pay-parent-user-2', PID2 = 'pay-parent-2', SU2 = 'pay-student-user-2', SID2 = 'pay-student-2';
+        const parent2Auth = {
+            Authorization: `Bearer ${jwt.sign(
+                { school_id: S2, branch_id: M2, allowed_branch_ids: [M2], id: PU2, email: 'pay-par2@x.com', role: 'PARENT' },
+                config.jwtSecret, { algorithm: 'HS256', expiresIn: '1h' })}`,
+        };
+        const cleanup2 = async () => {
+            for (const m of ['payment', 'studentFee', 'parentChild', 'parent', 'student', 'user', 'branch'] as const) {
+                await (prisma as any)[m].deleteMany({ where: { school_id: S2 } }).catch(() => {});
+            }
+            await prisma.school.delete({ where: { id: S2 } }).catch(() => {});
+        };
+        await cleanup2();
+        try {
+            await prisma.school.create({ data: { id: S2, name: 'Pay School 2', code: 'PAYS2', slug: 'pay-school-2', plan_type: 'free', subscription_status: 'trial' } as any });
+            await prisma.branch.create({ data: { id: M2, school_id: S2, name: 'Main', code: 'PAYM2', is_main: true } });
+            await prisma.user.create({ data: { id: PU2, email: 'pay-par2@x.com', password_hash: 'x', full_name: 'Parent2', role: 'PARENT' as any, school_id: S2, branch_id: M2 } });
+            await prisma.parent.create({ data: { id: PID2, user_id: PU2, school_id: S2, branch_id: M2, full_name: 'Parent2' } });
+            await prisma.user.create({ data: { id: SU2, email: 'pay-stu2@x.com', password_hash: 'x', full_name: 'Child2', role: 'STUDENT' as any, school_id: S2, branch_id: M2 } });
+            await prisma.student.create({ data: { id: SID2, user_id: SU2, school_id: S2, branch_id: M2, full_name: 'Child2', grade: 5, school_generated_id: 'PAYS2_PAYM2_STU_0001' } });
+            await prisma.parentChild.create({ data: { parent_id: PID2, student_id: SID2, school_id: S2, branch_id: M2 } });
+            const FEE2 = (await prisma.studentFee.create({ data: { student_id: SID2, school_id: S2, branch_id: M2, title: 'Term Fee', amount: 50000, due_date: new Date() } as any })).id;
+
+            // PAY-REF-1 was already banked by school S in the first test.
+            vi.spyOn(TransactionService, 'verifyPayment').mockResolvedValue({
+                reference: 'PAY-REF-1', gateway: 'paystack', amount: 20000, currency: 'NGN', paid_at: null, metadata: null,
+            });
+            const res = await request(app).post('/api/parents/me/payments').set(parent2Auth)
+                .send({ fee_id: FEE2, student_id: SID2, reference: 'PAY-REF-1', gateway: 'paystack' });
+
+            expect(res.status, `cross-school replay must be refused, got ${res.status} ${JSON.stringify(res.body)}`).toBe(409);
+            expect(await prisma.payment.count({ where: { school_id: S2, reference: 'PAY-REF-1' } })).toBe(0);
+            const fee2 = await prisma.studentFee.findUnique({ where: { id: FEE2 } });
+            expect(Number(fee2!.paid_amount || 0)).toBe(0);
+        } finally {
+            await cleanup2();
+        }
+    });
 });

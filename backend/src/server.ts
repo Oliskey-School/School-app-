@@ -117,7 +117,6 @@ const start = async () => {
                         // Use DIRECT_URL for migrations if available (session mode required)
                         const migrationDbUrl = process.env.DIRECT_URL || process.env.DATABASE_URL;
                         const envWithDirect = { ...process.env, DATABASE_URL: migrationDbUrl };
-                        
                         execSync('npx prisma migrate deploy --schema=backend/prisma/schema.prisma', { 
                             stdio: 'inherit',
                             env: envWithDirect
@@ -176,6 +175,15 @@ const start = async () => {
                         NotificationDigestCron.init();
                     } catch (cronErr: any) {
                         console.warn('⚠️ [NotificationDigest] start skipped:', cronErr.message);
+                    }
+
+                    // Parent watchdog — daily check of each parent's own children
+                    // (fees due, attendance slipping, report card out, homework due).
+                    try {
+                        const { ParentWatchdogCron } = require('./services/parentWatchdogCron.service');
+                        ParentWatchdogCron.init();
+                    } catch (cronErr: any) {
+                        console.warn('⚠️ [ParentWatchdog] start skipped:', cronErr.message);
                     }
 
                     // Student Early Warning System — nightly risk scan, production-only by default.
@@ -249,5 +257,3 @@ process.on('uncaughtException', async (err) => {
 });
 
 start();
-// force restart - Antigravity triggered cleanup at 2026-04-28T12:15:00
-

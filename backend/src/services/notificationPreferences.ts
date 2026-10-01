@@ -37,6 +37,16 @@ export interface CategoryPreference {
 export interface NotificationPreferences {
     digest_time: string;               // "HH:MM", 24h
     categories: CategoryPreference[];
+    /**
+     * Master switch for email delivery. When off, a category set to the email
+     * channel is delivered in-app instead — the user keeps the notification,
+     * they just stop receiving mail. The parent settings screen exposes exactly
+     * this as "Email Alerts"; it previously posted a `{ emailAlerts: true }`
+     * blob that this module discarded, so the switch controlled nothing.
+     */
+    email_alerts: boolean;
+    /** Send a roll-up of the week's notifications on Monday at digest_time. */
+    weekly_summary: boolean;
 }
 
 /**
@@ -60,6 +70,8 @@ export function defaultPreferences(): NotificationPreferences {
     return {
         digest_time: '19:00',
         categories: CATEGORY_IDS.map(id => ({ id, ...DEFAULTS[id] })),
+        email_alerts: true,
+        weekly_summary: false,
     };
 }
 
@@ -105,9 +117,18 @@ export function sanitisePreferences(input: any): NotificationPreferences {
         });
     }
 
+    // Accept both the snake_case wire shape and the camelCase names the parent
+    // settings screen uses, so either client persists correctly.
+    const bool = (...vals: unknown[]) => {
+        for (const v of vals) if (typeof v === 'boolean') return v;
+        return undefined;
+    };
+
     return {
         digest_time,
         categories: CATEGORY_IDS.map(id => byId.get(id) ?? { id, ...DEFAULTS[id] }),
+        email_alerts: bool(input.email_alerts, input.emailAlerts) ?? base.email_alerts,
+        weekly_summary: bool(input.weekly_summary, input.weeklySummary) ?? base.weekly_summary,
     };
 }
 

@@ -3,7 +3,7 @@
  * Shows payment plan details and allows parents to pay individual installments
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { getPaymentPlan, Installment, PaymentPlan } from '../../lib/payment-plans';
@@ -16,17 +16,22 @@ interface InstallmentScheduleProps {
 
 export const InstallmentSchedule: React.FC<InstallmentScheduleProps> = ({ feeId, onPayInstallment }) => {
     const [plan, setPlan] = useState<PaymentPlan | null>(null);
+    // True once a load has completed, so background refreshes never flash a skeleton.
+    const hasLoadedOnceRef = useRef(false);
     const [installments, setInstallments] = useState<Installment[]>([]);
     const [loading, setLoading] = useState(true);
 
     const loadPlan = useCallback(async () => {
-        setLoading(true);
+        // Only show the skeleton on the FIRST load. A realtime refresh must not
+        // replace content the user is reading with a spinner and replay the entry
+        // animations — that is what made these screens blink.
+        if (!hasLoadedOnceRef.current) setLoading(true);
         const data = await getPaymentPlan(feeId);
         if (data) {
             setPlan(data.plan);
             setInstallments(data.installments);
         }
-        setLoading(false);
+        hasLoadedOnceRef.current = true; setLoading(false);
     }, [feeId]);
 
     // Real-time synchronization

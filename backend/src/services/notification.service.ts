@@ -61,18 +61,31 @@ export class NotificationService {
         return notification;
     }
 
-    static async getNotificationsForUser(schoolId: string, branchId: string | undefined, userId: string, audience: string[]) {
+    /**
+     * The bell list: the newest `limit` notifications for this user.
+     *
+     * This used to have no `take` at all, so it returned every notification the
+     * user had ever received — on the demo parent that was ~350 rows / 115KB and
+     * the slowest request in the app. Nothing consuming this needs the full
+     * history: the alerts screen renders a list, the dashboard looks for the
+     * latest unread reminder, and the promotion banner looks for a recent
+     * notification. No unread *count* is derived from it, so capping is safe.
+     * Soft-deleted rows were being returned too.
+     */
+    static async getNotificationsForUser(schoolId: string, branchId: string | undefined, userId: string, audience: string[], limit = 50) {
         const rows = await prisma.notification.findMany({
             where: {
                 school_id: schoolId,
                 branch_id: branchId && branchId !== 'all' ? branchId : undefined,
+                deleted_at: null,
                 OR: [
                     { user_id: userId },
                     { audience: { hasSome: audience } },
                     { audience: { has: 'all' } }
                 ]
             },
-            orderBy: { created_at: 'desc' }
+            orderBy: { created_at: 'desc' },
+            take: limit
         });
         // A personal notification carries its own flag; a shared (audience) one is
         // "read" for THIS user only when this user has a read mark for it.
@@ -205,6 +218,8 @@ export class NotificationService {
                     user_id: userId,
                     categories: defaults.categories as any,
                     digest_time: defaults.digest_time,
+                    email_alerts: defaults.email_alerts,
+                    weekly_summary: defaults.weekly_summary,
                     // The caller's own school. (Defaults used to be written under a
                     // fake 'GLOBAL' tenant, which only ever worked with a superuser
                     // connection — RLS correctly refuses that row.)
@@ -214,9 +229,13 @@ export class NotificationService {
             });
         }
 
+        // `categories` holds the category ARRAY and nothing else; the two
+        // switches live in their own columns (migration 20261001100000).
         return sanitisePreferences({
             digest_time: settings.digest_time,
             categories: settings.categories,
+            email_alerts: settings.email_alerts,
+            weekly_summary: settings.weekly_summary,
         });
     }
 
@@ -252,6 +271,8 @@ export class NotificationService {
             update: {
                 categories: categories as any,
                 digest_time: prefs.digest_time,
+                email_alerts: prefs.email_alerts,
+                weekly_summary: prefs.weekly_summary,
                 school_id: sid,
                 ...(branchId !== undefined ? { branch_id: branchId } : {}),
                 updated_at: new Date()
@@ -261,7 +282,9 @@ export class NotificationService {
                 categories: categories as any,
                 school_id: sid,
                 branch_id: branchId ?? null,
-                digest_time: prefs.digest_time
+                digest_time: prefs.digest_time,
+                email_alerts: prefs.email_alerts,
+                weekly_summary: prefs.weekly_summary
             }
         });
 

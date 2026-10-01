@@ -49,7 +49,7 @@ const Slider: React.FC<{
 const SectionTitle: React.FC<{ children: React.ReactNode; hint?: string }> = ({ children, hint }) => (
   <div className="flex items-baseline justify-between mb-2">
     <p className="text-[11px] font-black text-gray-500 uppercase tracking-widest">{children}</p>
-    {hint && <span className="text-[10px] text-gray-400">{hint}</span>}
+    {hint && <span className="text-[11px] text-gray-400">{hint}</span>}
   </div>
 );
 
@@ -160,11 +160,11 @@ const AppearancePanel: React.FC = () => {
           <div className="grid grid-cols-2 gap-2">
             <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }} onClick={() => update({ mode: 'normal' })} className={modeBtn(a.mode === 'normal')} aria-pressed={a.mode === 'normal'}>
               <span className="flex items-center gap-2 text-xs font-black uppercase tracking-wide"><Square className="w-4 h-4" /> Normal</span>
-              <span className={`text-[10px] ${a.mode === 'normal' ? 'text-white/80' : 'text-gray-400'}`}>Solid panels, fastest on older phones</span>
+              <span className={`text-[11px] ${a.mode === 'normal' ? 'text-white/80' : 'text-gray-400'}`}>Solid panels, fastest on older phones</span>
             </motion.button>
             <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }} onClick={() => update({ mode: 'glass' })} className={modeBtn(a.mode === 'glass')} aria-pressed={a.mode === 'glass'}>
               <span className="flex items-center gap-2 text-xs font-black uppercase tracking-wide"><Layers className="w-4 h-4" /> Liquid Glass</span>
-              <span className={`text-[10px] ${a.mode === 'glass' ? 'text-white/80' : 'text-gray-400'}`}>Frosted, translucent panels</span>
+              <span className={`text-[11px] ${a.mode === 'glass' ? 'text-white/80' : 'text-gray-400'}`}>Frosted, translucent panels</span>
             </motion.button>
           </div>
         </div>
@@ -191,7 +191,7 @@ const AppearancePanel: React.FC = () => {
               <motion.button key={key} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => chooseCardLayout(key)} aria-pressed={cardLayout === key}
                 className={`flex flex-col items-start gap-1 px-3 py-3 rounded-2xl border text-left transition-all ${cardLayout === key ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-900/20' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
                 <span className="flex items-center gap-2 text-xs font-black uppercase tracking-wide"><Icon className="w-4 h-4 shrink-0" /> {label}</span>
-                <span className={`text-[10px] leading-tight ${cardLayout === key ? 'text-white/80' : 'text-gray-400'}`}>{hint}</span>
+                <span className={`text-[11px] leading-tight ${cardLayout === key ? 'text-white/80' : 'text-gray-400'}`}>{hint}</span>
               </motion.button>
             ))}
           </div>
@@ -219,7 +219,7 @@ const AppearancePanel: React.FC = () => {
               );
             })}
           </div>
-          <p className="text-[10px] text-gray-400 mt-2">Changes every button, tab and highlight across the whole app.</p>
+          <p className="text-[11px] text-gray-400 mt-2">Changes every button, tab and highlight across the whole app.</p>
         </div>
 
         {/* Glass presets + fine-tuning (glass mode only) */}

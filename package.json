@@ -1,6 +1,6 @@
 {
   "name": "school-app-oliskey",
-  "version": "0.7.57",
+  "version": "0.8.0",
   "scripts": {
     "dev": "vite",
     "prebuild": "node scripts/check-env.mjs",
@@ -24,6 +24,7 @@
     "start:backend": "pm2 start ecosystem.config.cjs --env production",
     "db:migrate": "npx prisma migrate dev --schema=backend/prisma/schema.prisma",
     "db:deploy": "npx prisma migrate deploy --schema=backend/prisma/schema.prisma",
+    "db:security-check": "npx tsx backend/src/scripts/db-security-check.ts",
     "db:push": "npx prisma db push --schema=backend/prisma/schema.prisma",
     "db:reset": "npx prisma migrate reset --force --schema=backend/prisma/schema.prisma",
     "db:seed": "npx tsx prisma/seed.ts",

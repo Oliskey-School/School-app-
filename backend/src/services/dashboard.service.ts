@@ -1,4 +1,5 @@
 import prisma from '../config/database';
+import { StudentService } from './student.service';
 import { Role } from '../../generated/prisma-client';
 
 export class DashboardService {
@@ -649,7 +650,12 @@ export class DashboardService {
                     } 
                 },
                 fees: { where: { status: { not: 'Paid' } } },
-                enrollments: { include: { class: true } }
+                // NOT `include: { class: true }`: StudentEnrollment.class is a
+                // REQUIRED relation and RLS can legitimately hide the Class (an
+                // enrolment pointing at a branch this caller cannot see), which
+                // makes Prisma throw "Inconsistent query result" and 500 the
+                // whole request. The visible classes are attached afterwards.
+                enrollments: true
             }
         });
 
@@ -662,7 +668,7 @@ export class DashboardService {
             children.map(c => c.enrollments[0]?.class_id).filter((id): id is string => !!id)
         ));
 
-        const [allSubmissions, upcomingAssignments, behaviorTotals] = await Promise.all([
+        const [allSubmissions, upcomingAssignments, behaviorTotals, visibleClasses] = await Promise.all([
             childIds.length ? prisma.assignmentSubmission.findMany({
                 where: { student_id: { in: childIds } },
                 select: { student_id: true, assignment_id: true }
@@ -676,7 +682,17 @@ export class DashboardService {
                 where: { student_id: { in: childIds } },
                 _sum: { points: true }
             }) : Promise.resolve([]),
+            // The class names, fetched separately for the reason given on the
+            // `enrollments: true` include above: joining Class into a REQUIRED
+            // relation makes Prisma throw when RLS hides the row. Read on its
+            // own, a hidden class simply does not come back and the child falls
+            // through to "Unknown" instead of 500-ing the whole dashboard.
+            classIds.length ? prisma.class.findMany({
+                where: { id: { in: classIds } },
+                select: { id: true, name: true }
+            }) : Promise.resolve([]),
         ]);
+        const classNameById = new Map(visibleClasses.map(c => [c.id, c.name]));
 
         const submittedIdsByStudent = new Map<string, Set<string>>();
         for (const s of allSubmissions) {
@@ -693,7 +709,7 @@ export class DashboardService {
         const childSummaries = children.map(child => {
             const attendance = child.attendance[0];
             const feesDue = child.fees.reduce((sum, f) => sum + (f.amount - f.paid_amount), 0);
-            const className = child.enrollments[0]?.class?.name || 'Unknown';
+            const className = classNameById.get(child.enrollments[0]?.class_id ?? '') || 'Unknown';
             const classId = child.enrollments[0]?.class_id;
 
             let homework_pending = 0;

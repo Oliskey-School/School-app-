@@ -1,0 +1,165 @@
+name: Security Gate
+
+# Dedicated security gate. The normal E2E workflow still runs the fast
+# regression suite, but this workflow also executes the live hostile
+# cross-tenant attack probe against a real running API. The database is a fresh
+# throwaway PostgreSQL instance, so the probe can safely create two real schools
+# and exercise every registered route without touching production data.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: security-gate-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  security:
+    name: Live multi-tenant security gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: school_app_security_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://oliskey_app:oliskey_app@localhost:5432/school_app_security_test
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/school_app_security_test
+      JWT_SECRET: ci-only-security-gate-jwt-secret
+      REFRESH_TOKEN_SECRET: ci-only-security-gate-refresh-secret
+      NODE_ENV: development
+      ENABLE_DEBUG_ROUTES: "true"
+      BACKEND_PORT: 5099
+      API_BASE: http://127.0.0.1:5099
+
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Apply migrations
+        run: npx prisma migrate deploy --schema=backend/prisma/schema.prisma
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/school_app_security_test
+
+      - name: Enable CI app role
+        run: |
+          PGPASSWORD=postgres psql -h localhost -U postgres -d school_app_security_test -v ON_ERROR_STOP=1 \
+            -c "ALTER ROLE oliskey_app LOGIN PASSWORD 'oliskey_app';"
+
+      - name: Seed baseline data
+        run: npm run db:seed
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/school_app_security_test
+
+      - name: Start backend
+        run: |
+          npx tsx backend/src/server.ts > /tmp/security-gate-backend.log 2>&1 &
+          echo $! > /tmp/security-gate-backend.pid
+
+          for i in $(seq 1 60); do
+            if curl -sf "http://127.0.0.1:$BACKEND_PORT/live" > /dev/null; then
+              echo "Backend healthy after $((i * 2))s"
+              exit 0
+            fi
+            sleep 2
+          done
+
+          echo "::error::Backend did not become healthy"
+          cat /tmp/security-gate-backend.log
+          exit 1
+
+      - name: Enumerate every registered API route
+        run: |
+          npx tsx --tsconfig backend/tsconfig.json tests/security/dump-routes.ts
+          test -s tmp-routes.json
+          node -e "const r=require('./tmp-routes.json'); if(!Array.isArray(r)||r.length<1) process.exit(1); console.log('Registered routes:',r.length)"
+
+      - name: Run fast security regression suite
+        run: |
+          npx tsx --tsconfig backend/tsconfig.json node_modules/vitest/vitest.mjs run \
+            --config backend/vitest.config.ts \
+            backend/tests/integration/multi-tenant-security.test.ts \
+            backend/tests/integration/hostile-tenant-sweep.test.ts \
+            backend/tests/integration/rls-child-tables.test.ts \
+            backend/tests/integration/school-branch-integrity.test.ts \
+            backend/tests/integration/parent-child-isolation.test.ts \
+            backend/tests/integration/cross_tenant_probe.test.ts \
+            backend/tests/integration/school-isolation.test.ts \
+            backend/tests/integration/branch-isolation-full.test.ts \
+            backend/tests/integration/write-isolation-sweep.test.ts \
+            backend/tests/integration/payment-security.test.ts \
+            backend/tests/integration/concurrency-stress.test.ts \
+            backend/tests/integration/no-plaintext-passwords.test.ts \
+            backend/tests/integration/auth-without-ambient-scope.test.ts \
+            backend/tests/integration/rate-limit-without-redis.test.ts \
+            backend/tests/integration/scoped-transactions.test.ts \
+            backend/tests/integration/demo-seed-idempotent.test.ts \
+            backend/tests/integration/auth-hardening.test.ts \
+            backend/tests/integration/isolation.test.ts \
+            backend/tests/integration/db-role-guard.test.ts \
+            backend/tests/integration/required-relation-under-rls.test.ts
+        env:
+          NODE_ENV: test
+
+      - name: Seed two hostile tenants
+        run: |
+          rm -f tests/security/.fixture.json tests/security/.attack-results.json
+          API_BASE=http://127.0.0.1:5099/api \
+            npx tsx --tsconfig backend/tsconfig.json tests/security/seed-tenants.ts \
+            > tests/security/.fixture.json
+          node -e "const f=require('./tests/security/.fixture.json'); if(!f.A||!f.B||f.A.schoolId===f.B.schoolId) process.exit(1); console.log('Hostile tenants seeded:',f.A.schoolId,f.B.schoolId)"
+
+      - name: Run live hostile cross-tenant attack
+        run: |
+          API_BASE=http://127.0.0.1:5099 \
+            npx tsx --tsconfig backend/tsconfig.json tests/security/attack.ts
+
+      - name: Upload hostile attack evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hostile-security-evidence
+          path: |
+            tmp-routes.json
+            tests/security/.attack-results.json
+            tests/security/.fixture.json
+            /tmp/security-gate-backend.log
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Backend logs on failure
+        if: failure()
+        run: |
+          echo "::group::security-gate backend log"
+          cat /tmp/security-gate-backend.log || true
+          echo "::endgroup::"

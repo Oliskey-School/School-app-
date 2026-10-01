@@ -40,9 +40,24 @@ describe('Notification settings save', () => {
   });
 
   it('does NOT 500 for a demo/virtual user (no DB row) — returns the prefs', async () => {
+    // NotificationSetting.user_id has a hard FK to users.id, so a demo/virtual
+    // session (no row) must get its preferences back without the upsert being
+    // attempted at all.
+    //
+    // The returned shape is the canonical preference set — { digest_time,
+    // categories[], email_alerts, weekly_summary } — not the caller's own blob
+    // echoed back. 'x' is not a known category, so it is dropped rather than
+    // persisted: that whitelist is what stops an arbitrary key reaching the
+    // JSON column.
     const data = { digest_time: '19:00', categories: [{ id: 'x', mode: 'instant', channel: 'push' }] };
     const res: any = await NotificationService.updateSettingsByUserId('demo-virtual-id-xyz', data, S, B);
     expect(res).toBeTruthy();
-    expect(res.categories).toEqual(data);
+    expect(res.digest_time).toBe('19:00');
+    expect(Array.isArray(res.categories)).toBe(true);
+    expect(res.categories.some((c: any) => c.id === 'x')).toBe(false);
+    expect(res.categories.find((c: any) => c.id === 'general')).toBeTruthy();
+    // No row may have been created for a user that does not exist.
+    const row = await (prisma as any).notificationSetting.findUnique({ where: { user_id: 'demo-virtual-id-xyz' } });
+    expect(row).toBeNull();
   });
 });

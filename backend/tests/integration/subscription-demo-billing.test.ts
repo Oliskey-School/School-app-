@@ -130,12 +130,28 @@ describe('Demo pricing + real payment activation', () => {
         return { status, nexted };
     };
 
-    it('AI is locked for the demo school on Basic and unlocked on Advanced', async () => {
+    // The demo is a shop window: AI must work in it immediately so a visiting
+    // school owner can see what they would be buying. It used to follow the demo
+    // school's own plan, which started on Basic, so the feature looked broken to
+    // every first-time visitor. Real schools are unaffected and are covered by
+    // the live-school cases below.
+    it('AI is available in the demo whatever plan the demo school is on', async () => {
         await prisma.school.update({ where: { id: DEMO }, data: { plan_type: 'basic', subscription_status: 'active' } });
-        expect(await runGate(DEMO, DEMO_ADMIN)).toEqual({ status: 403, nexted: false });
+        expect(await runGate(DEMO, DEMO_ADMIN)).toEqual({ status: 0, nexted: true });
 
         await prisma.school.update({ where: { id: DEMO }, data: { plan_type: 'advanced', subscription_status: 'active' } });
         expect(await runGate(DEMO, DEMO_ADMIN)).toEqual({ status: 0, nexted: true });
+    });
+
+    // The other half of the rule: the demo bypass must not leak to real schools.
+    // Without this, a bypass that matched too broadly would go unnoticed, because
+    // the demo case above passes either way.
+    it('a real school still has to pay: AI is locked on Basic, unlocked on Advanced', async () => {
+        await prisma.school.update({ where: { id: LIVE }, data: { plan_type: 'basic', subscription_status: 'active' } });
+        expect(await runGate(LIVE, LIVE_ADMIN)).toEqual({ status: 403, nexted: false });
+
+        await prisma.school.update({ where: { id: LIVE }, data: { plan_type: 'advanced', subscription_status: 'active' } });
+        expect(await runGate(LIVE, LIVE_ADMIN)).toEqual({ status: 0, nexted: true });
     });
 
     // ── 4. Live Paystack path (verification mocked) ─────────────────────────

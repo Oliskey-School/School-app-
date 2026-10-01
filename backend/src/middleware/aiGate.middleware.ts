@@ -1,6 +1,7 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from './auth.middleware';
 import prisma from '../config/database';
+import { DEMO_SCHOOL_ID } from '../config/env';
 
 /**
  * Server-side mirror of hooks/useSubscriptionGate.ts's isAIAllowed check.
@@ -12,9 +13,16 @@ export const requireAIAllowed = async (req: AuthRequest, res: Response, next: Ne
     const user = req.user;
     if (!user?.school_id) return res.status(401).json({ message: 'Unauthorized' });
 
-    // The demo school follows its real plan like everyone else: it starts on
-    // Basic (AI locked) and visitors unlock AI by "paying" for Advanced in the
-    // Demo Checkout — that's the flow the demo exists to show.
+    // The demo is a shop window: AI must work in it immediately, locally and in
+    // production, so a visiting school owner can actually see what they would be
+    // buying. It previously followed the demo school's own plan (Basic, AI
+    // locked) which meant the feature looked broken to every first-time visitor.
+    // Real schools are unaffected — they still have to be on Advanced or to
+    // have self-paid below.
+    if (user.is_demo === true || (DEMO_SCHOOL_ID && user.school_id === DEMO_SCHOOL_ID)) {
+        return next();
+    }
+
     const school = await prisma.school.findUnique({
         where: { id: user.school_id },
         select: { plan_type: true, subscription_status: true, settings: true, current_term: true, academic_session: true },

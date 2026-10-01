@@ -3,23 +3,14 @@ import { PrismaClient } from '../../../backend/generated/prisma-client';
 
 const prisma = new PrismaClient();
 
-// stripSensitiveFields() (backend/src/config/database.ts) strips
-// initial_password from every API response that flows through the app's
-// Prisma client — a deliberate anti-leak control, not a bug. It does mean
-// the teacher-creation endpoint's own claimed `initial_password` field in
-// its response is always empty in practice. This test needs real
-// credentials to log in AS the teacher it just created, so it reads the
-// value back directly (bypassing RLS, the same mechanism the app itself
-// uses for pre-tenant operations) rather than relying on that response.
-async function readInitialPassword(email: string): Promise<string> {
-    const rows: any = await prisma.$transaction([
-        prisma.$executeRaw`SELECT set_config('app.bypass_rls', 'on', true)`,
-        prisma.user.findFirst({ where: { email: email.toLowerCase() }, select: { initial_password: true } }),
-    ]);
-    const value = rows[1]?.initial_password;
-    if (!value) throw new Error(`no initial_password recorded for ${email}`);
-    return value as string;
-}
+// The generated password is handed out ONCE, in the creation response, and is
+// no longer stored: migration 20260919140000 dropped User.initial_password
+// because it mirrored the account's CURRENT live password in clear text. This
+// test used to read that column back to log in as the teacher it created; it
+// now uses the value the create call returns, which is the only place it
+// exists. TeacherService composes that field onto the response AFTER the Prisma
+// query, so stripSensitiveFields (which scrubs Prisma results) does not remove
+// it.
 
 /**
  * RBAC permission matrix — API-level, not UI-hiding. A menu item that isn't
@@ -72,7 +63,8 @@ async function buildFixture(request: APIRequestContext, baseURL: string): Promis
     });
     expect(teacherRes.ok(), `teacher creation failed: ${await teacherRes.text()}`).toBeTruthy();
     const teacherBody = await teacherRes.json(); // { ...teacher, initial_password, username }
-    const teacherPassword = await readInitialPassword(teacherEmail);
+    const teacherPassword = teacherBody?.initial_password as string;
+    expect(teacherPassword, 'teacher creation did not return the one-time password').toBeTruthy();
     const teacherLogin = await request.post(`${base}/auth/login`, { data: { email: teacherEmail, password: teacherPassword } });
     expect(teacherLogin.ok(), await teacherLogin.text()).toBeTruthy();
     const { token: teacherToken } = await teacherLogin.json();

@@ -426,56 +426,23 @@ export class NvidiaClient extends GeminiClient {
     }
 }
 
-// Which provider powers the app's AI. Non-secret; the real key is server-side.
-const getAIProvider = (): 'nvidia' | 'gemini' => {
-    try {
-        if (typeof import.meta !== 'undefined' && (import.meta as any).env) {
-            return ((import.meta as any).env.VITE_AI_PROVIDER || 'nvidia').toLowerCase() === 'gemini' ? 'gemini' : 'nvidia';
-        }
-        if (typeof process !== 'undefined' && process.env) {
-            return (process.env.VITE_AI_PROVIDER || 'nvidia').toLowerCase() === 'gemini' ? 'gemini' : 'nvidia';
-        }
-    } catch { /* default below */ }
-    return 'nvidia';
-};
-
 // Singleton Management
 let aiClientInstance: GeminiClient | null = null;
-let aiClientInstanceKey: string | null = null;
 
-export const getAIClient = (apiKey?: string) => {
-    // NVIDIA is the default provider — powered by the server-side proxy, so no
-    // browser key is needed. Every AI feature routes here.
-    if (getAIProvider() === 'nvidia') {
-        if (!aiClientInstance || aiClientInstanceKey !== 'nvidia') {
-            aiClientInstance = new NvidiaClient();
-            aiClientInstanceKey = 'nvidia';
-        }
-        return aiClientInstance;
-    }
-
-    // Legacy Gemini path (VITE_AI_PROVIDER=gemini).
-    let envKey = '';
-    try {
-        if (typeof import.meta !== 'undefined' && import.meta.env) {
-            envKey = import.meta.env.VITE_GEMINI_API_KEY;
-        } else if (typeof process !== 'undefined' && process.env) {
-            envKey = process.env.VITE_GEMINI_API_KEY || '';
-        }
-    } catch (e) {
-        console.warn("Error accessing environment variables:", e);
-    }
-
-    const finalKey = apiKey || envKey;
-
-    if (!finalKey) {
-        console.warn("Gemini API Key missing. Ensure VITE_GEMINI_API_KEY is set.");
-    }
-
-    if (!aiClientInstance || aiClientInstanceKey === 'nvidia' || (finalKey && aiClientInstanceKey !== finalKey)) {
-        aiClientInstance = new GeminiClient(finalKey || 'dummy-key-for-test');
-        aiClientInstanceKey = finalKey;
-    }
-
-    return aiClientInstance; // Returns the class instance directly
+/**
+ * The app's AI client. Always the server-proxied one.
+ *
+ * There used to be a second path here: with VITE_AI_PROVIDER=gemini it built a
+ * client that called generativelanguage.googleapis.com directly with
+ * VITE_GEMINI_API_KEY. Vite inlines any VITE_* value into the bundle, so
+ * enabling it in a deployed environment published the API key to every visitor
+ * (and made the quota abusable by anyone). The path is gone rather than
+ * guarded: no browser code reads an AI key any more, so it cannot be
+ * reintroduced by configuration.
+ *
+ * The provider/model is chosen server-side by the /api/ai proxy.
+ */
+export const getAIClient = (_apiKey?: string) => {
+    if (!aiClientInstance) aiClientInstance = new NvidiaClient();
+    return aiClientInstance;
 };

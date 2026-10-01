@@ -1,5 +1,5 @@
 import { Prisma, PrismaClient } from '../../generated/prisma-client';
-import { getTenantContext } from '../lib/tenantContext';
+import { getTenantContext, runAsPlatform } from '../lib/tenantContext';
 
 // Recursively deletes credential fields from a Prisma result, mutating in place.
 // Handles arrays, nested objects (e.g. an `include`d user relation), and leaves
@@ -289,25 +289,57 @@ export async function withTenantTransaction<T>(
 export default prisma;
 
 // Connection test for production debugging
+/**
+ * Refuse to serve on a database role that can bypass row level security.
+ *
+ * Every tenant_isolation policy is inert if the application connects as a
+ * superuser or a BYPASSRLS role — which is exactly what a managed Postgres
+ * default role usually is. That made the single most important security
+ * property of this system depend on an environment variable nobody could
+ * verify from the code, so the app now checks its OWN role at boot.
+ */
+export async function assertDatabaseRoleCannotBypassRls(): Promise<void> {
+  const rows = await runAsPlatform(() => prisma.$queryRawUnsafe<Array<{ rolname: string; rolbypassrls: boolean; rolsuper: boolean }>>(
+    `SELECT rolname, rolbypassrls, rolsuper FROM pg_roles WHERE rolname = current_user`
+  ));
+  const role = rows[0];
+  if (!role) throw new Error('Could not determine the current database role');
+  if (role.rolbypassrls || role.rolsuper) {
+    throw new Error(
+      `The application is connected as "${role.rolname}", which bypasses row level security ` +
+      `(rolbypassrls=${role.rolbypassrls}, rolsuper=${role.rolsuper}). Every tenant_isolation policy is inert. ` +
+      `Point DATABASE_URL at the non-superuser, NOBYPASSRLS application role (see migration 20260919150000).`
+    );
+  }
+  console.log(`🔒 [Prisma] Database role "${role.rolname}" cannot bypass RLS — tenant policies are enforced.`);
+}
+
+/**
+ * Traffic gate for the check above.
+ *
+ * server.ts deliberately calls listen() before the database is reachable so
+ * health checks pass while it warms up, which means the assertion resolves
+ * AFTER the socket is already accepting requests: for the length of a connect
+ * plus one query, a node running on a bypassing role would serve real tenant
+ * traffic with every policy inert. So the check gates the API rather than
+ * merely ending the process — until it passes, /api answers 503 (see app.ts).
+ * The flag lives in config/rlsGate so that mocking THIS module cannot delete it.
+ */
+export { rlsRoleGate } from './rlsGate';
+import { rlsRoleGate as gate } from './rlsGate';
+
 if (process.env.NODE_ENV === 'production') {
   prisma.$connect()
-    .then(() => {
-      console.log('🚀 [Prisma] Production database connection established successfully.');
-    })
+    .then(() => console.log('🚀 [Prisma] Production database connection established successfully.'))
+    .then(() => assertDatabaseRoleCannotBypassRls())
+    .then(() => { gate.verified = true; })
     .catch((err) => {
-      console.error('❌ [Prisma] Production database connection FAILED:');
-      console.error('   Error Trace:', err.message);
-      
+      gate.error = err instanceof Error ? err.message : 'unknown error';
+      console.error('❌ [Prisma] FATAL:', gate.error);
       const dbUrl = process.env.DATABASE_URL || '';
-      if (dbUrl) {
-        const hostMatch = dbUrl.match(/@([^:/]+)/);
-        console.error('   Host Attempted:', hostMatch ? hostMatch[1] : 'Unknown');
-        
-        if (dbUrl.includes('pooler')) {
-            console.error('   💡 Tip: Check if the connection pooler is active and credentials are correct.');
-            console.error('   💡 Current DB Host seems to be a connection pooler.');
-        }
-      }
+      const hostMatch = dbUrl.match(/@([^:/]+)/);
+      if (hostMatch) console.error('   Host attempted:', hostMatch[1]);
+      process.exit(1);
     });
 }
 

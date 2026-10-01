@@ -1,8 +1,38 @@
 import prisma from '../config/database';
+import { runAsPlatform } from '../lib/tenantContext';
+import { FREE_LEARNING_RESOURCES } from './freeLearningResourcesCatalog';
 
 const ADMIN_ROLES = ['admin', 'proprietor', 'superadmin', 'super_admin'];
 
 export class LearningHubService {
+    /**
+     * Give a school the curated "Free Learning Resources" catalog.
+     *
+     * getResources filters `school_id = <caller's school> AND is_curated`, so the
+     * catalog is per-school data — and for a long time only the DEMO school had
+     * it. The screen therefore worked in the demo and was empty for every real
+     * school: "No resources match your search" for every student and teacher.
+     * Migration 20260930090000 backfills existing schools; onboarding calls this
+     * for each new one, so the two paths cannot drift apart again.
+     *
+     * Idempotent: a school that already has a curated website row is left alone,
+     * so re-running never duplicates the catalog.
+     */
+    static async seedCuratedCatalog(schoolId: string): Promise<{ seeded: number }> {
+        return runAsPlatform(async () => {
+            const existing = await prisma.resource.count({
+                where: { school_id: schoolId, is_curated: true, resource_kind: 'website', deleted_at: null },
+            });
+            if (existing > 0) return { seeded: 0 };
+
+            await prisma.resource.createMany({
+                data: FREE_LEARNING_RESOURCES.map(r => ({ ...r, school_id: schoolId, is_curated: true })),
+                skipDuplicates: true,
+            });
+            return { seeded: FREE_LEARNING_RESOURCES.length };
+        });
+    }
+
     static async getResources(schoolId: string, branchId: string | undefined, filters: any = {}) {
         const where: any = { school_id: schoolId, is_curated: true };
 

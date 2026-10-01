@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { useAuth } from '../../context/AuthContext';
@@ -46,6 +46,8 @@ interface FeedItem {
 const ParentTodayWidget = ({ navigateTo }: { navigateTo: (view: string, title: string, props?: any) => void }) => {
     const { user } = useAuth();
     const [selectedChild, setSelectedChild] = useState(0);
+    // True once a load has completed, so background refreshes never flash a skeleton.
+    const hasLoadedOnceRef = useRef(false);
 
     const [children, setChildren] = useState<ChildSummary[]>([]);
     const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
@@ -54,7 +56,10 @@ const ParentTodayWidget = ({ navigateTo }: { navigateTo: (view: string, title: s
 
     const fetchTodayUpdate = useCallback(async () => {
         try {
-            setLoading(true);
+        // Only show the skeleton on the FIRST load. A realtime refresh must not
+        // replace content the user is reading with a spinner and replay the entry
+        // animations — that is what made these screens blink.
+            if (!hasLoadedOnceRef.current) setLoading(true);
             const data = await api.getParentTodayUpdate(user?.id || '');
             setChildren(data?.children || []);
             setFeedItems(data?.feedItems || []);
@@ -65,7 +70,7 @@ const ParentTodayWidget = ({ navigateTo }: { navigateTo: (view: string, title: s
             setChildren([]);
             setFeedItems([]);
         } finally {
-            setLoading(false);
+            hasLoadedOnceRef.current = true; setLoading(false);
         }
     }, []);
 

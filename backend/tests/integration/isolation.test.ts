@@ -432,11 +432,12 @@ describe('RLS Policy Enforcement at Database Level', () => {
         }
     });
 
-    // Tenant isolation is enforced by Postgres row-level security (migrations
-    // 20260822000000 / 20260822010000 / 20260823000000) on top of the
-    // application-level scoping asserted above. Every core tenant table must
-    // carry a FORCED tenant_isolation policy, otherwise the app role could read
-    // another school's rows the moment a query forgot its school_id filter.
+    // This backend enforces tenant isolation in Postgres row-level security
+    // (migrations 20260822000000 / 20260822010000 / 20260823000000 /
+    // 20260922090000) on top of the application-level scoping asserted above.
+    // The earlier version of this test was skipped with a note claiming the
+    // architecture "does not use pg RLS", which is no longer true — and while
+    // it was skipped, nothing checked that the policies still existed.
     it('Verifies branch isolation is backed by FORCED row-level security policies', async () => {
         const rows: { tablename: string; policyname: string; forced: boolean }[] = await prisma.$queryRaw`
             SELECT p.tablename, p.policyname, c.relforcerowsecurity AS forced
@@ -448,7 +449,7 @@ describe('RLS Policy Enforcement at Database Level', () => {
         const byTable = new Map(rows.map(r => [r.tablename, r]));
         for (const t of ['Student', 'Teacher', 'Class', 'Attendance']) {
             expect(byTable.get(t)?.policyname, `${t} has no RLS policy`).toBe('tenant_isolation');
-            expect(byTable.get(t)?.forced, `${t} RLS is not FORCED (table owner would bypass it)`).toBe(true);
+            expect(byTable.get(t)?.forced, `${t} RLS is not FORCED (the table owner would bypass it)`).toBe(true);
         }
     });
 });

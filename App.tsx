@@ -63,7 +63,6 @@ window.addEventListener('unhandledrejection', (event) => {
   const pageHasBeenForceRefreshed = JSON.parse(
     window.sessionStorage.getItem('page-has-been-force-refreshed') || 'false'
   );
-
   if (isFetchError && !pageHasBeenForceRefreshed) {
     console.warn('⚠️ Global Fetch Error detected. Recovering app...');
     window.sessionStorage.setItem('page-has-been-force-refreshed', 'true');
@@ -73,16 +72,9 @@ window.addEventListener('unhandledrejection', (event) => {
 
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: any }> {
   state = { hasError: false, error: null };
-
-  static getDerivedStateFromError(error: any) {
-    return { hasError: true, error };
-  }
-  componentDidCatch(error: any, errorInfo: any) {
-    console.error("Dashboard Crash Caught:", error, errorInfo);
-  }
-  handleReset = () => {
-    window.location.reload();
-  };
+  static getDerivedStateFromError(error: any) { return { hasError: true, error }; }
+  componentDidCatch(error: any, errorInfo: any) { console.error('Dashboard Crash Caught:', error, errorInfo); }
+  handleReset = () => window.location.reload();
   render() {
     if (this.state.hasError) {
       return (
@@ -142,9 +134,18 @@ const AuthenticatedApp: React.FC = () => {
     return () => { active = false; };
   }, [user]);
 
+  useEffect(() => {
+    if (!user || !role) return;
+    const timer = window.setTimeout(() => {
+      import('./components/shared/notifications')
+        .then(({ requestNotificationPermission }) => requestNotificationPermission())
+        .catch(() => {});
+    }, 2500);
+    return () => window.clearTimeout(timer);
+  }, [user, role]);
+
   const latestVersion = maxVersion(latestRegistryVersion, currentSchool?.platform_version, APP_VERSION);
   const isVersionMismatch = isOutdated(APP_VERSION, latestVersion);
-
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isHomePage, setIsHomePage] = useState(true);
   const [authView, setAuthView] = useState<'login' | 'signup' | 'create-school'>('login');
@@ -152,9 +153,7 @@ const AuthenticatedApp: React.FC = () => {
 
   useEffect(() => {
     const hash = window.location.hash;
-    if (hash.includes('access_token') || hash.includes('type=recovery') || hash.includes('type=signup') || hash.includes('/auth/callback')) {
-      setShowAuthConfirm(true);
-    }
+    if (hash.includes('access_token') || hash.includes('type=recovery') || hash.includes('type=signup') || hash.includes('/auth/callback')) setShowAuthConfirm(true);
   }, []);
 
   // DashboardLayout's demo-mode "Create Your School" button lives deep under
@@ -202,8 +201,7 @@ const AuthenticatedApp: React.FC = () => {
 
   const renderDashboard = useMemo(() => {
     if (!user || !role) return null;
-    const props = { onLogout: handleLogout, setIsHomePage, currentUser: user };
-    return <DashboardRouter {...props} />;
+    return <DashboardRouter onLogout={handleLogout} setIsHomePage={setIsHomePage} currentUser={user} />;
   }, [user?.id, role]);
 
   // A first-time visitor has no session to restore, so holding them behind the
@@ -224,6 +222,10 @@ const AuthenticatedApp: React.FC = () => {
   if (loading && !user && hasStoredSession) return <LoadingScreen />;
   if (isInviteAccept) return <InviteAcceptScreen />;
   if (showAuthConfirm) return <AuthCallback />;
+  if (!user || !role) return <>
+    {authView === 'signup' ? <Suspense fallback={<LoadingScreen />}><Signup onNavigateToLogin={() => React.startTransition(() => setAuthView('login'))} /></Suspense> : authView === 'create-school' ? <Suspense fallback={<LoadingScreen />}><CreateSchoolSignup onNavigateToLogin={() => React.startTransition(() => setAuthView('login'))} /></Suspense> : <Login onNavigateToSignup={() => React.startTransition(() => setAuthView('signup'))} onNavigateToCreateSchool={() => React.startTransition(() => setAuthView('create-school'))} />}
+  </>;
+  if (isChatOpen) return <AIChatScreen onBack={() => setIsChatOpen(false)} dashboardType={role} />;
 
   if (!user || !role) {
     return (
