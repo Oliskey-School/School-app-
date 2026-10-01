@@ -75,14 +75,20 @@ export class ParentWatchdogService {
                     // dryRun reports what WOULD go out without notifying anyone —
                     // used to verify the rules against real data safely.
                     if (opts.dryRun) { opts.sample?.push(alert); sent++; continue; }
-                    const result = await NotificationDeliveryService.deliver({
+
+                    // Cron runs without an ambient tenant scope. Delivery reads
+                    // NotificationSetting and writes Notification/queue records,
+                    // so it must execute in the explicit platform scope just like
+                    // the watchdog's discovery queries. Without this wrapper RLS
+                    // sees an empty tenant and silently drops the delivery.
+                    const result = await runAsPlatform(() => NotificationDeliveryService.deliver({
                         schoolId: alert.schoolId,
                         branchId: alert.branchId,
                         userId: alert.userId,
                         category: alert.category,
                         title: alert.title,
                         message: alert.message,
-                    });
+                    }));
                     if (result.delivered.length || result.queuedForDigest) sent++;
                 }
             } catch (e: any) {
