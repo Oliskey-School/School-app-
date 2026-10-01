@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { toast } from 'react-hot-toast';
@@ -17,6 +17,8 @@ interface LinkChildScreenProps {
 const LinkChildScreen: React.FC<LinkChildScreenProps> = ({ handleBack, forceUpdate }) => {
     const { userProfile } = useAuth();
     const [studentCode, setStudentCode] = useState('');
+    // True once a load has completed, so background refreshes never flash a skeleton.
+    const hasLoadedOnceRef = useRef(false);
     const [dateOfBirth, setDateOfBirth] = useState('');
     const [relationship, setRelationship] = useState('Parent');
     const [loading, setLoading] = useState(false);
@@ -71,8 +73,11 @@ const LinkChildScreen: React.FC<LinkChildScreenProps> = ({ handleBack, forceUpda
             toast.error("Please enter the child's date of birth to confirm the link.");
             return;
         }
+        // Only show the skeleton on the FIRST load. A realtime refresh must not
+        // replace content the user is reading with a spinner and replay the entry
+        // animations — that is what made these screens blink.
 
-        setLoading(true);
+        if (!hasLoadedOnceRef.current) setLoading(true);
         try {
             const result = await linkStudentToParent(studentCode.trim(), relationship, userProfile?.id, dateOfBirth);
             if (result.success) {
@@ -88,7 +93,7 @@ const LinkChildScreen: React.FC<LinkChildScreenProps> = ({ handleBack, forceUpda
             console.error(error);
             toast.error("An unexpected error occurred.");
         } finally {
-            setLoading(false);
+            hasLoadedOnceRef.current = true; setLoading(false);
         }
         };
 
@@ -100,7 +105,7 @@ const LinkChildScreen: React.FC<LinkChildScreenProps> = ({ handleBack, forceUpda
         const confirmUnlink = async () => {
         if (!childToUnlink || !userProfile?.id) return;
 
-        setLoading(true);
+        if (!hasLoadedOnceRef.current) setLoading(true);
         try {
             const result = await unlinkStudentFromParent(childToUnlink.id, userProfile.id);
             if (result.success) {
@@ -114,7 +119,7 @@ const LinkChildScreen: React.FC<LinkChildScreenProps> = ({ handleBack, forceUpda
             console.error(error);
             toast.error("Failed to unlink student.");
         } finally {
-            setLoading(false);
+            hasLoadedOnceRef.current = true; setLoading(false);
             setShowUnlinkModal(false);
             setChildToUnlink(null);
         }

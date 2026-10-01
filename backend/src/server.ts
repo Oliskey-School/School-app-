@@ -178,6 +178,15 @@ const start = async () => {
                         console.warn('⚠️ [NotificationDigest] start skipped:', cronErr.message);
                     }
 
+                    // Parent watchdog — daily check of each parent's own children
+                    // (fees due, attendance slipping, report card out, homework due).
+                    try {
+                        const { ParentWatchdogCron } = require('./services/parentWatchdogCron.service');
+                        ParentWatchdogCron.init();
+                    } catch (cronErr: any) {
+                        console.warn('⚠️ [ParentWatchdog] start skipped:', cronErr.message);
+                    }
+
                     // Student Early Warning System — nightly risk scan, production-only by default.
                     try {
                         const { startRiskScanCron } = require('./services/riskScanCron.service');

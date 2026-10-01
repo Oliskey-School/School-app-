@@ -56,7 +56,14 @@ async function loadPreferences(userId: string) {
     try {
         const row = await prisma.notificationSetting.findUnique({ where: { user_id: userId } });
         if (!row) return defaultPreferences();
-        return sanitisePreferences({ digest_time: row.digest_time, categories: row.categories });
+        // The `categories` column holds the whole preference document; rows
+        // written before email_alerts/weekly_summary existed still hold a bare
+        // array. Accept both, or the per-category choices read back as defaults.
+        const stored: any = row.categories;
+        return sanitisePreferences({
+            digest_time: row.digest_time,
+            ...(Array.isArray(stored) ? { categories: stored } : (stored || {})),
+        });
     } catch {
         // A preference lookup must never stop a notification going out.
         return defaultPreferences();
@@ -89,7 +96,11 @@ export class NotificationDeliveryService {
             return result;
         }
 
-        return this.sendNow(input, pref.channel, result);
+        // "Email Alerts" off is a master switch: anything routed to email is
+        // delivered in-app instead, so the user still gets the notification and
+        // simply stops receiving mail.
+        const channel = !prefs.email_alerts && pref.channel === 'email' ? 'inapp' : pref.channel;
+        return this.sendNow(input, channel, result);
     }
 
     /** Instant delivery on one channel, falling back to in-app when it cannot be used. */
@@ -216,5 +227,56 @@ export class NotificationDeliveryService {
             }
         }
         return { users: settings.length, sent };
+    }
+
+    /**
+     * The Monday roll-up behind the "Weekly Summary" switch.
+     *
+     * Runs at the same hh:mm the user picked for their daily digest, but only on
+     * Mondays and only for users who turned it on. Unlike the daily digest it
+     * does not consume anything: it reports on the last seven days and leaves
+     * every row exactly as it was, so it can never swallow an unread item.
+     */
+    static async runWeeklySummaryForTime(hhmm: string): Promise<{ users: number; sent: number }> {
+        const settings = await runAsPlatform(() => prisma.notificationSetting.findMany({
+            where: { digest_time: hhmm },
+            select: { user_id: true, school_id: true, categories: true },
+        }));
+
+        const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        let users = 0, sent = 0;
+
+        for (const s of settings) {
+            try {
+                if (!sanitisePreferences(s.categories).weekly_summary) continue;
+                users++;
+
+                const week = await runAsPlatform(() => prisma.notification.findMany({
+                    where: { user_id: s.user_id, created_at: { gte: since }, deleted_at: null },
+                    orderBy: { created_at: 'desc' },
+                    take: 100,
+                }));
+                if (!week.length) continue;
+
+                const user = await runAsPlatform(() => prisma.user.findUnique({
+                    where: { id: s.user_id },
+                    select: { email: true, full_name: true },
+                }));
+                if (!user?.email) continue;
+
+                const lines = week.map(p => `• ${p.title} — ${p.message}`).join('\n');
+                const ok = await this.sendEmail({
+                    schoolId: s.school_id,
+                    userId: s.user_id,
+                    category: 'general',
+                    title: `Your weekly summary (${week.length} update${week.length === 1 ? '' : 's'})`,
+                    message: lines,
+                }).catch(() => false);
+                if (ok) sent++;
+            } catch (e: any) {
+                console.warn('[WeeklySummary] failed for user', s.user_id, e?.message);
+            }
+        }
+        return { users, sent };
     }
 }

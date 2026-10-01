@@ -31,6 +31,8 @@ import PremiumLoader, { BOOT_MESSAGE } from '../ui/PremiumLoader';
 import PremiumModal from '../ui/PremiumModal';
 import ErrorBoundary from '../ui/ErrorBoundary';
 import SchoolContextSwitcher from '../ui/SchoolContextSwitcher';
+import AIChatScreen from '../shared/AIChatScreen';
+import AIChatWidget from '../shared/AIChatWidget';
 
 
 import { getHomeworkStatus } from '../../utils/homeworkUtils';
@@ -635,6 +637,9 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
 
     const viewComponents: { [key: string]: React.ComponentType<any> } = {
         dashboard: UnifiedParentHome,
+        // The one assistant: free chat, plus the "My School" tab that answers
+        // from this parent's own children's records.
+        aiAssistant: (props: any) => <AIChatScreen {...props} dashboardType={DashboardType.Parent} />,
         piggyBank: (props: any) => <FeesPiggyBank {...props} />,
         smartCalendar: SmartCalendar,
         todaySummary: (props: any) => <ParentTodayWidget {...props} />,
@@ -778,8 +783,12 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
         );
     }
 
-    const isFullScreen = ['messages', 'newChat', 'chat'].includes(view);
-    const hideBottomNav = view === 'chat';
+    // The AI Assistant brings its own header, back button and docked input bar
+    // (it was written as a standalone screen), so it is shown full-screen like
+    // the chat views. Leaving the dashboard chrome in place would put its input
+    // bar on top of the bottom nav.
+    const isFullScreen = ['messages', 'newChat', 'chat', 'aiAssistant'].includes(view);
+    const hideBottomNav = view === 'chat' || view === 'aiAssistant';
 
     return (
         <DashboardLayout
@@ -814,6 +823,14 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
             <Suspense fallback={<DashboardSuspenseFallback />}>
                 {isSearchOpen && <GlobalSearchScreen onClose={() => setIsSearchOpen(false)} navigateTo={navigateTo} dashboardType={DashboardType.Parent} />}
             </Suspense>
+            {/* A single AI entry point. Hidden while the assistant is open so the
+                button never floats over its own screen. */}
+            {view !== 'aiAssistant' && (
+                <AIChatWidget
+                    dashboardType={DashboardType.Parent}
+                    onClick={() => navigateTo('aiAssistant', 'AI Assistant', {})}
+                />
+            )}
             <PremiumModal
                 isOpen={isPremiumModalOpen}
                 onClose={() => setIsPremiumModalOpen(false)}

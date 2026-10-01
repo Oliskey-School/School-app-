@@ -115,7 +115,7 @@ const ParentProfileScreen: React.FC<ParentProfileScreenProps> = ({ onLogout, nav
     }
     // eslint-disable-next-line no-constant-condition
     if (false) {
-      toast('Help Center coming soon!', { icon: 'â„¹ï¸' });
+      toast('Help Center coming soon!', { icon: 'ℹ️' });
     } else {
       // If mobile, navigate to a new screen instead of just setting activeSetting
       const isMobile = window.innerWidth < 768;
@@ -171,7 +171,7 @@ const ParentProfileScreen: React.FC<ParentProfileScreenProps> = ({ onLogout, nav
                   {profile.school_generated_id || formatId(customId) || 'ID: Pending'}
                 </span>
                 <Copy className="w-3 h-3 text-gray-400" />
-                {copied && <span className="text-xs text-green-600 font-bold ml-1">âœ“</span>}
+                {copied && <span className="text-xs text-green-600 font-bold ml-1">✓</span>}
               </div>
             </div>
           </div>

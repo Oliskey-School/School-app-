@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -53,6 +53,8 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
     const { user, currentSchool } = useAuth();
     const { switchBranch, currentBranch } = useBranch();
     const [children, setChildren] = useState<ChildOverview[]>([]);
+    // True once a load has completed, so background refreshes never flash a skeleton.
+    const hasLoadedOnceRef = useRef(false);
     const [activeChildIndex, setActiveChildIndex] = useState(0);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState(false);
@@ -67,11 +69,14 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
             return;
         }
         if (!user || (!currentSchool && !schoolId) || students.length === 0) {
-            setLoading(false);
+            hasLoadedOnceRef.current = true; setLoading(false);
             return;
         }
+        // Only show the skeleton on the FIRST load. A realtime refresh must not
+        // replace content the user is reading with a spinner and replay the entry
+        // animations — that is what made these screens blink.
 
-        setLoading(true);
+        if (!hasLoadedOnceRef.current) setLoading(true);
         setLoadError(false);
         try {
             // Fetch data for ALL children to allow quick switching
@@ -89,7 +94,7 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
             console.error("Error loading unified overview:", err);
             setLoadError(true);
         } finally {
-            setLoading(false);
+            hasLoadedOnceRef.current = true; setLoading(false);
         }
 
         try {

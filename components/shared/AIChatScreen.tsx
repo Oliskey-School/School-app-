@@ -8,6 +8,7 @@ import { CameraIcon, SendIcon, MicrophoneIcon, SparklesIcon, VideoIcon, PhotoIco
 import { THEME_CONFIG } from '../../constants';
 import { DashboardType } from '../../types';
 import Header from '../ui/Header';
+import AskAIWidget from './AskAIWidget';
 import LiveSession from './LiveSession';
 import MediaGenerator from './MediaGenerator';
 
@@ -38,7 +39,7 @@ const fileToGenerativePart = async (file: File) => {
 // --- Main Component ---
 const AIChatScreen: React.FC<AIChatScreenProps> = ({ onBack, dashboardType }) => {
     const theme = THEME_CONFIG[dashboardType];
-    const [activeTab, setActiveTab] = useState<'chat' | 'live' | 'create'>('chat');
+    const [activeTab, setActiveTab] = useState<'chat' | 'school' | 'live' | 'create'>('chat');
 
     // Chat State
     const [messages, setMessages] = useState<Message[]>([
@@ -189,6 +190,10 @@ const AIChatScreen: React.FC<AIChatScreenProps> = ({ onBack, dashboardType }) =>
             <div className="flex bg-white shadow-sm z-10">
                 {[
                     { id: 'chat', label: 'Smart Chat', icon: AIIcon },
+                    // Ask AI used to be a second floating button competing with this
+                    // screen's own. It is the same assistant, so it belongs here:
+                    // this tab answers from the signed-in user's own school records.
+                    { id: 'school', label: 'My School', icon: SearchIcon },
                     { id: 'live', label: 'Live Voice', icon: MicrophoneIcon },
                     { id: 'create', label: 'Creative Studio', icon: SparklesIcon },
                 ].map(tab => (
@@ -205,6 +210,8 @@ const AIChatScreen: React.FC<AIChatScreenProps> = ({ onBack, dashboardType }) =>
             </div>
 
             <div className="flex-grow overflow-hidden relative bg-gray-50 flex flex-col">
+                {activeTab === 'school' && <AskAIWidget embedded />}
+
                 {activeTab === 'live' && <LiveSession onClose={() => setActiveTab('chat')} />}
 
                 {activeTab === 'create' && <MediaGenerator />}

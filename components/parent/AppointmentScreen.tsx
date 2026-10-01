@@ -20,6 +20,24 @@ interface AppointmentScreenProps {
     loading?: boolean;
 }
 
+/**
+ * The appointment's scheduled moment.
+ *
+ * The booking form posts `starts_at`/`ends_at`, but the appointments table has
+ * neither column — it keeps a single `date`. Those fields were dropped on write
+ * and read back as undefined, so every history card rendered "Invalid Date".
+ * Prefer `date`, still accept `starts_at` in case an endpoint supplies it, and
+ * return null rather than an unparseable Date.
+ */
+const appointmentDate = (apt: any): Date | null => {
+    const raw = apt?.date ?? apt?.starts_at;
+    if (!raw) return null;
+    const d = new Date(raw);
+    return Number.isNaN(d.getTime()) ? null : d;
+};
+
+const appointmentTime = (apt: any): number => appointmentDate(apt)?.getTime() ?? 0;
+
 const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, students, navigateTo, studentId, loading: studentsLoading }) => {
     const { currentSchool, currentBranchId } = useAuth();
     const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -118,7 +136,10 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
         try {
             const data = await api.getMyParentAppointments();
             // Sort by date descending
-            const sorted = (data || []).sort((a: any, b: any) => new Date(b.starts_at).getTime() - new Date(a.starts_at).getTime());
+            // Appointments are stored with a single `date` column — there is no
+            // starts_at on the record, so sorting by it compared NaN to NaN and
+            // left the list in arbitrary order.
+            const sorted = (data || []).sort((a: any, b: any) => appointmentTime(b) - appointmentTime(a));
             setAppointments(sorted);
         } catch (err) {
             console.error("Error fetching appointments:", err);
@@ -326,20 +347,39 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
                         </div>
                     ) : (
                         <>
-                            <div className="flex space-x-2 bg-gray-200/50 p-1.5 rounded-xl w-max">
+                            {/* The white "selected" pill is a single shared element that
+                                slides between the two tabs (layoutId) instead of blinking
+                                from one to the other. On phones the control fills the width
+                                as two equal halves so "History & Responses" stops crowding
+                                the edge; from sm up it keeps its natural width. */}
+                            <div className="grid grid-cols-2 sm:flex sm:w-max gap-2 bg-gray-200/50 p-1.5 rounded-xl w-full">
                                 <motion.button
                                     whileTap={{ scale: 0.96 }}
                                     onClick={() => setActiveTab('book')}
-                                    className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${activeTab === 'book' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                                    className={`relative px-4 py-2 rounded-lg text-sm font-bold transition-colors ${activeTab === 'book' ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
                                 >
-                                    Book Appointment
+                                    {activeTab === 'book' && (
+                                        <motion.span
+                                            layoutId="appointmentTabPill"
+                                            className="absolute inset-0 bg-white shadow-sm rounded-lg"
+                                            transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                                        />
+                                    )}
+                                    <span className="relative z-10">Book Appointment</span>
                                 </motion.button>
                                 <motion.button
                                     whileTap={{ scale: 0.96 }}
                                     onClick={() => setActiveTab('history')}
-                                    className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${activeTab === 'history' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                                    className={`relative px-4 py-2 rounded-lg text-sm font-bold transition-colors ${activeTab === 'history' ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
                                 >
-                                    History & Responses
+                                    {activeTab === 'history' && (
+                                        <motion.span
+                                            layoutId="appointmentTabPill"
+                                            className="absolute inset-0 bg-white shadow-sm rounded-lg"
+                                            transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                                        />
+                                    )}
+                                    <span className="relative z-10">History & Responses</span>
                                 </motion.button>
                             </div>
 
@@ -367,10 +407,10 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
                                                         <h3 className="font-bold text-lg text-gray-900">{apt.title || 'Meeting'}</h3>
                                                         <p className="text-sm font-medium text-gray-500 mt-1 flex items-center gap-1.5">
                                                             <ClockIcon className="w-4 h-4" />
-                                                            {new Date(apt.starts_at).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                                                            {appointmentDate(apt)?.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) ?? 'Date not set'}
                                                         </p>
                                                     </div>
-                                                    <span className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider ${apt.status === 'confirmed' ? 'bg-green-100 text-green-700' : apt.status === 'rejected' ? 'bg-red-100 text-red-700' : apt.status === 'cancelled' ? 'bg-gray-100 text-gray-600' : 'bg-amber-100 text-amber-700'}`}>
+                                                    <span className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider ${(() => { const st = String(apt.status || '').toLowerCase(); return st === 'confirmed' || st === 'approved' ? 'bg-green-100 text-green-700' : st === 'rejected' || st === 'declined' ? 'bg-red-100 text-red-700' : st === 'cancelled' || st === 'canceled' ? 'bg-gray-100 text-gray-600' : 'bg-amber-100 text-amber-700'; })()}`}>
                                                         {apt.status || 'PENDING'}
                                                     </span>
                                                 </div>

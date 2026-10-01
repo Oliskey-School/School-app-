@@ -70,7 +70,11 @@ export const getMyNotifications = async (req: AuthRequest, res: Response) => {
         const role = String(req.user.role || '');
         const audience = Array.from(new Set([role, role.toLowerCase(), role.toUpperCase(), role.charAt(0).toUpperCase() + role.slice(1).toLowerCase()].filter(Boolean)));
         const branchId = getEffectiveBranchId(req.user, (req.query.branchId || req.query.branch_id) as string);
-        const result = await NotificationService.getNotificationsForUser(req.user.school_id, branchId, req.user.id, audience);
+        // Newest 50 by default. Callers that genuinely need more can ask, but the
+        // cap is what keeps this off the critical path of every dashboard load.
+        const requested = Number(req.query.limit);
+        const limit = Number.isFinite(requested) ? Math.min(Math.max(Math.trunc(requested), 1), 200) : 50;
+        const result = await NotificationService.getNotificationsForUser(req.user.school_id, branchId, req.user.id, audience, limit);
         res.json(result);
     } catch (error: any) {
         sendError(res, error, 'notification.controller.ts');

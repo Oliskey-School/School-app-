@@ -5,26 +5,30 @@ import { useAutoSync } from '../../hooks/useAutoSync';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 
-const SettingToggle = ({ icon, label, description, enabled, onToggle, index }: { icon: React.ReactNode, label: string, description: string, enabled: boolean, onToggle: () => void, index: number }) => (
+const SettingToggle = ({ icon, label, description, enabled, onToggle, index, unavailable = false }: { icon: React.ReactNode, label: string, description: string, enabled: boolean, onToggle: () => void, index: number, unavailable?: boolean }) => (
     <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.25, delay: index * 0.06 }}
-        className="flex justify-between items-center p-4 bg-white rounded-lg shadow-sm"
+        className="flex justify-between items-center gap-3 p-4 bg-white rounded-lg shadow-sm"
     >
-        <div className="flex items-center space-x-4">
-            <div className="bg-gray-100 p-2 rounded-lg">{icon}</div>
-            <div>
+        {/* min-w-0 lets the text column shrink instead of pushing the switch off
+            the right edge on a narrow phone. */}
+        <div className="flex items-center space-x-4 min-w-0">
+            <div className="bg-gray-100 p-2 rounded-lg flex-shrink-0">{icon}</div>
+            <div className="min-w-0">
                 <p className="font-semibold text-gray-800">{label}</p>
-                <p className="text-sm text-gray-500">{description}</p>
+                <p className="text-sm text-gray-500">{unavailable ? 'Not set up on this school yet.' : description}</p>
             </div>
         </div>
         <button
             type="button"
             role="switch"
             aria-checked={enabled}
+            aria-label={label}
+            disabled={unavailable}
             onClick={onToggle}
-            className={`relative inline-flex items-center h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 ${ enabled ? 'bg-green-500' : 'bg-gray-300' }`}
+            className={`relative inline-flex items-center h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 ${unavailable ? 'bg-gray-200 cursor-not-allowed opacity-60' : `cursor-pointer ${enabled ? 'bg-green-500' : 'bg-gray-300'}`}`}
         >
             <motion.span
                 aria-hidden="true"
@@ -37,16 +41,21 @@ const SettingToggle = ({ icon, label, description, enabled, onToggle, index }: {
 );
 
 const ParentNotificationSettingsScreen: React.FC = () => {
-    const [settings, setSettings] = useState({
-        emailAlerts: true,
-        pushNotifications: true,
-        weeklySummary: false
-    });
+    // The saved preference document, kept whole. Writing back only the two
+    // switches below would drop `categories` and `digest_time`, and the server
+    // rebuilds anything missing from defaults — which would silently reset every
+    // per-category choice the user made on the digest screen.
+    const [prefs, setPrefs] = useState<any | null>(null);
+    const [pushAvailable, setPushAvailable] = useState(false);
+    const [saving, setSaving] = useState<string | null>(null);
 
     const loadSettings = useCallback(async () => {
         try {
             const data = await api.getNotificationSettings();
-            if (data) setSettings(data);
+            if (data) {
+                setPrefs(data);
+                setPushAvailable(!!data?.channels?.push);
+            }
         } catch (err) {
             console.error('Error loading notification settings:', err);
         }
@@ -59,15 +68,25 @@ const ParentNotificationSettingsScreen: React.FC = () => {
         loadSettings();
     }, [loadSettings]);
 
-    const toggleSetting = async (key: keyof typeof settings) => {
-        const newSettings = {...settings, [key]: !settings[key]};
-        setSettings(newSettings);
+    const emailAlerts = prefs?.email_alerts ?? true;
+    const weeklySummary = prefs?.weekly_summary ?? false;
+
+    const toggleSetting = async (key: 'email_alerts' | 'weekly_summary') => {
+        if (!prefs) return;
+        const previous = prefs;
+        const next = { ...prefs, [key]: !prefs[key] };
+        setPrefs(next);            // optimistic
+        setSaving(key);
         try {
-            await api.updateNotificationSettings(newSettings);
+            const saved = await api.updateNotificationSettings(next);
+            // Trust what the server stored rather than the optimistic guess.
+            if (saved) setPrefs(saved);
             toast.success('Settings updated');
         } catch (err) {
+            setPrefs(previous);    // rollback
             toast.error('Failed to update settings');
-            setSettings(settings); // Rollback
+        } finally {
+            setSaving(null);
         }
     };
 
@@ -77,24 +96,28 @@ const ParentNotificationSettingsScreen: React.FC = () => {
                 icon={<MailIcon className="text-green-500"/>}
                 label="Email Alerts"
                 description="Receive important alerts via email."
-                enabled={settings.emailAlerts}
-                onToggle={() => toggleSetting('emailAlerts')}
+                enabled={emailAlerts}
+                onToggle={() => toggleSetting('email_alerts')}
                 index={0}
             />
+            {/* Push has no sender or provider credentials anywhere in the app, so
+                the server reports the channel as unavailable. Showing it as a
+                working switch would quietly drop every message it promised. */}
             <SettingToggle
                 icon={<BellIcon className="text-blue-500"/>}
                 label="Push Notifications"
                 description="Get real-time updates on your device."
-                enabled={settings.pushNotifications}
-                onToggle={() => toggleSetting('pushNotifications')}
+                enabled={pushAvailable}
+                onToggle={() => {}}
                 index={1}
+                unavailable={!pushAvailable}
             />
              <SettingToggle
                 icon={<NotificationIcon className="text-purple-500"/>}
                 label="Weekly Summary"
                 description="Get a summary report every Monday."
-                enabled={settings.weeklySummary}
-                onToggle={() => toggleSetting('weeklySummary')}
+                enabled={weeklySummary}
+                onToggle={() => toggleSetting('weekly_summary')}
                 index={2}
             />
         </div>

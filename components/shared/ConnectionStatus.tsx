@@ -76,7 +76,7 @@ const ConnectionStatus: React.FC = () => {
 
                     {status === 'connected' && latency && (
                         <span className="text-[10px] font-mono opacity-80 mt-1">
-                            {latency}ms latency â€¢ Region: EU
+                            {latency}ms latency • Region: EU
                         </span>
                     )}
 

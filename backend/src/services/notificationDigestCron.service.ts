@@ -31,14 +31,30 @@ export class NotificationDigestCron {
         }
 
         this.task = cron.schedule('* * * * *', async () => {
+            const now = new Date();
             const hhmm = new Intl.DateTimeFormat('en-GB', {
                 timeZone: 'Africa/Lagos', hour: '2-digit', minute: '2-digit', hour12: false,
-            }).format(new Date());
+            }).format(now);
+            const weekday = new Intl.DateTimeFormat('en-GB', {
+                timeZone: 'Africa/Lagos', weekday: 'short',
+            }).format(now);
+
             try {
                 const { users, sent } = await NotificationDeliveryService.runDigestForTime(hhmm);
                 if (users > 0) console.log(`📬 [NotificationDigest] ${hhmm}: ${sent}/${users} digest email(s) sent.`);
             } catch (e: any) {
                 console.warn('[NotificationDigest] tick failed:', e?.message);
+            }
+
+            // "Get a summary report every Monday" — same hh:mm the user chose for
+            // their daily digest, Mondays only, and only for those who opted in.
+            if (weekday === 'Mon') {
+                try {
+                    const { users, sent } = await NotificationDeliveryService.runWeeklySummaryForTime(hhmm);
+                    if (users > 0) console.log(`📅 [WeeklySummary] ${hhmm}: ${sent}/${users} weekly email(s) sent.`);
+                } catch (e: any) {
+                    console.warn('[WeeklySummary] tick failed:', e?.message);
+                }
             }
         });
 
