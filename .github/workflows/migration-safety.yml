@@ -1,22 +1,21 @@
 name: Migration Safety
 
-# The production readiness of this branch hinged on two claims about
-# `prisma migrate deploy` that were previously asserted from documentation
-# rather than demonstrated:
-#
-#   1. A failed row in _prisma_migrations aborts every subsequent deploy
-#      (P3009) — and there is a repair that clears it without touching data.
-#   2. Migration 20260922093000 uses `ON DELETE SET NULL (branch_id)`, which is
-#      PostgreSQL 15+ syntax, so the deployment requires PG >= 15.
-#
-# Guessing either one wrong means a failed production deploy, so this workflow
-# proves both against real PostgreSQL servers instead.
+# Proves the migration set against real PostgreSQL versions and rehearses the
+# recovery path for a failed Prisma migration. This is a release gate, not a
+# branch-local experiment, so it runs on PRs targeting main and on main pushes.
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [main]
   push:
     branches:
+      - main
       - 'codex/**'
+
+concurrency:
+  group: migration-safety-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   # ── 1. Which PostgreSQL major versions can this migration set actually apply on?
@@ -91,7 +90,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: '20', cache: 'npm' }
+        with: { node-version: '20', cache: npm }
       - run: npm ci
 
       - name: Baseline — deploy onto an empty database
@@ -119,7 +118,7 @@ jobs:
           fi
           echo "$out" | grep -q "P3009" \
             && echo "✅ Confirmed: a failed migration row aborts deploy with P3009." >> $GITHUB_STEP_SUMMARY \
-            || { echo "::warning::deploy failed, but not with P3009"; echo "⚠️ deploy failed without P3009 — see log." >> $GITHUB_STEP_SUMMARY; }
+            || { echo "::error::deploy failed, but not with P3009"; echo "⚠️ deploy failed without P3009 — see log." >> $GITHUB_STEP_SUMMARY; exit 1; }
 
       - name: Repair — mark it rolled back, then deploy must succeed
         run: |
