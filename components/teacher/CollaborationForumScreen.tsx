@@ -117,10 +117,17 @@ const CollaborationForumScreen: React.FC<CollaborationForumScreenProps> = ({ nav
                 className="w-full bg-white rounded-xl shadow-sm p-4 text-left hover:bg-gray-50 hover:ring-2 hover:ring-purple-200 transition-all group"
               >
                 <h4 className="font-bold text-gray-800 group-hover:text-purple-700 transition-colors">{topic.title}</h4>
-                <div className="flex justify-between items-center text-xs text-gray-500 mt-2">
-                  <span>By {topic.authorName}</span>
-                  <span className="bg-gray-100 px-2 py-1 rounded-full">{topic.postCount} replies</span>
-                  <span>{formatDistanceToNow(topic.lastActivity)}</span>
+                {/* Each of these printed its label with nothing behind it when the
+                    value was missing: a bare "By", and a "replies" chip with no
+                    number. A label with no value is noise — show the row only
+                    when there is something to say, and let it wrap rather than
+                    squeeze on a narrow phone. */}
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 mt-2">
+                  {topic.authorName ? <span className="truncate">By {topic.authorName}</span> : null}
+                  <span className="bg-gray-100 px-2 py-1 rounded-full whitespace-nowrap">
+                    {topic.postCount === 1 ? '1 reply' : `${topic.postCount ?? 0} replies`}
+                  </span>
+                  {topic.lastActivity ? <span className="ml-auto whitespace-nowrap">{formatDistanceToNow(topic.lastActivity)}</span> : null}
                 </div>
               </button>
             ))}
