@@ -466,7 +466,7 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                                             onClick={() => copyToClipboard(student.school_generated_id || student.admission_number || '')}
                                             aria-label="Copy student ID to clipboard"
                                         >
-                                            <Badge className="bg-white/20 text-white border-white/30 backdrop-blur-sm px-4 py-1.5 text-sm flex items-center gap-2">
+                                            <Badge className="bg-white/20 text-white border-white/30 backdrop-blur-sm px-4 py-2.5 text-sm flex items-center gap-2">
                                                 ID: {student.school_generated_id || student.admission_number || 'Pending'}
                                                 <Copy className="w-3 h-3 opacity-70" />
                                                 {copied && <span className="text-xs ml-1">Copied!</span>}
@@ -484,7 +484,7 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
 
                             {/* Stats Cards - Horizontal on Desktop */}
                             <div className="flex-1 w-full">
-                                <MotionList className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4" stagger={0.06}>
+                                <MotionList className="grid gap-3 md:gap-4 [grid-template-columns:repeat(auto-fit,minmax(7.5rem,1fr))]" stagger={0.06}>
                                     <MotionListItem>
                                         <StatCard
                                             icon={<TrendingUp className="w-5 h-5" />}

@@ -204,7 +204,7 @@ const TodayFocus: React.FC<{
                         {schedule.length > 3 && (
                             <button
                                 onClick={() => navigateTo('timetable', 'Timetable Dashboard')}
-                                className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors px-2 py-1 -mr-2 rounded-lg"
+                                className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors px-3 py-2 -my-1 -mr-2 rounded-lg"
                             >
                                 See More
                             </button>
@@ -382,7 +382,16 @@ const Overview: React.FC<{
                     />
                     <div>
                         <h3 className="text-lg font-bold text-gray-800 mb-2 px-1">AI Tools</h3>
-                        <div className="grid grid-cols-3 gap-4">
+                        {/* The column count follows the available width instead of being
+                            fixed at three. There are two tools, so `grid-cols-3` reserved a
+                            third column that was never filled — the empty gap to the right of
+                            the cards — and it held three columns even on a phone, which gave
+                            each card about a third of a 390px screen. auto-fit lets the cards
+                            fill whatever room there is: one per row when there is less than
+                            ~13rem each (small phones, where the longer label and its
+                            description need the width), two side by side from about 29rem,
+                            and more only if more tools are ever added. */}
+                        <div className="grid gap-3 sm:gap-4 [grid-template-columns:repeat(auto-fit,minmax(13rem,1fr))]">
                             {aiTools.map((tool, i) => (
                                 <motion.button
                                     key={tool.label}
@@ -392,11 +401,11 @@ const Overview: React.FC<{
                                     whileHover={{ y: -3, boxShadow: '0 12px 24px -8px rgba(0,0,0,0.25)' }}
                                     whileTap={{ scale: 0.97 }}
                                     onClick={tool.action}
-                                    className={`p-4 rounded-2xl shadow-lg text-white bg-gradient-to-r ${tool.color}`}
+                                    className={`flex flex-col items-start p-4 rounded-2xl shadow-lg text-white text-left bg-gradient-to-r ${tool.color} focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-500`}
                                 >
-                                    <SparklesIcon className="h-6 w-6 mb-2" />
-                                    <h4 className="font-bold text-left">{tool.label}</h4>
-                                    <p className="text-xs opacity-90 text-left">{tool.description}</p>
+                                    <SparklesIcon className="h-6 w-6 mb-2 flex-shrink-0" />
+                                    <h4 className="font-bold leading-snug">{tool.label}</h4>
+                                    <p className="text-xs opacity-90 leading-snug">{tool.description}</p>
                                 </motion.button>
                             ))}
                         </div>
@@ -440,7 +449,11 @@ const Overview: React.FC<{
                                 </motion.button>
                             )}
                         </AnimatePresence>
-                        <div className="grid grid-cols-3 gap-3 text-center">
+                        {/* Sized by the room this grid actually has, not by the viewport. These
+    cards sit in a column that the sidebar narrows from `lg` up, so a
+    viewport breakpoint of `lg:grid-cols-3` measured 60px cells at 1024px —
+    worse than on a phone. auto-fit cannot make that mistake. */}
+                        <div className="grid gap-3 text-center [grid-template-columns:repeat(auto-fit,minmax(6rem,1fr))]">
                             {quickAccessItems.map((item, i) => (
                                 <motion.button
                                     key={item.label}

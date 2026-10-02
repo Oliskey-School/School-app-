@@ -204,7 +204,7 @@ const FeaturedGameCard: React.FC<{ title: string; description: string; icon: Rea
             <h3 className="font-bold text-xl tracking-tight">{title}</h3>
             <p className="text-sm opacity-90 mt-1 font-medium text-blue-50/90">{description}</p>
         </div>
-        <motion.button whileTap={{ scale: 0.95 }} onClick={onClick} className="self-start bg-white text-gray-900 px-4 py-1.5 rounded-full text-xs font-bold hover:bg-blue-50 transition-colors shadow-sm">
+        <motion.button whileTap={{ scale: 0.95 }} onClick={onClick} className="self-start bg-white text-gray-900 px-4 py-2.5 rounded-full text-xs font-bold hover:bg-blue-50 transition-colors shadow-sm">
             Play Now
         </motion.button>
     </motion.div>

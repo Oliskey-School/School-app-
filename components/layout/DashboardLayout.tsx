@@ -269,7 +269,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
                                 window.dispatchEvent(new CustomEvent('demo-create-school'));
                                 signOut();
                             }}
-                            className="bg-white text-blue-700 font-bold px-3 py-1 rounded-lg text-[10px] hover:bg-blue-50 transition flex-shrink-0"
+                            className="bg-white text-blue-700 font-bold px-3 py-2 rounded-lg text-[11px] hover:bg-blue-50 transition flex-shrink-0"
                         >
                             {t('dashboard.createYourSchool')}
                         </motion.button>
