@@ -391,13 +391,13 @@ const Overview: React.FC<{
                             ~13rem each (small phones, where the longer label and its
                             description need the width), two side by side from about 29rem,
                             and more only if more tools are ever added. */}
-                        <div className="grid gap-3 sm:gap-4 [grid-template-columns:repeat(auto-fit,minmax(13rem,1fr))]">
+                        <div className="grid gap-3 sm:gap-4 [grid-template-columns:repeat(auto-fit,minmax(9rem,1fr))]">
                             {aiTools.map((tool, i) => (
                                 <motion.button
                                     key={tool.label}
                                     initial={{ opacity: 0, y: 12 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    transition={{ duration: 0.3, delay: i * 0.06 }}
+                                    transition={{ type: 'spring', bounce: 0, duration: 0.35, delay: i * 0.06 }}
                                     whileHover={{ y: -3, boxShadow: '0 12px 24px -8px rgba(0,0,0,0.25)' }}
                                     whileTap={{ scale: 0.97 }}
                                     onClick={tool.action}
@@ -449,21 +449,25 @@ const Overview: React.FC<{
                                 </motion.button>
                             )}
                         </AnimatePresence>
-                        {/* Sized by the room this grid actually has, not by the viewport. These
-    cards sit in a column that the sidebar narrows from `lg` up, so a
-    viewport breakpoint of `lg:grid-cols-3` measured 60px cells at 1024px —
-    worse than on a phone. auto-fit cannot make that mistake. */}
-                        <div className="grid gap-3 text-center [grid-template-columns:repeat(auto-fit,minmax(6rem,1fr))]">
+                        {/* Wraps by the room it actually has, not by the viewport: these tiles
+                            sit in a column the sidebar narrows from `lg` up, where a
+                            viewport breakpoint like `lg:grid-cols-3` measured 60px cells at
+                            1024px — worse than on a phone.
+
+                            Flex rather than grid so the seventh tile is not stranded at the
+                            left of an empty row. Full rows grow to fill the width; a final
+                            odd tile is capped and centred, so it reads as deliberate. */}
+                        <div className="flex flex-wrap justify-center gap-3 text-center">
                             {quickAccessItems.map((item, i) => (
                                 <motion.button
                                     key={item.label}
                                     initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    transition={{ duration: 0.25, delay: i * 0.05 }}
+                                    transition={{ type: 'spring', bounce: 0, duration: 0.35, delay: i * 0.05 }}
                                     whileHover={{ y: -2, backgroundColor: 'rgb(255 237 213)' }}
                                     whileTap={{ scale: 0.95 }}
                                     onClick={item.action}
-                                    className="bg-white p-3 rounded-2xl shadow-sm flex flex-col items-center justify-center space-y-2"
+                                    className="bg-white p-3 rounded-2xl shadow-sm flex flex-col items-center justify-center space-y-2 grow basis-24 max-w-[10rem]"
                                 >
                                     <div className={theme.iconColor}>{React.cloneElement(item.icon, { className: 'h-7 w-7' })}</div>
                                     <span className={`font-semibold ${theme.textColor} text-center text-xs`}>{item.label}</span>
