@@ -160,9 +160,34 @@ jobs:
           if [ -s /tmp/unprotected.txt ] && [ -n "$(tr -d '[:space:]' < /tmp/unprotected.txt)" ]; then
             echo "::error::tables without the composite FK: $(cat /tmp/unprotected.txt)"; exit 1
           fi
-          # The payment idempotency index must exist on a clean database.
+          # Payment idempotency must hold on a clean database.
+          #
+          # Checked as a PROPERTY, not by index name. The name has already moved
+          # twice by design - Payment_reference_key (20260924120000) ->
+          # Payment_school_reference_gateway_key (20260925100000) ->
+          # Payment_gateway_reference_key (20260925110000) - so pinning any one
+          # of them fails the rehearsal on a fully migrated database while the
+          # guarantee itself is perfectly intact.
           psql -h localhost -U postgres -d migration_test -v ON_ERROR_STOP=1 -tAc "
-            SELECT CASE WHEN to_regclass('public.\"Payment_reference_key\"') IS NULL
-                        THEN 'MISSING' ELSE 'present' END;" > /tmp/idx.txt
-          grep -q present /tmp/idx.txt || { echo "::error::Payment_reference_key was not created"; exit 1; }
-          echo '✅ Post-deploy invariants hold: every school_id+branch_id table carries the composite FK, and Payment_reference_key exists.' >> $GITHUB_STEP_SUMMARY
+            SELECT CASE WHEN EXISTS (
+                     SELECT 1
+                       FROM pg_index i
+                       JOIN pg_class c   ON c.oid = i.indrelid
+                       JOIN pg_class ic  ON ic.oid = i.indexrelid
+                       JOIN pg_namespace n ON n.oid = c.relnamespace
+                      WHERE n.nspname = 'public'
+                        AND c.relname = 'Payment'
+                        AND i.indisunique
+                        AND EXISTS (
+                              SELECT 1 FROM pg_attribute a
+                               WHERE a.attrelid = c.oid
+                                 AND a.attname  = 'reference'
+                                 AND a.attnum = ANY (i.indkey::smallint[])))
+                        THEN 'present' ELSE 'MISSING' END;" > /tmp/idx.txt
+          grep -q present /tmp/idx.txt || {
+            echo "::error::no UNIQUE index on Payment(reference) — the same gateway reference could be recorded twice"
+            psql -h localhost -U postgres -d migration_test -tAc \
+              "SELECT indexname FROM pg_indexes WHERE tablename='Payment';" || true
+            exit 1
+          }
+          echo "✅ Post-deploy invariants hold: every school_id+branch_id table carries the composite FK, and Payment(reference) is uniquely indexed ($(tr -d '[:space:]' < /tmp/idx.txt))." >> $GITHUB_STEP_SUMMARY
