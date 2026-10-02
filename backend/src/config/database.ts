@@ -326,20 +326,42 @@ export async function assertDatabaseRoleCannotBypassRls(): Promise<void> {
  * The flag lives in config/rlsGate so that mocking THIS module cannot delete it.
  */
 export { rlsRoleGate } from './rlsGate';
-import { rlsRoleGate as gate } from './rlsGate';
+import { rlsRoleGate as gate, rlsEnforcementMode } from './rlsGate';
 
 if (process.env.NODE_ENV === 'production') {
   prisma.$connect()
     .then(() => console.log('🚀 [Prisma] Production database connection established successfully.'))
     .then(() => assertDatabaseRoleCannotBypassRls())
-    .then(() => { gate.verified = true; })
+    .then(() => { gate.status = 'verified'; gate.verified = true; gate.error = null; })
     .catch((err) => {
+      // NEVER process.exit() here.
+      //
+      // This block runs on every cold start. On a serverless platform the
+      // process IS the request handler, so exiting does not "refuse to start" —
+      // it fails the invocation, and every single route answers 500
+      // (FUNCTION_INVOCATION_FAILED). That is exactly what happened the first
+      // time this check shipped to production: the API went down whole, while
+      // the thing it had correctly detected was a connection string pointing at
+      // a BYPASSRLS role.
+      //
+      // Record what was found and let rlsGate decide whether to serve. The
+      // fault is loud, and RLS_ROLE_ENFORCEMENT=block makes it fatal for
+      // deployments that would rather be offline than unprotected.
       gate.error = err instanceof Error ? err.message : 'unknown error';
-      console.error('❌ [Prisma] FATAL:', gate.error);
+      gate.status = /bypass(es)? row level security/i.test(gate.error) ? 'insecure' : 'unknown';
+      gate.verified = false;
+
       const dbUrl = process.env.DATABASE_URL || '';
       const hostMatch = dbUrl.match(/@([^:/]+)/);
-      if (hostMatch) console.error('   Host attempted:', hostMatch[1]);
-      process.exit(1);
+      console.error('='.repeat(72));
+      console.error('🚨 [Prisma] DATABASE ROLE CHECK FAILED —', gate.status);
+      console.error('   ', gate.error);
+      if (hostMatch) console.error('    host:', hostMatch[1]);
+      console.error('    Point DATABASE_URL at the application role (NOSUPERUSER, NOBYPASSRLS)');
+      console.error('    created by migration 20260919150000. Until then tenant isolation');
+      console.error('    rests on application-level scoping alone.');
+      console.error('    Serving anyway (RLS_ROLE_ENFORCEMENT=' + rlsEnforcementMode() + ').');
+      console.error('='.repeat(72));
     });
 }
 

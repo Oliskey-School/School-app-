@@ -12,7 +12,7 @@ import { config } from './config/env';
 import { doubleSubmitCookieMiddleware, csrfErrorHandler, ensureCsrfCookie } from './middleware/csrf.middleware';
 import { globalApiLimiter } from './middleware/rateLimiters';
 import { Sentry, sentryEnabled } from './config/instrument';
-import { rlsRoleGate } from './config/rlsGate';
+import { rlsRoleGate, rlsGateAllowsTraffic } from './config/rlsGate';
 import routes from './routes';
 
 const app = express();
@@ -272,8 +272,17 @@ app.get('/ready', async (_req, res) => {
         // A node whose database role has not yet been proven NOBYPASSRLS is not
         // ready: reporting it ready would let the LB send tenant traffic during
         // the window where isolation policies may be inert.
+        // Readiness stays strict: a node whose role is not proven NOBYPASSRLS
+        // should not be sent traffic by a load balancer while a healthy one
+        // exists. That is a routing preference, not an outage — unlike the /api
+        // gate above, which is the whole API.
         if (!rlsRoleGate.verified) {
-            return res.status(503).json({ status: 'not-ready', reason: 'database role not yet verified' });
+            return res.status(503).json({
+                status: 'not-ready',
+                reason: rlsRoleGate.status === 'checking'
+                    ? 'database role not yet verified'
+                    : `database role check: ${rlsRoleGate.status}`,
+            });
         }
         await prisma.$queryRaw`SELECT 1`;
         res.status(200).json({ status: 'ready' });
@@ -293,10 +302,12 @@ app.get('/ready', async (_req, res) => {
 // the check synchronous — an async middleware here would add an unhandled
 // rejection path on the hot request path for no benefit.
 app.use('/api', (_req, res, next) => {
-    if (rlsRoleGate.verified) return next();
+    if (rlsGateAllowsTraffic()) return next();
     res.setHeader('Retry-After', '5');
     return res.status(503).json({
-        message: 'Service starting: database tenant-isolation check has not completed yet.',
+        message: rlsRoleGate.status === 'checking'
+            ? 'Service starting: database tenant-isolation check has not completed yet.'
+            : 'Refusing tenant traffic: the database role can bypass row level security.',
     });
 });
 app.use('/api', routes);
