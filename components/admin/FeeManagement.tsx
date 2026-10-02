@@ -176,8 +176,11 @@ const FeeManagement: React.FC<any> = (props) => {
 
   return (
     <div className="p-6 max-w-7xl mx-auto pb-32 lg:pb-6">
-      <div className="flex justify-between items-center mb-6">
-        <div>
+      {/* On a phone the title and the button fought for one row: "Fee
+          Management" broke across two lines and the button wrapped to
+          "+ Assign / Fee". Stack them instead of letting both shrink. */}
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold text-gray-900">Fee Management</h1>
           <p className="text-gray-500">Track and assign student fees</p>
         </div>
@@ -185,9 +188,9 @@ const FeeManagement: React.FC<any> = (props) => {
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => (props as any).navigateTo('assignFee', 'Assign New Fee')}
-          className="flex items-center space-x-2 bg-indigo-600 text-white px-4 py-2 rounded-xl hover:bg-indigo-700 transition"
+          className="flex items-center justify-center gap-2 bg-indigo-600 text-white px-4 py-2.5 rounded-xl hover:bg-indigo-700 transition whitespace-nowrap shrink-0 w-full sm:w-auto"
         >
-          <Plus className="w-5 h-5" />
+          <Plus className="w-5 h-5 shrink-0" />
           <span>Assign Fee</span>
         </motion.button>
       </div>
@@ -198,7 +201,7 @@ const FeeManagement: React.FC<any> = (props) => {
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
           <input
             type="text"
-            placeholder="Search student by name or class (e.g. 'Primary 3')..."
+            placeholder="Search by name or class"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-12 pr-4 py-3 bg-white border border-gray-100 rounded-2xl shadow-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all placeholder:text-gray-400"

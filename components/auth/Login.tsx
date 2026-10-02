@@ -535,7 +535,7 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
           <button
             type="button"
             onClick={() => setView('login')}
-            className="mt-8 text-blue-600 text-sm font-semibold hover:text-blue-700 transition-colors"
+            className="mt-8 px-4 py-2.5 rounded-lg text-blue-600 text-sm font-semibold hover:text-blue-700 hover:bg-blue-50 transition-colors"
           >
             {t('auth.backToSchoolSignIn')}
           </button>
