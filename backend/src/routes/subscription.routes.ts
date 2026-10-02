@@ -10,6 +10,8 @@ import {
 import { requireRole } from '../middleware/tenant.middleware';
 
 const router = Router();
+// Mounted behind authenticate + requireTenant (routes/index.ts): every handler
+// runs in the caller's tenant scope. Never widen it to platform scope here.
 
 // This router is mounted with `authenticate, requireTenant` (routes/index.ts),
 // and requireTenant only proves the caller has a school — it checks no role.

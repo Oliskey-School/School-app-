@@ -2,6 +2,7 @@ import bcrypt from 'bcrypt';
 import prisma from '../config/database';
 import { EmailService } from './email.service';
 import { IdGeneratorService } from './idGenerator.service';
+import { LearningHubService } from './learningHub.service';
 import { VerificationService } from './verification.service';
 import { generateBranchCode } from '../utils/branchHelper';
 
@@ -224,6 +225,19 @@ export class OnboardingService {
                 adminSchoolGeneratedId,
             };
         }, { timeout: 30000 });
+
+        // Give the new school the curated "Free Learning Resources" catalog.
+        //
+        // These rows are per-school (LearningHubService.getResources filters
+        // school_id + is_curated), and for a long time only the DEMO school ever
+        // had them — so the screen worked in the demo and was empty for every
+        // real school. Migration 20260930090000 backfills existing schools; this
+        // covers every school created from now on, so the two cannot drift apart.
+        //
+        // Best-effort and deliberately outside the transaction: a catalog copy
+        // must never fail the creation of a school.
+        LearningHubService.seedCuratedCatalog(result.schoolId)
+            .catch((e: any) => console.error('[Onboarding] catalog seed failed:', e?.message));
 
         // Send the verification OTP in the BACKGROUND — never block (or time out) the
         // onboarding response on a slow/unreachable email provider. The school, branch

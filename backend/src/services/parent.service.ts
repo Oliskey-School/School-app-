@@ -781,52 +781,65 @@ export class ParentService {
     static async getChildOverview(schoolId: string, branchId: string | undefined, studentId: string) {
         console.log(`🔍 [ParentService] Fetching child overview for student: ${studentId}, school: ${schoolId}`);
         try {
-            // 1. Get Student basic info
-            console.log('   [1/5] Querying student basic info...');
-            const student = await prisma.student.findUnique({
-                where: { id: studentId },
-                select: {
-                    id: true,
-                    full_name: true,
-                    grade: true,
-                    section: true,
-                    school_id: true,
-                    branch_id: true,
-                    school: { select: { name: true } }
-                }
-            });
+            // Every Prisma call outside a transaction is wrapped in its own
+            // BEGIN + set_config + query + COMMIT (see config/database.ts), so a
+            // round trip per query is expensive. These six only need studentId,
+            // so they go out together instead of one after another: this endpoint
+            // returned under 300 bytes but took ~0.5-1.5s purely in sequential
+            // round trips. Only the class lookup and the assignment count
+            // genuinely depend on earlier results, so they still follow.
+            const todayStr = new Date().toISOString().slice(0, 10); // YYYY-MM-DD, matches how attendance rows are saved
+            const [student, attendance, activeEnrollment, fees, latestPerformance, submissions] = await Promise.all([
+                prisma.student.findUnique({
+                    where: { id: studentId },
+                    select: {
+                        id: true,
+                        full_name: true,
+                        grade: true,
+                        section: true,
+                        school_id: true,
+                        branch_id: true,
+                        school: { select: { name: true } }
+                    }
+                }),
+                // TODAY's attendance specifically — not just the most recent record
+                // ever. Attendance rows are stored per exact date, so falling back to
+                // "most recent" would show a stale day's status mislabeled as "today"
+                // whenever the teacher hasn't marked the register yet today.
+                prisma.attendance.findFirst({
+                    where: { student_id: studentId, date: new Date(todayStr) },
+                    select: { status: true, date: true }
+                }),
+                prisma.studentEnrollment.findFirst({
+                    where: { student_id: studentId, status: 'Active' },
+                    select: { class_id: true }
+                }),
+                prisma.studentFee.findMany({
+                    where: { student_id: studentId, status: { not: 'Paid' } },
+                    select: { amount: true, paid_amount: true }
+                }),
+                prisma.academicPerformance.findFirst({
+                    where: { student_id: studentId },
+                    orderBy: { created_at: 'desc' }
+                }),
+                prisma.assignmentSubmission.findMany({
+                    where: { student_id: studentId },
+                    select: { assignment_id: true }
+                })
+            ]);
 
             if (!student) {
                 console.warn(`   ⚠️ Student ${studentId} not found`);
                 throw new Error('Student not found');
             }
-            console.log(`   ✅ Found student: ${student.full_name}`);
 
-            // 2. Get TODAY's attendance specifically — not just the most recent
-            // record ever. Attendance rows are stored per exact date, so falling
-            // back to "most recent" would show a stale day's status mislabeled as
-            // "today" whenever the teacher hasn't marked the register yet today.
-            console.log('   [2/5] Querying today\'s attendance...');
-            const todayStr = new Date().toISOString().slice(0, 10); // YYYY-MM-DD, matches how attendance rows are saved
-            const attendance = await prisma.attendance.findFirst({
-                where: { student_id: studentId, date: new Date(todayStr) },
-                select: { status: true, date: true }
-            });
-            console.log(`   ✅ Today's attendance status: ${attendance?.status || 'Not marked yet'}`);
+            const feeBalance = fees.reduce((sum, f) => sum + (f.amount - (f.paid_amount || 0)), 0);
 
-            // 3. Get Assignments due
-            console.log('   [3/5] Querying assignments due...');
-            let enrollment = await prisma.studentEnrollment.findFirst({
-                where: { student_id: studentId, status: 'Active' },
+            // Only students with no active enrollment need the wider lookup.
+            const enrollment = activeEnrollment ?? await prisma.studentEnrollment.findFirst({
+                where: { student_id: studentId },
                 select: { class_id: true }
             });
-
-            if (!enrollment) {
-                enrollment = await prisma.studentEnrollment.findFirst({
-                    where: { student_id: studentId },
-                    select: { class_id: true }
-                });
-            }
 
             let classId = enrollment?.class_id;
             // The class's actual name (e.g. "JSS 1", as typed by the admin when the
@@ -863,12 +876,7 @@ export class ParentService {
 
             let assignmentsDueCount = 0;
             if (classId) {
-                const submissions = await prisma.assignmentSubmission.findMany({
-                    where: { student_id: studentId },
-                    select: { assignment_id: true }
-                });
                 const submittedIds = submissions.map(s => s.assignment_id);
-
                 assignmentsDueCount = await prisma.assignment.count({
                     where: {
                         class_id: classId,
@@ -877,24 +885,6 @@ export class ParentService {
                     }
                 });
             }
-            console.log(`   ✅ Assignments due: ${assignmentsDueCount}`);
-
-            // 4. Get Fee Balance
-            console.log('   [4/5] Querying fee balance...');
-            const fees = await prisma.studentFee.findMany({
-                where: { student_id: studentId, status: { not: 'Paid' } },
-                select: { amount: true, paid_amount: true }
-            });
-            const feeBalance = fees.reduce((sum, f) => sum + (f.amount - (f.paid_amount || 0)), 0);
-            console.log(`   ✅ Fee balance: ${feeBalance}`);
-
-            // 5. Get Latest Result
-            console.log('   [5/5] Querying latest performance...');
-            const latestPerformance = await prisma.academicPerformance.findFirst({
-                where: { student_id: studentId },
-                orderBy: { created_at: 'desc' }
-            });
-            console.log(`   ✅ Latest subject: ${latestPerformance?.subject || 'None'}`);
 
             return {
                 id: student.id,
@@ -944,13 +934,23 @@ export class ParentService {
             if (!feeOwned) throw new Error('Fee not found for this student');
         }
 
+        try {
         return await prisma.$transaction(async (tx) => {
             // A gateway reference pays exactly once. Serialise concurrent
             // attempts on the same reference, then refuse one already recorded
             // in this school — otherwise one real payment could be replayed to
             // mark any number of fees paid.
+            //
+            // This lookup can only see the caller's own tenant (RLS), so it
+            // cannot catch the same reference being replayed in a DIFFERENT
+            // school against the same gateway account. The lock key is therefore
+            // deliberately NOT scoped by school: a gateway reference is unique at
+            // the provider, so a replay in another school must serialise against
+            // the same key. The partial unique index Payment_reference_key
+            // (migration 20260924120000) closes the gap at the database level;
+            // the P2002 it raises is translated to the same 409 below.
             if (reference) {
-                await tx.$executeRawUnsafe(`SELECT pg_advisory_xact_lock(hashtext($1))`, `payment-ref:${schoolId}:${reference}`);
+                await tx.$executeRawUnsafe(`SELECT pg_advisory_xact_lock(hashtext($1))`, `payment-ref:${reference}`);
                 const used = await tx.payment.findFirst({ where: { school_id: schoolId, reference }, select: { id: true } });
                 if (used) throw Object.assign(new Error('This payment reference has already been recorded'), { status: 409 });
             }
@@ -995,6 +995,16 @@ export class ParentService {
             SocketService.emitToSchool(schoolId, 'finance:updated', { action: 'record_payment', paymentId: payment.id, studentId: student_id });
             return payment;
         });
+        } catch (err: any) {
+            // Payment_reference_key — the same gateway reference is already
+            // recorded, possibly under another tenant this query cannot see.
+            // Report it as the same conflict the in-tenant check produces
+            // rather than leaking a Prisma error as a 500.
+            if (err?.code === 'P2002') {
+                throw Object.assign(new Error('This payment reference has already been recorded'), { status: 409 });
+            }
+            throw err;
+        }
     }
 
     // ==========================================

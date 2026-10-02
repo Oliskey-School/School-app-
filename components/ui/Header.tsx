@@ -72,7 +72,14 @@ const Header: React.FC<HeaderProps> = ({ title, avatarUrl, bgColor, onLogout, on
             </motion.button>
           )}
           <div className="flex flex-col min-w-0 flex-1">
-            <h1 className="text-xl sm:text-2xl md:text-4xl font-extrabold truncate tracking-tight leading-tight flex items-center gap-2">
+            {/* Titles get " Dashboard" appended below, so real screen names like
+                "Book Appointment" become "Book Appointment Dashboard" — too long
+                for a 390px phone, where `truncate` chopped it to "Book Appointment
+                Dashboa". Wrap to at most two lines on phones and only truncate
+                once there is room for a single line. (line-clamp needs
+                -webkit-box, so the h1 can no longer be a flex container — it has
+                a single text child, so nothing depended on that.) */}
+            <h1 className="text-lg sm:text-2xl md:text-4xl font-extrabold tracking-tight leading-tight line-clamp-2 sm:truncate">
               {title.toLowerCase().includes('dashboard') ? title : `${title} Dashboard`}
             </h1>
             <div className="flex items-center gap-2 mt-0.5 sm:mt-1">

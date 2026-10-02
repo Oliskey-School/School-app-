@@ -39,7 +39,12 @@ async function cleanup() {
 describe('AI Insights + Ask AI', () => {
     beforeAll(async () => {
         await cleanup();
-        await prisma.school.create({ data: { id: S, name: 'INSIGHT', code: 'INSIGHT', slug: S, plan_type: 'enterprise', subscription_status: 'active' } });
+        // Ask AI spends real model calls, so it sits behind requireAIAllowed like
+        // the rest of the AI tools. 'advanced' is the plan that grants AI (see
+        // aiGate.middleware and hooks/useSubscriptionGate, which agree) — the
+        // fixture needs it for these cases to exercise the answers and the
+        // tenant scoping rather than the paywall.
+        await prisma.school.create({ data: { id: S, name: 'INSIGHT', code: 'INSIGHT', slug: S, plan_type: 'advanced', subscription_status: 'active' } });
         await prisma.branch.create({ data: { id: B, school_id: S, name: 'Main', code: 'INM', is_main: true } });
         await prisma.user.create({ data: { id: ADMIN, email: 'insight-admin@x.com', password_hash: 'x', full_name: 'Insight Admin', role: 'ADMIN' as any, school_id: S, branch_id: null } });
         for (const [uid, name] of [[TEACHER_A_U, 'Teacher A'], [TEACHER_B_U, 'Teacher B']] as const) {

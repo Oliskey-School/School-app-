@@ -4,7 +4,9 @@ import { api } from './api';
 // AI generation is proxied through the backend (/api/ai/chat) so the AI
 // provider's API key never reaches the browser bundle. See lib/ai.ts's
 // NvidiaClient for the same pattern used by the rest of the app's AI features.
-const MODEL_NAME = "gemini-1.5-flash";
+// gemini-1.5-flash is retired and answers 404; use the same current model the
+// backend AI proxy already uses elsewhere.
+const MODEL_NAME = "gemini-2.0-flash";
 
 function stripJsonFences(text: string): string {
   const t = (text || '').trim();

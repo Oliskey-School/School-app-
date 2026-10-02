@@ -15,7 +15,7 @@ const AIChatWidget: React.FC<AIChatWidgetProps> = ({ dashboardType, onClick }) =
     return (
         <button
             onClick={onClick}
-            className={`fixed bottom-[88px] lg:bottom-24 right-6 p-4 rounded-full text-white shadow-lg transition-transform transform hover:scale-110 z-40 ${theme.mainBg}`}
+            className={`fixed bottom-[calc(1.5rem+var(--bottom-nav-height,0px)+var(--docked-bar-height,0px))] right-5 p-4 rounded-full text-white shadow-lg transition-transform transform hover:scale-110 z-40 ${theme.mainBg}`}
             aria-label="Open AI Assistant"
         >
             <SparklesIcon className="h-7 w-7" />

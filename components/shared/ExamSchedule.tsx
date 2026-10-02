@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { EXAM_TYPE_COLORS, ClockIcon, ExamIcon, AlertTriangleIcon } from '../../constants';
 import { Exam } from '../../types';
@@ -21,13 +21,18 @@ const groupExamsByDate = (exams: Exam[]) => {
 const ExamSchedule: React.FC = () => {
     const { currentSchool, currentBranchId } = useAuth();
     const [exams, setExams] = useState<Exam[]>([]);
+    // True once a load has completed, so background refreshes never flash a skeleton.
+    const hasLoadedOnceRef = useRef(false);
     const [loading, setLoading] = useState(true);
     const [errorOccurred, setErrorOccurred] = useState(false);
 
     const fetchExams = async () => {
         if (!currentSchool?.id) return;
         try {
-            setLoading(true);
+        // Only show the skeleton on the FIRST load. A realtime refresh must not
+        // replace content the user is reading with a spinner and replay the entry
+        // animations — that is what made these screens blink.
+            if (!hasLoadedOnceRef.current) setLoading(true);
             setErrorOccurred(false);
             const data = await api.getExams(currentSchool.id, currentBranchId || undefined);
             const mapped: Exam[] = (data || []).map((e: any) => ({
@@ -45,7 +50,7 @@ const ExamSchedule: React.FC = () => {
             console.error('Error fetching exam schedule:', err);
             setErrorOccurred(true);
         } finally {
-            setLoading(false);
+            hasLoadedOnceRef.current = true; setLoading(false);
         }
     };
 

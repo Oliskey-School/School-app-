@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { ChevronRightIcon, XCircleIcon, ChevronLeftIcon, PhotoIcon } from '../../constants';
@@ -11,6 +11,8 @@ interface ParentPhotoGalleryScreenProps {
 
 const ParentPhotoGalleryScreen: React.FC<ParentPhotoGalleryScreenProps> = ({ schoolId }) => {
     const [photos, setPhotos] = useState<Photo[]>([]);
+    // True once a load has completed, so background refreshes never flash a skeleton.
+    const hasLoadedOnceRef = useRef(false);
     const [loading, setLoading] = useState(true);
     const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null);
 
@@ -20,17 +22,20 @@ const ParentPhotoGalleryScreen: React.FC<ParentPhotoGalleryScreenProps> = ({ sch
 
     const loadPhotos = useCallback(async () => {
         if (!schoolId) {
-            setLoading(false);
+            hasLoadedOnceRef.current = true; setLoading(false);
             return;
         }
-        setLoading(true);
+        // Only show the skeleton on the FIRST load. A realtime refresh must not
+        // replace content the user is reading with a spinner and replay the entry
+        // animations — that is what made these screens blink.
+        if (!hasLoadedOnceRef.current) setLoading(true);
         try {
             const data = await api.getPhotos(schoolId);
             setPhotos(data || []);
         } catch (err) {
             console.error('Error fetching photos:', err);
         } finally {
-            setLoading(false);
+            hasLoadedOnceRef.current = true; setLoading(false);
         }
     }, [schoolId]);
 

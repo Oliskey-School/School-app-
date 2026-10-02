@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { DEFAULT_AVATAR } from '../../lib/avatar';
@@ -136,6 +136,8 @@ interface TimetableScreenProps {
 
 const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, currentBranchId, students, student }) => {
     const [timetable, setTimetable] = useState<{ [key: string]: string | null }>({});
+    // True once a load has completed, so background refreshes never flash a skeleton.
+    const hasLoadedOnceRef = useRef(false);
     const [teacherAssignments, setTeacherAssignments] = useState<{ [key: string]: string | null }>({});
     const [loading, setLoading] = useState(true);
     const [className, setClassName] = useState('');
@@ -175,9 +177,12 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
             setTimetable(cachedData.timetable || {});
             setTeacherAssignments(cachedData.teacherAssignments || {});
             setClassName(cachedData.className || '');
-            setLoading(false);
+            hasLoadedOnceRef.current = true; setLoading(false);
         } else {
-            setLoading(true);
+        // Only show the skeleton on the FIRST load. A realtime refresh must not
+        // replace content the user is reading with a spinner and replay the entry
+        // animations — that is what made these screens blink.
+            if (!hasLoadedOnceRef.current) setLoading(true);
         }
 
         try {
@@ -300,7 +305,7 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
         } catch (err) {
             console.warn('Error fetching timetable:', err);
         } finally {
-            setLoading(false);
+            hasLoadedOnceRef.current = true; setLoading(false);
         }
     }, [context.userId, context.userType, schoolId, currentBranchId, selectedStudent?.id, className]);
 

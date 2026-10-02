@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { SchoolLogoIcon, DocumentTextIcon } from '../../constants';
@@ -250,6 +250,8 @@ const ReportCardScreen: React.FC<ReportCardScreenProps> = ({ student, term, sess
     const [activeReportKey, setActiveReportKey] = useState<string | null>(
         requestedExists ? requestedKey : (tabEntries[0] ? `${tabEntries[0].term}|${tabEntries[0].session}` : null)
     );
+    // True once a load has completed, so background refreshes never flash a skeleton.
+    const hasLoadedOnceRef = useRef(false);
     const [activeReport, setActiveReport] = useState<ReportCard | null>(null);
     const [loading, setLoading] = useState(false);
 
@@ -273,8 +275,11 @@ const ReportCardScreen: React.FC<ReportCardScreenProps> = ({ student, term, sess
             setActiveReport(null);
             return;
         }
+        // Only show the skeleton on the FIRST load. A realtime refresh must not
+        // replace content the user is reading with a spinner and replay the entry
+        // animations — that is what made these screens blink.
 
-        setLoading(true);
+        if (!hasLoadedOnceRef.current) setLoading(true);
         try {
             if (entry.synthetic) {
                 const sessionSummaries = publishedReportsSummary.filter(
@@ -295,7 +300,7 @@ const ReportCardScreen: React.FC<ReportCardScreenProps> = ({ student, term, sess
         } catch (err) {
             console.error("Error fetching report details:", err);
         } finally {
-            setLoading(false);
+            hasLoadedOnceRef.current = true; setLoading(false);
         }
     }, [activeReportKey, student.id, tabEntries, publishedReportsSummary]);
 

@@ -466,6 +466,21 @@ export const recordPayment = async (req: AuthRequest, res: Response) => {
         // Throws (402/503) unless the gateway confirms a successful transaction.
         const verified = await TransactionService.verifyPayment(reference, gateway);
 
+        // The gateway reports the currency it actually collected, and that value
+        // was previously read and thrown away: only `amount` was carried over. A
+        // Paystack/Flutterwave account enabled for more than one currency would
+        // therefore credit "5000" against a ₦5,000 fee even when the 5000 was
+        // collected in a weaker currency. Credit only the currencies this
+        // deployment actually bills in.
+        const allowedCurrencies = (process.env.PAYMENT_ALLOWED_CURRENCIES || 'NGN')
+            .split(',').map(c => c.trim().toUpperCase()).filter(Boolean);
+        const paidCurrency = String(verified.currency || '').toUpperCase();
+        if (!allowedCurrencies.includes(paidCurrency)) {
+            return res.status(422).json({
+                message: `Payment was collected in ${paidCurrency || 'an unknown currency'}, which this school does not bill in.`,
+            });
+        }
+
         const result = await ParentService.recordPayment(req.user.school_id, branchId, {
             ...req.body,
             student_id,

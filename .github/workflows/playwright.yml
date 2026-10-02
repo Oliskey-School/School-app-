@@ -6,7 +6,9 @@ name: E2E Tests
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches:
+      - main
+      - 'codex/**'
   pull_request:
     branches: [main]
   schedule:
@@ -44,6 +46,8 @@ jobs:
       NODE_ENV: development
       ENABLE_DEBUG_ROUTES: "true"
       BACKEND_PORT: 5099
+      VITE_API_URL: http://127.0.0.1:5099/api
+      VITE_SOCKET_URL: http://127.0.0.1:5099
 
     steps:
       # A PR's merge ref can lag behind the PR head. This suite is explicitly a
@@ -102,13 +106,85 @@ jobs:
       - name: SEO and brand-entity checks
         run: npx vitest run --config vite.config.mts tests/seo/seo-metadata.test.ts
 
+      # ---------------------------------------------------------------------
+      # Security gate. Runs BEFORE the browser suite and fails the build.
+      #
+      # Until now this workflow ran nine Playwright tests and nothing else: the
+      # 60+ backend integration suites — every tenant-isolation, RLS, IDOR,
+      # payment and concurrency test in the repo — were never executed in CI,
+      # so a green pipeline said almost nothing about multi-tenant safety.
+      #
+      # These run as the NOBYPASSRLS app role (see the job-level DATABASE_URL),
+      # which is the only configuration in which the RLS policies are actually
+      # exercised.
+      # ---------------------------------------------------------------------
+      - name: Security gate (tenant isolation, RLS, IDOR, payments, concurrency)
+        run: |
+          npx tsx --tsconfig backend/tsconfig.json node_modules/vitest/vitest.mjs run \
+            --config backend/vitest.config.ts \
+            backend/tests/integration/hostile-tenant-sweep.test.ts \
+            backend/tests/integration/rls-child-tables.test.ts \
+            backend/tests/integration/school-branch-integrity.test.ts \
+            backend/tests/integration/parent-child-isolation.test.ts \
+            backend/tests/integration/cross_tenant_probe.test.ts \
+            backend/tests/integration/school-isolation.test.ts \
+            backend/tests/integration/branch-isolation-full.test.ts \
+            backend/tests/integration/write-isolation-sweep.test.ts \
+            backend/tests/integration/payment-security.test.ts \
+            backend/tests/integration/concurrency-stress.test.ts \
+            backend/tests/integration/no-plaintext-passwords.test.ts \
+            backend/tests/integration/auth-without-ambient-scope.test.ts \
+            backend/tests/integration/rate-limit-without-redis.test.ts \
+            backend/tests/integration/scoped-transactions.test.ts \
+            backend/tests/integration/demo-seed-idempotent.test.ts \
+            backend/tests/integration/auth-hardening.test.ts \
+            backend/tests/integration/isolation.test.ts \
+            backend/tests/integration/db-role-guard.test.ts \
+            backend/tests/integration/required-relation-under-rls.test.ts
+        env:
+          # The app skips CSRF for NODE_ENV=test (see app.ts); the mocked
+          # controller suites call routes without an Authorization header and
+          # would otherwise be rejected with 403 before their assertions run.
+          NODE_ENV: test
+
+      - name: Backend integration suite (full)
+        run: |
+          npx tsx --tsconfig backend/tsconfig.json node_modules/vitest/vitest.mjs run \
+            --config backend/vitest.config.ts
+        env:
+          # The app skips CSRF for NODE_ENV=test (see app.ts); the mocked
+          # controller suites call routes without an Authorization header and
+          # would otherwise be rejected with 403 before their assertions run.
+          NODE_ENV: test
+
       - name: Build frontend
         run: npm run build
 
       - name: Install Playwright browsers
+        id: playwright_install
         run: npx playwright install --with-deps chromium
 
+      # Prove the browser exists rather than discovering it inside a test run.
+      # Playwright resolves a build-numbered path per package version, so an
+      # install that silently no-ops (or installs a different revision) only
+      # surfaces later as "Executable doesn't exist", which reads like a browser
+      # problem when it is really an install problem.
+      - name: Verify Chromium is installed
+        run: |
+          node -e "
+            const { chromium } = require('@playwright/test');
+            const fs = require('fs');
+            const p = chromium.executablePath();
+            console.log('chromium executablePath:', p);
+            if (!fs.existsSync(p)) {
+              console.error('Chromium is NOT present at that path — the install step did not produce the build this package expects.');
+              process.exit(1);
+            }
+            console.log('chromium present, size:', fs.statSync(p).size, 'bytes');
+          "
+
       - name: Start backend and frontend preview
+        id: preview
         run: |
           npx tsx backend/src/server.ts > /tmp/e2e-backend.log 2>&1 &
           npx vite preview --port 4173 --strictPort > /tmp/e2e-preview.log 2>&1 &
@@ -159,6 +235,21 @@ jobs:
         run: |
           cp /tmp/e2e-backend.log ./e2e-backend-full.log 2>/dev/null || echo "(no backend log)" > ./e2e-backend-full.log
           cp /tmp/e2e-preview.log ./e2e-preview-full.log 2>/dev/null || echo "(no preview log)" > ./e2e-preview-full.log
+
+      # Teacher, student and parent had no browser coverage at all: the
+      # critical-path suite is admin-centric. This drives all four roles
+      # through sign-in, navigation, reload, history, a phone viewport and
+      # sign-out, failing on blank screens, stuck spinners, page errors or 5xx.
+      # `!cancelled()` alone let this run after an EARLIER step had already
+      # failed and its setup was skipped: no browsers installed, no frontend
+      # built, no preview server. It then failed with "Executable doesn't exist",
+      # which looked like a Playwright problem and hid the real failure further
+      # up the job. It still runs when the critical-path suite fails — that is
+      # the point of not using plain success() — but only once the browser stack
+      # is genuinely up.
+      - name: Four-role browser sweep
+        if: ${{ !cancelled() && steps.preview.outcome == 'success' }}
+        run: BASE_URL=http://localhost:4173 npx playwright test tests/e2e/four-role-sweep.spec.ts --project=chromium --workers=1
 
       - name: Server logs on failure
         if: failure()

@@ -1,0 +1,193 @@
+name: Migration Safety
+
+# The production readiness of this branch hinged on two claims about
+# `prisma migrate deploy` that were previously asserted from documentation
+# rather than demonstrated:
+#
+#   1. A failed row in _prisma_migrations aborts every subsequent deploy
+#      (P3009) — and there is a repair that clears it without touching data.
+#   2. Migration 20260922093000 uses `ON DELETE SET NULL (branch_id)`, which is
+#      PostgreSQL 15+ syntax, so the deployment requires PG >= 15.
+#
+# Guessing either one wrong means a failed production deploy, so this workflow
+# proves both against real PostgreSQL servers instead.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'codex/**'
+
+jobs:
+  # ── 1. Which PostgreSQL major versions can this migration set actually apply on?
+  version-matrix:
+    name: Fresh deploy on PostgreSQL ${{ matrix.pg }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: ${{ matrix.required == false }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - pg: '14'
+            required: false   # expected to FAIL; recorded, not enforced
+          - pg: '15'
+            required: true
+          - pg: '16'
+            required: true
+    services:
+      postgres:
+        image: postgres:${{ matrix.pg }}
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: migration_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 10s
+          --health-timeout 5s --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/migration_test
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/migration_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20', cache: 'npm' }
+      - run: npm ci
+
+      - name: prisma migrate deploy (from empty)
+        id: deploy
+        run: npx prisma migrate deploy --schema=backend/prisma/schema.prisma
+
+      - name: Record the outcome
+        if: always()
+        run: |
+          if [ "${{ steps.deploy.outcome }}" = "success" ]; then
+            echo "✅ PostgreSQL ${{ matrix.pg }}: migrations apply cleanly" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ PostgreSQL ${{ matrix.pg }}: migrations FAILED to apply" >> $GITHUB_STEP_SUMMARY
+            echo "   (expected on <15 — 20260922093000 uses PG15-only syntax)" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # ── 2. Prove the failed-migration blocker, and prove the documented repair works.
+  failed-migration-rehearsal:
+    name: P3009 blocker + repair rehearsal
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: migration_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 10s
+          --health-timeout 5s --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/migration_test
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/migration_test
+      PGPASSWORD: postgres
+      SCHEMA: --schema=backend/prisma/schema.prisma
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20', cache: 'npm' }
+      - run: npm ci
+
+      - name: Baseline — deploy onto an empty database
+        run: npx prisma migrate deploy $SCHEMA
+
+      - name: Inject a failed migration row (what production may look like)
+        run: |
+          psql -h localhost -U postgres -d migration_test -v ON_ERROR_STOP=1 -c "
+            INSERT INTO _prisma_migrations
+              (id, checksum, migration_name, started_at, applied_steps_count, finished_at, rolled_back_at)
+            VALUES
+              (gen_random_uuid()::text, 'simulated', '20260317235016_init', now(), 0, NULL, NULL);"
+          echo 'Injected an unfinished row for 20260317235016_init.'
+
+      - name: Deploy MUST now refuse (P3009)
+        run: |
+          set +e
+          out=$(npx prisma migrate deploy $SCHEMA 2>&1); code=$?
+          set -e
+          echo "$out"
+          if [ $code -eq 0 ]; then
+            echo "::error::migrate deploy SUCCEEDED despite a failed migration row — the documented blocker does not reproduce."
+            echo "⚠️ A failed row did NOT block deploy on this Prisma version." >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+          echo "$out" | grep -q "P3009" \
+            && echo "✅ Confirmed: a failed migration row aborts deploy with P3009." >> $GITHUB_STEP_SUMMARY \
+            || { echo "::warning::deploy failed, but not with P3009"; echo "⚠️ deploy failed without P3009 — see log." >> $GITHUB_STEP_SUMMARY; }
+
+      - name: Repair — mark it rolled back, then deploy must succeed
+        run: |
+          npx prisma migrate resolve --rolled-back 20260317235016_init $SCHEMA
+          npx prisma migrate deploy $SCHEMA
+          echo '✅ Repair verified: `prisma migrate resolve --rolled-back <name>` clears the block; deploy then succeeds. No data is touched.' >> $GITHUB_STEP_SUMMARY
+
+      - name: Applied-but-absent migrations must NOT block deploy
+        run: |
+          psql -h localhost -U postgres -d migration_test -v ON_ERROR_STOP=1 -c "
+            INSERT INTO _prisma_migrations
+              (id, checksum, migration_name, started_at, applied_steps_count, finished_at)
+            VALUES
+              (gen_random_uuid()::text, 'simulated', '20260101000000_not_in_this_branch', now(), 1, now());"
+          npx prisma migrate deploy $SCHEMA
+          echo '✅ Confirmed: migrations present in the database but absent from this branch do NOT block deploy.' >> $GITHUB_STEP_SUMMARY
+
+      - name: Post-deploy invariants (the same checks db-security-check runs)
+        run: |
+          psql -h localhost -U postgres -d migration_test -v ON_ERROR_STOP=1 -tAc "
+            SELECT 'composite_fks=' || count(*) FROM pg_constraint
+             WHERE contype='f' AND conname LIKE '%\_school\_branch\_fkey';"
+          psql -h localhost -U postgres -d migration_test -v ON_ERROR_STOP=1 -tAc "
+            SELECT 'tables_with_both_cols=' || count(*) FROM pg_class c
+              JOIN pg_namespace n ON n.oid=c.relnamespace
+             WHERE n.nspname='public' AND c.relkind='r' AND c.relname <> 'Branch'
+               AND EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attname='school_id'  AND a.attnum>0 AND NOT a.attisdropped)
+               AND EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attname='branch_id' AND a.attnum>0 AND NOT a.attisdropped);"
+          # Every table carrying the pair must carry the constraint.
+          psql -h localhost -U postgres -d migration_test -v ON_ERROR_STOP=1 -tAc "
+            SELECT string_agg(c.relname, ', ') FROM pg_class c
+              JOIN pg_namespace n ON n.oid=c.relnamespace
+             WHERE n.nspname='public' AND c.relkind='r' AND c.relname <> 'Branch'
+               AND EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attname='school_id'  AND a.attnum>0 AND NOT a.attisdropped)
+               AND EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attname='branch_id' AND a.attnum>0 AND NOT a.attisdropped)
+               AND NOT EXISTS (SELECT 1 FROM pg_constraint pc WHERE pc.conrelid=c.oid AND pc.contype='f'
+                                 AND pc.conname = c.relname || '_school_branch_fkey');" > /tmp/unprotected.txt
+          if [ -s /tmp/unprotected.txt ] && [ -n "$(tr -d '[:space:]' < /tmp/unprotected.txt)" ]; then
+            echo "::error::tables without the composite FK: $(cat /tmp/unprotected.txt)"; exit 1
+          fi
+          # Payment idempotency must hold on a clean database.
+          #
+          # Checked as a PROPERTY, not by index name. The name has already moved
+          # twice by design - Payment_reference_key (20260924120000) ->
+          # Payment_school_reference_gateway_key (20260925100000) ->
+          # Payment_gateway_reference_key (20260925110000) - so pinning any one
+          # of them fails the rehearsal on a fully migrated database while the
+          # guarantee itself is perfectly intact.
+          psql -h localhost -U postgres -d migration_test -v ON_ERROR_STOP=1 -tAc "
+            SELECT CASE WHEN EXISTS (
+                     SELECT 1
+                       FROM pg_index i
+                       JOIN pg_class c   ON c.oid = i.indrelid
+                       JOIN pg_class ic  ON ic.oid = i.indexrelid
+                       JOIN pg_namespace n ON n.oid = c.relnamespace
+                      WHERE n.nspname = 'public'
+                        AND c.relname = 'Payment'
+                        AND i.indisunique
+                        AND EXISTS (
+                              SELECT 1 FROM pg_attribute a
+                               WHERE a.attrelid = c.oid
+                                 AND a.attname  = 'reference'
+                                 AND a.attnum = ANY (i.indkey::smallint[])))
+                        THEN 'present' ELSE 'MISSING' END;" > /tmp/idx.txt
+          grep -q present /tmp/idx.txt || {
+            echo "::error::no UNIQUE index on Payment(reference) — the same gateway reference could be recorded twice"
+            psql -h localhost -U postgres -d migration_test -tAc \
+              "SELECT indexname FROM pg_indexes WHERE tablename='Payment';" || true
+            exit 1
+          }
+          echo "✅ Post-deploy invariants hold: every school_id+branch_id table carries the composite FK, and Payment(reference) is uniquely indexed ($(tr -d '[:space:]' < /tmp/idx.txt))." >> $GITHUB_STEP_SUMMARY

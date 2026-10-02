@@ -42,6 +42,32 @@ function todayStr(): string {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+/**
+ * The children of the asking parent - and nobody else's.
+ *
+ * Every parent query goes through here: the ids come from ctx.parentId, which
+ * resolveContext derives from the signed-in user's own Parent row. Nothing a
+ * caller sends can widen it to another family's children.
+ */
+async function childIdsOf(ctx: AskContext): Promise<string[]> {
+    if (!ctx.parentId) return [];
+    const links = await prisma.parentChild.findMany({
+        where: { parent_id: ctx.parentId, deleted_at: null },
+        select: { student_id: true },
+    });
+    return links.map(l => l.student_id);
+}
+
+/** studentId -> child's name, for labelling answers that cover several children. */
+async function childNames(studentIds: string[]): Promise<Map<string, string>> {
+    if (!studentIds.length) return new Map();
+    const rows = await prisma.student.findMany({
+        where: { id: { in: studentIds } },
+        select: { id: true, full_name: true },
+    });
+    return new Map(rows.map(r => [r.id, r.full_name]));
+}
+
 const CATALOG: CatalogEntry[] = [
     {
         id: 'at_risk_students', description: 'Which students are at risk of failing or need attention (Early Warning flags)',
@@ -188,6 +214,130 @@ const CATALOG: CatalogEntry[] = [
                 return { name: c.student.full_name, attendance_pct_30d: pct, unpaid_fees: unpaid };
             });
             return { summary: `Summary for ${data.length} child(ren).`, data };
+        },
+    },
+    {
+        id: 'my_child_fees', description: 'What school fees do I still owe, how much, and when is it due',
+        roles: ['parent'],
+        run: async (ctx) => {
+            const studentIds = await childIdsOf(ctx);
+            if (!studentIds.length) return { summary: 'No children linked.', data: [] };
+            const fees = await prisma.studentFee.findMany({
+                where: { student_id: { in: studentIds }, status: { not: 'Paid' }, deleted_at: null },
+                select: { student_id: true, title: true, amount: true, paid_amount: true, due_date: true, status: true },
+                orderBy: { due_date: 'asc' },
+            });
+            const names = await childNames(studentIds);
+            const data = fees.map(f => ({
+                child: names.get(f.student_id) ?? 'Your child',
+                item: f.title,
+                outstanding: f.amount - f.paid_amount,
+                due_date: f.due_date,
+                status: f.status,
+            }));
+            const total = data.reduce((sum, d) => sum + d.outstanding, 0);
+            return { summary: data.length ? `${data.length} unpaid fee item(s), ${total} outstanding in total.` : 'No unpaid fees.', data };
+        },
+    },
+    {
+        id: 'my_child_attendance', description: 'How often has my child been absent or late recently',
+        roles: ['parent'],
+        run: async (ctx) => {
+            const studentIds = await childIdsOf(ctx);
+            if (!studentIds.length) return { summary: 'No children linked.', data: [] };
+            const rows = await prisma.attendance.findMany({
+                where: { student_id: { in: studentIds }, date: { gte: daysAgo(30) } },
+                select: { student_id: true, status: true, date: true },
+            });
+            const names = await childNames(studentIds);
+            const data = studentIds.map(id => {
+                const mine = rows.filter(r => r.student_id === id);
+                const count = (st: string) => mine.filter(r => r.status === st).length;
+                return {
+                    child: names.get(id) ?? 'Your child',
+                    days_recorded: mine.length,
+                    present: count('Present'),
+                    absent: count('Absent'),
+                    late: count('Late'),
+                    attendance_pct: mine.length ? Math.round((count('Present') / mine.length) * 100) : null,
+                };
+            });
+            return { summary: `Attendance over the last 30 days for ${data.length} child(ren).`, data };
+        },
+    },
+    {
+        id: 'my_child_results', description: 'My child latest exam scores, results and which subjects are weakest',
+        roles: ['parent'],
+        run: async (ctx) => {
+            const studentIds = await childIdsOf(ctx);
+            if (!studentIds.length) return { summary: 'No children linked.', data: [] };
+            const rows = await prisma.academicPerformance.findMany({
+                where: { student_id: { in: studentIds }, deleted_at: null },
+                select: { student_id: true, subject: true, score: true, term: true, session: true },
+                orderBy: { created_at: 'desc' },
+                take: 60,
+            });
+            const names = await childNames(studentIds);
+            const data = rows.map(r => ({
+                child: names.get(r.student_id) ?? 'Your child',
+                subject: r.subject, score: r.score, term: r.term, session: r.session,
+            }));
+            return { summary: data.length ? `${data.length} recent result(s).` : 'No results recorded yet.', data };
+        },
+    },
+    {
+        id: 'my_child_homework', description: 'What homework or assignments does my child still have to hand in',
+        roles: ['parent'],
+        run: async (ctx) => {
+            const studentIds = await childIdsOf(ctx);
+            if (!studentIds.length) return { summary: 'No children linked.', data: [] };
+            const names = await childNames(studentIds);
+            const data: any[] = [];
+            for (const id of studentIds) {
+                const enrolment = await prisma.studentEnrollment.findFirst({
+                    where: { student_id: id, status: 'Active' }, select: { class_id: true },
+                }) ?? await prisma.studentEnrollment.findFirst({ where: { student_id: id }, select: { class_id: true } });
+                if (!enrolment?.class_id) continue;
+                const submitted = await prisma.assignmentSubmission.findMany({ where: { student_id: id }, select: { assignment_id: true } });
+                const due = await prisma.assignment.findMany({
+                    where: {
+                        class_id: enrolment.class_id,
+                        is_published: true,
+                        due_date: { gte: new Date() },
+                        id: { notIn: submitted.map(x => x.assignment_id) },
+                    },
+                    select: { title: true, subject: true, due_date: true },
+                    orderBy: { due_date: 'asc' },
+                    take: 20,
+                });
+                for (const a of due) data.push({ child: names.get(id) ?? 'Your child', title: a.title, subject: a.subject, due_date: a.due_date });
+            }
+            return { summary: data.length ? `${data.length} assignment(s) still outstanding.` : 'Nothing outstanding - all assignments are handed in.', data };
+        },
+    },
+    {
+        id: 'my_child_report_card', description: 'Has the report card been released and what does it say',
+        roles: ['parent'],
+        run: async (ctx) => {
+            const studentIds = await childIdsOf(ctx);
+            if (!studentIds.length) return { summary: 'No children linked.', data: [] };
+            const rows = await prisma.reportCard.findMany({
+                where: { student_id: { in: studentIds }, is_published: true, deleted_at: null },
+                select: {
+                    student_id: true, term: true, session: true, average_score: true,
+                    position_in_class: true, total_students_in_class: true, principal_remark: true,
+                },
+                orderBy: { created_at: 'desc' },
+                take: 12,
+            });
+            const names = await childNames(studentIds);
+            const data = rows.map(r => ({
+                child: names.get(r.student_id) ?? 'Your child',
+                term: r.term, session: r.session,
+                average: r.average_score, position: r.position_in_class,
+                out_of: r.total_students_in_class, remark: r.principal_remark,
+            }));
+            return { summary: data.length ? `${data.length} published report card(s).` : 'No report card has been released yet.', data };
         },
     },
     {

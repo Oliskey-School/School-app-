@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { api } from '../../lib/api';
@@ -11,6 +11,8 @@ interface SchoolPoliciesScreenProps {
 
 const SchoolPoliciesScreen: React.FC<SchoolPoliciesScreenProps> = ({ schoolId }) => {
   const [policies, setPolicies] = useState<SchoolPolicy[]>([]);
+  // True once a load has completed, so background refreshes never flash a skeleton.
+  const hasLoadedOnceRef = useRef(false);
   const [loading, setLoading] = useState(true);
 
   const fetchPolicies = useCallback(async () => {
@@ -19,10 +21,13 @@ const SchoolPoliciesScreen: React.FC<SchoolPoliciesScreenProps> = ({ schoolId })
     // "No policies found" empty state.
     if (!schoolId) {
       setPolicies([]);
-      setLoading(false);
+      hasLoadedOnceRef.current = true; setLoading(false);
       return;
     }
-    setLoading(true);
+        // Only show the skeleton on the FIRST load. A realtime refresh must not
+        // replace content the user is reading with a spinner and replay the entry
+        // animations — that is what made these screens blink.
+    if (!hasLoadedOnceRef.current) setLoading(true);
     try {
       // Use Central API
       const data = await api.getSchoolPolicies(schoolId);
@@ -36,7 +41,7 @@ const SchoolPoliciesScreen: React.FC<SchoolPoliciesScreenProps> = ({ schoolId })
     } catch (error) {
       console.error('Error fetching policies:', error);
     } finally {
-      setLoading(false);
+      hasLoadedOnceRef.current = true; setLoading(false);
     }
   }, [schoolId]);
 

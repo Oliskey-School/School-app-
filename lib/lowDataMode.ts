@@ -32,9 +32,26 @@ export function isLowDataModeEnabledByUser(): boolean {
   return stored();
 }
 
-export function setLowDataMode(on: boolean): void {
+/**
+ * Set the user's own choice.
+ *
+ * The value stays on the device (so a shared school computer keeps it across
+ * sign-ins) and is also pushed to the account, so the person's choice follows
+ * them to a new phone or laptop. Pass `{ sync: false }` when the value CAME
+ * from the account, otherwise applying it would echo straight back.
+ *
+ * The import of syncUiPreference is dynamic on purpose: uiPreferences imports
+ * this module to apply the account copy, and a static import both ways would be
+ * a cycle.
+ */
+export function setLowDataMode(on: boolean, opts: { sync?: boolean } = {}): void {
   try { localStorage.setItem(STORAGE_KEY, on ? '1' : '0'); } catch { /* storage unavailable */ }
   window.dispatchEvent(new CustomEvent(LOW_DATA_EVENT, { detail: { on: isLowDataMode() } }));
+  if (opts.sync !== false) {
+    import('./uiPreferences')
+      .then(m => m.syncUiPreference({ lowDataMode: on }))
+      .catch(() => { /* offline or signed out — the device copy still applies */ });
+  }
 }
 
 const subscribe = (cb: () => void) => {

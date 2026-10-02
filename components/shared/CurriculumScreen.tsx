@@ -1,5 +1,5 @@
 
-import React, { useMemo, useEffect, useState, useCallback } from 'react';
+import React, { useMemo, useEffect, useState, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { getCurriculum } from '../../curriculumData';
@@ -32,13 +32,18 @@ interface CurriculumScreenProps {
 
 const CurriculumScreen: React.FC<CurriculumScreenProps> = ({ level, department }) => {
   const [dbSubjects, setDbSubjects] = useState<CurriculumSubject[]>([]);
+  // True once a load has completed, so background refreshes never flash a skeleton.
+  const hasLoadedOnceRef = useRef(false);
   const [loading, setLoading] = useState(true);
 
   const { currentSchool } = useAuth();
 
   const loadSubjects = useCallback(async () => {
     if (!currentSchool) return;
-    setLoading(true);
+        // Only show the skeleton on the FIRST load. A realtime refresh must not
+        // replace content the user is reading with a spinner and replay the entry
+        // animations — that is what made these screens blink.
+    if (!hasLoadedOnceRef.current) setLoading(true);
     try {
       // Try to find subjects in the DB matching this school
       const data = await api.getSubjects(currentSchool.id);
@@ -59,7 +64,7 @@ const CurriculumScreen: React.FC<CurriculumScreenProps> = ({ level, department }
     } catch (err) {
       console.error('Error fetching curriculum subjects:', err);
     } finally {
-      setLoading(false);
+      hasLoadedOnceRef.current = true; setLoading(false);
     }
   }, [level, currentSchool]);
 
