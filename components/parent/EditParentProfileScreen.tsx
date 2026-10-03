@@ -106,7 +106,7 @@ const EditParentProfileScreen: React.FC<EditParentProfileScreenProps> = ({ navig
                     <div className="flex justify-center">
                         <div className="relative">
                             <img src={avatar} alt="Parent Avatar" className="w-28 h-28 rounded-full object-cover shadow-md flex-shrink-0 aspect-square" />
-                            <motion.label whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }} htmlFor="photo-upload" className="absolute bottom-0 right-0 bg-green-500 p-2 rounded-full border-2 border-white cursor-pointer hover:bg-green-600">
+                            <motion.label whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }} htmlFor="photo-upload" className="absolute bottom-0 right-0 bg-green-500 p-3 rounded-full border-2 border-white cursor-pointer hover:bg-green-600">
                                 <CameraIcon className="text-white h-4 w-4" />
                                 <input id="photo-upload" name="photo-upload" type="file" className="sr-only" accept="image/*" onChange={handleImageChange} />
                             </motion.label>
@@ -165,7 +165,7 @@ const EditParentProfileScreen: React.FC<EditParentProfileScreenProps> = ({ navig
                                                 type="button"
                                                 onClick={handleUpdateUsername}
                                                 disabled={updatingUsername || !username || username === authUser?.user_metadata?.username}
-                                                className="px-4 py-2 bg-slate-800 text-white text-xs font-bold rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-colors"
+                                                className="min-h-11 px-4 py-2 bg-slate-800 text-white text-xs font-bold rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-colors"
                                             >
                                                 {updatingUsername ? '...' : 'Update'}
                                             </motion.button>

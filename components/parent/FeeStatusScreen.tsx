@@ -359,7 +359,7 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, currentUser
     };
 
     return (
-        <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6 bg-gray-50 md:rounded-[40px] shadow-sm min-h-screen border-x border-b border-gray-100">
+        <div className="w-full p-4 md:p-8 max-w-7xl mx-auto space-y-6 bg-gray-50 md:rounded-[40px] shadow-sm min-h-screen border-x border-b border-gray-100">
             {/* Header Section */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
@@ -371,13 +371,13 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, currentUser
 
                 {/* Child Selector (Modern Pill) */}
                 {students.length > 0 && (
-                    <div className="flex p-1.5 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-x-auto scrollbar-hide shrink-0">
+                    <div className="flex gap-1.5 p-1.5 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-x-auto scrollbar-hide shrink-0">
                         {students.map(s => (
                             <motion.button
                                 key={s.id}
                                 whileTap={{ scale: 0.95 }}
                                 onClick={() => setSelectedStudent(s)}
-                                className={`flex items-center space-x-2.5 px-4 py-2 rounded-xl transition-all duration-300 font-bold text-sm whitespace-nowrap
+                                className={`flex items-center space-x-2.5 min-h-11 px-4 py-2 rounded-xl transition-all duration-300 font-bold text-sm whitespace-nowrap
                                     ${selectedStudent?.id === s.id
                                         ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-200 scale-[1.05]'
                                         : 'text-gray-500 hover:text-indigo-600 hover:bg-indigo-50/50'}`}
@@ -391,7 +391,7 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, currentUser
             </div>
 
             {/* Stats Summary - Grid Refactor */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(min(100%,16rem),1fr))]">
                 <PremiumStatCard 
                     title="Expected Fees" 
                     amount={fees.reduce((sum, fee) => sum + fee.amount, 0)} 
@@ -461,7 +461,7 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, currentUser
                             <p className="text-gray-500 mt-2 font-medium">All financial obligations for {selectedStudent?.name || selectedStudent?.full_name || 'this student'} are fulfilled!</p>
                         </motion.div>
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(min(100%,18rem),1fr))]">
                             {fees.map((fee, i) => (
                                 <motion.div
                                     key={fee.id}

@@ -107,7 +107,7 @@ export const SmartCalendar: React.FC = () => {
                                         <motion.button
                                             whileTap={{ scale: 0.95 }}
                                             onClick={() => handleRSVP(event.id, 'yes')}
-                                            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-colors ${myRSVP?.status === 'yes' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-100' : 'bg-gray-50 text-gray-500 hover:bg-emerald-50'}`}
+                                            className={`flex-1 flex items-center justify-center gap-1.5 min-h-11 py-2.5 rounded-xl text-xs font-bold transition-colors ${myRSVP?.status === 'yes' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-100' : 'bg-gray-50 text-gray-500 hover:bg-emerald-50'}`}
                                         >
                                             <Check className="w-3.5 h-3.5" />
                                             YES
@@ -115,7 +115,7 @@ export const SmartCalendar: React.FC = () => {
                                         <motion.button
                                             whileTap={{ scale: 0.95 }}
                                             onClick={() => handleRSVP(event.id, 'no')}
-                                            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-colors ${myRSVP?.status === 'no' ? 'bg-red-600 text-white shadow-lg shadow-red-100' : 'bg-gray-50 text-gray-500 hover:bg-red-50'}`}
+                                            className={`flex-1 flex items-center justify-center gap-1.5 min-h-11 py-2.5 rounded-xl text-xs font-bold transition-colors ${myRSVP?.status === 'no' ? 'bg-red-600 text-white shadow-lg shadow-red-100' : 'bg-gray-50 text-gray-500 hover:bg-red-50'}`}
                                         >
                                             <X className="w-3.5 h-3.5" />
                                             NO
@@ -123,7 +123,7 @@ export const SmartCalendar: React.FC = () => {
                                         <motion.button
                                             whileTap={{ scale: 0.95 }}
                                             onClick={() => handleRSVP(event.id, 'maybe')}
-                                            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-colors ${myRSVP?.status === 'maybe' ? 'bg-amber-500 text-white shadow-lg shadow-amber-100' : 'bg-gray-50 text-gray-500 hover:bg-amber-50'}`}
+                                            className={`flex-1 flex items-center justify-center gap-1.5 min-h-11 py-2.5 rounded-xl text-xs font-bold transition-colors ${myRSVP?.status === 'maybe' ? 'bg-amber-500 text-white shadow-lg shadow-amber-100' : 'bg-gray-50 text-gray-500 hover:bg-amber-50'}`}
                                         >
                                             <HelpCircle className="w-3.5 h-3.5" />
                                             MAYBE
@@ -135,7 +135,7 @@ export const SmartCalendar: React.FC = () => {
                             <motion.button
                                 whileTap={{ scale: 0.97 }}
                                 onClick={() => CalendarService.downloadICS(event)}
-                                className="w-full flex items-center justify-center gap-2 text-xs font-bold text-indigo-600 py-2 border-2 border-indigo-50 rounded-xl hover:bg-indigo-50 transition-colors"
+                                className="w-full flex items-center justify-center gap-2 min-h-11 text-xs font-bold text-indigo-600 py-2 border-2 border-indigo-50 rounded-xl hover:bg-indigo-50 transition-colors"
                             >
                                 <Download className="w-3.5 h-3.5" />
                                 ADD TO PHONE CALENDAR

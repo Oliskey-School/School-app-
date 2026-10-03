@@ -66,10 +66,12 @@ export function loadAppearance(scope: string): Appearance {
   return DEFAULTS;
 }
 
-export function saveAppearance(a: Appearance, scope: string) {
+export function saveAppearance(a: Appearance, scope: string, opts: { sync?: boolean } = {}) {
   try { localStorage.setItem(scopeKey(scope), JSON.stringify(a)); } catch { /* ignore */ }
-  // Follow the user to their next device.
-  syncUiPreference({ appearance: a as unknown as Record<string, unknown> }, scope);
+  // Follow the user to their next device — except where the caller says not to:
+  // every demo visitor shares one demo account, so a demo choice must stay on
+  // this device (as the screen promises) instead of re-theming everyone else.
+  if (opts.sync !== false) syncUiPreference({ appearance: a as unknown as Record<string, unknown> }, scope);
 }
 
 /** Apply one specific user's saved look. */

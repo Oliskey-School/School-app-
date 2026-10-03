@@ -99,7 +99,7 @@ const VolunteeringScreen: React.FC = () => {
                 ) : opportunities.length === 0 ? (
                     <div className="text-center p-8 text-gray-500">No active volunteering opportunities.</div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,18rem),1fr))]">
                         {opportunities.map((opp, i) => {
                             const isSignedUp = signedUpEvents.has(opp.id);
                             const isPending = pendingIds.has(opp.id);
@@ -115,9 +115,9 @@ const VolunteeringScreen: React.FC = () => {
                                     whileHover={{ y: -2 }}
                                     className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow"
                                 >
-                                    <div className="flex justify-between items-start mb-2">
-                                        <h4 className="font-bold text-gray-800 text-lg">{opp.title}</h4>
-                                        <span className={`text-xs font-bold px-2 py-1 rounded-full uppercase tracking-wider ${isFull ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'
+                                    <div className="flex justify-between items-start gap-2 mb-2">
+                                        <h4 className="font-bold text-gray-800 text-lg min-w-0 break-words">{opp.title}</h4>
+                                        <span className={`flex-shrink-0 text-xs font-bold px-2 py-1 rounded-full uppercase tracking-wider ${isFull ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'
                                             }`}>
                                             {isFull ? 'Full' : 'Open'}
                                         </span>
@@ -128,19 +128,19 @@ const VolunteeringScreen: React.FC = () => {
                                         {new Date(opp.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
                                     </p>
 
-                                    <p className="text-sm text-gray-600 mb-6 leading-relaxed bg-gray-50 p-3 rounded-lg border border-gray-100">
+                                    <p className="text-sm text-gray-600 mb-6 leading-relaxed bg-gray-50 p-3 rounded-lg border border-gray-100 break-words">
                                         {opp.description}
                                     </p>
 
-                                    <div className="flex justify-between items-center mt-auto">
-                                        <p className="text-xs font-bold text-gray-400">
+                                    <div className="flex flex-wrap justify-between items-center gap-2 mt-auto">
+                                        <p className="text-xs font-bold text-gray-400 whitespace-nowrap">
                                             {Math.max(0, spotsLeft)} <span className="font-normal">spots remaining</span>
                                         </p>
                                         <motion.button
                                             whileTap={{ scale: isFull || isPending || isSignedUp ? 1 : 0.95 }}
                                             onClick={() => handleSignUpToggle(opp.id)}
                                             disabled={isFull || isPending || isSignedUp}
-                                            className={`py-2.5 px-6 text-sm font-bold rounded-xl shadow-sm transition-colors ${isSignedUp
+                                            className={`min-h-11 whitespace-nowrap py-2.5 px-6 text-sm font-bold rounded-xl shadow-sm transition-colors ${isSignedUp
                                                 ? 'bg-green-50 text-green-700 border border-green-200 cursor-default shadow-none'
                                                 : isFull || isPending
                                                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none'

@@ -123,7 +123,7 @@ const ParentTodayWidget = ({ navigateTo }: { navigateTo: (view: string, title: s
     };
 
     return (
-        <div className="p-6 max-w-7xl mx-auto space-y-6">
+        <div className="w-full p-6 max-w-7xl mx-auto space-y-6">
             {/* Header */}
             <motion.div
                 initial={{ opacity: 0, y: -10 }}
@@ -135,10 +135,10 @@ const ParentTodayWidget = ({ navigateTo }: { navigateTo: (view: string, title: s
                 <p className="text-white/70 mt-1">Here's everything happening today</p>
                 {/* Child Selector */}
                 {children.length > 1 && (
-                    <div className="flex space-x-3 mt-4">
+                    <div className="flex flex-wrap gap-3 mt-4">
                         {children.map((c, i) => (
                             <motion.button key={c.id} whileTap={{ scale: 0.95 }} onClick={() => setSelectedChild(i)}
-                                className={`px-4 py-2 rounded-2xl font-bold text-sm transition-all ${selectedChild === i ? 'bg-white text-indigo-700 shadow-lg' : 'bg-white/20 text-white/90 hover:bg-white/30'}`}>
+                                className={`min-h-11 px-4 py-2 rounded-2xl font-bold text-sm transition-all ${selectedChild === i ? 'bg-white text-indigo-700 shadow-lg' : 'bg-white/20 text-white/90 hover:bg-white/30'}`}>
                                 {c.name.split(' ')[0]} • {c.class_name}
                             </motion.button>
                         ))}
@@ -147,7 +147,7 @@ const ParentTodayWidget = ({ navigateTo }: { navigateTo: (view: string, title: s
             </motion.div>
 
             {/* Summary Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 min-[360px]:grid-cols-2 md:grid-cols-4 gap-4">
                 {[
                     { onClick: () => navigateTo('attendanceOverview', 'Attendance'), iconBg: 'bg-emerald-50', icon: <CircleCheck className="w-5 h-5 text-emerald-600" />, corner: <span className="text-2xl">{attendanceIcon}</span>, value: <span className="capitalize">{child.attendance_status.replace('_', ' ')}</span>, label: 'Attendance' },
                     { onClick: () => navigateTo('assignments', 'Homework'), iconBg: 'bg-indigo-50', icon: <BookOpen className="w-5 h-5 text-indigo-600" />, corner: child.homework_pending > 0 && <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{child.homework_pending}</span>, value: `${child.homework_pending} Pending`, label: 'Homework' },
@@ -176,16 +176,16 @@ const ParentTodayWidget = ({ navigateTo }: { navigateTo: (view: string, title: s
 
             {/* Quick Actions */}
             <div className="flex space-x-3 overflow-x-auto pb-2">
-                <motion.button whileTap={{ scale: 0.96 }} onClick={() => navigateTo('feeStatus', 'Pay Fees')} className="flex items-center space-x-2 bg-indigo-600 text-white px-5 py-2.5 rounded-2xl font-bold text-sm whitespace-nowrap hover:bg-indigo-700 transition-colors">
+                <motion.button whileTap={{ scale: 0.96 }} onClick={() => navigateTo('feeStatus', 'Pay Fees')} className="flex items-center space-x-2 bg-indigo-600 text-white min-h-11 px-5 py-2.5 rounded-2xl font-bold text-sm whitespace-nowrap hover:bg-indigo-700 transition-colors">
                     <CreditCard className="w-4 h-4" /><span>Pay Fees</span>
                 </motion.button>
-                <motion.button whileTap={{ scale: 0.96 }} onClick={() => navigateTo('parentMessages', 'Messages')} className="flex items-center space-x-2 bg-white text-gray-700 px-5 py-2.5 rounded-2xl font-bold text-sm border border-gray-100 whitespace-nowrap hover:bg-gray-50 transition-colors">
+                <motion.button whileTap={{ scale: 0.96 }} onClick={() => navigateTo('parentMessages', 'Messages')} className="flex items-center space-x-2 bg-white text-gray-700 min-h-11 px-5 py-2.5 rounded-2xl font-bold text-sm border border-gray-100 whitespace-nowrap hover:bg-gray-50 transition-colors">
                     <MessageSquare className="w-4 h-4" /><span>Message Teacher</span>
                 </motion.button>
-                <motion.button whileTap={{ scale: 0.96 }} onClick={() => navigateTo('reportCard', 'Report Card')} className="flex items-center space-x-2 bg-white text-gray-700 px-5 py-2.5 rounded-2xl font-bold text-sm border border-gray-100 whitespace-nowrap hover:bg-gray-50 transition-colors">
+                <motion.button whileTap={{ scale: 0.96 }} onClick={() => navigateTo('reportCard', 'Report Card')} className="flex items-center space-x-2 bg-white text-gray-700 min-h-11 px-5 py-2.5 rounded-2xl font-bold text-sm border border-gray-100 whitespace-nowrap hover:bg-gray-50 transition-colors">
                     <FileText className="w-4 h-4" /><span>View Report Card</span>
                 </motion.button>
-                <motion.button whileTap={{ scale: 0.96 }} onClick={() => navigateTo('schoolCalendar', 'Calendar')} className="flex items-center space-x-2 bg-white text-gray-700 px-5 py-2.5 rounded-2xl font-bold text-sm border border-gray-100 whitespace-nowrap hover:bg-gray-50 transition-colors">
+                <motion.button whileTap={{ scale: 0.96 }} onClick={() => navigateTo('schoolCalendar', 'Calendar')} className="flex items-center space-x-2 bg-white text-gray-700 min-h-11 px-5 py-2.5 rounded-2xl font-bold text-sm border border-gray-100 whitespace-nowrap hover:bg-gray-50 transition-colors">
                     <Calendar className="w-4 h-4" /><span>School Calendar</span>
                 </motion.button>
             </div>

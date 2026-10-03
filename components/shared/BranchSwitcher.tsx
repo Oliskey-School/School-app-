@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useBranch } from '../../context/BranchContext';
 import { useAuth } from '../../context/AuthContext';
 import { DashboardType } from '../../types';
@@ -19,9 +20,21 @@ interface Branch {
 
 interface BranchSwitcherProps {
     align?: 'left' | 'right' | 'center';
+    /**
+     * 'header' (default): the glass pill drawn for the coloured header.
+     * 'menu': a full-width 44px row for the white user menu, branch name always
+     *         shown in the menu's own gray text. Tapping it calls onOpen instead
+     *         of opening a panel inside the menu.
+     * 'panel': only the "Switch Branch" panel, shown while `open`, drawn in a
+     *          portal so it is never trapped inside (or on top of) the menu.
+     */
+    variant?: 'header' | 'menu' | 'panel';
+    onOpen?: () => void;
+    open?: boolean;
+    onClose?: () => void;
 }
 
-export const BranchSwitcher: React.FC<BranchSwitcherProps> = ({ align = 'right' }) => {
+export const BranchSwitcher: React.FC<BranchSwitcherProps> = ({ align = 'right', variant = 'header', onOpen, open, onClose }) => {
     const { currentBranch, branches, switchBranch, isLoading, canSwitchBranches } = useBranch();
     const { role } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
@@ -57,6 +70,32 @@ export const BranchSwitcher: React.FC<BranchSwitcherProps> = ({ align = 'right' 
         (role === DashboardType.Teacher && canSwitchBranches);
 
     // For everyone else, show a simplified, read-only branch display
+    if (variant === 'panel' && (!showSwitcher || !open)) return null;
+
+    if (variant === 'menu') {
+        const branchName = currentBranch?.name || (showSwitcher ? 'All Branches' : 'Main Campus');
+        const curriculumType = currentBranch?.curriculum_type || 'nigerian';
+        const inner = (
+            <>
+                <span className={`w-6 h-6 rounded-md bg-gradient-to-br ${getCurriculumColor(curriculumType)} flex items-center justify-center border flex-shrink-0`}>
+                    <Building2 className="w-3.5 h-3.5 text-gray-500" />
+                </span>
+                <span className="flex-1 min-w-0 text-left">
+                    <span className="block text-xs text-gray-500 uppercase font-semibold">Branch</span>
+                    <span className="block text-sm font-medium text-gray-800 truncate">{branchName}</span>
+                </span>
+                {showSwitcher && <ChevronDown className="w-4 h-4 text-gray-500 -rotate-90 flex-shrink-0" />}
+            </>
+        );
+        return showSwitcher ? (
+            <button type="button" onClick={() => onOpen?.()} role="menuitem" className="w-full min-h-11 flex items-center gap-3 px-4 py-2 hover:bg-gray-100 focus:outline-none focus-visible:bg-gray-100">
+                {inner}
+            </button>
+        ) : (
+            <div className="w-full min-h-11 flex items-center gap-3 px-4 py-2">{inner}</div>
+        );
+    }
+
     if (!showSwitcher) {
         const branchName = currentBranch?.name || 'Main Campus';
         const curriculumType = currentBranch?.curriculum_type || 'nigerian';
@@ -82,59 +121,8 @@ export const BranchSwitcher: React.FC<BranchSwitcherProps> = ({ align = 'right' 
         );
     }
 
-    return (
-        <div className="relative">
-            {/* Trigger Button - Liquid Glass Effect */}
-            <button
-                onClick={() => setIsOpen(!isOpen)}
-                className={`
-                    group relative px-2 py-1 rounded-lg
-                    backdrop-blur-md bg-white/5 
-                    border border-white/10
-                    shadow-sm
-                    hover:bg-white/10 hover:shadow-md
-                    transition-all duration-300 ease-out
-                    ${isOpen ? 'bg-white/10 shadow-inner' : ''}
-                `}
-            >
-                <div className="flex items-center gap-2 opacity-80 group-hover:opacity-100 transition-opacity">
-                    {/* Branch Icon */}
-                    <div className={`
-                        w-6 h-6 rounded-md bg-gradient-to-br ${getCurriculumColor(currentBranch?.curriculum_type || 'nigerian')}
-                        flex items-center justify-center
-                        border
-                        transition-all duration-300
-                        group-hover:scale-110 group-hover:rotate-3
-                    `}>
-                        <Building2 className="w-3.5 h-3.5 text-white" />
-                    </div>
-
-                    {/* Branch Name */}
-                    <span className="text-xs font-bold text-white tracking-wide truncate max-w-[100px] hidden sm:inline-block">
-                        {currentBranch ? currentBranch.name : 'All Branches'}
-                    </span>
-
-                    {/* Chevron */}
-                    <ChevronDown className={`w-3.5 h-3.5 text-white/60 transition-transform duration-300 ${isOpen ? 'rotate-180' : 'rotate-0'}`} />
-                </div>
-            </button>
-
-            {/* Dropdown Menu - Glass Morphism Panel */}
-            {isOpen && (
-                <>
-                    {/* Backdrop */}
-                    <div
-                        className="fixed inset-0 z-40"
-                        onClick={() => setIsOpen(false)}
-                    />
-
-                    {/* Dropdown Panel - Mobile: Fixed Modal, Desktop: Absolute Dropdown */}
-                    <div className={`
-                        z-50
-                        fixed left-4 right-4 top-24 w-auto max-w-xs mx-auto
-                        sm:absolute sm:inset-auto sm:top-full sm:mt-2 sm:w-80 sm:mx-0
-                        ${align === 'right' ? 'sm:right-0 sm:origin-top-right' : align === 'center' ? 'sm:left-1/2 sm:-translate-x-1/2 sm:origin-top' : 'sm:left-0 sm:origin-top-left'}
-                    `}>
+    function panelCard(close: () => void) {
+        return (
                         <div className="
                             animate-scale-in
                             bg-white
@@ -159,7 +147,7 @@ export const BranchSwitcher: React.FC<BranchSwitcherProps> = ({ align = 'right' 
                                             key={branch.id}
                                             onClick={() => {
                                                 switchBranch(branch.id);
-                                                setIsOpen(false);
+                                                close();
                                             }}
                                             disabled={isLoading || isActive}
                                             className={`
@@ -223,6 +211,75 @@ export const BranchSwitcher: React.FC<BranchSwitcherProps> = ({ align = 'right' 
                                 })}
                             </div>
                         </div>
+        );
+    }
+
+    if (variant === 'panel') {
+        return createPortal(
+            <>
+                <div className="fixed inset-0 z-[80]" onClick={() => onClose?.()} />
+                <div className="fixed z-[81] left-4 right-4 top-24 w-auto max-w-xs mx-auto sm:left-auto sm:right-4 sm:w-80 sm:mx-0">
+                    {panelCard(() => onClose?.())}
+                </div>
+            </>,
+            document.body
+        );
+    }
+
+    return (
+        <div className="relative">
+            {/* Trigger Button - Liquid Glass Effect */}
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className={`
+                    group relative px-2 py-1 rounded-lg
+                    backdrop-blur-md bg-white/5 
+                    border border-white/10
+                    shadow-sm
+                    hover:bg-white/10 hover:shadow-md
+                    transition-all duration-300 ease-out
+                    ${isOpen ? 'bg-white/10 shadow-inner' : ''}
+                `}
+            >
+                <div className="flex items-center gap-2 opacity-80 group-hover:opacity-100 transition-opacity">
+                    {/* Branch Icon */}
+                    <div className={`
+                        w-6 h-6 rounded-md bg-gradient-to-br ${getCurriculumColor(currentBranch?.curriculum_type || 'nigerian')}
+                        flex items-center justify-center
+                        border
+                        transition-all duration-300
+                        group-hover:scale-110 group-hover:rotate-3
+                    `}>
+                        <Building2 className="w-3.5 h-3.5 text-white" />
+                    </div>
+
+                    {/* Branch Name */}
+                    <span className="text-xs font-bold text-white tracking-wide truncate max-w-[100px] hidden sm:inline-block">
+                        {currentBranch ? currentBranch.name : 'All Branches'}
+                    </span>
+
+                    {/* Chevron */}
+                    <ChevronDown className={`w-3.5 h-3.5 text-white/60 transition-transform duration-300 ${isOpen ? 'rotate-180' : 'rotate-0'}`} />
+                </div>
+            </button>
+
+            {/* Dropdown Menu - Glass Morphism Panel */}
+            {isOpen && (
+                <>
+                    {/* Backdrop */}
+                    <div
+                        className="fixed inset-0 z-40"
+                        onClick={() => setIsOpen(false)}
+                    />
+
+                    {/* Dropdown Panel - Mobile: Fixed Modal, Desktop: Absolute Dropdown */}
+                    <div className={`
+                        z-50
+                        fixed left-4 right-4 top-24 w-auto max-w-xs mx-auto
+                        sm:absolute sm:inset-auto sm:top-full sm:mt-2 sm:w-80 sm:mx-0
+                        ${align === 'right' ? 'sm:right-0 sm:origin-top-right' : align === 'center' ? 'sm:left-1/2 sm:-translate-x-1/2 sm:origin-top' : 'sm:left-0 sm:origin-top-left'}
+                    `}>
+                        {panelCard(() => setIsOpen(false))}
                     </div>
                 </>
             )}

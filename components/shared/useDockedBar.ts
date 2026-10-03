@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 /**
  * Publishes an element's height as a CSS variable on the root element.
@@ -18,14 +18,20 @@ import { useEffect, useRef } from 'react';
  * part of the page.
  */
 export function usePublishedHeight<T extends HTMLElement = HTMLDivElement>(cssVar: string) {
-    const ref = useRef<T>(null);
+    // The element is followed through a callback ref, not a one-off effect: the
+    // bottom nav is unmounted on full-screen views (chat, AI assistant) and a
+    // new <nav> is mounted on return. An effect keyed only on cssVar kept
+    // observing the detached node, published 0px from it, and never re-attached
+    // — so the floating buttons dropped onto the nav for the rest of the visit.
+    const [el, setEl] = useState<T | null>(null);
+    const ref = useCallback((node: T | null) => setEl(node), []);
 
     useEffect(() => {
-        const el = ref.current;
         if (!el) return;
         const root = document.documentElement;
 
         const publish = () => {
+            if (!el.isConnected) return; // a detached node measures 0 — ignore it
             const pinned = /fixed|sticky/.test(getComputedStyle(el).position);
             root.style.setProperty(cssVar, pinned ? `${el.offsetHeight}px` : '0px');
         };
@@ -41,7 +47,7 @@ export function usePublishedHeight<T extends HTMLElement = HTMLDivElement>(cssVa
             window.removeEventListener('resize', publish);
             root.style.removeProperty(cssVar);
         };
-    }, [cssVar]);
+    }, [cssVar, el]);
 
     return ref;
 }

@@ -160,17 +160,17 @@ const ParentProfileScreen: React.FC<ParentProfileScreenProps> = ({ onLogout, nav
               <h3 className="text-xl font-bold text-gray-800 truncate" title={profile.full_name}>{profile.full_name}</h3>
               <p className="text-sm text-gray-500 mb-1 truncate" title={profile.email}>{profile.email}</p>
               <div
-                className="inline-flex items-center gap-2 px-2 py-1 bg-gray-100 text-gray-600 rounded border border-gray-200 cursor-pointer hover:bg-gray-200 transition-colors"
+                className="inline-flex items-center gap-2 max-w-full px-2 py-1 bg-gray-100 text-gray-600 rounded border border-gray-200 cursor-pointer hover:bg-gray-200 transition-colors"
                 onClick={() => {
                   const idToCopy = profile.school_generated_id || formatId(customId) || 'ID: Pending';
                   if (idToCopy !== 'ID: Pending') copyToClipboard(idToCopy);
                   else toast.error("ID is still pending generation.");
                 }}
               >
-                <span className="text-xs font-mono font-medium">
+                <span className="text-xs font-mono font-medium min-w-0 break-all">
                   {profile.school_generated_id || formatId(customId) || 'ID: Pending'}
                 </span>
-                <Copy className="w-3 h-3 text-gray-400" />
+                <Copy className="w-3 h-3 text-gray-400 flex-shrink-0" />
                 {copied && <span className="text-xs text-green-600 font-bold ml-1">✓</span>}
               </div>
             </div>
@@ -254,7 +254,7 @@ const ParentProfileScreen: React.FC<ParentProfileScreenProps> = ({ onLogout, nav
       <div className={`flex-1 flex-col bg-gray-50 ${activeSetting ? 'flex' : 'hidden md:flex'}`}>
         {activeSetting && (
           <div className="md:hidden p-2 bg-white border-b flex items-center">
-            <motion.button whileTap={{ scale: 0.9 }} onClick={() => setActiveSetting(null)} className="p-2 rounded-full hover:bg-gray-100">
+            <motion.button whileTap={{ scale: 0.9 }} onClick={() => setActiveSetting(null)} className="p-2.5 rounded-full hover:bg-gray-100">
               <ChevronLeftIcon className="w-6 h-6 text-gray-600" />
             </motion.button>
             <h2 className="font-bold text-lg text-gray-800 ml-2">

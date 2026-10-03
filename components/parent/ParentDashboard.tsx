@@ -220,13 +220,13 @@ const AcademicsTab = ({ student, navigateTo, schoolId, currentBranchId }: { stud
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.25 }}
-                className="bg-gradient-to-r from-green-500 to-teal-500 p-4 rounded-2xl shadow-lg flex items-center justify-between text-white"
+                className="bg-gradient-to-r from-green-500 to-teal-500 p-4 rounded-2xl shadow-lg flex flex-wrap items-center justify-between gap-3 text-white"
             >
                 <div>
                     <h3 className="font-bold text-lg">Personalized Advice</h3>
                     <p className="text-sm opacity-90">Get AI-powered tips for your child.</p>
                 </div>
-                <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => navigateTo('aiParentingTips', 'AI Parenting Tips', { student: { ...student, academicPerformance: academicRecords } })} className="bg-white/20 px-4 py-2 rounded-lg font-semibold hover:bg-white/30 transition-colors flex items-center space-x-2">
+                <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => navigateTo('aiParentingTips', 'AI Parenting Tips', { student: { ...student, academicPerformance: academicRecords } })} className="bg-white/20 min-h-11 px-4 py-2 rounded-lg font-semibold whitespace-nowrap flex-shrink-0 hover:bg-white/30 transition-colors flex items-center space-x-2">
                     <SparklesIcon className="h-5 w-5" /><span>Get Tips</span>
                 </motion.button>
             </motion.div>
@@ -383,7 +383,7 @@ const AttendanceTab = ({ student }: { student: Student }) => {
                 </div>
             )}
             <div className="flex justify-between items-center mb-4">
-                <motion.button whileTap={{ scale: 0.9 }} onClick={goToPreviousMonth} className="p-2 rounded-full hover:bg-gray-100"><ChevronLeftIcon className="h-5 w-5 text-gray-600" /></motion.button>
+                <motion.button whileTap={{ scale: 0.9 }} onClick={goToPreviousMonth} className="p-3 rounded-full hover:bg-gray-100"><ChevronLeftIcon className="h-5 w-5 text-gray-600" /></motion.button>
                 <AnimatePresence mode="wait">
                     <motion.h3
                         key={currentDate.toISOString().slice(0, 7)}
@@ -396,7 +396,7 @@ const AttendanceTab = ({ student }: { student: Student }) => {
                         {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
                     </motion.h3>
                 </AnimatePresence>
-                <motion.button whileTap={{ scale: 0.9 }} onClick={goToNextMonth} className="p-2 rounded-full hover:bg-gray-100"><ChevronRightIcon className="h-5 w-5 text-gray-600" /></motion.button>
+                <motion.button whileTap={{ scale: 0.9 }} onClick={goToNextMonth} className="p-3 rounded-full hover:bg-gray-100"><ChevronRightIcon className="h-5 w-5 text-gray-600" /></motion.button>
             </div>
             <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-gray-500 mb-2">
                 {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => <div key={`${day}-${index}`}>{day}</div>)}
@@ -443,7 +443,7 @@ type ChildDetailTab = 'academics' | 'behavior' | 'attendance';
 const ChildDetailScreen = ({ student, initialTab, navigateTo, schoolId, currentBranchId }: { student: Student, initialTab?: ChildDetailTab, navigateTo: (view: string, title: string, props?: any) => void, schoolId?: string, currentBranchId?: string | null }) => {
     const [activeTab, setActiveTab] = useState<ChildDetailTab>(initialTab || 'academics');
     const TabButton = ({ id, label }: { id: ChildDetailTab, label: string }) => (
-        <motion.button whileTap={{ scale: 0.97 }} onClick={() => setActiveTab(id)} className={`relative flex-1 py-2 text-sm font-semibold rounded-md ${activeTab === id ? 'text-white' : 'text-gray-800'}`}>
+        <motion.button whileTap={{ scale: 0.97 }} onClick={() => setActiveTab(id)} className={`relative flex-1 min-h-11 py-2 text-sm font-semibold rounded-md ${activeTab === id ? 'text-white' : 'text-gray-800'}`}>
             {activeTab === id && (
                 <motion.div layoutId="parentChildDetailTab" transition={{ type: 'spring', stiffness: 400, damping: 30 }} className="absolute inset-0 bg-green-500 rounded-md shadow" />
             )}
@@ -824,8 +824,9 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
                 {isSearchOpen && <GlobalSearchScreen onClose={() => setIsSearchOpen(false)} navigateTo={navigateTo} dashboardType={DashboardType.Parent} />}
             </Suspense>
             {/* A single AI entry point. Hidden while the assistant is open so the
-                button never floats over its own screen. */}
-            {view !== 'aiAssistant' && (
+                button never floats over its own screen, and in a chat, where it
+                would sit on the message box. */}
+            {view !== 'aiAssistant' && view !== 'chat' && (
                 <AIChatWidget
                     dashboardType={DashboardType.Parent}
                     onClick={() => navigateTo('aiAssistant', 'AI Assistant', {})}

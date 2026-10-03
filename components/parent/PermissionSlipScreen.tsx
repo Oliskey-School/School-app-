@@ -145,7 +145,7 @@ const PermissionSlipScreen: React.FC<PermissionSlipScreenProps> = ({ students = 
                                 whileTap={{ scale: currentSlipIndex === 0 ? 1 : 0.95 }}
                                 disabled={currentSlipIndex === 0}
                                 onClick={() => setCurrentSlipIndex(prev => prev - 1)}
-                                className="disabled:opacity-30 hover:text-green-600 font-bold transition-colors"
+                                className="min-h-11 px-3 -mx-3 -my-3 disabled:opacity-30 hover:text-green-600 font-bold transition-colors"
                             >
                                 Previous
                             </motion.button>
@@ -153,7 +153,7 @@ const PermissionSlipScreen: React.FC<PermissionSlipScreenProps> = ({ students = 
                                 whileTap={{ scale: currentSlipIndex === slips.length - 1 ? 1 : 0.95 }}
                                 disabled={currentSlipIndex === slips.length - 1}
                                 onClick={() => setCurrentSlipIndex(prev => prev + 1)}
-                                className="disabled:opacity-30 hover:text-green-600 font-bold transition-colors"
+                                className="min-h-11 px-3 -mx-3 -my-3 disabled:opacity-30 hover:text-green-600 font-bold transition-colors"
                             >
                                 Next
                             </motion.button>
