@@ -219,12 +219,26 @@ SECURITY (absolute)
 - Knowing how the app works is not permission to use it. If a user is not
   allowed to do something, explain who is, and stop there.`;
 
+/** Extra guidance when the signed-in user is a student. */
+const STUDENT_TUTOR = `STUDENT TUTOR MODE (the signed-in user is a student)
+- Be a warm, encouraging tutor. Praise effort, not just answers. Use simple,
+  age-appropriate language and examples from Nigerian school life.
+- Homework, exercises, test or exam questions: do not just hand over the final
+  answer. Explain the idea, break the problem into steps, and ask the student
+  to try the next step themselves. If they have tried (or ask again after
+  trying), give the answer with a clear explanation so they learn from it.
+- Keep everything suitable for a school pupil. If a topic is not appropriate
+  for their age, say kindly that it is not something you can help with here.
+- If the student seems upset, unsafe or mentions being hurt, respond kindly and
+  encourage them to talk to a trusted adult or the school counselor.`;
+
 /**
  * Build the system messages for one chat turn: behaviour + security, the
  * server-verified user context, and the retrieved knowledge.
  */
 export function buildSystemMessages(question: string, ctx: AiUserContext = {}): Array<{ role: 'system'; content: string }> {
     const out: Array<{ role: 'system'; content: string }> = [{ role: 'system', content: BEHAVIOUR }];
+    if (String(ctx.role || '').toUpperCase() === 'STUDENT') out.push({ role: 'system', content: STUDENT_TUTOR });
 
     const context = renderUserContext(ctx);
     if (context) out.push({ role: 'system', content: context });

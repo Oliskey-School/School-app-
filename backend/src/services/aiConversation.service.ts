@@ -19,6 +19,7 @@ import prisma from '../config/database';
 import { AIGateway } from './aiGateway.service';
 import { withOliskeyKnowledge } from './aiKnowledge.service';
 import { buildPersonalContext, PersonalContextUser } from './aiPersonalContext.service';
+import { moderateStudentText, isStudentRole } from './aiModeration.service';
 
 export const MODEL_WINDOW = 12;
 export const MAX_STORED_MESSAGES = 200;
@@ -165,9 +166,14 @@ export class AiConversationService {
             personalContext,
         });
 
-        let result;
+        // Students: a message about self-harm, abuse or explicit content gets a
+        // kind, fixed reply pointing to a trusted adult; the model is not asked.
+        const moderation = isStudentRole(owner.role) ? moderateStudentText(text) : { flagged: false as const };
+        let result: { text: string; provider: string };
         try {
-            result = await AIGateway.chat(body, owner.id);
+            result = moderation.flagged
+                ? { text: moderation.reply, provider: 'safety' }
+                : await AIGateway.chat(body, owner.id);
         } catch (err) {
             // Nothing was answered: don't leave an empty conversation behind.
             // The client keeps the typed message so the user can retry.

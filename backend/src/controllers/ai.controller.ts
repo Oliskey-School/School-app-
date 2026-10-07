@@ -9,6 +9,8 @@ import prisma from '../config/database';
 import { getEffectiveBranchId } from '../utils/branchScope';
 import { sendError } from '../utils/httpError';
 import { buildPersonalContext } from '../services/aiPersonalContext.service';
+import { moderateStudentText, isStudentRole } from '../services/aiModeration.service';
+import { lastUserQuestion } from '../services/aiKnowledge.service';
 import { AiConversationService, ConversationOwner } from '../services/aiConversation.service';
 
 // Shared error shaping for the NVIDIA proxy — surfaces the upstream status and a
@@ -32,6 +34,10 @@ export const aiChat = async (req: AuthRequest, res: Response) => {
         // (learning focus, parenting tips, class summary) asks for their
         // records with context.personal = true. The records are built here from
         // the verified session — the flag only opts in, it cannot widen scope.
+        if (isStudentRole(req.user?.role)) {
+            const check = moderateStudentText(lastUserQuestion(Array.isArray(req.body?.messages) ? req.body.messages : []));
+            if (check.flagged) return res.json({ text: check.reply, model: 'safety', provider: 'safety' });
+        }
         const personalContext = req.body?.context?.personal === true
             ? await buildPersonalContext(req.user as any)
             : null;

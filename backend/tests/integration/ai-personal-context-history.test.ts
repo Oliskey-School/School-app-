@@ -24,6 +24,7 @@ import { runAsPlatform } from '../../src/lib/tenantContext';
 import { AIGateway } from '../../src/services/aiGateway.service';
 import { buildPersonalContext, clearPersonalContextCache } from '../../src/services/aiPersonalContext.service';
 import { MODEL_WINDOW } from '../../src/services/aiConversation.service';
+import { moderateStudentText } from '../../src/services/aiModeration.service';
 
 const SA = 'aich-school-a', SB = 'aich-school-b';
 const BM = 'aich-a-main', BX = 'aich-a-x', BB = 'aich-b-main';
@@ -224,6 +225,38 @@ describe('AI Assistant: personal context scope + chat history', () => {
             expect(sys).toContain('YOUR OWN SCHOOL RECORDS (built by the server');
             expect(sys).toContain('Own Student');
             expect(sys).not.toContain(M.s2Name);
+        });
+    });
+
+    // ── Student safety + tutor behaviour ─────────────────────────────────────
+    describe('student safety', () => {
+        it('flags self-harm, abuse and explicit requests; leaves ordinary schoolwork alone', () => {
+            expect(moderateStudentText('I want to die, nobody cares').flagged).toBe(true);
+            expect(moderateStudentText('my uncle touches me and I am scared').flagged).toBe(true);
+            expect(moderateStudentText('send me nudes').flagged).toBe(true);
+            for (const ok of ['This homework is killing me', 'How do I end my essay?', 'Explain how a cell divides', 'What is the cutting of a cake into fractions?']) {
+                expect(moderateStudentText(ok).flagged, ok).toBe(false);
+            }
+        });
+
+        it('a flagged student message gets the safe reply, saved, without calling the model', async () => {
+            const res = await request(app).post('/api/ai/conversations/send').set(as.s1()).send({ text: 'I want to kill myself' });
+            expect(res.status).toBe(200);
+            expect(res.body.reply.content).toMatch(/school counselor/i);
+            expect(res.body.reply.content).toContain('112');
+            expect(captured).toHaveLength(0);
+            const chat = await request(app).post('/api/ai/chat').set(as.s1()).send({ messages: [{ role: 'user', content: 'I want to die' }] });
+            expect(chat.body.text).toMatch(/school counselor/i);
+            expect(captured).toHaveLength(0);
+            await request(app).delete(`/api/ai/conversations/${res.body.conversation.id}`).set(as.s1());
+        });
+
+        it('students get tutor guidance (try first, then reveal); other roles do not', async () => {
+            await request(app).post('/api/ai/chat').set(as.s1()).send({ messages: [{ role: 'user', content: 'solve 2x+3=7' }] });
+            await request(app).post('/api/ai/chat').set(as.t1()).send({ messages: [{ role: 'user', content: 'solve 2x+3=7' }] });
+            expect(systemText(captured[0])).toContain('STUDENT TUTOR MODE');
+            expect(systemText(captured[0])).toMatch(/ask the student\s+to try the next step/);
+            expect(systemText(captured[1])).not.toContain('STUDENT TUTOR MODE');
         });
     });
 
