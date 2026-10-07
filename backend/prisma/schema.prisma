@@ -71,6 +71,7 @@ model School {
   complaints                 Complaint[]
   counseling_appointments    CounselingAppointment[]
   curriculums                Curriculum[]
+  family_referrals           FamilyReferral[]
   data_requests              DataRequest[]
   educational_games          EducationalGame[]
   emergency_alerts           EmergencyAlert[]
@@ -311,6 +312,7 @@ model Student {
   behavior_notes            BehaviorNote[]
   counseling_appointments   CounselingAppointment[]
   exam_results              ExamResult[]
+  family_referrals          FamilyReferral[]
   game_question_history     GameQuestionHistory[]
   health_logs               HealthLog[]
   hostel_allocations        HostelAllocation[]
@@ -3857,6 +3859,33 @@ model CounselingAppointment {
   updated_by       String?
   deleted_at       DateTime?
   @@index([school_id, branch_id], map: "idx_CounselingAppointment_school_branch")
+}
+
+// A parent's request for school support for their own child (counselling,
+// learning support, financial hardship, health, other). Handled by admins and
+// counselors in scope; confidential rows are restricted to the counselor and
+// the school's main admin in application code (see referral.service.ts).
+model FamilyReferral {
+  id               String    @id @default(uuid())
+  school_id        String
+  branch_id        String?
+  student_id       String
+  parent_id        String
+  referral_type    String
+  need_description String
+  urgency          String    @default("Medium")
+  is_confidential  Boolean   @default(false)
+  status           String    @default("Submitted")
+  staff_note       String?
+  handled_by       String?
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
+  deleted_at       DateTime?
+  school           School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  student          Student   @relation(fields: [student_id], references: [id], onDelete: Cascade)
+
+  @@index([school_id, branch_id], map: "idx_FamilyReferral_school_branch")
+  @@index([parent_id], map: "idx_FamilyReferral_parent")
 }
 
 model Complaint {
