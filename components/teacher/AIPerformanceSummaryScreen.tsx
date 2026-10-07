@@ -20,8 +20,11 @@ const AIPerformanceSummaryScreen: React.FC<AIPerformanceSummaryScreenProps> = ({
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
+    const [attempt, setAttempt] = useState(0);
+
     useEffect(() => {
         const generateSummary = async () => {
+            setError(null);
             if (students.length === 0) {
                 setError("No student data available to generate a summary.");
                 setIsLoading(false);
@@ -45,9 +48,11 @@ const AIPerformanceSummaryScreen: React.FC<AIPerformanceSummaryScreenProps> = ({
                     The summary should help the teacher quickly understand class dynamics. Identify top-performing students and students who might need extra support, providing a brief reason for each.
                 `;
 
-                const response = await ai.models.generateContent({
+                const response: any = await ai.models.generateContent({
                     model: AI_MODEL_NAME,
                     contents: prompt,
+                    // The server adds the teacher's own class-level summaries.
+                    context: { personal: true },
                     config: {
                         responseMimeType: "application/json",
                         responseSchema: {
@@ -84,6 +89,8 @@ const AIPerformanceSummaryScreen: React.FC<AIPerformanceSummaryScreenProps> = ({
                     }
                 });
 
+                if (response?.blocked) throw new Error(response.text);
+                if (response?.error) throw response.error;
                 const rawText = response.text ? response.text.trim() : '';
 
                 if (!rawText || rawText.startsWith('Error') || rawText.startsWith("I'm sorry")) {
@@ -110,7 +117,7 @@ const AIPerformanceSummaryScreen: React.FC<AIPerformanceSummaryScreenProps> = ({
         };
 
         generateSummary();
-    }, [students]);
+    }, [students, attempt]);
 
     if (isLoading) {
         return (
@@ -127,6 +134,15 @@ const AIPerformanceSummaryScreen: React.FC<AIPerformanceSummaryScreenProps> = ({
             <div className="p-6 text-center bg-gray-100 h-full">
                 <h2 className="text-xl font-bold text-red-600">Error</h2>
                 <p className="text-gray-600 mt-2">{error}</p>
+                {students.length > 0 && (
+                    <button
+                        type="button"
+                        onClick={() => setAttempt(a => a + 1)}
+                        className="mt-4 min-h-11 px-5 bg-purple-600 text-white text-sm font-bold rounded-xl hover:bg-purple-700 transition-colors"
+                    >
+                        Retry
+                    </button>
+                )}
             </div>
         );
     }

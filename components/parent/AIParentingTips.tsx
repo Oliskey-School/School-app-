@@ -69,9 +69,12 @@ const AIParentingTipsScreen: React.FC<AIParentingTipsScreenProps> = ({ student }
                 Each category should have 2-3 brief, distinct tips as a list of strings.
             `;
 
-            const response = await ai.models.generateContent({
+            const response: any = await ai.models.generateContent({
                 model: 'gemini-2.0-flash',
                 contents: prompt,
+                // The server adds this parent's own children's records (built from
+                // the session; it cannot include anyone else's child).
+                context: { personal: true },
                 config: {
                     responseMimeType: "application/json",
                     responseSchema: {
@@ -97,7 +100,9 @@ const AIParentingTipsScreen: React.FC<AIParentingTipsScreenProps> = ({ student }
                 }
             });
 
-            const jsonResponse = JSON.parse(response.text.trim());
+            if (response?.blocked) throw new Error(response.text);
+            if (response?.error) throw response.error;
+            const jsonResponse = JSON.parse(String(response.text || '').trim());
             if (jsonResponse.tips) {
                 setTips(jsonResponse.tips);
             } else {
@@ -106,7 +111,9 @@ const AIParentingTipsScreen: React.FC<AIParentingTipsScreenProps> = ({ student }
 
         } catch (err) {
             console.error("Error generating parenting tips:", err);
-            setError("Sorry, we couldn't generate tips at this moment. Please try again later.");
+            setError((err as any)?.message?.includes('Advanced plan')
+                ? (err as any).message
+                : "Sorry, we couldn't generate tips at this moment. Please try again.");
         } finally {
             setIsLoading(false);
         }

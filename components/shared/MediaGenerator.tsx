@@ -123,9 +123,9 @@ const MediaGenerator: React.FC = () => {
             <div className="flex space-x-2 bg-white p-1.5 rounded-xl shadow-sm overflow-x-auto">
                 {[
                     { id: 'image', label: 'Create Image', icon: PhotoIcon },
-                    { id: 'video', label: 'Create Video', icon: VideoIcon },
+                    { id: 'video', label: 'Video Storyboard', icon: VideoIcon },
                     { id: 'edit', label: 'Edit Image', icon: SparklesIcon },
-                    { id: 'animate', label: 'Animate', icon: VideoIcon },
+                    { id: 'animate', label: 'Animation Storyboard', icon: VideoIcon },
                 ].map(m => (
                     <button
                         key={m.id}
@@ -138,6 +138,14 @@ const MediaGenerator: React.FC = () => {
                     </button>
                 ))}
             </div>
+
+            {/* What this mode really produces — video rendering is not available yet. */}
+            <p className="text-sm text-gray-600 px-1">
+                {mode === 'image' && 'Describe a picture and the AI draws it.'}
+                {mode === 'edit' && 'Upload a photo and describe a change. The AI draws a new picture with your change.'}
+                {mode === 'video' && 'Creates a scene-by-scene script and narration you can record or present. It does not render a video file.'}
+                {mode === 'animate' && 'Turns a photo into a scene-by-scene animation plan. It does not render a video file.'}
+            </p>
 
             {/* Input Area */}
             <div className="flex-grow overflow-y-auto space-y-4">
