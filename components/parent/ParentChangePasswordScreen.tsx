@@ -19,12 +19,13 @@ const PasswordInput = ({ id, label, value, onChange }: { id: string, label: stri
                     value={value}
                     onChange={onChange}
                     required
-                    className="w-full pl-10 pr-10 py-3 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
+                    className="w-full pl-10 pr-14 py-3 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
                 />
                 <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-3 flex items-center pr-2 text-gray-400 hover:text-gray-600 cursor-pointer focus:outline-none"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    className="absolute inset-y-0 right-2 flex items-center justify-center w-11 text-gray-400 hover:text-gray-600 cursor-pointer focus:outline-none"
                 >
                     {showPassword ? <EyeOffIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
                 </button>

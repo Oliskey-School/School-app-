@@ -352,11 +352,11 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
                                 from one to the other. On phones the control fills the width
                                 as two equal halves so "History & Responses" stops crowding
                                 the edge; from sm up it keeps its natural width. */}
-                            <div className="grid grid-cols-2 sm:flex sm:w-max gap-2 bg-gray-200/50 p-1.5 rounded-xl w-full">
+                            <div className="grid grid-cols-1 sm:flex sm:w-max gap-2 bg-gray-200/50 p-1.5 rounded-xl w-full">
                                 <motion.button
                                     whileTap={{ scale: 0.96 }}
                                     onClick={() => setActiveTab('book')}
-                                    className={`relative px-4 py-2 rounded-lg text-sm font-bold transition-colors ${activeTab === 'book' ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                                    className={`relative min-h-11 px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'book' ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
                                 >
                                     {activeTab === 'book' && (
                                         <motion.span
@@ -370,7 +370,7 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
                                 <motion.button
                                     whileTap={{ scale: 0.96 }}
                                     onClick={() => setActiveTab('history')}
-                                    className={`relative px-4 py-2 rounded-lg text-sm font-bold transition-colors ${activeTab === 'history' ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                                    className={`relative min-h-11 px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'history' ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
                                 >
                                     {activeTab === 'history' && (
                                         <motion.span
@@ -402,15 +402,15 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
                                                 transition={{ duration: 0.25, delay: Math.min(i, 10) * 0.05 }}
                                                 className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm mt-4 hover:shadow-md transition-shadow"
                                             >
-                                                <div className="flex justify-between items-start mb-4">
-                                                    <div>
-                                                        <h3 className="font-bold text-lg text-gray-900">{apt.title || 'Meeting'}</h3>
+                                                <div className="flex justify-between items-start gap-3 mb-4">
+                                                    <div className="min-w-0">
+                                                        <h3 className="font-bold text-lg text-gray-900 break-words">{apt.title || 'Meeting'}</h3>
                                                         <p className="text-sm font-medium text-gray-500 mt-1 flex items-center gap-1.5">
                                                             <ClockIcon className="w-4 h-4" />
                                                             {appointmentDate(apt)?.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) ?? 'Date not set'}
                                                         </p>
                                                     </div>
-                                                    <span className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider ${(() => { const st = String(apt.status || '').toLowerCase(); return st === 'confirmed' || st === 'approved' ? 'bg-green-100 text-green-700' : st === 'rejected' || st === 'declined' ? 'bg-red-100 text-red-700' : st === 'cancelled' || st === 'canceled' ? 'bg-gray-100 text-gray-600' : 'bg-amber-100 text-amber-700'; })()}`}>
+                                                    <span className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider ${(() => { const st = String(apt.status || '').toLowerCase(); return st === 'confirmed' || st === 'approved' ? 'bg-green-100 text-green-700' : st === 'rejected' || st === 'declined' ? 'bg-red-100 text-red-700' : st === 'cancelled' || st === 'canceled' ? 'bg-gray-100 text-gray-600' : 'bg-amber-100 text-amber-700'; })()}`}>
                                                         {apt.status || 'PENDING'}
                                                     </span>
                                                 </div>
@@ -567,7 +567,7 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
                                                     whileTap={{ scale: slot.isBooked ? 1 : 0.95 }}
                                                     onClick={() => !slot.isBooked && setSelectedSlot(slot.time)}
                                                     disabled={slot.isBooked}
-                                                    className={`py-2 px-3 text-sm font-semibold rounded-lg border transition-colors ${slot.isBooked
+                                                    className={`min-h-11 py-2 px-3 text-sm font-semibold rounded-lg border transition-colors ${slot.isBooked
                                                         ? 'bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed line-through'
                                                         : selectedSlot === slot.time
                                                             ? 'bg-green-50 border-green-500 text-green-700 ring-1 ring-green-500'

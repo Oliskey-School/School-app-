@@ -94,13 +94,13 @@ const PTAMeetingScreen: React.FC = () => {
                     <p className="text-sm text-green-600 relative z-10">Join us to discuss the future of our school.</p>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(min(100%,20rem),1fr))]">
                     {/* Meeting Details Card */}
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                         <span className="inline-block px-3 py-1 bg-green-100 text-green-700 text-xs font-bold uppercase tracking-wider rounded-full mb-4">
                             Next Session
                         </span>
-                        <h2 className="text-2xl font-extrabold text-gray-800 leading-tight mb-6">{meeting.title}</h2>
+                        <h2 className="text-2xl font-extrabold text-gray-800 leading-tight mb-6 break-words">{meeting.title}</h2>
 
                         <div className="space-y-4">
                             <div className="flex items-center p-3 bg-gray-50 rounded-xl">
@@ -129,9 +129,9 @@ const PTAMeetingScreen: React.FC = () => {
 
                     {/* Agenda Card */}
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col">
-                        <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center justify-between gap-3 mb-6">
                             <h3 className="font-bold text-lg text-gray-800">Meeting Agenda</h3>
-                            <span className="text-xs font-bold text-gray-400 bg-gray-100 px-2 py-1 rounded-md">
+                            <span className="flex-shrink-0 whitespace-nowrap text-xs font-bold text-gray-400 bg-gray-100 px-2 py-1 rounded-md">
                                 {meeting.agenda.length} Items
                             </span>
                         </div>

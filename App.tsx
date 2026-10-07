@@ -283,7 +283,9 @@ const AuthenticatedApp: React.FC = () => {
           ) : (
             <>
               {renderDashboard}
-              {isHomePage && <AIChatWidget dashboardType={role} onClick={() => setIsChatOpen(true)} />}
+              {/* The Parent dashboard draws its own AI button (it opens the assistant
+                  inside the dashboard), so this one would sit exactly on top of it. */}
+              {isHomePage && role !== DashboardType.Parent && <AIChatWidget dashboardType={role} onClick={() => setIsChatOpen(true)} />}
             </>
           )}
         </VerificationGuard>

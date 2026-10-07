@@ -82,16 +82,27 @@ export async function updateFeeStatus(feeId: string | number, status: string, am
 // ============================================
 
 export async function fetchAnalyticsMetrics(schoolId: string, branchId?: string) {
+    // Calls the stats endpoint directly rather than api.getDashboardStats():
+    // that helper swallows every failure and returns zeros, which made the
+    // Analytics cards render "0%" / empty charts with no error when the request
+    // actually failed. Here a failure returns null so the screen shows its
+    // error state instead.
     try {
-        const stats = await api.getDashboardStats(schoolId, branchId);
-        
-        // Transform the backend stats into the format expected by the UI
+        const params = new URLSearchParams();
+        if (schoolId) params.append('schoolId', schoolId);
+        if (branchId && branchId !== 'all') params.append('branchId', branchId);
+        const qs = params.toString();
+        const stats: any = await api.get<any>(`/dashboard/stats${qs ? `?${qs}` : ''}`);
+        if (!stats || typeof stats !== 'object') return null;
         return {
-            performance: stats.performance || [],
+            performance: Array.isArray(stats.performance) ? stats.performance : [],
             fees: stats.fees || { paid: 0, overdue: 0, unpaid: 0, total: 0 },
-            workload: stats.workload || [],
-            attendance: stats.attendance || [],
-            enrollment: stats.enrollment || []
+            workload: Array.isArray(stats.workload) ? stats.workload : [],
+            attendance: Array.isArray(stats.attendance) ? stats.attendance : [],
+            attendanceTrend: Array.isArray(stats.attendanceTrend) ? stats.attendanceTrend : [],
+            // The backend sends `enrollmentData`; reading `enrollment` (as this
+            // used to) always came back empty, so Enrollment Trends never drew.
+            enrollment: Array.isArray(stats.enrollmentData) ? stats.enrollmentData : (Array.isArray(stats.enrollment) ? stats.enrollment : []),
         };
     } catch (err) {
         console.error('Error fetching analytics metrics:', err);

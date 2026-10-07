@@ -8,7 +8,7 @@ import { Complaint, ComplaintStatus } from '../../types';
 import { CameraIcon, ChevronRightIcon, StarIcon, CheckCircleIcon, ClockIcon } from '../../constants';
 
 const StarRatingInput = ({ rating, setRating }: { rating: number, setRating: (r: number) => void }) => (
-    <div className="flex items-center justify-center space-x-2">
+    <div className="flex items-center justify-center">
         {[...Array(5)].map((_, index) => (
             <motion.button
                 key={index}
@@ -16,7 +16,7 @@ const StarRatingInput = ({ rating, setRating }: { rating: number, setRating: (r:
                 whileHover={{ scale: 1.15 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={() => setRating(index + 1)}
-                className="text-gray-300 transition-colors"
+                className="p-1.5 text-gray-300 transition-colors"
                 aria-label={`Rate ${index + 1} star`}
             >
                 <StarIcon filled={index < rating} className={`h-8 w-8 ${index < rating ? 'text-yellow-400' : 'text-gray-300'}`} />
@@ -231,8 +231,8 @@ const FeedbackScreen: React.FC<FeedbackScreenProps> = ({ forceUpdate }) => {
         <div className="flex flex-col h-full bg-gray-100">
             <div className="p-2 bg-white/80 backdrop-blur-sm border-b border-gray-200">
                 <div className="flex space-x-1 bg-gray-200 p-1 rounded-lg">
-                    <motion.button whileTap={{ scale: 0.97 }} onClick={() => setActiveTab('submit')} className={`w-1/2 py-2 text-sm font-semibold rounded-md transition-colors ${activeTab === 'submit' ? `${theme.mainBg} text-white shadow` : 'text-gray-600'}`}>Submit New</motion.button>
-                    <motion.button whileTap={{ scale: 0.97 }} onClick={() => setActiveTab('track')} className={`w-1/2 py-2 text-sm font-semibold rounded-md transition-colors ${activeTab === 'track' ? `${theme.mainBg} text-white shadow` : 'text-gray-600'}`}>Track Status</motion.button>
+                    <motion.button whileTap={{ scale: 0.97 }} onClick={() => setActiveTab('submit')} className={`w-1/2 min-h-11 py-2 text-sm font-semibold rounded-md transition-colors ${activeTab === 'submit' ? `${theme.mainBg} text-white shadow` : 'text-gray-600'}`}>Submit New</motion.button>
+                    <motion.button whileTap={{ scale: 0.97 }} onClick={() => setActiveTab('track')} className={`w-1/2 min-h-11 py-2 text-sm font-semibold rounded-md transition-colors ${activeTab === 'track' ? `${theme.mainBg} text-white shadow` : 'text-gray-600'}`}>Track Status</motion.button>
                 </div>
             </div>
 

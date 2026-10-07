@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LogoutIcon, ChevronLeftIcon, NotificationIcon, SearchIcon, UserIcon } from '../../constants';
 import { Menu } from 'lucide-react';
@@ -28,8 +29,33 @@ const Header: React.FC<HeaderProps> = ({ title, avatarUrl, bgColor, onLogout, on
   const buttonRef = React.useRef<HTMLButtonElement>(null);
   const { currentBranch, canSwitchBranches } = useBranch();
 
+  // The menu is drawn in a portal, positioned from the avatar's own box, so it
+  // always sits above page content (a sticky card lower in the page can out-rank
+  // the header's own layer) and is never clipped by the header.
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
+  const [branchPanelOpen, setBranchPanelOpen] = useState(false);
+  const placeMenu = React.useCallback(() => {
+    const r = buttonRef.current?.getBoundingClientRect();
+    if (r) setMenuPos({ top: Math.round(r.bottom + 8), right: Math.max(8, Math.round(window.innerWidth - r.right)) });
+  }, []);
+
   React.useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    if (!isDropdownOpen) return;
+    placeMenu();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setIsDropdownOpen(false); buttonRef.current?.focus(); }
+    };
+    const onResize = () => setIsDropdownOpen(false);
+    document.addEventListener('keydown', onKey);
+    window.addEventListener('resize', onResize);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      window.removeEventListener('resize', onResize);
+    };
+  }, [isDropdownOpen, placeMenu]);
+
+  React.useEffect(() => {
+    const handleClickOutside = (event: Event) => {
       if (
         isDropdownOpen &&
         dropdownRef.current &&
@@ -41,14 +67,14 @@ const Header: React.FC<HeaderProps> = ({ title, avatarUrl, bgColor, onLogout, on
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('pointerdown', handleClickOutside);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('pointerdown', handleClickOutside);
     };
   }, [isDropdownOpen]);
 
   const Avatar = () => (
-    <div className="w-10 h-10 sm:w-12 sm:w-12 rounded-full bg-white/30 p-1 flex-shrink-0">
+    <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-white/30 p-1 flex-shrink-0">
       {avatarUrl ? (
         <img src={avatarUrl} alt="avatar" className="rounded-full w-full h-full object-cover" />
       ) : (
@@ -136,39 +162,49 @@ const Header: React.FC<HeaderProps> = ({ title, avatarUrl, bgColor, onLogout, on
           )}
         </div>
       </div>
+      {typeof document !== 'undefined' && createPortal(
       <AnimatePresence>
-      {isDropdownOpen && onLogout && (
+      {isDropdownOpen && onLogout && menuPos && (
         <motion.div
           ref={dropdownRef}
           initial={{ opacity: 0, y: -8, scale: 0.96 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -8, scale: 0.96 }}
           transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-          className="absolute right-4 sm:right-6 mt-2 w-56 bg-white rounded-md shadow-lg py-1 z-50 ring-1 ring-black ring-opacity-5"
+          style={{ top: menuPos.top, right: menuPos.right }}
+          className="fixed z-[70] w-64 max-w-[calc(100vw-1rem)] origin-top-right bg-white rounded-xl shadow-xl py-1 ring-1 ring-black ring-opacity-5 print:hidden"
           role="menu"
           aria-orientation="vertical"
-          aria-labelledby="user-menu-button"
+          aria-label="User menu"
         >
-          <div className="flex justify-center py-2 border-b border-gray-100">
-            <BranchSwitcher align="right" />
+          {/* Menu-styled branch row: neutral gray text like the rest of the menu,
+              name visible at every width. Opening the switch panel closes this
+              menu first so the two never stack. */}
+          <div className="border-b border-gray-100">
+            <BranchSwitcher variant="menu" onOpen={() => { setIsDropdownOpen(false); setBranchPanelOpen(true); }} />
           </div>
           {customId && (
-            <div className="px-4 py-2 border-b border-gray-100">
+            <div className="px-4 py-3 border-b border-gray-100">
               <span className="text-xs text-gray-500 uppercase font-semibold">ID</span>
-              <p className="text-sm font-mono text-gray-800 font-medium">{customId}</p>
+              <p className="text-sm font-mono text-gray-800 font-medium break-all">{customId}</p>
             </div>
           )}
-          <button
-            onClick={onLogout}
-            className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-            role="menuitem"
-          >
-            <LogoutIcon className="mr-3 h-5 w-5 text-gray-500" />
-            <span>Logout</span>
-          </button>
+          <div className="p-1">
+            <button
+              onClick={() => { setIsDropdownOpen(false); onLogout(); }}
+              className="w-full min-h-11 flex items-center px-3 rounded-lg text-sm text-gray-700 hover:bg-gray-100 focus:outline-none focus-visible:bg-gray-100"
+              role="menuitem"
+            >
+              <LogoutIcon className="mr-3 h-5 w-5 text-gray-500" />
+              <span>Logout</span>
+            </button>
+          </div>
         </motion.div>
       )}
-      </AnimatePresence>
+      </AnimatePresence>,
+      document.body
+      )}
+      {branchPanelOpen && <BranchSwitcher variant="panel" open onClose={() => setBranchPanelOpen(false)} />}
     </header>
   );
 };

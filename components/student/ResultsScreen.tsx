@@ -25,7 +25,7 @@ const TermTab: React.FC<{ term: string; isActive: boolean; onClick: () => void; 
     <motion.button
         whileTap={{ scale: 0.96 }}
         onClick={onClick}
-        className={`relative flex-1 py-2 text-sm font-semibold rounded-md transition-colors ${isActive ? 'text-white' : 'text-gray-600'
+        className={`relative flex-1 min-w-[6.5rem] shrink-0 whitespace-nowrap px-3 py-2 text-sm font-semibold rounded-md transition-colors ${isActive ? 'text-white' : 'text-gray-600'
             }`}
     >
         {isActive && (

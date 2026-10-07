@@ -146,7 +146,7 @@ const ParentNewChatScreen: React.FC<ParentNewChatScreenProps> = ({ navigateTo })
                         placeholder="Search by name..."
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
-                        className="w-full pl-9 pr-4 py-2.5 text-sm bg-gray-100/80 border-none rounded-xl focus:ring-2 focus:ring-green-200 focus:bg-white transition-all outline-none placeholder-gray-400 text-gray-700"
+                        className="w-full min-h-11 pl-9 pr-4 py-2.5 text-sm bg-gray-100/80 border-none rounded-xl focus:ring-2 focus:ring-green-200 focus:bg-white transition-all outline-none placeholder-gray-400 text-gray-700"
                         autoFocus
                     />
                 </div>
@@ -160,7 +160,7 @@ const ParentNewChatScreen: React.FC<ParentNewChatScreenProps> = ({ navigateTo })
                             key={tab}
                             whileTap={{ scale: 0.95 }}
                             onClick={() => setActiveTab(tab)}
-                            className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors border ${
+                            className={`min-h-11 px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors border ${
                                 activeTab === tab
                                     ? 'bg-green-500 text-white border-green-500 shadow-sm'
                                     : 'bg-white/80 text-gray-600 border-gray-200 hover:border-green-300'

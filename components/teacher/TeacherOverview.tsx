@@ -49,7 +49,7 @@ const StatCard: React.FC<{ label: string; value: string | number; icon: React.Re
       </div>
       <div className="min-w-0">
         <p className={`text-xl sm:text-2xl font-bold ${theme.textColor} truncate`}>{value}</p>
-        <p className="text-xs sm:text-sm text-gray-600 truncate">{label}</p>
+        <p className="text-xs sm:text-sm text-gray-600 leading-snug">{label}</p>
       </div>
     </div>
   );
@@ -326,10 +326,10 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
       </motion.div>
 
       <div className="grid grid-cols-2 gap-4">
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: 0.05 }}>
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ type: 'spring', bounce: 0, duration: 0.35, delay: 0.05 }}>
           <StatCard label="Total Students" value={statsLoading ? '...' : stats.totalStudents} icon={<BriefcaseIcon />} />
         </motion.div>
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: 0.1 }}>
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ type: 'spring', bounce: 0, duration: 0.35, delay: 0.1 }}>
           <StatCard label="Total Assigned Classes" value={statsLoading ? '...' : stats.totalClasses} icon={<ViewGridIcon />} />
         </motion.div>
       </div>
@@ -349,7 +349,7 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
                 key={i}
                 initial={{ opacity: 0, x: 10 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.2, delay: Math.min(i, 10) * 0.04 }}
+                transition={{ type: 'spring', bounce: 0, duration: 0.3, delay: Math.min(i, 10) * 0.04 }}
                 whileHover={{ y: -2 }}
                 whileTap={{ scale: 0.97 }}
                 onClick={() => navigateTo('classDetail', c.name || getFormattedClassName(c.grade, c.section, true, c.subject), {
@@ -380,7 +380,7 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
             <div className="flex justify-between items-end mb-2 px-1">
               <h3 className="text-lg font-bold text-gray-800">Recent Assignments</h3>
               {ungradedAssignments.length > 1 && (
-                <button onClick={() => navigateTo('assignmentsList', 'Manage Assignments', {})} className="text-sm font-bold text-purple-600 hover:text-purple-800">
+                <button onClick={() => navigateTo('assignmentsList', 'Manage Assignments', {})} className="text-sm font-bold text-purple-600 hover:text-purple-800 px-2 py-1.5 -my-1 -mr-2 rounded-lg">
                   See more
                 </button>
               )}
@@ -425,7 +425,10 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
             {quickActionGroups.filter(group => group.items.length > 0).map((group) => (
               <div key={group.title}>
                 <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-1">{group.title}</h4>
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 sm:gap-3">
+                {/* Sized by the room the grid actually has. These breakpoints measured
+                    62px cells at 1024px, because `md:grid-cols-6` reads the viewport
+                    while the grid lives in a column the sidebar has narrowed. */}
+                <div className="grid gap-2 sm:gap-3 [grid-template-columns:repeat(auto-fit,minmax(5.5rem,1fr))]">
                   {group.items.map((action, i) => (
                     <motion.button
                       key={action.label}
@@ -547,7 +550,9 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
                       }`} />
                       <div className="min-w-0">
                         <p className={`font-semibold truncate ${isCurrent ? 'text-green-900' : 'text-gray-800'}`}>{entry.subject}</p>
-                        <p className="text-xs text-gray-500">({entry.class_name})</p>
+                        {/* Printed a bare "(0)" when a lesson had no class name. An empty
+                            value is not worth a line of its own. */}
+                        {entry.class_name ? <p className="text-xs text-gray-500">({entry.class_name})</p> : null}
                       </div>
                     </motion.div>
                   );
@@ -562,7 +567,7 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
                     <ChevronRightIcon className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </button>
                 )}
-                <button onClick={() => navigateTo('timetable', 'Timetable Dashboard', {})} className="text-sm font-semibold text-purple-600 w-full text-center mt-1">
+                <button onClick={() => navigateTo('timetable', 'Timetable Dashboard', {})} className="text-sm font-semibold text-purple-600 w-full text-center mt-1 py-2.5 rounded-lg hover:bg-purple-50 transition-colors">
                   View Full Timetable
                 </button>
               </div>

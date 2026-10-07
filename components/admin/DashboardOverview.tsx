@@ -134,7 +134,7 @@ const QuickActionCard: React.FC<{ label: string; icon: React.ReactElement<{ clas
     <motion.button
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.2, delay: Math.min(index, 14) * 0.025 }}
+        transition={{ type: 'spring', bounce: 0, duration: 0.3, delay: Math.min(index, 14) * 0.025 }}
         whileHover={{ y: -2 }}
         whileTap={{ scale: 0.95 }}
         onClick={onClick}
@@ -616,7 +616,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                             here also still appears in its normal department section below. */}
                         <div className="mb-6">
                             <h3 className="text-xs font-bold text-indigo-500 uppercase tracking-wider mb-2 px-1">Daily Essentials</h3>
-                            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 sm:gap-4">
+                            <div className="grid gap-2 sm:gap-4 [grid-template-columns:repeat(auto-fit,minmax(5.5rem,1fr))]">
                                 <QuickActionCard index={0} label="Approvals" icon={<CheckCircleIcon />} onClick={() => navigateTo('studentApprovals', 'Student Approvals')} color="bg-indigo-600" />
                                 <QuickActionCard index={1} label="Attendance" icon={<ClockIcon />} onClick={() => navigateTo('teacherAttendance', 'Teacher Attendance')} color="bg-amber-500" />
                                 <QuickActionCard index={2} label="Announce" icon={<MegaphoneIcon />} onClick={() => navigateTo('communicationHub', 'Communication Hub')} color="bg-teal-500" />
@@ -656,7 +656,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                                         {categoriesToShow.map(cat => (
                                             <div key={cat.id}>
                                                 <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-1">{cat.name}</h3>
-                                                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 sm:gap-4">
+                                                <div className="grid gap-2 sm:gap-4 [grid-template-columns:repeat(auto-fit,minmax(5.5rem,1fr))]">
                                                     {cat.items.map((item, i) => (
                                                         <QuickActionCard key={item.label} index={i} label={item.label} icon={item.icon} onClick={item.onClick} color={item.color} />
                                                     ))}
@@ -724,7 +724,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                         <h2 className="text-lg font-bold text-gray-700 mb-3 px-1">Recent Activity</h2>
                         <div className="bg-white p-4 rounded-2xl shadow-sm space-y-4">
                             {recentActivities.map((log, index) => <ActivityLogItem key={log.id} log={log} isLast={index === recentActivities.length - 1} index={index} />)}
-                            <motion.button whileTap={{ scale: 0.97 }} onClick={() => navigateTo('auditLog', 'Audit Log')} className="mt-2 text-sm w-full text-center font-semibold text-indigo-600 hover:text-indigo-800">
+                            <motion.button whileTap={{ scale: 0.97 }} onClick={() => navigateTo('auditLog', 'Audit Log')} className="mt-2 text-sm w-full text-center font-semibold text-indigo-600 hover:text-indigo-800 py-2.5 rounded-lg hover:bg-indigo-50 transition-colors">
                                 View Full Log
                             </motion.button>
                         </div>

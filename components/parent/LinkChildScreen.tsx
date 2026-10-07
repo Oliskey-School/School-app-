@@ -127,14 +127,14 @@ const LinkChildScreen: React.FC<LinkChildScreenProps> = ({ handleBack, forceUpda
     return (
         <div className="flex flex-col h-full bg-gray-50">
             <div className="hidden md:flex p-4 bg-white shadow-sm items-center">
-                <motion.button whileTap={{ scale: 0.9 }} onClick={handleBack} className="p-2 rounded-full hover:bg-gray-100 mr-2">
+                <motion.button whileTap={{ scale: 0.9 }} onClick={handleBack} className="p-2.5 rounded-full hover:bg-gray-100 mr-2">
                     <ChevronLeftIcon className="w-6 h-6 text-gray-600" />
                 </motion.button>
                 <h2 className="text-xl font-bold text-gray-800">Manage Child Accounts</h2>
             </div>
 
-            <main className="flex-1 p-4 md:p-6 overflow-y-auto space-y-6">
-                <div className="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <main className="flex-1 px-0 py-4 min-[360px]:p-4 md:p-6 overflow-y-auto space-y-6">
+                <div className="max-w-4xl mx-auto grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(min(100%,20rem),1fr))]">
                     {/* Add Child Form */}
                     <div className="bg-white rounded-2xl shadow-lg overflow-hidden h-fit">
                         <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-6 text-white text-center">
@@ -214,17 +214,17 @@ const LinkChildScreen: React.FC<LinkChildScreenProps> = ({ handleBack, forceUpda
 
                     {/* Linked Children List */}
                     <div className="bg-white rounded-2xl shadow-lg overflow-hidden flex flex-col">
-                        <div className="p-6 border-b flex items-center justify-between bg-gray-50/50">
+                        <div className="p-6 border-b flex flex-wrap items-center justify-between gap-3 bg-gray-50/50">
                             <div className="flex items-center space-x-2 text-gray-800">
                                 <Users className="w-5 h-5 text-blue-600" />
                                 <h3 className="text-lg font-bold">My Linked Children</h3>
                             </div>
-                            <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2.5 py-1 rounded-full">
+                            <span className="flex-shrink-0 whitespace-nowrap bg-blue-100 text-blue-700 text-xs font-bold px-2.5 py-1 rounded-full">
                                 {linkedChildren.length} Linked
                             </span>
                         </div>
 
-                        <div className="flex-1 p-6">
+                        <div className="flex-1 p-4 min-[360px]:p-6">
                             {fetchingChildren ? (
                                 <div className="flex flex-col items-center justify-center py-12 space-y-3">
                                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -238,10 +238,10 @@ const LinkChildScreen: React.FC<LinkChildScreenProps> = ({ handleBack, forceUpda
                                             initial={{ opacity: 0, y: 10 }}
                                             animate={{ opacity: 1, y: 0 }}
                                             transition={{ duration: 0.25, delay: Math.min(i, 10) * 0.05 }}
-                                            className="flex items-center justify-between p-4 rounded-2xl bg-gray-50 border border-gray-100 hover:border-blue-200 transition-colors group"
+                                            className="flex items-center justify-between gap-2 p-3 min-[360px]:p-4 rounded-2xl bg-gray-50 border border-gray-100 hover:border-blue-200 transition-colors group"
                                         >
-                                            <div className="flex items-center space-x-4">
-                                                <div className="relative">
+                                            <div className="flex items-center space-x-3 min-[360px]:space-x-4 min-w-0 flex-1">
+                                                <div className="relative flex-shrink-0">
                                                     <img 
                                                         src={child.avatarUrl || 'https://i.pravatar.cc/150'} 
                                                         alt={child.name} 
@@ -249,12 +249,14 @@ const LinkChildScreen: React.FC<LinkChildScreenProps> = ({ handleBack, forceUpda
                                                     />
                                                     <div className="absolute -bottom-1 -right-1 bg-green-500 w-3.5 h-3.5 rounded-full border-2 border-white"></div>
                                                 </div>
-                                                <div>
+                                                <div className="min-w-0">
                                                     <h4 className="font-bold text-gray-800">{child.name}</h4>
-                                                    <div className="flex items-center space-x-2 text-xs text-gray-500 font-medium">
-                                                        <span>Grade {child.grade}{child.section}</span>
-                                                        <span>•</span>
-                                                        <span>ID: {child.schoolGeneratedId || 'N/A'}</span>
+                                                    <div className="flex flex-col text-xs text-gray-500 font-medium">
+                                                        <span className="whitespace-nowrap">Grade {child.grade}{child.section}</span>
+                                                        {/* Break the ID only after an underscore, never mid-segment */}
+                                                        <span className="break-words">ID: {(child.schoolGeneratedId || 'N/A').split('_').map((part, idx, parts) => (
+                                                            <React.Fragment key={idx}>{part}{idx < parts.length - 1 && <>_<wbr /></>}</React.Fragment>
+                                                        ))}</span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -262,7 +264,7 @@ const LinkChildScreen: React.FC<LinkChildScreenProps> = ({ handleBack, forceUpda
                                                 whileHover={{ scale: 1.05 }}
                                                 whileTap={{ scale: 0.9 }}
                                                 onClick={() => handleUnlinkClick(child)}
-                                                className="p-2.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                                                className="p-3 ml-auto flex-shrink-0 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100"
                                                 title="Remove link"
                                             >
                                                 <TrashIcon className="w-5 h-5" />

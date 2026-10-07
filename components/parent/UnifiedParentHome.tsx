@@ -139,7 +139,7 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
             <p className="text-gray-500 mt-2">Something went wrong loading your children's details.<br/>Please try again.</p>
             <button
                 onClick={() => load()}
-                className="mt-4 px-4 py-2 rounded-xl bg-indigo-600 text-white font-semibold"
+                className="mt-4 min-h-11 px-4 py-2 rounded-xl bg-indigo-600 text-white font-semibold"
             >
                 Retry
             </button>
@@ -163,13 +163,13 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
     return (
         <div className="bg-gray-50 min-h-screen pb-20">
             {/* Header with Child Switcher */}
-            <div className="bg-white p-6 border-b sticky top-0 z-20">
+            <div className="bg-white p-6 border-b sticky top-8 sm:top-10 md:top-12 lg:top-16 z-20">
                 <div className="flex justify-between items-start gap-3 mb-4">
                     <div className="relative min-w-0 flex-1">
                         <h1 className="text-gray-500 text-sm truncate">Good morning, {user?.user_metadata?.full_name || 'Parent'}</h1>
                         <button 
                             onClick={() => children.length > 1 && setIsSwitcherOpen(!isSwitcherOpen)}
-                            className="flex items-center gap-2 mt-1 hover:bg-gray-50 px-2 py-1 -ml-2 rounded-lg transition-colors max-w-full"
+                            className="flex items-center gap-2 mt-1 min-h-11 hover:bg-gray-50 px-2 py-1 -ml-2 rounded-lg transition-colors max-w-full"
                         >
                             <h2 className="text-xl font-bold text-gray-900 truncate min-w-0" title={child.name}>{child.name}</h2>
                             {students[activeChildIndex]?.curriculum_type && (
@@ -256,7 +256,7 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
                 <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
                     <div className="flex justify-between items-center mb-4">
                         <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider underline">School Utilities</h3>
-                        <button onClick={() => navigateTo('schoolUtilities', 'School Utilities')} className="text-xs text-indigo-600 font-bold hover:underline">View All</button>
+                        <button onClick={() => navigateTo('schoolUtilities', 'School Utilities')} className="inline-flex items-center min-h-11 px-3 -my-3 -mr-3 rounded-lg text-xs text-indigo-600 font-bold hover:underline">View All</button>
                     </div>
                     <div className="grid grid-cols-4 gap-2">
                         {[

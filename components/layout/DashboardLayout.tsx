@@ -269,7 +269,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
                                 window.dispatchEvent(new CustomEvent('demo-create-school'));
                                 signOut();
                             }}
-                            className="bg-white text-blue-700 font-bold px-3 py-1 rounded-lg text-[10px] hover:bg-blue-50 transition flex-shrink-0"
+                            className="bg-white text-blue-700 font-bold px-3 py-2 rounded-lg text-[11px] hover:bg-blue-50 transition flex-shrink-0"
                         >
                             {t('dashboard.createYourSchool')}
                         </motion.button>
@@ -295,7 +295,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
                 <div
                     ref={scrollContainerRef}
                     onScroll={handleContentScroll}
-                    className={`flex-1 ${(hidePadding || stickyFooterLayout) && !isLocked ? 'overflow-hidden' : 'overflow-y-auto'} overflow-x-hidden relative ${!hideHeader ? '-mt-8 sm:-mt-10 md:-mt-12 lg:-mt-16' : ''} ${!hidePadding && !stickyFooterLayout ? 'pb-32 lg:pb-16' : 'pb-0'}`}
+                    className={`flex-1 ${(hidePadding || stickyFooterLayout) && !isLocked ? 'overflow-hidden' : 'overflow-y-auto'} overflow-x-hidden relative ${!hideHeader ? '-mt-8 sm:-mt-10 md:-mt-12 lg:-mt-16' : ''} ${!hidePadding && !stickyFooterLayout ? 'pb-36 lg:pb-24' : 'pb-0'}`}
                 >
                     {isLocked ? (
                         <div className={`w-full min-h-full ${!hideHeader ? 'pt-8 sm:pt-10 md:pt-12 lg:pt-16' : ''}`}>

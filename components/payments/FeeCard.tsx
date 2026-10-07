@@ -76,7 +76,7 @@ export const FeeCard: React.FC<FeeCardProps> = ({ fee, onPay, onDownloadReceipt 
                 {!isPaid && (
                     <button
                         onClick={() => onPay(fee)}
-                        className="flex-1 flex items-center justify-center px-6 py-3 bg-gray-900 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-black transition-all shadow-lg active:scale-95 translate-z-0"
+                        className="flex-1 flex items-center justify-center min-h-11 px-6 py-3 bg-gray-900 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-black transition-all shadow-lg active:scale-95 translate-z-0"
                     >
                         <CreditCard className="w-4 h-4 mr-2" />
                         {isPartial ? 'Settle' : 'Pay'}
@@ -86,7 +86,7 @@ export const FeeCard: React.FC<FeeCardProps> = ({ fee, onPay, onDownloadReceipt 
                 {(isPaid || isPartial) && onDownloadReceipt && (
                     <button
                         onClick={() => onDownloadReceipt(fee)}
-                        className={`flex-1 flex items-center justify-center px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all border-2 
+                        className={`flex-1 flex items-center justify-center min-h-11 px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all border-2 
                             ${isPaid ? 'bg-emerald-600 text-white border-emerald-600 shadow-emerald-100 shadow-xl' : 'bg-white text-gray-900 border-gray-100 hover:border-gray-300'}`}
                     >
                         <Download className="w-4 h-4 mr-2" />

@@ -417,10 +417,12 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                             <span className="text-white font-semibold">Student Profile</span>
                         </div>
 
-                        {/* Profile Header */}
-                        <div className="flex flex-col lg:flex-row items-start gap-8">
+                        {/* Profile Header — identity, then the stats in one even row, then the
+                            actions. Stacked rather than side-by-side so the header is only as tall
+                            as its content (side-by-side left a tall empty area under the name). */}
+                        <div className="flex flex-col gap-6 lg:gap-8">
                             {/* Avatar & Name Section */}
-                            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 flex-shrink-0">
+                            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 min-w-0">
                                 {/* Avatar with Status */}
                                 <div className="relative group">
                                     <div className="absolute -inset-1 bg-gradient-to-r from-yellow-400 via-orange-400 to-red-400 rounded-full opacity-75 group-hover:opacity-100 blur transition duration-300"></div>
@@ -443,7 +445,7 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                                 </div>
 
                                 {/* Name & Title */}
-                                <div className="text-center sm:text-left">
+                                <div className="text-center sm:text-left min-w-0">
                                     <h1 className="text-3xl lg:text-4xl font-bold text-white mb-2 tracking-tight">
                                         {student.first_name ? `${student.first_name} ${student.last_name || ''}` : (student.name || 'Student Profile')}
                                     </h1>
@@ -462,29 +464,29 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                                             type="button"
                                             whileHover={{ opacity: 0.85 }}
                                             whileTap={{ scale: 0.96 }}
-                                            className="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+                                            className="rounded-full min-h-[44px] inline-flex items-center focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
                                             onClick={() => copyToClipboard(student.school_generated_id || student.admission_number || '')}
                                             aria-label="Copy student ID to clipboard"
                                         >
-                                            <Badge className="bg-white/20 text-white border-white/30 backdrop-blur-sm px-4 py-1.5 text-sm flex items-center gap-2">
+                                            <Badge className="bg-white/20 text-white border-white/30 backdrop-blur-sm px-4 py-2.5 text-sm flex items-center gap-2">
                                                 ID: {student.school_generated_id || student.admission_number || 'Pending'}
                                                 <Copy className="w-3 h-3 opacity-70" />
                                                 {copied && <span className="text-xs ml-1">Copied!</span>}
                                             </Badge>
                                         </motion.button>
                                     </div>
-                                    <div className="flex flex-wrap gap-2 text-sm text-white/90">
-                                        <div className="flex items-center gap-1.5">
-                                            <Mail className="w-4 h-4" />
-                                            <span>{student.email}</span>
+                                    <div className="flex flex-wrap justify-center sm:justify-start gap-2 text-sm text-white/90">
+                                        <div className="flex items-center gap-1.5 min-w-0">
+                                            <Mail className="w-4 h-4 shrink-0" />
+                                            <span className="break-all">{student.email}</span>
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Stats Cards - Horizontal on Desktop */}
-                            <div className="flex-1 w-full">
-                                <MotionList className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4" stagger={0.06}>
+                            {/* Stats Cards — 2x2 on phones, one even row of 4 from tablet up */}
+                            <div className="w-full">
+                                <MotionList className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4" stagger={0.06}>
                                     <MotionListItem>
                                         <StatCard
                                             icon={<TrendingUp className="w-5 h-5" />}
@@ -522,8 +524,8 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                                 </MotionList>
 
                                 {/* Action Buttons */}
-                                <div className="flex flex-col sm:flex-row flex-wrap gap-3 mt-6">
-                                    <Button onClick={handleDownloadTranscript} className="w-full sm:w-auto !bg-white !text-orange-700 hover:!bg-orange-50 shadow-lg font-bold order-2 sm:order-1">
+                                <div className="flex flex-wrap gap-3 mt-6">
+                                    <Button onClick={handleDownloadTranscript} className="flex-auto sm:flex-none min-h-[44px] !bg-white !text-orange-700 hover:!bg-orange-50 shadow-lg font-bold order-2 sm:order-1">
                                         <Download className="w-4 h-4 mr-2" />
                                         Download Transcript
                                     </Button>
@@ -534,21 +536,21 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                                         } catch {
                                             toast.error('Could not copy link. Please copy it from the address bar.');
                                         }
-                                    }} className="w-full sm:w-auto !bg-white/10 !text-white border border-white/30 hover:!bg-white/20 backdrop-blur-sm order-1 sm:order-2">
+                                    }} className="flex-auto sm:flex-none min-h-[44px] !bg-white/10 !text-white border border-white/30 hover:!bg-white/20 backdrop-blur-sm order-1 sm:order-2">
                                         <Share2 className="w-4 h-4 mr-2" />
                                         Share Profile
                                     </Button>
                                     {navigateTo && (
                                         <>
-                                            <Button onClick={() => navigateTo('editProfile', 'Edit Profile')} className="w-full sm:w-auto !bg-white/10 !text-white border border-white/30 hover:!bg-white/20 backdrop-blur-sm order-3">
+                                            <Button onClick={() => navigateTo('editProfile', 'Edit Profile')} className="flex-auto sm:flex-none min-h-[44px] !bg-white/10 !text-white border border-white/30 hover:!bg-white/20 backdrop-blur-sm order-3">
                                                 <Settings className="w-4 h-4 mr-2" />
                                                 Edit Profile
                                             </Button>
-                                            <Button onClick={() => navigateTo('appearanceSettings', 'Appearance & Theme')} className="w-full sm:w-auto !bg-white/10 !text-white border border-white/30 hover:!bg-white/20 backdrop-blur-sm order-3">
+                                            <Button onClick={() => navigateTo('appearanceSettings', 'Appearance & Theme')} className="flex-auto sm:flex-none min-h-[44px] !bg-white/10 !text-white border border-white/30 hover:!bg-white/20 backdrop-blur-sm order-3">
                                                 <Sparkles className="w-4 h-4 mr-2" />
                                                 Appearance
                                             </Button>
-                                            <Button onClick={() => navigateTo('changePassword', 'Change Password')} className="w-full sm:w-auto !bg-white/10 !text-white border border-white/30 hover:!bg-white/20 backdrop-blur-sm order-4">
+                                            <Button onClick={() => navigateTo('changePassword', 'Change Password')} className="flex-auto sm:flex-none min-h-[44px] !bg-white/10 !text-white border border-white/30 hover:!bg-white/20 backdrop-blur-sm order-4">
                                                 <Lock className="w-4 h-4 mr-2" />
                                                 Change Password
                                             </Button>
@@ -598,9 +600,9 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
 
                         {/* Overview Tab */}
                         <TabsContent value="overview" className="p-6 lg:p-8">
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                                {/* Left Column -2/3 */}
-                                <div className="lg:col-span-2 space-y-6">
+                            <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_20rem] 2xl:grid-cols-3 gap-8">
+                                {/* Left Column -2/3 (sidebar stacks underneath below 1280px so its text is not squeezed) */}
+                                <div className="2xl:col-span-2 space-y-6 min-w-0">
                                     {/* Personal Information */}
                                     <Card className="border-slate-200 shadow-sm">
                                         <CardHeader className="border-b border-slate-100 bg-slate-50/50">
@@ -694,7 +696,7 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                                 </div>
 
                                 {/* Right Column - 1/3 */}
-                                <div className="space-y-6 lg:sticky lg:top-6 lg:self-start">
+                                <div className="space-y-6 xl:sticky xl:top-6 xl:self-start">
                                     {/* Quick Stats */}
                                     <Card className="border-slate-200 shadow-sm bg-gradient-to-br from-orange-50 to-red-50">
                                         <CardHeader>
@@ -716,7 +718,7 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                                                 Data Usage
                                             </CardTitle>
                                         </CardHeader>
-                                        <CardContent className="p-0">
+                                        <CardContent className="!p-0">
                                             <DataUsageSettings accent="orange" variant="card" />
                                         </CardContent>
                                     </Card>
@@ -906,17 +908,18 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
 function StatCard({ icon, label, value, trend, trendUp, badge }: any) {
     return (
         <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20 hover:bg-white/20 transition-all duration-300">
-            <div className="flex items-center justify-between mb-3">
-                <div className="p-2 bg-white/20 rounded-lg text-white">
+            {/* Wraps instead of overlapping: on a narrow card the trend/badge drops under the icon. */}
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <div className="p-2 bg-white/20 rounded-lg text-white shrink-0">
                     {icon}
                 </div>
                 {trend && (
-                    <span className={`text-xs font-semibold ${trendUp ? 'text-emerald-300' : 'text-red-300'}`}>
+                    <span className={`text-xs font-semibold whitespace-nowrap ${trendUp ? 'text-emerald-300' : 'text-red-300'}`}>
                         {trend}
                     </span>
                 )}
                 {badge && (
-                    <Badge className="bg-white/20 text-white text-xs border-0">
+                    <Badge className="bg-white/20 text-white text-xs border-0 whitespace-nowrap">
                         {badge}
                     </Badge>
                 )}

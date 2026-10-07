@@ -118,7 +118,7 @@ const VolunteerSignup: React.FC = () => {
     }
 
     return (
-        <div className="p-6 max-w-7xl mx-auto">
+        <div className="w-full px-0 py-6 min-[360px]:p-6 max-w-7xl mx-auto">
             {/* Stats Header */}
             <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl p-6 text-white mb-6">
                 <h1 className="text-3xl font-bold mb-2">Volunteer Opportunities</h1>
@@ -147,11 +147,11 @@ const VolunteerSignup: React.FC = () => {
             </div>
 
             {/* Tabs */}
-            <div className="flex space-x-2 mb-6">
+            <div className="flex flex-col sm:flex-row gap-2 mb-6">
                 <motion.button
                     whileTap={{ scale: 0.96 }}
                     onClick={() => setActiveTab('available')}
-                    className={`px-6 py-3 rounded-lg font-semibold transition-colors ${activeTab === 'available'
+                    className={`min-h-11 px-6 py-3 rounded-lg font-semibold transition-colors ${activeTab === 'available'
                         ? 'bg-indigo-600 text-white'
                         : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                         }`}
@@ -161,7 +161,7 @@ const VolunteerSignup: React.FC = () => {
                 <motion.button
                     whileTap={{ scale: 0.96 }}
                     onClick={() => setActiveTab('my-signups')}
-                    className={`px-6 py-3 rounded-lg font-semibold transition-colors ${activeTab === 'my-signups'
+                    className={`min-h-11 px-6 py-3 rounded-lg font-semibold transition-colors ${activeTab === 'my-signups'
                         ? 'bg-indigo-600 text-white'
                         : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                         }`}

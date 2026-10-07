@@ -77,21 +77,21 @@ const PickupAuthorizationScreen = () => {
     }
 
     return (
-        <div className="p-6 max-w-xl mx-auto space-y-6">
+        <div className="w-full p-6 max-w-xl mx-auto space-y-6">
             <div>
                 <h1 className="text-2xl font-bold text-gray-900 font-outfit">Pickup Authorization</h1>
                 <p className="text-gray-500">Only people on this list can collect your child from school.</p>
             </div>
 
             {children.length > 1 && (
-                <select value={activeChildId} onChange={e => setActiveChildId(e.target.value)} className="border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400">
+                <select value={activeChildId} onChange={e => setActiveChildId(e.target.value)} className="min-h-11 border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400">
                     {children.map(c => <option key={c.id} value={c.id}>{c.name || c.full_name}</option>)}
                 </select>
             )}
 
             <div className="flex items-center justify-between">
                 <h2 className="font-bold text-gray-900">Authorized People</h2>
-                <motion.button whileTap={{ scale: 0.95 }} onClick={() => setShowAdd(v => !v)} className="flex items-center gap-1.5 text-sm font-semibold text-indigo-600 hover:text-indigo-700">
+                <motion.button whileTap={{ scale: 0.95 }} onClick={() => setShowAdd(v => !v)} className="flex items-center gap-1.5 min-h-11 px-3 -my-3 -mr-3 rounded-lg text-sm font-semibold text-indigo-600 hover:text-indigo-700">
                     <UserPlus className="w-4 h-4" /> Add Person
                 </motion.button>
             </div>
@@ -106,12 +106,12 @@ const PickupAuthorizationScreen = () => {
                     className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 space-y-2 overflow-hidden"
                 >
                     <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Full name" aria-label="Full name"
-                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400" />
+                        className="w-full min-h-11 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400" />
                     <input value={form.relationship} onChange={e => setForm(f => ({ ...f, relationship: e.target.value }))} placeholder="Relationship (e.g. Uncle, Driver)" aria-label="Relationship"
-                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400" />
+                        className="w-full min-h-11 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400" />
                     <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="Phone (optional)" aria-label="Phone (optional)"
-                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400" />
-                    <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }} onClick={handleAdd} disabled={saving} className="bg-indigo-600 text-white text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60">
+                        className="w-full min-h-11 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400" />
+                    <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }} onClick={handleAdd} disabled={saving} className="min-h-11 bg-indigo-600 text-white text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60">
                         {saving ? 'Saving...' : 'Add'}
                     </motion.button>
                 </motion.div>
@@ -137,7 +137,7 @@ const PickupAuthorizationScreen = () => {
                                 <p className="font-semibold text-gray-900 text-sm">{p.name}</p>
                                 <p className="text-xs text-gray-400">{p.relationship}{p.phone ? ` · ${p.phone}` : ''}</p>
                             </div>
-                            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => setPersonToRemove({ id: p.id, name: p.name })} aria-label={`Remove ${p.name}`}><Trash2 className="w-4 h-4 text-gray-300 hover:text-red-500" /></motion.button>
+                            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => setPersonToRemove({ id: p.id, name: p.name })} aria-label={`Remove ${p.name}`} className="flex items-center justify-center w-11 h-11 -m-3.5 flex-shrink-0 rounded-lg"><Trash2 className="w-4 h-4 text-gray-300 hover:text-red-500" /></motion.button>
                         </motion.div>
                     ))}
                 </div>

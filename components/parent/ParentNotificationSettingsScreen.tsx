@@ -28,14 +28,18 @@ const SettingToggle = ({ icon, label, description, enabled, onToggle, index, una
             aria-label={label}
             disabled={unavailable}
             onClick={onToggle}
-            className={`relative inline-flex items-center h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 ${unavailable ? 'bg-gray-200 cursor-not-allowed opacity-60' : `cursor-pointer ${enabled ? 'bg-green-500' : 'bg-gray-300'}`}`}
+            className={`group relative inline-flex items-center justify-center h-11 w-11 flex-shrink-0 focus:outline-none ${unavailable ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
         >
-            <motion.span
-                aria-hidden="true"
-                animate={{ x: enabled ? 20 : 0 }}
-                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                className="inline-block h-5 w-5 rounded-full bg-white shadow ring-0"
-            />
+            {/* The track keeps its 44x24 look; the button around it is the full
+                44x44 touch target. */}
+            <span aria-hidden="true" className={`inline-flex items-center h-6 w-11 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out group-focus:ring-2 group-focus:ring-offset-2 group-focus:ring-green-500 ${unavailable ? 'bg-gray-200' : enabled ? 'bg-green-500' : 'bg-gray-300'}`}>
+                <motion.span
+                    aria-hidden="true"
+                    animate={{ x: enabled ? 20 : 0 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                    className="inline-block h-5 w-5 rounded-full bg-white shadow ring-0"
+                />
+            </span>
         </button>
     </motion.div>
 );

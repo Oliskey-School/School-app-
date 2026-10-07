@@ -120,14 +120,14 @@ export const FeesPiggyBank: React.FC<{ studentId: string }> = ({ studentId }) =>
                         <motion.button
                             whileTap={{ scale: 0.96 }}
                             onClick={() => setFormData({...formData, frequency: 'weekly'})}
-                            className={`flex-1 py-2 rounded-xl font-bold text-xs transition-colors ${formData.frequency === 'weekly' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-500'}`}
+                            className={`flex-1 min-h-11 py-2 rounded-xl font-bold text-xs transition-colors ${formData.frequency === 'weekly' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-500'}`}
                         >
                             WEEKLY
                         </motion.button>
                         <motion.button
                             whileTap={{ scale: 0.96 }}
                             onClick={() => setFormData({...formData, frequency: 'monthly'})}
-                            className={`flex-1 py-2 rounded-xl font-bold text-xs transition-colors ${formData.frequency === 'monthly' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-500'}`}
+                            className={`flex-1 min-h-11 py-2 rounded-xl font-bold text-xs transition-colors ${formData.frequency === 'monthly' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-500'}`}
                         >
                             MONTHLY
                         </motion.button>

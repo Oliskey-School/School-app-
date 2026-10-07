@@ -61,7 +61,7 @@ const LearningHubProgressScreen: React.FC<LearningHubProgressScreenProps> = ({ s
               <button
                 key={child.id}
                 onClick={() => setSelectedChildId(child.id)}
-                className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${selectedChildId === child.id ? 'bg-green-600 text-white' : 'bg-white text-gray-500 border border-gray-200'}`}
+                className={`min-h-11 px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${selectedChildId === child.id ? 'bg-green-600 text-white' : 'bg-white text-gray-500 border border-gray-200'}`}
               >
                 {child.name}
               </button>

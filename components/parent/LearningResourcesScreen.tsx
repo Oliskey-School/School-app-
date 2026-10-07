@@ -70,8 +70,8 @@ const ResourceCard: React.FC<{ resource: LearningResource; index: number }> = ({
                 </p>
 
                 <div className="flex items-center justify-between pt-4 border-t border-gray-50 mt-auto">
-                    <span className="text-xs font-medium text-gray-400">Tap to view</span>
-                    <span className="flex items-center text-sm font-bold text-gray-900 group-hover:text-green-600 transition-colors">
+                    <span className="text-xs font-medium text-gray-400 whitespace-nowrap">Tap to view</span>
+                    <span className="flex items-center whitespace-nowrap text-sm font-bold text-gray-900 group-hover:text-green-600 transition-colors">
                         Open
                         <ChevronRightIcon className="w-4 h-4 ml-1 transform group-hover:translate-x-1 transition-transform" />
                     </span>
@@ -157,7 +157,7 @@ const LearningResourcesScreen: React.FC = () => {
                                 key={subject}
                                 whileTap={{ scale: 0.95 }}
                                 onClick={() => setSelectedSubject(subject)}
-                                className={`px-5 py-2 text-sm font-semibold rounded-full flex-shrink-0 transition-colors duration-200 whitespace-nowrap border ${selectedSubject === subject
+                                className={`min-h-11 px-5 py-2 text-sm font-semibold rounded-full flex-shrink-0 transition-colors duration-200 whitespace-nowrap border ${selectedSubject === subject
                                         ? 'bg-green-600 text-white border-green-600 shadow-md shadow-green-200'
                                         : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                                     } `}
@@ -176,7 +176,7 @@ const LearningResourcesScreen: React.FC = () => {
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
                     </div>
                 ) : filteredResources.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 pb-20">
+                    <div className="grid gap-4 sm:gap-6 pb-20 [grid-template-columns:repeat(auto-fill,minmax(min(100%,15rem),1fr))]">
                         {filteredResources.map((resource, i) => (
                             <ResourceCard key={resource.id} resource={resource} index={i} />
                         ))}
@@ -195,7 +195,7 @@ const LearningResourcesScreen: React.FC = () => {
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.97 }}
                             onClick={() => { setSelectedSubject('All'); setSearchQuery(''); }}
-                            className="mt-6 px-6 py-2 bg-gray-900 text-white rounded-lg font-medium shadow-lg hover:shadow-xl transition-shadow"
+                            className="mt-6 min-h-11 px-6 py-2 bg-gray-900 text-white rounded-lg font-medium shadow-lg hover:shadow-xl transition-shadow"
                         >
                             Clear Filters
                         </motion.button>
