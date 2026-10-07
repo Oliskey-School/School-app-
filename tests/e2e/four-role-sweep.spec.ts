@@ -24,6 +24,11 @@ function watch(page: Page) {
     page.on('pageerror', e => pageErrors.push(String(e?.message || e)));
     page.on('response', r => {
         const u = r.url();
+        // The AI gateway answers a deliberate 503 when no AI provider key is
+        // configured (true in CI, not in production). The demo now has AI on,
+        // so screens that call it on load hit that here. Only that 503 from
+        // /api/ai/* is excused; any 500, or a 503 elsewhere, still fails.
+        if (r.status() === 503 && /\/api\/ai\//.test(u)) return;
         if (u.includes('/api/') && r.status() >= 500) serverErrors.push(`${r.request().method()} ${u.split('/api/')[1]} → ${r.status()}`);
     });
     return { pageErrors, serverErrors };
