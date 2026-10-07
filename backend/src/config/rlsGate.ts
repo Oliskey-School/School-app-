@@ -56,6 +56,16 @@ export const rlsRoleGate: {
     status: process.env.NODE_ENV !== 'production' ? 'verified' : 'checking',
 };
 
+/**
+ * Settles when the cold-start role check finishes (either way). On serverless
+ * every new instance starts at 'checking', so rejecting until then failed the
+ * first request of each instance — usually the sign-in. Requests wait for this
+ * instead (bounded by the caller's timeout).
+ */
+let resolveReady: () => void = () => {};
+export const rlsGateReady: Promise<void> = new Promise((r) => { resolveReady = r; });
+export function markRlsGateSettled(): void { resolveReady(); }
+
 /** True when tenant traffic may be served right now. */
 export function rlsGateAllowsTraffic(): boolean {
     if (rlsRoleGate.status === 'verified') return true;

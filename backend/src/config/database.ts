@@ -326,7 +326,7 @@ export async function assertDatabaseRoleCannotBypassRls(): Promise<void> {
  * The flag lives in config/rlsGate so that mocking THIS module cannot delete it.
  */
 export { rlsRoleGate } from './rlsGate';
-import { rlsRoleGate as gate, rlsEnforcementMode } from './rlsGate';
+import { rlsRoleGate as gate, rlsEnforcementMode, markRlsGateSettled } from './rlsGate';
 
 if (process.env.NODE_ENV === 'production') {
   prisma.$connect()
@@ -362,7 +362,8 @@ if (process.env.NODE_ENV === 'production') {
       console.error('    rests on application-level scoping alone.');
       console.error('    Serving anyway (RLS_ROLE_ENFORCEMENT=' + rlsEnforcementMode() + ').');
       console.error('='.repeat(72));
-    });
+    })
+    .finally(markRlsGateSettled);
 }
 
 if (process.env.NODE_ENV !== 'production') globalThis.prisma = prisma;

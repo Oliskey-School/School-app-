@@ -77,6 +77,24 @@ describe('RLS role gate', () => {
     });
 });
 
+describe('cold start', () => {
+    // Every new serverless instance starts at 'checking'. Rejecting then failed
+    // the first request of each instance (usually the sign-in) with a 503.
+    it('the /api gate waits for the check instead of rejecting while it runs', async () => {
+        const fs = await import('node:fs');
+        const app = fs.readFileSync(new URL('../../src/app.ts', import.meta.url), 'utf8');
+        expect(app).toMatch(/await Promise\.race\(\[rlsGateReady/);
+        const db = fs.readFileSync(new URL('../../src/config/database.ts', import.meta.url), 'utf8');
+        expect(db).toMatch(/\.finally\(markRlsGateSettled\)/);
+    });
+
+    it('rlsGateReady settles once the check is marked settled', async () => {
+        const { rlsGateReady, markRlsGateSettled } = await import('../../src/config/rlsGate');
+        markRlsGateSettled();
+        await expect(rlsGateReady).resolves.toBeUndefined();
+    });
+});
+
 describe('the boot check itself', () => {
     it('contains no process.exit — that is what failed every serverless request', async () => {
         const fs = await import('node:fs');
