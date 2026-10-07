@@ -1,6 +1,7 @@
 import prisma from '../config/database';
 import { StudentService } from './student.service';
 import { Role } from '../../generated/prisma-client';
+import { summarizeFees, computeWorkload, buildAttendanceTrend, sortBySubject } from '../utils/analyticsMetrics';
 
 export class DashboardService {
     static async getStats(schoolId: string, teacherId?: string, branchId?: string) {
@@ -420,24 +421,66 @@ export class DashboardService {
                     where: baseWhere,
                     _avg: { score: true },
                 }),
-                // Fees breakdown
-                prisma.studentFee.groupBy({
-                    by: ['status'],
-                    where: baseWhere,
-                    _count: { id: true },
-                }),
-                // Teacher workload
-                prisma.teacher.findMany({
-                    where: baseWhere,
-                    select: {
-                        full_name: true,
-                        timetables: {
-                            select: { start_time: true, end_time: true }
+                // Fees breakdown. Bucketed in summarizeFees (case-insensitive
+                // status, due-date aware). A fee saved while the admin was on
+                // "All branches" has branch_id = null — it still belongs to the
+                // branch its STUDENT is in, so a branch view counts it through
+                // the student instead of silently dropping it. school_id stays
+                // a hard filter either way.
+                prisma.studentFee.findMany({
+                    where: effectiveBranchId
+                        ? {
+                            school_id: schoolId, deleted_at: null,
+                            OR: [
+                                { branch_id: effectiveBranchId },
+                                { branch_id: null, student: { school_id: schoolId, branch_id: effectiveBranchId } },
+                            ],
                         }
+                        : { school_id: schoolId, deleted_at: null },
+                    select: { status: true, amount: true, paid_amount: true, due_date: true },
+                }),
+                // Teacher workload — every real teacher in scope (same rule as the
+                // staff count above: TEACHER role, primary or assigned branch), in
+                // a stable order. The card shows the first 5 and expands the rest.
+                prisma.teacher.findMany({
+                    where: {
+                        school_id: schoolId,
+                        deleted_at: null,
+                        user: { role: Role.TEACHER },
+                        ...(effectiveBranchId ? {
+                            OR: [
+                                { branch_id: effectiveBranchId },
+                                { allowed_branch_ids: { has: effectiveBranchId } }
+                            ]
+                        } : {})
                     },
-                    take: 5
+                    select: { id: true, full_name: true },
+                    orderBy: [{ created_at: 'asc' }, { id: 'asc' }],
                 })
             ]);
+
+            // Lessons + subject-level assignments for the workload calculation.
+            const workloadTeacherIds = (workloadData as any[]).map((t) => t.id);
+            const [workloadLessons, workloadAssignments] = workloadTeacherIds.length > 0
+                ? await Promise.all([
+                    prisma.timetable.findMany({
+                        where: baseWhere,
+                        select: {
+                            teacher_id: true, class_id: true, class_name: true, subject: true,
+                            day_of_week: true, start_time: true, end_time: true,
+                            class: { select: { name: true } },
+                        },
+                    }),
+                    prisma.classTeacher.findMany({
+                        where: { school_id: schoolId, deleted_at: null, teacher_id: { in: workloadTeacherIds } },
+                        select: {
+                            teacher_id: true, class_id: true,
+                            class: { select: { name: true } },
+                            subject: { select: { name: true } },
+                        },
+                    }),
+                ])
+                : [[], []];
 
             // Process enrollment data into year-based format for the chart
             const timeCounts: Record<string, number> = {};
@@ -454,89 +497,46 @@ export class DashboardService {
                 count: timeCounts[key]
             })).sort((a, b) => a.label.localeCompare(b.label));
 
-            if (processedEnrollmentData.length === 0) {
-                processedEnrollmentData.push({ year: new Date().getFullYear(), label: String(new Date().getFullYear()), count: totalStudents });
-            }
+            // No students -> no rows, so the Analytics card shows its
+            // "No students enrolled yet" state instead of a fake data point.
 
             // Process Performance
-            const performance = performanceData.map((p: any) => ({
+            // Sorted A-Z so the Analytics card's "first 10 subjects" is stable.
+            const performance = sortBySubject(performanceData.map((p: any) => ({
                 label: p.subject,
                 value: Math.round(p._avg.score || 0),
                 a11yLabel: `${p.subject}: ${Math.round(p._avg.score || 0)}% average`
-            }));
+            })));
 
             // Process Fees
-            const feeStatusCounts: Record<string, number> = {};
-            let feeTotal = 0;
-            feeData.forEach((f: any) => {
-                feeStatusCounts[f.status] = (feeStatusCounts[f.status] || 0) + f._count.id;
-                feeTotal += f._count.id;
-            });
-            const fees = {
-                paid: feeTotal > 0 ? Math.round(((feeStatusCounts['Paid'] || 0) / feeTotal) * 100) : 0,
-                overdue: feeTotal > 0 ? Math.round(((feeStatusCounts['Overdue'] || 0) / feeTotal) * 100) : 0,
-                unpaid: feeTotal > 0 ? Math.round(((feeStatusCounts['Pending'] || 0) / feeTotal) * 100) : 0,
-                total: feeTotal
-            };
+            const fees = summarizeFees(feeData as any[]);
 
             // Process Workload
-            const workload = workloadData.map((t: any) => {
-                let weeklyMinutes = 0;
-                // Sum up duration of all lessons in the timetable for this teacher
-                if (t.timetables && Array.isArray(t.timetables)) {
-                    t.timetables.forEach((session: any) => {
-                        try {
-                            if (session.start_time && session.end_time) {
-                                const [startH, startM] = session.start_time.split(':').map(Number);
-                                const [endH, endM] = session.end_time.split(':').map(Number);
-                                const duration = (endH * 60 + endM) - (startH * 60 + startM);
-                                if (duration > 0) weeklyMinutes += duration;
-                            }
-                        } catch (e) {
-                            // Skip invalid time formats
-                        }
-                    });
-                }
-                
-                return {
-                    label: t.full_name.split(' ')[0],
-                    value: Math.round((weeklyMinutes / 60) * 10) / 10 // Hours per week
-                };
-            });
-            
-            // If no real timetable data, fallback to a sensible estimation
-            if (workload.every(w => w.value === 0)) {
-                workloadData.forEach((t: any, index: number) => {
-                    if (workload[index]) {
-                        workload[index].value = (t._count?.classes || 0) * 5; // Fallback estimate
-                    }
-                });
-            }
+            const workload = computeWorkload(
+                workloadData as any[],
+                (workloadAssignments as any[]).map((a) => ({
+                    teacher_id: a.teacher_id, class_id: a.class_id,
+                    class_name: a.class?.name ?? null, subject_name: a.subject?.name ?? null,
+                })),
+                (workloadLessons as any[]).map((l) => ({
+                    teacher_id: l.teacher_id, class_id: l.class_id,
+                    class_name: l.class?.name ?? l.class_name ?? null, subject: l.subject,
+                    day_of_week: l.day_of_week, start_time: l.start_time, end_time: l.end_time,
+                })),
+            );
 
-            // Fetch the seven-day trend in one query instead of two sequential
-            // count queries per day. The response shape remains unchanged.
+            // Seven-day attendance trend in one query. Days with no register
+            // taken come back as rate: null (a gap), not 0%.
             const trendStart = new Date();
-            trendStart.setDate(trendStart.getDate() - 6);
+            trendStart.setDate(trendStart.getDate() - 7);
             trendStart.setHours(0, 0, 0, 0);
             const trendRows = await prisma.attendance.findMany({
                 where: { date: { gte: trendStart }, student: baseWhere },
                 select: { date: true, status: true }
             });
-            const trendCounts = new Map<string, { total: number; present: number }>();
-            for (const row of trendRows) {
-                const key = new Date(row.date).toISOString().slice(0, 10);
-                const counts = trendCounts.get(key) || { total: 0, present: 0 };
-                counts.total += 1;
-                if (row.status === 'Present') counts.present += 1;
-                trendCounts.set(key, counts);
-            }
-            const attendanceTrend = [];
-            for (let i = 6; i >= 0; i--) {
-                const d = new Date();
-                d.setDate(d.getDate() - i);
-                const counts = trendCounts.get(d.toISOString().slice(0, 10));
-                attendanceTrend.push(counts?.total ? Math.round((counts.present / counts.total) * 100) : 0);
-            }
+            const attendanceTrendDays = buildAttendanceTrend(trendRows);
+            // Legacy numeric shape kept for older clients.
+            const attendanceTrend = attendanceTrendDays.map((d) => d.rate ?? 0);
 
             const attendanceRate = attendanceTodayTotal > 0 
                 ? Math.round((attendanceTodayPresent / attendanceTodayTotal) * 100) 
@@ -593,7 +593,8 @@ export class DashboardService {
                 performance,
                 fees,
                 workload,
-                attendance: attendanceTrend
+                attendance: attendanceTrend,
+                attendanceTrend: attendanceTrendDays
             };
         } catch (error) {
             console.error('❌ [DashboardService] Error fetching Prisma stats:', error);

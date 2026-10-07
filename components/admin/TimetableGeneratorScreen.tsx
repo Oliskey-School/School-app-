@@ -278,13 +278,13 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ sch
                 </div>
 
                 {/* DASHBOARD GRID */}
-                <div className="bg-white p-6 rounded-3xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07),0_10px_20px_-2px_rgba(0,0,0,0.04)] border border-gray-100/50">
-                    <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-xl font-bold text-gray-900 flex items-center gap-3">
+                <div className="bg-white p-4 sm:p-6 rounded-3xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07),0_10px_20px_-2px_rgba(0,0,0,0.04)] border border-gray-100/50">
+                    <div className="flex flex-wrap justify-between items-center gap-x-4 gap-y-2 mb-6">
+                        <h2 className="text-xl font-bold text-gray-900 flex items-center gap-3 whitespace-nowrap">
                             <CalendarIcon className="w-6 h-6 text-indigo-600" />
                             All Classes
                         </h2>
-                        <div className="flex items-center gap-4 text-xs font-semibold">
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-semibold">
                             <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-emerald-500"></div> Published</div>
                             <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-orange-500"></div> Draft</div>
                             <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-gray-300"></div> No Timetable</div>
@@ -292,13 +292,13 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ sch
                     </div>
 
                     {isLoadingClasses || isLoadingStatuses ? (
-                        <div className="grid grid-cols-3 xl:grid-cols-4 gap-4">
+                        <div className="grid gap-3 sm:gap-4 grid-cols-[repeat(auto-fill,minmax(min(100%,9.5rem),1fr))] sm:grid-cols-[repeat(auto-fill,minmax(13rem,1fr))]">
                             {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
                                 <div key={i} className="h-40 bg-gray-50 rounded-2xl animate-pulse"></div>
                             ))}
                         </div>
                     ) : (
-                        <div className="grid grid-cols-3 xl:grid-cols-4 gap-4">
+                        <div className="grid gap-3 sm:gap-4 grid-cols-[repeat(auto-fill,minmax(min(100%,9.5rem),1fr))] sm:grid-cols-[repeat(auto-fill,minmax(13rem,1fr))]">
                             {classes.map((cls, ci) => {
                                 const status = timetableStatuses[cls.name];
                                 return (
@@ -307,20 +307,24 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ sch
                                         initial={{ opacity: 0, y: 8 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ duration: 0.2, delay: Math.min(ci, 20) * 0.03 }}
-                                        className={`p-5 rounded-2xl border transition-all duration-300 group flex flex-col justify-between h-full min-h-[160px] ${status
+                                        className={`p-4 sm:p-5 rounded-2xl border transition-all duration-300 group flex flex-col justify-between h-full min-h-[160px] ${status
                                             ? 'border-indigo-100 bg-white shadow-sm hover:shadow-md'
                                             : 'border-gray-100 bg-gray-50 hover:bg-white hover:border-indigo-100 hover:shadow-sm'
                                             }`}
                                     >
                                         <div>
-                                            <div className="flex justify-between items-start mb-3">
-                                                <div className="bg-indigo-50 text-indigo-700 font-bold text-xs px-2 py-1 rounded-lg uppercase tracking-wider">
+                                            <div className="mb-3">
+                                                <span className="inline-block bg-indigo-50 text-indigo-700 font-bold text-xs px-2 py-1 rounded-lg uppercase tracking-wider whitespace-nowrap">
                                                     Grade {cls.grade}
-                                                </div>
-                                                <div className={`w-3 h-3 rounded-full ${status === 'Published' ? 'bg-emerald-500' : status === 'Draft' ? 'bg-orange-500' : 'bg-gray-300'}`} />
+                                                </span>
                                             </div>
-                                            <h4 className="font-bold text-gray-900 text-lg tracking-tight mb-1">{cls.name}</h4>
-                                            <p className="text-xs text-gray-500 font-medium uppercase">Section {cls.section}</p>
+                                            <h4 className="font-bold text-gray-900 text-lg tracking-tight leading-snug mb-1 break-words">{cls.name}</h4>
+                                            <p className="text-xs text-gray-500 font-medium uppercase whitespace-nowrap">Section {cls.section}</p>
+                                            {/* Status in words as well as colour, so it is not colour-only. */}
+                                            <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-gray-600">
+                                                <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${status === 'Published' ? 'bg-emerald-500' : status === 'Draft' ? 'bg-orange-500' : 'bg-gray-300'}`} aria-hidden="true" />
+                                                {status === 'Published' ? 'Published' : status === 'Draft' ? 'Draft' : 'No Timetable'}
+                                            </p>
                                         </div>
 
                                         <div className="mt-4 pt-4 border-t border-gray-100 flex gap-2">
@@ -328,7 +332,8 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ sch
                                                 <div className="flex gap-2 w-full">
                                                     <button
                                                         onClick={() => loadTimetable(cls)}
-                                                        className="flex-1 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-2"
+                                                        aria-label={`Edit timetable for ${cls.name}`}
+                                                        className="flex-1 min-w-0 min-h-[44px] px-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-2"
                                                     >
                                                         <EditIcon className="w-4 h-4 shrink-0" />
                                                         Edit
@@ -351,8 +356,9 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ sch
                                                                 deleteTimetable();
                                                             }
                                                         }}
-                                                        className="px-3 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition-colors"
+                                                        className="shrink-0 w-11 min-h-[44px] flex items-center justify-center bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition-colors"
                                                         title="Delete Timetable"
+                                                        aria-label={`Delete timetable for ${cls.name}`}
                                                     >
                                                         <span className="sr-only">Delete</span>
                                                         <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M4 7l16 0" /><path d="M10 11l0 6" /><path d="M14 11l0 6" /><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" /><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" /></svg>
@@ -361,7 +367,8 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ sch
                                             ) : (
                                                 <button
                                                     onClick={() => navigateTo('timetableCreator', 'Create Timetable', { initialClasses: [cls] })}
-                                                    className="w-full py-2.5 bg-white border border-gray-200 hover:border-indigo-200 hover:text-indigo-600 text-gray-600 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2"
+                                                    aria-label={`Create timetable for ${cls.name}`}
+                                                    className="w-full min-h-[44px] px-2 bg-white border border-gray-200 hover:border-indigo-200 hover:text-indigo-600 text-gray-600 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2"
                                                 >
                                                     <SparklesIcon className="w-4 h-4 shrink-0" />
                                                     Create New

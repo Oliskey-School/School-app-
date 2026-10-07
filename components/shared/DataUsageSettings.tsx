@@ -21,10 +21,10 @@ const DataUsageSettings: React.FC<{
 
     return (
         <div className={variant === 'card' ? 'divide-y divide-gray-100' : 'p-4 space-y-4'}>
-            <div className={`flex justify-between items-center p-4 ${box}`}>
-                <div className="flex items-center space-x-4">
-                    <div className="bg-gray-100 p-2 rounded-lg"><WifiOff className="h-5 w-5 text-gray-600" /></div>
-                    <div>
+            <div className={`flex flex-wrap justify-between items-center gap-3 p-4 ${box}`}>
+                <div className="flex items-center space-x-4 min-w-0 flex-1 basis-52">
+                    <div className="bg-gray-100 p-2 rounded-lg shrink-0"><WifiOff className="h-5 w-5 text-gray-600" /></div>
+                    <div className="min-w-0">
                         <p className="font-semibold text-gray-800">Low data mode</p>
                         <p className="text-sm text-gray-500">
                             {browserSaver
