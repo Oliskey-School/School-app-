@@ -24,7 +24,9 @@ if (loadedAny) {
     console.warn(`[EnvConfig] No .env file found in: ${candidateEnvPaths.join(', ')}`);
 }
 
-const DEV_FALLBACK_DEMO_SCHOOL_ID = 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
+const DEFAULT_GOOGLE_CLIENT_ID = '1036010453198-q6c7pjf53uqus1j3o85bfud2gebe4rcu.apps.googleusercontent.com';
+
+const DEV_FALLBACK_DEMO_SCHOOL_ID ='d0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
 const DEV_FALLBACK_DEMO_BRANCH_ID = '7601cbea-e1ba-49d6-b59b-412a584cb94f';
 
 const resolvedDemoSchoolId = process.env.DEMO_SCHOOL_ID
@@ -60,7 +62,10 @@ export const config = {
     nvidiaApiKey: process.env.NVIDIA_API_KEY || process.env.NVIDIA_NIM_API_KEY || '',
     nvidiaBaseUrl: process.env.NVIDIA_BASE_URL || 'https://integrate.api.nvidia.com/v1',
     nvidiaGenaiBaseUrl: process.env.NVIDIA_GENAI_BASE_URL || 'https://ai.api.nvidia.com/v1',
-    googleClientId: process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID || '',
+    // A public OAuth client ID, not a secret. The fallback is the same one the
+    // frontend's Google button uses when VITE_GOOGLE_CLIENT_ID is unset
+    // (components/auth/Login.tsx), so the token audience check still matches.
+    googleClientId: process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID || DEFAULT_GOOGLE_CLIENT_ID,
     dailyApiKey: process.env.DAILY_API_KEY || '',
 };
 
@@ -74,7 +79,12 @@ if (IS_PRODUCTION) {
     if (!process.env.DATABASE_URL) missing.push('DATABASE_URL');
     if (!resolvedDemoSchoolId) missing.push('DEMO_SCHOOL_ID (or DEFAULT_SCHOOL_ID)');
     if (!resolvedDemoBranchId) missing.push('DEMO_BRANCH_ID (or DEFAULT_BRANCH_ID)');
-    if (!process.env.GOOGLE_CLIENT_ID && !process.env.VITE_GOOGLE_CLIENT_ID) missing.push('GOOGLE_CLIENT_ID');
+    // Not fatal: a missing public client ID took the whole API down in
+    // production (every route crashed at boot, so nobody could sign in at all).
+    // The fallback above keeps Google sign-in matched to the frontend's button.
+    if (!process.env.GOOGLE_CLIENT_ID && !process.env.VITE_GOOGLE_CLIENT_ID) {
+        console.warn('[EnvConfig] GOOGLE_CLIENT_ID is not set; using the default public client ID shared with the frontend.');
+    }
     // Without these, EmailService falls back to Ethereal — a public throwaway
     // mailbox — so verification codes, password resets and invitations never
     // reach the user. Fail at boot rather than at the first signup.
