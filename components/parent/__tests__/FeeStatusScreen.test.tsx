@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, configure } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import FeeStatusScreen from '../FeeStatusScreen';
 
@@ -34,6 +34,11 @@ vi.mock('react-hot-toast', () => {
     toast.error = vi.fn();
     return { toast, default: toast };
 });
+
+// The screen loads children, then fees, before it can show any state; 1s (the
+// default) is too tight on a loaded CI runner, and the test still fails if the
+// state never appears.
+configure({ asyncUtilTimeout: 5000 });
 
 const CHILD = { id: 'stu-1', name: 'Ada Obi', full_name: 'Ada Obi' };
 
