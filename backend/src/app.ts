@@ -12,7 +12,7 @@ import { config } from './config/env';
 import { doubleSubmitCookieMiddleware, csrfErrorHandler, ensureCsrfCookie } from './middleware/csrf.middleware';
 import { globalApiLimiter } from './middleware/rateLimiters';
 import { Sentry, sentryEnabled } from './config/instrument';
-import { rlsRoleGate, rlsGateAllowsTraffic } from './config/rlsGate';
+import { rlsRoleGate, rlsGateAllowsTraffic, rlsGateReady } from './config/rlsGate';
 import routes from './routes';
 
 const app = express();
@@ -301,8 +301,15 @@ app.get('/ready', async (_req, res) => {
 // config/database in, so this adds no new load-time side effect, and it keeps
 // the check synchronous — an async middleware here would add an unhandled
 // rejection path on the hot request path for no benefit.
-app.use('/api', (_req, res, next) => {
+app.use('/api', async (_req, res, next) => {
     if (rlsGateAllowsTraffic()) return next();
+    // Still checking (a cold start): wait briefly for the check rather than
+    // failing the request. rlsGateReady never rejects, so this adds no
+    // rejection path.
+    if (rlsRoleGate.status === 'checking') {
+        await Promise.race([rlsGateReady, new Promise((r) => setTimeout(r, 10_000))]);
+        if (rlsGateAllowsTraffic()) return next();
+    }
     res.setHeader('Retry-After', '5');
     return res.status(503).json({
         message: rlsRoleGate.status === 'checking'
