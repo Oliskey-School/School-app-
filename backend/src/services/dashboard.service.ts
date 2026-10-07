@@ -554,10 +554,13 @@ export class DashboardService {
                 unpublishedReports,
                 attendanceRate,
                 avgStudentScore: Math.round(avgScoreData._avg.score || 0),
-                studentTrend: studentsLast30 - studentsPrev30,
-                teacherTrend: teachersLast30 - teachersPrev30,
-                parentTrend: parentsLast30 - parentsPrev30,
-                classTrend: classesLast30 - classesPrev30,
+                // "+N last 30 days" on the cards = added in the last 30 days. It
+                // used to subtract the PREVIOUS 30 days' additions, so a school that
+                // simply enrolled fewer this month read "5 students, -4" (live demo).
+                studentTrend: studentsLast30,
+                teacherTrend: teachersLast30,
+                parentTrend: parentsLast30,
+                classTrend: classesLast30,
                 pendingApprovals,
                 latestHealthLog: latestBehaviorNote ? {
                     studentName: (latestBehaviorNote as any).student?.full_name || 'Unknown',

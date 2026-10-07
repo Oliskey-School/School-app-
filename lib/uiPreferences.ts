@@ -13,6 +13,7 @@
  */
 import { api } from './api';
 import { setLowDataMode } from './lowDataMode';
+import { isDemoMode } from './apiHelpers';
 
 export type ColorScheme = 'light' | 'dark' | 'system';
 
@@ -101,6 +102,9 @@ let currentScope = '';
 
 /** Merge a change into the account copy (debounced). Safe to call often. */
 export function syncUiPreference(patch: UiPreferences, scope?: string): void {
+    // Demo accounts are shared by every visitor: one visitor's look must not
+    // become everyone's. Keep it on this device only.
+    if (isDemoMode()) return;
     if (scope) currentScope = scope;
     pending = { ...pending, ...patch };
     if (timer !== undefined) window.clearTimeout(timer);
@@ -119,6 +123,8 @@ export function syncUiPreference(patch: UiPreferences, scope?: string): void {
 /** Apply the account copy on this device if this scope has not applied that version yet. */
 export function applyAccountPreferences(prefs: UiPreferences | null | undefined, appearanceScope: string): boolean {
     if (!prefs || typeof prefs !== 'object' || !prefs.updated_at) return false;
+    // Shared demo account: ignore whatever earlier visitors saved to it.
+    if (isDemoMode()) return false;
     if (!appearanceScope || appearanceScope.endsWith(':')) return false; // role not known yet — wait for the real scope
     currentScope = appearanceScope;
     const lastApplied = localStorage.getItem(appliedKey(appearanceScope));
