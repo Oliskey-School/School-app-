@@ -2,9 +2,9 @@ import prisma from '../config/database';
 import { SocketService } from './socket.service';
 
 export class AiService {
-    static async getGeneratedResources(schoolId: string, branchId: string | undefined, teacherId: string) {
+    static async getGeneratedResources(schoolId: string, branchId: string | undefined, teacherId?: string) {
         const where: any = {
-            teacher_id: teacherId,
+            ...(teacherId ? { teacher_id: teacherId } : {}),
             school_id: schoolId
         };
 

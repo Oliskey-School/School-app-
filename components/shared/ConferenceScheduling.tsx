@@ -61,7 +61,11 @@ const ConferenceScheduling: React.FC = () => {
 
     const fetchStudents = async () => {
         try {
-            const data = await api.getStudents({ schoolId: profile.school_id, parent_id: profile.id });
+            // Parents may not read the student directory (403); they get their
+            // own children from the self-scoped endpoint instead.
+            const data = (profile.role || '').toLowerCase() === 'parent'
+                ? await api.getMyChildren()
+                : await api.getStudents({ schoolId: profile.school_id, parent_id: profile.id });
             setStudents(data || []);
             if (data && data.length > 0) {
                 setStudentId(data[0].id);
