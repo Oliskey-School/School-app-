@@ -225,7 +225,12 @@ export class ReferralService {
         // failure is logged, not surfaced, so it can't make staff retry a change
         // that succeeded. The description and note text are NOT copied into the
         // log — only the status transition and whether the note changed.
-        AuditService.createLog(actor.school_id, existing.branch_id || undefined, {
+        // A confidential referral's audit row is written school-level (no
+        // branch), so branch-scoped audit feeds never show it to a branch admin;
+        // school-wide readers additionally hide is_sensitive FamilyReferral rows
+        // from anyone but the main admin (confidentialReferralAuditFilter).
+        const auditBranchId = existing.is_confidential ? undefined : (existing.branch_id || undefined);
+        AuditService.createLog(actor.school_id, auditBranchId, {
             user_id: actor.id,
             action: 'family_referral.update',
             action_type: 'UPDATE',

@@ -1,6 +1,33 @@
 import prisma from '../config/database';
 import { SocketService } from './socket.service';
 
+/**
+ * Audit rows for CONFIDENTIAL family referrals are written school-level
+ * (branch_id NULL) and flagged is_sensitive, so branch-filtered readers never
+ * see them. School-wide readers must still hide them from anyone who is not the
+ * school's main admin — a parent, teacher or counselor can reach some of these
+ * feeds with no branch filter at all. Pass `canSeeConfidential` = the caller is
+ * a school-level (main) admin.
+ *
+ * Written as an OR of positive conditions rather than NOT(a AND b) so rows with
+ * a NULL entity_type are never dropped by SQL three-valued logic.
+ */
+export function confidentialReferralAuditFilter(canSeeConfidential: boolean): any | null {
+    if (canSeeConfidential) return null;
+    return {
+        OR: [
+            { entity_type: null },
+            { entity_type: { not: 'FamilyReferral' } },
+            { is_sensitive: false },
+        ],
+    };
+}
+
+/** True when the request comes from the school's main (school-level) admin. */
+export function isMainSchoolAdmin(user: any): boolean {
+    return !!user?.is_main_admin && ['ADMIN', 'PROPRIETOR', 'SUPER_ADMIN'].includes(String(user?.role || '').toUpperCase());
+}
+
 export class AuditService {
     static async createLog(schoolId: string, branchId: string | undefined, data: any) {
         const log = await prisma.auditLog.create({
@@ -29,7 +56,7 @@ export class AuditService {
         return log;
     }
 
-    static async getLogs(schoolId: string, branchId: string | undefined, filters: any) {
+    static async getLogs(schoolId: string, branchId: string | undefined, filters: any, canSeeConfidential = false) {
         const { startDate, endDate, actionType, riskLevel, searchTerm, limit = 500 } = filters;
 
         const where: any = {
@@ -62,6 +89,9 @@ export class AuditService {
                 { user: { email: { contains: searchTerm, mode: 'insensitive' } } }
             ];
         }
+
+        const confidential = confidentialReferralAuditFilter(canSeeConfidential);
+        if (confidential) where.AND = [confidential];
 
         return await prisma.auditLog.findMany({
             where,

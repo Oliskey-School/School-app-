@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { AuditService } from '../services/audit.service';
+import { AuditService, isMainSchoolAdmin } from '../services/audit.service';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { getEffectiveBranchId } from '../utils/branchScope';
 
@@ -23,7 +23,7 @@ export const getAuditLogs = async (req: AuthRequest, res: Response) => {
             limit: req.query.limit as string
         };
 
-        const logs = await AuditService.getLogs(school_id, branchId, filters);
+        const logs = await AuditService.getLogs(school_id, branchId, filters, isMainSchoolAdmin(req.user));
         
         // Map back to the format the UI expects for backward compatibility if needed
         const mappedLogs = logs.map(log => ({

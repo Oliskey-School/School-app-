@@ -264,6 +264,51 @@ describe('Family referrals', () => {
         expect(JSON.stringify(logs)).not.toContain('Meeting booked');
     });
 
+    it('a confidential referral’s audit trail never reaches a branch admin (or a parent), but the main admin sees it', async () => {
+        // The counselor updated the confidential referral in the test above.
+        const [confLogs, openLogs] = await runAsPlatform(() => Promise.all([
+            prisma.auditLog.findMany({ where: { school_id: SA, entity_type: 'FamilyReferral', entity_id: ids.refConf } }),
+            prisma.auditLog.findMany({ where: { school_id: SA, entity_type: 'FamilyReferral', entity_id: ids.refOpen } }),
+        ]));
+        expect(confLogs.length).toBeGreaterThan(0);
+        expect(openLogs.length).toBeGreaterThan(0);
+        // Written school-level and flagged sensitive.
+        for (const l of confLogs) {
+            expect(l.branch_id).toBeNull();
+            expect(l.is_sensitive).toBe(true);
+        }
+        const confLogIds = confLogs.map(l => l.id);
+        const readers = ['/api/audit-logs', '/api/dashboard/audit-logs', '/api/dashboard/stats'];
+        const seen = async (headers: Record<string, string>) => {
+            const bodies: string[] = [];
+            for (const url of readers) {
+                const res = await request(app).get(url).set(headers);
+                bodies.push(res.status < 300 ? JSON.stringify(res.body) : '');
+            }
+            return bodies;
+        };
+        const leaks = (bodies: string[]) => bodies
+            .map((b, i) => (confLogIds.some(id => b.includes(id)) || b.includes(ids.refConf)) ? readers[i] : null)
+            .filter(Boolean);
+
+        expect(leaks(await seen(as.branchAdmin())), 'branch admin saw the confidential referral audit trail').toEqual([]);
+        expect(leaks(await seen(as.parentA())), 'a parent saw the confidential referral audit trail').toEqual([]);
+        expect(leaks(await seen(as.counselorM())), 'another branch counselor saw the confidential referral audit trail').toEqual([]);
+
+        // Not a blanket deny: the branch admin still sees the non-confidential referral's trail.
+        const branchAudit = await request(app).get('/api/audit-logs').set(as.branchAdmin());
+        expect(branchAudit.status).toBe(200);
+        expect(JSON.stringify(branchAudit.body)).toContain(ids.refOpen);
+
+        // The main admin (All Branches) still sees the confidential trail.
+        const mainAudit = await request(app).get('/api/audit-logs').set(as.mainAdmin());
+        expect(mainAudit.status).toBe(200);
+        expect(JSON.stringify(mainAudit.body)).toContain(ids.refConf);
+        const mainFeed = await request(app).get('/api/dashboard/audit-logs').set(as.mainAdmin());
+        expect(mainFeed.status).toBe(200);
+        expect(confLogIds.some(id => JSON.stringify(mainFeed.body).includes(id))).toBe(true);
+    });
+
     it('rejects an invalid status', async () => {
         const res = await request(app).patch(`/api/referrals/${ids.refOpen}`).set(as.mainAdmin()).send({ status: 'Deleted' });
         expect(res.status).toBe(400);

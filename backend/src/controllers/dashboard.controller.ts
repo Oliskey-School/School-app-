@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { DashboardService } from '../services/dashboard.service';
+import { isMainSchoolAdmin } from '../services/audit.service';
 import prisma from '../config/database';
 import { getEffectiveBranchId } from '../utils/branchScope';
 import { sendError } from '../utils/httpError';
@@ -28,7 +29,7 @@ export const getStats = async (req: AuthRequest, res: Response) => {
 
         const branchId = getEffectiveBranchId(req.user, (req.query.branchId || req.query.branch_id) as string);
         console.log(`[DashboardController] Calling DashboardService.getStats with schoolId: ${schoolId}, teacherId: ${teacherId}, branchId: ${branchId}`);
-        const stats = await DashboardService.getStats(schoolId, teacherId, branchId);
+        const stats = await DashboardService.getStats(schoolId, teacherId, branchId, isMainSchoolAdmin(req.user));
         res.json(stats);
     } catch (error: any) {
         console.error('[DashboardController] Error:', error);
@@ -41,7 +42,7 @@ export const getAuditLogs = async (req: AuthRequest, res: Response) => {
         const schoolId = req.user.school_id;
         const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
         const branchId = getEffectiveBranchId(req.user, (req.query.branchId || req.query.branch_id) as string);
-        const logs = await DashboardService.getAuditLogs(schoolId, limit, branchId);
+        const logs = await DashboardService.getAuditLogs(schoolId, limit, branchId, isMainSchoolAdmin(req.user));
         res.json(logs);
     } catch (error: any) {
         sendError(res, error, 'dashboard.controller.ts');
