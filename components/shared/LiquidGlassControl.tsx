@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { applyAccountPreferences, syncUiPreference } from '../../lib/uiPreferences';
+import { applyAccountPreferences, setPreferenceScope, syncUiPreference } from '../../lib/uiPreferences';
 import { useAuth } from '../../context/AuthContext';
 
 /**
@@ -99,8 +99,10 @@ export const AppearanceSync: React.FC = () => {
   const auth = useAuth() as any;
   const accountPrefs = auth?.user?.ui_preferences;
   useEffect(() => {
-    // A newer account copy (saved from another device) lands in localStorage
-    // first, then the scoped look is applied as before.
+    // Switch to this user + role's own scheme and card size first, so the last
+    // person's look never carries over. Then a newer account copy (saved from
+    // another device) lands, then the scoped look is applied as before.
+    setPreferenceScope(scope);
     applyAccountPreferences(accountPrefs, scope);
     applyScopedAppearance(scope);
   }, [scope, accountPrefs]);
