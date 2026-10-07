@@ -252,7 +252,9 @@ describe('Family referrals', () => {
         const mine = await request(app).get('/api/referrals/mine').set(as.parentA());
         const seen = Object.fromEntries(mine.body.map((r: any) => [r.id, r]));
         expect(seen[ids.refOpen].status).toBe('In Progress');
-        expect(seen[ids.refOpen].staff_note).toBe('Meeting booked for Monday');
+        // The staff note is internal to the school — never sent to the parent.
+        expect(seen[ids.refOpen].staff_note).toBeUndefined();
+        expect(JSON.stringify(mine.body)).not.toContain('Meeting booked');
         expect(seen[ids.refConf].status).toBe('Resolved');
 
         // The status change is audited without copying the referral's text.

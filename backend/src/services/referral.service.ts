@@ -90,7 +90,9 @@ async function resolveParentId(actor: ReferralActor): Promise<string | null> {
 
 const studentSelect = { select: { id: true, full_name: true, school_generated_id: true } } as const;
 
-function shape(row: any, parentNames?: Map<string, string>) {
+// staffView=false is the parent's view: the staff note is internal to the
+// school (it may hold notes about the family) and is never sent to the parent.
+function shape(row: any, staffView: boolean, parentNames?: Map<string, string>) {
     const student = row.student
         ? { id: row.student.id, name: row.student.full_name, full_name: row.student.full_name, school_generated_id: row.student.school_generated_id }
         : null;
@@ -104,7 +106,7 @@ function shape(row: any, parentNames?: Map<string, string>) {
         urgency: row.urgency,
         is_confidential: row.is_confidential,
         status: row.status,
-        staff_note: row.staff_note,
+        ...(staffView ? { staff_note: row.staff_note } : {}),
         created_at: row.created_at,
         updated_at: row.updated_at,
         student,
@@ -154,7 +156,7 @@ export class ReferralService {
             },
             include: { student: studentSelect },
         });
-        return shape(row);
+        return shape(row, false);
     }
 
     static async listForParent(actor: ReferralActor) {
@@ -166,7 +168,7 @@ export class ReferralService {
             orderBy: { created_at: 'desc' },
             take: 200,
         });
-        return rows.map(r => shape(r));
+        return rows.map(r => shape(r, false));
     }
 
     static async listForStaff(actor: ReferralActor) {
@@ -186,7 +188,7 @@ export class ReferralService {
             })
             : [];
         const names = new Map(parents.map(p => [p.id, p.full_name || '']));
-        return rows.map(r => shape(r, names));
+        return rows.map(r => shape(r, true, names));
     }
 
     static async updateByStaff(actor: ReferralActor, id: string, body: any, meta: { ip?: string; userAgent?: string } = {}) {
@@ -239,6 +241,6 @@ export class ReferralService {
             is_sensitive: existing.is_confidential,
         }).catch(err => console.error('[referral] audit log write failed:', err?.message || err));
 
-        return shape(updated);
+        return shape(updated, true);
     }
 }
