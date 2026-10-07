@@ -13,6 +13,8 @@
  */
 import { api } from './api';
 import { setLowDataMode } from './lowDataMode';
+import { isDemoMode } from './apiHelpers';
+import { scopedKey, setPrefScope } from './prefScope';
 
 export type ColorScheme = 'light' | 'dark' | 'system';
 
@@ -48,9 +50,9 @@ const systemDark = () => typeof window !== 'undefined' && !!window.matchMedia?.(
 
 export function getColorScheme(): ColorScheme {
     try {
-        const s = localStorage.getItem(SCHEME_KEY);
+        const s = localStorage.getItem(scopedKey(SCHEME_KEY));
         if (s === 'light' || s === 'dark' || s === 'system') return s;
-        return localStorage.getItem('darkMode') === 'true' ? 'dark' : 'light';
+        return localStorage.getItem(scopedKey('darkMode')) === 'true' ? 'dark' : 'light';
     } catch { return 'light'; }
 }
 
@@ -59,6 +61,9 @@ export function applyColorScheme(scheme: ColorScheme, opts: { sync?: boolean } =
     const dark = scheme === 'dark' || (scheme === 'system' && systemDark());
     document.documentElement.classList.toggle('dark', dark);
     try {
+        localStorage.setItem(scopedKey(SCHEME_KEY), scheme);
+        localStorage.setItem(scopedKey('darkMode'), String(dark));
+        // Bare copy: what the sign-in screen shows before anyone is known.
         localStorage.setItem(SCHEME_KEY, scheme);
         localStorage.setItem('darkMode', String(dark));
     } catch { /* storage unavailable */ }
@@ -66,16 +71,31 @@ export function applyColorScheme(scheme: ColorScheme, opts: { sync?: boolean } =
     window.dispatchEvent(new CustomEvent(PREFERENCES_APPLIED_EVENT, { detail: { colorScheme: scheme } }));
 }
 
+/**
+ * Switch the device-stored look to this user + role (call on every sign-in or
+ * role switch, before applying the account copy). Re-applies their scheme and
+ * tells listeners (e.g. the dashboard's card size) to re-read.
+ */
+export function setPreferenceScope(scope: string): void {
+    setPrefScope(scope);
+    const scheme = getColorScheme();
+    const dark = scheme === 'dark' || (scheme === 'system' && systemDark());
+    document.documentElement.classList.toggle('dark', dark);
+    window.dispatchEvent(new CustomEvent(PREFERENCES_APPLIED_EVENT, {
+        detail: { colorScheme: scheme, statCardLayout: getStatCardLayout() },
+    }));
+}
+
 export function getStatCardLayout(): StatCardLayout {
     try {
         // Compact is the default: it is what the owner chose as the standard look.
-        return localStorage.getItem(STAT_CARDS_KEY) === 'comfortable' ? 'comfortable' : 'compact';
+        return localStorage.getItem(scopedKey(STAT_CARDS_KEY)) === 'comfortable' ? 'comfortable' : 'compact';
     } catch { return 'compact'; }
 }
 
 /** Apply on this device, remember it, and (optionally) push to the account. */
 export function applyStatCardLayout(layout: StatCardLayout, opts: { sync?: boolean } = {}): void {
-    try { localStorage.setItem(STAT_CARDS_KEY, layout); } catch { /* storage unavailable */ }
+    try { localStorage.setItem(scopedKey(STAT_CARDS_KEY), layout); } catch { /* storage unavailable */ }
     if (opts.sync) syncUiPreference({ statCardLayout: layout });
     window.dispatchEvent(new CustomEvent(PREFERENCES_APPLIED_EVENT, { detail: { statCardLayout: layout } }));
 }
@@ -92,7 +112,9 @@ export function watchSystemScheme(): void {
 // marker was set by the first, role-less run of the sign-in effect and then
 // blocked the real (user:role) run — so a new device silently stayed on the
 // defaults even though the account held the saved look.
-const appliedKey = (scope: string) => `oliskey:prefs_applied_at:${scope || 'guest'}`;
+// v2: scheme and card size moved to per-user keys, so each account copy has to
+// be applied once more into its new home.
+const appliedKey = (scope: string) => `oliskey:prefs_applied_at:v2:${scope || 'guest'}`;
 export const PREFERENCES_APPLIED_EVENT = 'oliskey:preferences-applied';
 
 let pending: Record<string, unknown> = {};
@@ -101,6 +123,9 @@ let currentScope = '';
 
 /** Merge a change into the account copy (debounced). Safe to call often. */
 export function syncUiPreference(patch: UiPreferences, scope?: string): void {
+    // Demo accounts are shared by every visitor: one visitor's look must not
+    // become everyone's. Keep it on this device only.
+    if (isDemoMode()) return;
     if (scope) currentScope = scope;
     pending = { ...pending, ...patch };
     if (timer !== undefined) window.clearTimeout(timer);
@@ -119,6 +144,8 @@ export function syncUiPreference(patch: UiPreferences, scope?: string): void {
 /** Apply the account copy on this device if this scope has not applied that version yet. */
 export function applyAccountPreferences(prefs: UiPreferences | null | undefined, appearanceScope: string): boolean {
     if (!prefs || typeof prefs !== 'object' || !prefs.updated_at) return false;
+    // Shared demo account: ignore whatever earlier visitors saved to it.
+    if (isDemoMode()) return false;
     if (!appearanceScope || appearanceScope.endsWith(':')) return false; // role not known yet — wait for the real scope
     currentScope = appearanceScope;
     const lastApplied = localStorage.getItem(appliedKey(appearanceScope));

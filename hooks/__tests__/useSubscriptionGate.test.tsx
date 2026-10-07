@@ -1,34 +1,48 @@
 import { renderHook } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useSubscriptionGate } from '../useSubscriptionGate';
 
 /**
- * The demo school follows its real plan — it is no longer forced to Advanced.
- * Basic locks AI (so the visitor sees the upgrade prompt), Advanced unlocks it.
+ * The demo is a shop window: AI works in it on any plan, matching the server
+ * gate. Real schools still need Advanced (or a self-paid term) for AI.
  */
 const { auth } = vi.hoisted(() => ({
-    auth: { isDemo: true, currentSchool: { id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1', plan_type: 'basic', subscription_status: 'active' } as any, user: { id: 'u1' } },
+    auth: { isDemo: true, currentSchool: { id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1', plan_type: 'basic', subscription_status: 'active' } as any, user: { id: 'u1' } as any },
 }));
 vi.mock('../../context/AuthContext', () => ({ useAuth: () => auth }));
 
-describe('useSubscriptionGate — demo follows its plan', () => {
-    it('locks AI on Basic', () => {
+describe('useSubscriptionGate', () => {
+    beforeEach(() => {
+        auth.isDemo = true;
+        auth.user = { id: 'u1' };
+        sessionStorage.removeItem('is_demo_mode');
+    });
+
+    it('demo: AI works on Basic', () => {
         auth.currentSchool = { ...auth.currentSchool, plan_type: 'basic' };
         const { result } = renderHook(() => useSubscriptionGate());
         expect(result.current.plan).toBe('basic');
-        expect(result.current.isAIAllowed).toBe(false);
+        expect(result.current.isAIAllowed).toBe(true);
         expect(result.current.isLocked).toBe(false);
     });
 
-    it('unlocks AI on Advanced', () => {
-        auth.currentSchool = { ...auth.currentSchool, plan_type: 'advanced' };
+    it('real school: Basic locks AI', () => {
+        auth.isDemo = false;
+        auth.currentSchool = { id: 'real-school', plan_type: 'basic', subscription_status: 'active' };
         const { result } = renderHook(() => useSubscriptionGate());
-        expect(result.current.plan).toBe('advanced');
+        expect(result.current.isAIAllowed).toBe(false);
+    });
+
+    it('real school: Advanced unlocks AI', () => {
+        auth.isDemo = false;
+        auth.currentSchool = { id: 'real-school', plan_type: 'advanced', subscription_status: 'active' };
+        const { result } = renderHook(() => useSubscriptionGate());
         expect(result.current.isAIAllowed).toBe(true);
     });
 
-    it('Free keeps everything but AI open', () => {
-        auth.currentSchool = { ...auth.currentSchool, plan_type: 'free', subscription_status: 'free' };
+    it('real school: Free keeps everything but AI open', () => {
+        auth.isDemo = false;
+        auth.currentSchool = { id: 'real-school', plan_type: 'free', subscription_status: 'free' };
         const { result } = renderHook(() => useSubscriptionGate());
         expect(result.current.isFree).toBe(true);
         expect(result.current.isAIAllowed).toBe(false);

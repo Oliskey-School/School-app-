@@ -12,8 +12,11 @@ interface LibraryScreenProps {
 }
 
 const ResourceCard: React.FC<{ resource: DigitalResource, onClick: () => void, index: number }> = ({ resource, onClick, index }) => {
-    const TypeIcon = RESOURCE_TYPE_CONFIG[resource.type].icon;
-    const typeColor = RESOURCE_TYPE_CONFIG[resource.type].color;
+    // AI-generated resources arrive without a `type` the config knows; fall
+    // back to the first config entry rather than crash the whole screen.
+    const typeConfig = RESOURCE_TYPE_CONFIG[resource.type] || Object.values(RESOURCE_TYPE_CONFIG)[0];
+    const TypeIcon = typeConfig.icon;
+    const typeColor = typeConfig.color;
 
     const handleDownload = (e: React.MouseEvent) => {
         e.stopPropagation();

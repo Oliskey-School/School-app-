@@ -109,13 +109,20 @@ export const getGeneratedResources = async (req: AuthRequest, res: Response) => 
             else return res.json([]);
         }
 
+        // No teacher in scope. Admins browse the whole school's library.
+        // Students and parents get none: these rows can hold generated quizzes
+        // with their answers. An empty list, not a 400, so the shared Library
+        // and Curriculum screens show their empty state instead of failing.
+        let allTeachers = false;
         if (!teacherId) {
-            return res.status(400).json({ message: "Teacher ID is required" });
+            const role = (req.user.role || '').toLowerCase();
+            if (!['admin', 'superadmin', 'proprietor', 'principal'].includes(role)) return res.json([]);
+            allTeachers = true;
         }
 
         const requestedBranch = (req.query.branch_id as string) || (req.query.branchId as string) || (req.body?.branch_id as string);
         const branchId = getEffectiveBranchId(req.user, requestedBranch);
-        const result = await AiService.getGeneratedResources(req.user.school_id, branchId, teacherId);
+        const result = await AiService.getGeneratedResources(req.user.school_id, branchId, allTeachers ? undefined : teacherId);
         res.json(result);
     } catch (error: any) {
         sendError(res, error, 'ai.controller.ts');

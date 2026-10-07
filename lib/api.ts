@@ -635,6 +635,8 @@ class ExpressApiClient {
     }
 
     async getTeacherById(id: string): Promise<any> {
+        // A missing id used to go out as /teachers/undefined (a guaranteed 404).
+        if (!id || id === 'undefined' || id === 'null') throw new Error('Teacher id is required');
         return this.get(`/teachers/${id}`);
     }
 

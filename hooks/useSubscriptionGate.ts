@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { isDemoMode } from '../lib/apiHelpers';
 
 export type PlanType = 'free' | 'basic' | 'advanced';
 export type SubscriptionStatus = 'free' | 'active' | 'expired' | 'suspended';
@@ -42,7 +43,7 @@ const FREE_GATE: SubscriptionGate = {
 };
 
 export function useSubscriptionGate(): SubscriptionGate {
-    const { currentSchool, user } = useAuth() as any;
+    const { currentSchool, user, isDemo: authIsDemo } = useAuth() as any;
 
     return useMemo<SubscriptionGate>(() => {
         // The demo school follows its real plan like any school: it starts on
@@ -76,7 +77,13 @@ export function useSubscriptionGate(): SubscriptionGate {
             }
         } catch { /* ignore malformed settings */ }
 
-        const isAIAllowed = (plan === 'advanced' && status === 'active') || selfPaidAi;
+        // The demo is a shop window: AI works in it straight away, matching the
+        // server gate (backend/src/middleware/aiGate.middleware.ts), which already
+        // lets demo sessions through. Locking it here made AI look broken to
+        // every visitor ("AI tools are on the Advanced plan").
+        const isDemo = authIsDemo === true || isDemoMode() || user?.is_demo === true
+            || user?.user_metadata?.is_demo === true || user?.app_metadata?.is_demo === true;
+        const isAIAllowed = isDemo || (plan === 'advanced' && status === 'active') || selfPaidAi;
 
         return {
             plan,
@@ -92,5 +99,5 @@ export function useSubscriptionGate(): SubscriptionGate {
             needsRenewal,
             isAIAllowed,
         };
-    }, [currentSchool, user?.id]);
+    }, [currentSchool, user, authIsDemo]);
 }

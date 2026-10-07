@@ -39,7 +39,9 @@ const EditTeacherProfileScreen: React.FC<EditTeacherProfileScreenProps> = ({ onP
             if (!profile?.id) return;
             try {
                 // Use unified API client
-                const teacher = await api.getTeacherById(profile.id);
+                // Self-scoped: profile.id can be the user's generated ID, which
+                // /teachers/:id does not resolve (404 "Teacher not found").
+                const teacher = await api.getMyTeacherProfile();
                 // Backend now maps subject_specialty to subjects
                 const teacherSubjects = teacher?.subjects || teacher?.subject_specialty;
                 if (teacherSubjects) {
