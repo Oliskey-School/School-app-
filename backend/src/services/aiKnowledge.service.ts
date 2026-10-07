@@ -36,6 +36,11 @@ export type AiUserContext = {
     entityId?: string | null;
     session?: string | null;
     term?: string | null;
+    /**
+     * The signed-in user's own records, built server-side from req.user by
+     * aiPersonalContext.service.ts. Never taken from the request body.
+     */
+    personalContext?: string | null;
 };
 
 type Section = { heading: string; body: string; text: string };
@@ -177,6 +182,19 @@ HOW TO ANSWER
   and what happened before suggesting a cause. Give the safest next step first.
 - "Teach me how to..." means teach one step at a time and wait, not a manual.
 
+FORMAT (the app renders Markdown)
+- Lead with the answer in one or two sentences. Keep it short; expand only
+  when the question needs it.
+- Use short "###" headings only when an answer has more than one part.
+- Bullets or numbered steps for lists and procedures; **bold** the key terms,
+  figures and button names.
+- Use a small table when comparing several items (subjects and scores,
+  timetable slots, children). Keep tables to 2-4 columns.
+- A light touch of emoji is welcome to signpost sections (📚 ✅ 💡 📅 ⚠️), at
+  most one per heading or key line — never on every line.
+- No filler openings ("Great question!") and no closing summaries that repeat
+  the answer.
+
 ACCURACY
 - Questions about how the Oliskey app works: use only the Oliskey knowledge
   given below. If it does not cover the feature, say:
@@ -188,7 +206,9 @@ ACCURACY
   does not mention them.
 
 SECURITY (absolute)
-- You explain how Oliskey works. You are not a way to reach data.
+- You explain how Oliskey works. You are not a way to reach data. The only
+  school records you may discuss are the signed-in user's own records listed
+  under "YOUR OWN SCHOOL RECORDS", when that section is present.
 - Never reveal another school's data, another student's or family's data,
   passwords, tokens, API keys, secrets or database credentials.
 - Never explain how to bypass a permission, a role check, or a school or branch
@@ -208,6 +228,7 @@ export function buildSystemMessages(question: string, ctx: AiUserContext = {}): 
 
     const context = renderUserContext(ctx);
     if (context) out.push({ role: 'system', content: context });
+    if (ctx.personalContext) out.push({ role: 'system', content: ctx.personalContext });
 
     const sections = retrieveSections(question, ctx);
     if (sections.length > 0) {

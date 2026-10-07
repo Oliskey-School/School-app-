@@ -67,6 +67,7 @@ model School {
   budgets                    Budget[]
   chat_rooms                 ChatRoom[]
   classes                    Class[]
+  ai_conversations           AiConversation[]
   class_teachers             ClassTeacher[]
   complaints                 Complaint[]
   counseling_appointments    CounselingAppointment[]
@@ -240,6 +241,7 @@ model User {
   ui_preferences         Json?
   created_at             DateTime               @default(now())
   updated_at             DateTime               @updatedAt
+  ai_conversations       AiConversation[]
   audit_logs             AuditLog[]
   sent_chat_messages     ChatMessage[]
   chat_participants      ChatParticipant[]
@@ -3835,6 +3837,28 @@ model ParentTeacherConference {
   updated_by       String?
   deleted_at       DateTime?
   @@index([school_id, branch_id], map: "idx_ParentTeacherConference_school_branch")
+}
+
+// One AI Assistant conversation, owned by exactly one user. The whole
+// transcript lives in `messages` (a JSON array of {role, content, at}) - a
+// conversation is always read and written as a unit by its owner, so a child
+// table would add joins without adding safety. Ownership is enforced in
+// aiConversation.service.ts (every query filters user_id = the signed-in user);
+// the standard tenant + branch RLS policy keeps rows inside their school.
+model AiConversation {
+  id         String   @id @default(uuid())
+  school_id  String
+  branch_id  String?
+  user_id    String
+  title      String   @default("New chat")
+  messages   Json     @default("[]")
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  school     School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([school_id, branch_id], map: "idx_AiConversation_school_branch")
+  @@index([user_id, updated_at], map: "idx_AiConversation_user_updated")
 }
 
 model CounselingAppointment {

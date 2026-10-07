@@ -85,6 +85,9 @@ export class DemoResetService {
                 await tx.payment.deleteMany({ where });
                 await tx.healthLog.deleteMany({ where });
                 await tx.behaviorNote.deleteMany({ where });
+                // Demo accounts are shared by every visitor, so AI Assistant
+                // chats must not outlive the daily reset.
+                await tx.aiConversation.deleteMany({ where });
                 await tx.transportRoute.deleteMany({ where });
 
                 // Finally delete classes, which will cascade to Attendance and Assignment

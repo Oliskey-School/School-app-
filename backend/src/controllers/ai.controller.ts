@@ -8,6 +8,8 @@ import { GeminiAIService, GEMINI_FALLBACK_MODEL } from '../services/geminiAI.ser
 import prisma from '../config/database';
 import { getEffectiveBranchId } from '../utils/branchScope';
 import { sendError } from '../utils/httpError';
+import { buildPersonalContext } from '../services/aiPersonalContext.service';
+import { AiConversationService, ConversationOwner } from '../services/aiConversation.service';
 
 // Shared error shaping for the NVIDIA proxy — surfaces the upstream status and a
 // short reason without leaking the API key or full internals.
@@ -26,6 +28,13 @@ const sendAiError = (res: Response, error: any) => {
 
 export const aiChat = async (req: AuthRequest, res: Response) => {
     try {
+        // A feature that answers about the signed-in user's own situation
+        // (learning focus, parenting tips, class summary) asks for their
+        // records with context.personal = true. The records are built here from
+        // the verified session — the flag only opts in, it cannot widen scope.
+        const personalContext = req.body?.context?.personal === true
+            ? await buildPersonalContext(req.user as any)
+            : null;
         // Central gateway: NVIDIA first, Gemini on a transient failure. The
         // user id scopes in-flight de-duplication so two users with the same
         // prompt never share a response.
@@ -43,6 +52,7 @@ export const aiChat = async (req: AuthRequest, res: Response) => {
             module: typeof req.body?.context?.module === 'string' ? req.body.context.module.slice(0, 120) : null,
             session: typeof req.body?.context?.session === 'string' ? req.body.context.session.slice(0, 40) : null,
             term: typeof req.body?.context?.term === 'string' ? req.body.context.term.slice(0, 40) : null,
+            personalContext,
         });
         delete (body as any).context;   // a UI hint, not part of the provider payload
 
@@ -137,4 +147,56 @@ export const saveGeneratedResource = async (req: AuthRequest, res: Response) => 
     } catch (error: any) {
         sendError(res, error, 'ai.controller.ts');
     }
+};
+
+// ── AI Assistant chat history ────────────────────────────────────────────────
+// The owner is ALWAYS the signed-in user from the verified token. No id, school
+// or branch is ever read from the query or body for scoping.
+const ownerOf = (req: AuthRequest): ConversationOwner => ({
+    id: String(req.user.id),
+    role: req.user.role,
+    school_id: String(req.user.school_id),
+    branch_id: req.user.branch_id || null,
+    active_branch_id: (req.user as any).active_branch_id || null,
+    allowed_branch_ids: req.user.allowed_branch_ids || [],
+    is_main_admin: !!(req.user as any).is_main_admin,
+    is_demo: !!(req.user as any).is_demo,
+    full_name: req.user.full_name || null,
+});
+
+export const listConversations = async (req: AuthRequest, res: Response) => {
+    try { res.json(await AiConversationService.list(ownerOf(req))); }
+    catch (error: any) { sendError(res, error, 'ai.controller.ts'); }
+};
+
+export const getConversation = async (req: AuthRequest, res: Response) => {
+    try { res.json(await AiConversationService.get(ownerOf(req), String(req.params.id))); }
+    catch (error: any) { sendError(res, error, 'ai.controller.ts'); }
+};
+
+export const renameConversation = async (req: AuthRequest, res: Response) => {
+    try {
+        const title = typeof req.body?.title === 'string' ? req.body.title : '';
+        if (!title.trim()) return res.status(400).json({ message: 'A title is required.' });
+        res.json(await AiConversationService.rename(ownerOf(req), String(req.params.id), title));
+    } catch (error: any) { sendError(res, error, 'ai.controller.ts'); }
+};
+
+export const deleteConversation = async (req: AuthRequest, res: Response) => {
+    try { res.json(await AiConversationService.remove(ownerOf(req), String(req.params.id))); }
+    catch (error: any) { sendError(res, error, 'ai.controller.ts'); }
+};
+
+export const sendConversationMessage = async (req: AuthRequest, res: Response) => {
+    try {
+        const b = req.body || {};
+        const result = await AiConversationService.send(ownerOf(req), {
+            conversationId: typeof b.conversation_id === 'string' && b.conversation_id ? b.conversation_id : null,
+            text: typeof b.text === 'string' ? b.text : '',
+            image: typeof b.image === 'string' ? b.image : null,
+            mode: typeof b.mode === 'string' ? b.mode : null,
+            page: typeof b.page === 'string' ? b.page : null,
+        });
+        res.json(result);
+    } catch (error: any) { sendError(res, error, 'ai.controller.ts', 'The assistant could not answer right now. Please try again.'); }
 };
