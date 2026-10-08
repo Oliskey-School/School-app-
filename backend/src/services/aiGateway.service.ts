@@ -27,6 +27,7 @@ export type ChatBody = {
     max_tokens?: number;
     top_p?: number;
     response_format?: any;
+    thinking?: boolean;   // false → skip the model's reasoning pass (see NvidiaAIService ChatBody)
 };
 
 export type ChatResult = { text: string; model: string; usage?: any; raw?: any; provider: 'nvidia' | 'gemini' };

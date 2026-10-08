@@ -77,7 +77,9 @@ export function generateLocalCurriculum(
                        termData.name.includes('Second') ? 'Term 2' : 
                        termData.name.includes('Third') ? 'Term 3' : termData.name;
 
-    const weeks = termData.data.map(week => {
+    // Blank weeks (no topic yet) are not lessons — leave them out.
+    const filled = termData.data.filter((week: any) => (week.topic || '').trim() !== '');
+    const weeks = filled.map(week => {
       const subTopic = week.subTopics?.[0] || 'General';
       const content = curriculumMap[subject]?.[className]?.[lookupTerm]?.[week.topic]?.[subTopic];
 
@@ -100,7 +102,7 @@ export function generateLocalCurriculum(
       };
     });
 
-    const assessments = termData.data.map((week: any) => {
+    const assessments = filled.map((week: any) => {
         const subTopic = week.subTopics?.[0] || 'General';
         const content = curriculumMap[subject]?.[className]?.['Term 1']?.[week.topic]?.[subTopic] || 
                         curriculumMap[subject]?.[className]?.['Term 2']?.[week.topic]?.[subTopic] ||
@@ -125,7 +127,7 @@ export function generateLocalCurriculum(
       term: termData.name,
       weeks: weeks,
       lessonPlans: weeks,
-      schemeOfWork: termData.data,
+      schemeOfWork: filled,
       assessments: assessments
     };
   });
@@ -138,19 +140,18 @@ export function generateLocalCurriculum(
                        termData.name.includes('Third') ? 'Term 3' : termData.name;
 
     termData.data.forEach(week => {
-      if (!week.topic) return;
+      if (!(week.topic || '').trim()) return;
       const subTopic = week.subTopics?.[0] || 'General';
-      const noteStr = generateLessonNote({
-        subject,
-        className,
-        term: lookupTerm,
-        topic: week.topic,
-        subTopic: subTopic
-      });
+      const inLibrary = Boolean(curriculumMap[subject]?.[className]?.[lookupTerm]?.[week.topic]?.[subTopic]);
+      const noteStr = inLibrary
+        ? generateLessonNote({ subject, className, term: lookupTerm, topic: week.topic, subTopic })
+        : templateLessonNote(subject, className, termData.name, week);
 
       detailedNotes.push({
         topic: week.topic,
-        note: noteStr
+        note: noteStr,
+        term: termData.name,
+        week: week.week
       });
     });
   });
@@ -161,4 +162,32 @@ export function generateLocalCurriculum(
     terms: generatedTerms,
     detailedNotes
   };
+}
+
+/**
+ * A ready-to-fill lesson note for a topic that is not in the built-in library.
+ * It used to return an "ERROR: Lesson content not found" string, which the
+ * plan screen then showed to the teacher as the lesson note.
+ */
+function templateLessonNote(subject: string, className: string, term: string, week: { week: number; topic: string; subTopics?: string[] }): string {
+  const subs = (week.subTopics || []).map(s => s.trim()).filter(Boolean);
+  return [
+    `### ${week.topic}`,
+    `**Subject:** ${subject}  `,
+    `**Class:** ${className}  `,
+    `**Term:** ${term}, Week ${week.week}`,
+    '',
+    '### Objectives',
+    'By the end of the lesson, students should be able to:',
+    ...(subs.length ? subs.map(s => `- explain ${s}`) : [`- explain the meaning of ${week.topic}`, `- give examples of ${week.topic}`]),
+    '',
+    '### Lesson content',
+    subs.length ? subs.map(s => `- **${s}:** _add your explanation and an example here._`).join('\n') : '_Add the definition, explanation and a worked example here._',
+    '',
+    '### Evaluation',
+    `1. What do you understand by ${week.topic}?`,
+    `2. Give two examples related to ${week.topic}.`,
+    '',
+    '_This is a template from your scheme of work. Use Generate AI Resources for a complete lesson note._',
+  ].join('\n');
 }

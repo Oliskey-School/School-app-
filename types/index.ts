@@ -978,6 +978,8 @@ export interface DetailedNote {
   topic: string;
   note: string;
   imageSuggestions?: string[]; // Descriptions of images to illustrate key concepts
+  term?: string; // e.g. "First Term" — lets two terms share a topic name
+  week?: number;
 }
 
 export interface GeneratedLessonPlan {
