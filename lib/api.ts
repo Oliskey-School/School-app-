@@ -2463,6 +2463,30 @@ class ExpressApiClient {
         return this.get(`/resources/${idOrSubject}/related${qs}`);
     }
 
+    // Family referrals: a parent asks the school for support for their own child;
+    // admins and counselors handle them. Scope and confidentiality are enforced
+    // server-side from the session — nothing here sends a school or branch id.
+    async createFamilyReferral(data: {
+        student_id: string;
+        referral_type: string;
+        urgency: string;
+        need_description: string;
+        is_confidential: boolean;
+    }): Promise<any> {
+        return this.post('/referrals', data);
+    }
+    async getMyFamilyReferrals(): Promise<any[]> {
+        const r = await this.get<any>('/referrals/mine');
+        return Array.isArray(r) ? r : r?.data || [];
+    }
+    async getFamilyReferrals(): Promise<any[]> {
+        const r = await this.get<any>('/referrals');
+        return Array.isArray(r) ? r : r?.data || [];
+    }
+    async updateFamilyReferral(id: string, data: { status?: string; staff_note?: string | null }): Promise<any> {
+        return this.patch(`/referrals/${id}`, data);
+    }
+
     async createAnonymousReport(data: any): Promise<any> {
         return this.post('/anonymous-reports', data);
     }
