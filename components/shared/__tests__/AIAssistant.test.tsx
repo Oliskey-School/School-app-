@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/rea
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { api } from '../../../lib/api';
 import { DashboardType } from '../../../types';
-import AIMarkdown from '../AIMarkdown';
+import AIMarkdown, { plainMaths } from '../AIMarkdown';
 import AIChatHistoryPanel, { relativeTime } from '../AIChatHistoryPanel';
 
 vi.mock('../../../context/AuthContext', () => ({ useAuth: () => ({ user: { full_name: 'Ada Obi', avatar_url: '' }, role: 'student' }) }));
@@ -29,6 +29,18 @@ describe('AIMarkdown', () => {
         expect(region.className).toContain('overflow-x-auto');
         expect(within(region).getByRole('table')).toBeInTheDocument();
         expect(screen.getByText('code').tagName).toBe('CODE');
+    });
+});
+
+describe('plainMaths', () => {
+    it('turns common LaTeX into readable text and leaves code alone', () => {
+        const R = String.raw;
+        expect(plainMaths(R`Solve \(3x + 5 = 20\) now`)).toBe('Solve 3x + 5 = 20 now');
+        expect(plainMaths(R`\[ x = \frac{15}{3} \]`)).toContain('x = 15/3');
+        expect(plainMaths(R`$\frac{a+1}{b}$ and 5 \times 4 \div 2`)).toBe('(a+1)/(b) and 5 × 4 ÷ 2');
+        expect(plainMaths('It costs $5 and $10')).toBe('It costs $5 and $10');
+        const code = '```\n' + R`\frac{a}{b}` + '\n```';
+        expect(plainMaths(code)).toBe(code);
     });
 });
 

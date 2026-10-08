@@ -44,9 +44,38 @@ const components: React.ComponentProps<typeof ReactMarkdown>['components'] = {
     },
 };
 
+/**
+ * Models sometimes answer maths in LaTeX despite being asked not to. There is
+ * no maths renderer in the app, so turn the common forms into readable text
+ * (\(x\) → x, \frac{a}{b} → a/b, \times → ×) instead of showing raw commands.
+ * Code blocks are left untouched.
+ */
+export function plainMaths(md: string): string {
+    return String(md || '').split(/(```[\s\S]*?```)/g).map((part, i) => {
+        if (i % 2 === 1) return part; // fenced code
+        let t = part
+            .replace(/\\\[([\s\S]*?)\\\]/g, (_, m) => `\n\n${m.trim()}\n\n`)
+            .replace(/\\\(([\s\S]*?)\\\)/g, (_, m) => m.trim())
+            .replace(/\$\$([\s\S]+?)\$\$/g, (_, m) => `\n\n${m.trim()}\n\n`)
+            .replace(/(^|[^\\\w])\$([^$\n]*\\[a-zA-Z][^$\n]*)\$/g, (_, pre, m) => `${pre}${m}`);
+        for (let n = 0; n < 3; n++) t = t.replace(/\\[dt]?frac\{([^{}]*)\}\{([^{}]*)\}/g, '($1)/($2)');
+        t = t
+            .replace(/\(([A-Za-z0-9.]+)\)\/\(([A-Za-z0-9.]+)\)/g, '$1/$2')
+            .replace(/\\sqrt\{([^{}]*)\}/g, '√($1)')
+            .replace(/\\text\{([^{}]*)\}/g, '$1')
+            .replace(/\\times\b/g, '×').replace(/\\div\b/g, '÷').replace(/\\cdot\b/g, '·')
+            .replace(/\\pm\b/g, '±').replace(/\\(le|leq)\b/g, '≤').replace(/\\(ge|geq)\b/g, '≥')
+            .replace(/\\neq\b/g, '≠').replace(/\\approx\b/g, '≈').replace(/\\pi\b/g, 'π')
+            .replace(/\\(Rightarrow|implies)\b/g, '⇒').replace(/\\to\b/g, '→')
+            .replace(/\\(quad|qquad)\b/g, ' ').replace(/\\[,;!]/g, ' ')
+            .replace(/\\left|\\right/g, '');
+        return t;
+    }).join('');
+}
+
 const AIMarkdown: React.FC<{ children: string; className?: string }> = ({ children, className = '' }) => (
     <div className={`text-[15px] leading-relaxed text-gray-800 break-words ${className}`}>
-        <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>{children}</ReactMarkdown>
+        <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>{plainMaths(children)}</ReactMarkdown>
     </div>
 );
 

@@ -66,6 +66,12 @@ function daysAgo(n: number): Date {
 const pct = (part: number, whole: number) => (whole > 0 ? Math.round((part / whole) * 100) : null);
 const naira = (n: number) => `₦${Math.round(n).toLocaleString('en-NG')}`;
 const shortDate = (d: Date) => d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Africa/Lagos' });
+/** The same slot entered twice on a timetable is still one lesson. */
+function uniqueBy<T>(rows: T[], key: (r: T) => string): T[] {
+    const seen = new Set<string>();
+    return rows.filter(r => { const k = key(r); if (seen.has(k)) return false; seen.add(k); return true; });
+}
+
 const clip = (s: string | null | undefined, n = 60) => {
     const t = String(s ?? '').replace(/\s+/g, ' ').trim();
     return t.length > n ? `${t.slice(0, n - 1)}…` : t;
@@ -168,7 +174,7 @@ async function forStudent(user: PersonalContextUser, schoolId: string): Promise<
 
     const today = lagosToday();
     const cls = await className(student.id, schoolId);
-    const [att, results, due, lessons, report] = await Promise.all([
+    const [att, results, due, rawLessons, report] = await Promise.all([
         attendanceLine(schoolId, [student.id], student.branch_id),
         latestResults(schoolId, student.id),
         outstandingAssignments(schoolId, student.id, cls.classId),
@@ -186,6 +192,7 @@ async function forStudent(user: PersonalContextUser, schoolId: string): Promise<
         }),
     ]);
 
+    const lessons = uniqueBy(rawLessons, l => `${l.start_time}|${l.end_time}|${String(l.subject).toLowerCase()}`);
     const lines = [`- You are ${student.full_name}, a student${cls.name ? ` in ${cls.name}` : ''}.`];
     lines.push(`- Attendance, ${att.label}: ${summariseAttendance(att.rows, student.id)}.`);
     lines.push(lessons.length
@@ -282,11 +289,12 @@ async function forTeacher(user: PersonalContextUser, schoolId: string): Promise<
     const or = assignments.map(a => (a.subject?.name
         ? { class_id: a.class_id, subject: { equals: a.subject.name, mode: 'insensitive' as const } }
         : { class_id: a.class_id, teacher_id: teacher.id }));
-    const lessons = await prisma.timetable.findMany({
+    const rawLessons = await prisma.timetable.findMany({
         where: { school_id: schoolId, day_of_week: today.dow, status: 'Published', deleted_at: null, OR: or },
         select: { subject: true, start_time: true, end_time: true, class: { select: { name: true } }, class_name: true },
         orderBy: { start_time: 'asc' }, take: 12,
     });
+    const lessons = uniqueBy(rawLessons, l => `${l.start_time}|${l.end_time}|${l.class?.name || l.class_name}|${String(l.subject).toLowerCase()}`);
     lines.push(lessons.length
         ? `- Today's lessons (${today.dayName}): ${lessons.map(l => `${l.start_time}–${l.end_time} ${l.class?.name || l.class_name || ''} ${clip(l.subject, 30)}`.replace(/\s+/g, ' ')).join('; ')}.`
         : `- Today's lessons (${today.dayName}): none on the published timetable.`);
@@ -391,7 +399,7 @@ export async function buildPersonalContext(user: PersonalContextUser | undefined
     }
 
     const text = [
-        `YOUR OWN SCHOOL RECORDS (built by the server for the signed-in user only; snapshot ${lagosToday().isoDay}):`,
+        `THIS USER'S OWN RECORDS (background data built by the server for the signed-in user only; snapshot ${lagosToday().isoDay}). This is not a screen in the app: never tell the user to open "own records"; point to the real app screen (Attendance, Results, Timetable, Assignments, Fees) instead.`,
         ...lines,
         'How to use these records:',
         '- Use them only to answer questions about this user\'s own records. Quote the figures exactly; never invent or estimate a number that is not listed.',

@@ -217,12 +217,12 @@ describe('AI Assistant: personal context scope + chat history', () => {
         it('/api/ai/chat attaches personal records only on request, built from the token', async () => {
             const plain = await request(app).post('/api/ai/chat').set(as.p1()).send({ messages: [{ role: 'user', content: 'hi' }] });
             expect(plain.status).toBe(200);
-            expect(systemText(captured[0])).not.toContain('YOUR OWN SCHOOL RECORDS (built by the server');
+            expect(systemText(captured[0])).not.toContain("THIS USER'S OWN RECORDS (background data");
             const personal = await request(app).post('/api/ai/chat').set(as.p1())
                 .send({ messages: [{ role: 'user', content: 'tips' }], context: { personal: true, studentId: ids.s2 } });
             expect(personal.status).toBe(200);
             const sys = systemText(captured[1]);
-            expect(sys).toContain('YOUR OWN SCHOOL RECORDS (built by the server');
+            expect(sys).toContain("THIS USER'S OWN RECORDS (background data");
             expect(sys).toContain('Own Student');
             expect(sys).not.toContain(M.s2Name);
         });

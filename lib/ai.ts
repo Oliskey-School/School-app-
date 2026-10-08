@@ -410,6 +410,9 @@ export class NvidiaClient extends GeminiClient {
                 model,
                 temperature: generationConfig?.temperature,
                 max_tokens: generationConfig?.maxOutputTokens || generationConfig?.max_tokens,
+                // JSON answers skip the model's hidden reasoning pass, which
+                // otherwise uses the whole output budget and returns nothing.
+                ...((wantJson || params?.thinking === false) ? { thinking: false } : {}),
                 // Opt-in to the signed-in user's own records (server-built).
                 ...(params?.context ? { context: params.context } : {}),
             });

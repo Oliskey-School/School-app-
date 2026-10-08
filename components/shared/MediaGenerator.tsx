@@ -71,6 +71,7 @@ const MediaGenerator: React.FC = () => {
                         ],
                     }],
                     max_tokens: 200,
+                    thinking: false,
                 });
                 const editPrompt = (analysis.text || '').trim();
                 if (!editPrompt) throw new Error('Could not understand the image.');
@@ -100,7 +101,8 @@ const MediaGenerator: React.FC = () => {
                         },
                         ...messages,
                     ],
-                    max_tokens: 900,
+                    max_tokens: 1600, // 900 cut the scene table off mid-row
+                    thinking: false, // a long markdown storyboard: answer directly
                 });
                 if (!res.text) throw new Error('No storyboard was generated.');
                 setResultText(res.text);

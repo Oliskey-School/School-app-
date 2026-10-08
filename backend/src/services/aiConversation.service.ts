@@ -154,7 +154,10 @@ export class AiConversationService {
         const extraSystem = mode !== 'standard' ? [{ role: 'system', content: MODE_INSTRUCTIONS[mode] }] : [];
         const body = withOliskeyKnowledge({
             messages: [...extraSystem, ...window],
-            ...(mode === 'steps' ? { model: 'deepseek-ai/deepseek-v4-flash' } : {}),
+            // The default model "thinks" before answering and that hidden pass is
+            // billed against max_tokens (long answers came back empty). Answer
+            // directly; Step-by-step is the one mode that keeps reasoning on.
+            ...(mode === 'steps' ? { model: 'deepseek-ai/deepseek-v4-flash' } : { thinking: false }),
             max_tokens: 1400,
         } as any, {
             role: owner.role,

@@ -417,7 +417,7 @@ export class AskAIService {
                         { role: 'system', content: `You match a school-app user's question to exactly one query from this list, or none. Reply with ONLY the query id (e.g. "unpaid_fees") or the word "none" — nothing else.\n\nAvailable queries:\n${catalogText}` },
                         { role: 'user', content: question },
                     ],
-                    temperature: 0, max_tokens: 20,
+                    temperature: 0, max_tokens: 20, thinking: false,
                 });
                 const candidate = match.text.trim().toLowerCase().replace(/[^a-z_]/g, '');
                 if (available.some(c => c.id === candidate)) matchedId = candidate;
@@ -450,7 +450,7 @@ export class AskAIService {
                         { role: 'system', content: 'You are a helpful school-management assistant. Write a short (2-4 sentence), warm, plain-English answer using ONLY the data given — never invent numbers or names not present in the data. If the data list is empty, say so positively.' },
                         { role: 'user', content: `Question: ${question}\n\nData: ${JSON.stringify(result.data).slice(0, 4000)}` },
                     ],
-                    temperature: 0.4, max_tokens: 300,
+                    temperature: 0.4, max_tokens: 300, thinking: false,
                 });
                 if (phrasing.text?.trim()) answer = phrasing.text.trim();
             } catch (err: any) {

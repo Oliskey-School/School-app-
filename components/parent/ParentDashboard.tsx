@@ -34,6 +34,14 @@ import SchoolContextSwitcher from '../ui/SchoolContextSwitcher';
 import AIChatScreen from '../shared/AIChatScreen';
 import AIChatWidget from '../shared/AIChatWidget';
 
+// Defined once at module level: an inline arrow in viewComponents is a new
+// component type on every dashboard render, so React remounted the assistant
+// (losing the conversation and any reply in flight) whenever the dashboard
+// re-rendered, e.g. when the children list finished loading.
+// The dashboard passes its back handler as `handleBack`; the assistant's
+// header expects `onBack`, so without this mapping it had no back button.
+const ParentAIAssistant = (props: any) => <AIChatScreen {...props} onBack={props.onBack || props.handleBack} dashboardType={DashboardType.Parent} />;
+
 
 import { getHomeworkStatus } from '../../utils/homeworkUtils';
 import { realtimeService } from '../../services/RealtimeService';
@@ -639,7 +647,7 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
         dashboard: UnifiedParentHome,
         // The one assistant: free chat, plus the "My School" tab that answers
         // from this parent's own children's records.
-        aiAssistant: (props: any) => <AIChatScreen {...props} dashboardType={DashboardType.Parent} />,
+        aiAssistant: ParentAIAssistant,
         piggyBank: (props: any) => <FeesPiggyBank {...props} />,
         smartCalendar: SmartCalendar,
         todaySummary: (props: any) => <ParentTodayWidget {...props} />,
