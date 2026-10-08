@@ -99,7 +99,7 @@ async function currentTermStart(schoolId: string, branchId?: string | null): Pro
 async function attendanceLine(schoolId: string, studentIds: string[], branchId?: string | null) {
     const term = await currentTermStart(schoolId, branchId);
     const since = term?.start ?? daysAgo(90);
-    const label = term?.label ?? 'last 90 days (no term start date is recorded)';
+    const label = term?.label ?? 'last 90 days';
     const rows = await prisma.attendance.groupBy({
         by: ['student_id', 'status'],
         where: { school_id: schoolId, student_id: { in: studentIds }, date: { gte: since }, deleted_at: null },
