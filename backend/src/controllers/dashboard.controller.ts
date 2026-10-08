@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { DashboardService } from '../services/dashboard.service';
-import { isMainSchoolAdmin } from '../services/audit.service';
+import { isMainSchoolAdmin, canReadAuditTrail } from '../services/audit.service';
 import prisma from '../config/database';
 import { getEffectiveBranchId } from '../utils/branchScope';
 import { sendError } from '../utils/httpError';
@@ -30,7 +30,10 @@ export const getStats = async (req: AuthRequest, res: Response) => {
         const branchId = getEffectiveBranchId(req.user, (req.query.branchId || req.query.branch_id) as string);
         console.log(`[DashboardController] Calling DashboardService.getStats with schoolId: ${schoolId}, teacherId: ${teacherId}, branchId: ${branchId}`);
         const stats = await DashboardService.getStats(schoolId, teacherId, branchId, isMainSchoolAdmin(req.user));
-        res.json(stats);
+        // /dashboard/stats also feeds non-admin dashboards (teacher, exam officer,
+        // …), so it stays open — but the audit-derived recent-activity feed is an
+        // admin-only view. Everyone else gets an empty list (same shape).
+        res.json(stats && !canReadAuditTrail(req.user) ? { ...stats, recentActivity: [] } : stats);
     } catch (error: any) {
         console.error('[DashboardController] Error:', error);
         sendError(res, error, 'dashboard.controller.ts');
@@ -39,6 +42,11 @@ export const getStats = async (req: AuthRequest, res: Response) => {
 
 export const getAuditLogs = async (req: AuthRequest, res: Response) => {
     try {
+        // Audit trails are admin-only. Without this check any signed-in user
+        // (parent, student, teacher) could read the school's audit feed.
+        if (!canReadAuditTrail(req.user)) {
+            return res.status(403).json({ message: 'Only admins can view audit logs' });
+        }
         const schoolId = req.user.school_id;
         const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
         const branchId = getEffectiveBranchId(req.user, (req.query.branchId || req.query.branch_id) as string);

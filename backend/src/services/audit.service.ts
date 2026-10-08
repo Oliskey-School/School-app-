@@ -23,6 +23,16 @@ export function confidentialReferralAuditFilter(canSeeConfidential: boolean): an
     };
 }
 
+/**
+ * Roles allowed to read audit trails (the audit-log screens and the admin
+ * dashboard's recent-activity feed). Branch admins are included and stay
+ * limited to their branch by getEffectiveBranchId at each reader.
+ */
+export const AUDIT_READER_ROLES = ['ADMIN', 'PROPRIETOR', 'SUPER_ADMIN'];
+export function canReadAuditTrail(user: any): boolean {
+    return AUDIT_READER_ROLES.includes(String(user?.role || '').toUpperCase());
+}
+
 /** True when the request comes from the school's main (school-level) admin. */
 export function isMainSchoolAdmin(user: any): boolean {
     return !!user?.is_main_admin && ['ADMIN', 'PROPRIETOR', 'SUPER_ADMIN'].includes(String(user?.role || '').toUpperCase());
