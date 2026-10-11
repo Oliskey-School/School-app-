@@ -13,16 +13,83 @@ function setNetwork(next){network=next;applyNetwork();if(backdrop.classList.cont
 document.querySelector('#weakBtn').addEventListener('click',()=>setNetwork(network==='weak'?'good':'weak'));
 document.querySelector('#offlineBtn').addEventListener('click',()=>setNetwork(network==='offline'?'good':'offline'));
 
-document.querySelectorAll('[data-mode]').forEach(btn=>btn.addEventListener('click',()=>{document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('active',b===btn));chosen={name:btn.dataset.mode,icon:btn.dataset.icon};state(chosen.name,network==='offline'?'You’re offline for a moment.<br>Your progress is safe.':network==='weak'?'Your school space is taking a little longer.<br>We’re keeping your place ready.':'Your personalised school experience<br>is almost ready.',chosen.icon,network==='offline'?'WAITING FOR CONNECTION':network==='weak'?'RECONNECTING · PLEASE WAIT':'LOADING '+chosen.name.toUpperCase(),network==='offline'?'12%':network==='weak'?'28%':'52%',network==='offline'?'Reconnect when you’re ready.':network==='weak'?'Slow signal, steady progress.':'A smooth start, made for you.')}));document.querySelector('#overlayBtn').addEventListener('click',()=>openOverlay('Loading '+chosen.name,chosen.icon,'A soft, layered transition into your school space.'));document.querySelector('#closeBtn').addEventListener('click',()=>{backdrop.classList.remove('show');clearTimers()});backdrop.addEventListener('click',e=>{if(e.target===backdrop){backdrop.classList.remove('show');clearTimers()}});document.querySelector('#journey').addEventListener('click',()=>{clearTimers();journey=0;openOverlay('Preparing your school',chosen.icon,'We’re getting your school experience ready.');const steps=[
-['Preparing your school','📚','Less admin stress. More time for the people who make your school special.','YOUR SCHOOL, SIMPLIFIED','24%','Small tasks, handled more simply.'],
-['Almost ready','🎓','Teachers spend less time chasing paperwork and more time helping every learner grow.','MORE TIME FOR TEACHING','48%','Your teachers deserve time to teach.'],
-['A clearer picture','✨','Attendance, progress and school updates come together so you can act with confidence.','SEE WHAT MATTERS','72%','Clear information. Better decisions.'],
-['One connected school','💚','Parents feel informed, teachers feel supported, and school leaders stay a step ahead.','BETTER TOGETHER','91%','Everyone feels part of the journey.'],
-['Welcome to Oliskey','✓','A calmer school day starts here — with less repetitive work and more room for learning.','READY FOR A BRIGHTER DAY','100%','Oliskey helps your school move forward.']
-];const roleCopy={
-'School Admin':['Less time buried in records. More confidence in the decisions that move your school forward.','YOUR SCHOOL, IN VIEW'],
-'Teacher portal':['Less repetitive paperwork. More time to explain, encourage and help every learner progress.','MORE TIME TO TEACH'],
-'Student portal':['Know what to learn next, see your progress and build confidence one step at a time.','YOUR NEXT STEP, CLEARER'],
-'Parent portal':['Stay closer to your child’s school journey with clearer updates and a better view of progress.','CLOSER TO THEIR PROGRESS']
-};function advance(){if(journey>=steps.length){modalStep.textContent='JOURNEY COMPLETE';return}const s=steps[journey];let copy=s[2],tag=s[3],bottom=s[5];if(journey===0&&roleCopy[chosen.name]){copy=roleCopy[chosen.name][0];tag=roleCopy[chosen.name][1]}if(network==='weak'){copy='Your connection is slow, so we’re loading the essentials first. Your place is being kept ready.';bottom='Taking a little longer — your progress matters.'}if(network==='offline'){copy='You’re offline right now. Your place is safe; reconnect whenever you’re ready.';bottom='Waiting safely for your connection.'}state(s[0],copy,s[1],tag,network==='offline'?'12%':network==='weak'?Math.min(parseInt(s[4],10),32)+'%':s[4],bottom);modalTitle.textContent=s[0];modalText.textContent=copy;modalIcon.textContent=s[1];modalStep.textContent=network==='offline'?'WAITING FOR CONNECTION':network==='weak'?'SLOW CONNECTION · KEEPING YOUR PLACE':'STEP '+(journey+1)+' OF '+steps.length;journey++;if(journey<steps.length)timers.push(setTimeout(advance,2700));else timers.push(setTimeout(()=>{modalStep.textContent='JOURNEY COMPLETE'},2700))}timers.push(setTimeout(advance,450))});if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches&&window.matchMedia('(pointer:fine)').matches){area.addEventListener('pointermove',e=>{const r=area.getBoundingClientRect(),x=(e.clientX-r.left)/r.width-.5,y=(e.clientY-r.top)/r.height-.5;phone.style.transform='rotateY('+(-9+x*15)+'deg) rotateX('+(4-y*12)+'deg) translateZ(8px)'});area.addEventListener('pointerleave',()=>phone.style.transform='rotateY(-9deg) rotateX(4deg)')}document.addEventListener('keydown',e=>{if(e.key==='Escape'){backdrop.classList.remove('show');clearTimers()}});document.addEventListener('visibilitychange',()=>{if(document.hidden)clearTimers()});applyNetwork();
+document.querySelectorAll('[data-mode]').forEach(btn=>btn.addEventListener('click',()=>{document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('active',b===btn));chosen={name:btn.dataset.mode,icon:btn.dataset.icon};state(chosen.name,network==='offline'?'You’re offline for a moment.<br>Your progress is safe.':network==='weak'?'Your school space is taking a little longer.<br>We’re keeping your place ready.':'Your personalised school experience<br>is almost ready.',chosen.icon,network==='offline'?'WAITING FOR CONNECTION':network==='weak'?'RECONNECTING · PLEASE WAIT':'LOADING '+chosen.name.toUpperCase(),network==='offline'?'12%':network==='weak'?'28%':'52%',network==='offline'?'Reconnect when you’re ready.':network==='weak'?'Slow signal, steady progress.':'A smooth start, made for you.')}));document.querySelector('#overlayBtn').addEventListener('click',()=>openOverlay('Loading '+chosen.name,chosen.icon,'A soft, layered transition into your school space.'));document.querySelector('#closeBtn').addEventListener('click',()=>{backdrop.classList.remove('show');clearTimers()});backdrop.addEventListener('click',e=>{if(e.target===backdrop){backdrop.classList.remove('show');clearTimers()}});document.querySelector('#journey').addEventListener('click',()=>{clearTimers();journey=0;openOverlay('Preparing your school',chosen.icon,'We’re getting your school experience ready.');const stories={
+'School Admin':[
+'Your school deserves more than endless paperwork.',
+'See the details that matter without digging through files.',
+'Keep attendance, classes and school activity in one place.',
+'Spot issues earlier and make decisions with confidence.',
+'Spend less time coordinating routine tasks.',
+'Give your team clearer processes and shared information.',
+'Keep parents informed without constant manual follow-ups.',
+'Make everyday school operations feel more organised.',
+'See what needs attention before it becomes urgent.',
+'Help your school team focus on meaningful work.',
+'Reduce repetitive admin and free up valuable time.',
+'Keep school information easier to find and understand.',
+'Support better planning with a clearer school overview.',
+'Build trust through timely updates and consistent records.',
+'You’re ready to explore a calmer way to lead your school.'
+],
+'Teacher portal':[
+'Your time belongs with your learners, not just paperwork.',
+'Spend less time repeating routine classroom tasks.',
+'Keep lessons, assignments and class information organised.',
+'Make attendance quicker to record and easier to review.',
+'See the work that needs your attention first.',
+'Help learners understand where they are improving.',
+'Keep class progress clearer without extra manual tracking.',
+'Make learning activities easier to organise.',
+'Give feedback with more time for the learner behind it.',
+'Keep important class updates in one place.',
+'Reduce the small tasks that interrupt your teaching flow.',
+'Make it easier to prepare and follow classroom work.',
+'Help every learner feel noticed and supported.',
+'Bring more clarity to your teaching day.',
+'You’re ready to spend more energy on teaching that matters.'
+],
+'Student portal':[
+'Your learning journey should feel clear, not confusing.',
+'See what you need to work on next.',
+'Keep learning materials easier to find.',
+'Follow assignments and important school dates.',
+'Understand your progress one step at a time.',
+'Build confidence by seeing how far you have come.',
+'Spend less time searching and more time learning.',
+'Keep your school tasks organised in one place.',
+'Know which work needs your attention first.',
+'Use feedback to understand how to improve.',
+'Make room for curiosity, practice and new ideas.',
+'Stay connected to your learning goals.',
+'Turn small daily efforts into real progress.',
+'Feel more prepared for the next school day.',
+'You’re ready to take your next learning step.'
+],
+'Parent portal':[
+'You deserve to feel connected to your child’s school life.',
+'Get a clearer view of learning and school updates.',
+'Follow progress without waiting for occasional messages.',
+'Keep important school information easier to find.',
+'Know when assignments and activities need attention.',
+'Celebrate progress as well as achievements.',
+'Feel more prepared for conversations about learning.',
+'Stay informed about the school journey.',
+'Spend less time wondering what is happening at school.',
+'See useful updates in a more organised way.',
+'Support learning at home with clearer information.',
+'Notice progress and areas where encouragement can help.',
+'Keep school communication closer to everyday family life.',
+'Feel included in the journey, not left guessing.',
+'You’re ready to support your child with greater confidence.'
+]};
+const general=[
+'Getting your school experience ready…',
+'Keeping the important things organised…',
+'Preparing a clearer view of what matters…',
+'Making room for less repetitive work…',
+'Bringing useful information closer together…',
+'Getting your personalised experience ready…',
+'Almost there — preparing your next step…'
+];
+const role=stories[chosen.name]||stories['School Admin'];let index=0;const total=15;function advance(){if(network==='offline'){modalTitle.textContent='Waiting for connection';modalText.textContent='Your place is safe. Reconnect when you’re ready and loading can continue.';modalIcon.textContent='📶';modalStep.textContent='OFFLINE · PROGRESS PRESERVED';return}if(index>=total){modalTitle.textContent='Welcome to Oliskey';modalText.textContent='Everything is ready. Let’s open your '+chosen.name.toLowerCase()+'.';modalIcon.textContent='✓';modalStep.textContent='READY · OPENING YOUR EXPERIENCE';state('Welcome to Oliskey','Everything is ready.<br>Let’s get started.','✓','COMPLETE','100%','Your next step starts here.');timers.push(setTimeout(()=>{backdrop.classList.remove('show');clearTimers();state(chosen.name,'Your personalised experience is ready.<br>Welcome to Oliskey.',chosen.icon,'READY TO EXPLORE','100%','Your next step starts here.')},1600));return}let copy=role[index];if(network==='weak'&&index%3===0)copy='Your connection is a little slow. We’re keeping your place ready while this loads.';modalTitle.textContent=index<3?'Preparing your '+chosen.name.toLowerCase():index<10?'Making your school day simpler':'Almost ready';modalText.textContent=copy;modalIcon.textContent=index<5?'📚':index<10?'✨':'🎓';modalStep.textContent=network==='weak'?'SLOW CONNECTION · '+(index+1)+' OF 15':'STEP '+(index+1)+' OF 15';state(modalTitle.textContent,copy,modalIcon.textContent,index<5?'GETTING THINGS READY':index<10?'PERSONALISING YOUR EXPERIENCE':'FINISHING TOUCHES',Math.round((index+1)/15*95)+'%',general[index%general.length]);index++;timers.push(setTimeout(advance,network==='weak'?3000:1800))}timers.push(setTimeout(advance,350))});if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches&&window.matchMedia('(pointer:fine)').matches){area.addEventListener('pointermove',e=>{const r=area.getBoundingClientRect(),x=(e.clientX-r.left)/r.width-.5,y=(e.clientY-r.top)/r.height-.5;phone.style.transform='rotateY('+(-9+x*15)+'deg) rotateX('+(4-y*12)+'deg) translateZ(8px)'});area.addEventListener('pointerleave',()=>phone.style.transform='rotateY(-9deg) rotateX(4deg)')}document.addEventListener('keydown',e=>{if(e.key==='Escape'){backdrop.classList.remove('show');clearTimers()}});document.addEventListener('visibilitychange',()=>{if(document.hidden)clearTimers()});applyNetwork();
 </script></body></html>
