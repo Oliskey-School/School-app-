@@ -461,7 +461,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 await signIn(dashType, { ...userData, token, refreshToken });
             }
         } catch (err: any) {
+            // Surface the backend's actionable failure to the login screen.
+            // Swallowing this error made a failed demo login look like a
+            // successful click and hid 503 sandbox-seeding failures.
             console.error("Demo Database Login failed:", err);
+            throw err instanceof Error ? err : new Error('Demo login failed. Please try again.');
         } finally {
             if (seq === authActionSeqRef.current) setLoading(false);
         }
