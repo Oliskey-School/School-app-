@@ -132,7 +132,7 @@ export const getGeneratedResources = async (req: AuthRequest, res: Response) => 
 export const saveGeneratedResource = async (req: AuthRequest, res: Response) => {
     try {
         const branchId = getEffectiveBranchId(req.user, req.body?.branch_id);
-        const result = await AiService.saveGeneratedResource(req.user.school_id, branchId, req.body);
+        const result = await AiService.saveGeneratedResource(req.user.school_id, branchId, req.body, req.user.id);
         res.status(201).json(result);
     } catch (error: any) {
         sendError(res, error, 'ai.controller.ts');

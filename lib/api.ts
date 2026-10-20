@@ -1696,8 +1696,10 @@ class ExpressApiClient {
     // ============================================
     // GENERATED RESOURCES & AI
     // ============================================
-    async getGeneratedResources(schoolId: string): Promise<any[]> {
-        return this.get(`/ai/generated-resources?schoolId=${schoolId}`);
+    // fresh: skip the short-lived GET cache — the Lesson Planner re-reads the
+    // saved row right before merging a new term into it.
+    async getGeneratedResources(schoolId: string, opts?: { fresh?: boolean }): Promise<any[]> {
+        return this.get(`/ai/generated-resources?schoolId=${schoolId}`, opts?.fresh ? ({ _revalidate: true } as RequestInit) : undefined);
     }
 
     async getResources(schoolId?: string): Promise<any[]> {
@@ -3336,7 +3338,10 @@ class ExpressApiClient {
     }
     // chat + vision — messages may contain multimodal content (text + image_url)
     async aiChat(body: { messages: any[]; model?: string; temperature?: number; max_tokens?: number; response_format?: any }): Promise<{ text: string; model?: string; usage?: any; raw?: any }> {
-        return this.post('/ai/chat', body);
+        // The server may take up to two 45s provider attempts (primary model,
+        // then a fallback) before answering, so the default 30s client timeout
+        // gave up on answers that were still coming.
+        return this.post('/ai/chat', body, { _timeoutMs: 100_000 } as RequestInit);
     }
     async aiEmbeddings(input: string | string[], model?: string, input_type?: 'query' | 'passage'): Promise<{ model: string; embeddings: number[][]; usage?: any }> {
         return this.post('/ai/embeddings', { input, model, input_type });

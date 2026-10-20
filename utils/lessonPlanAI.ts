@@ -20,7 +20,8 @@ const TERM_ORDER: string[] = [TERM_LABELS.term1, TERM_LABELS.term2, TERM_LABELS.
 
 export const WEEKS_PER_CALL = 2;
 export const MAX_PARALLEL_CALLS = 3;
-export const CALL_TIMEOUT_MS = 45_000;
+// Matches the AI request timeout in lib/api (the server may try two models).
+export const CALL_TIMEOUT_MS = 105_000;
 
 /**
  * The AI call this module needs: one chat completion through the app's

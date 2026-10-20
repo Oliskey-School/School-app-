@@ -252,10 +252,16 @@ const TermContent: React.FC<{
 
 const LessonPlanDetailScreen: React.FC<{ resources: GeneratedResources; initialTerm?: string; navigateTo: (view: string, title: string, props?: any) => void; }> = ({ resources, initialTerm, navigateTo }) => {
     const currentResources = useMemo(() => (resources ? normalizeResources(resources) : null), [resources]);
-    const firstTermWithPlans = currentResources?.terms.find(t => t.lessonPlans.length > 0)?.term;
-    const [activeTerm, setActiveTerm] = useState<string>(
-        (initialTerm && currentResources?.terms.some(t => t.term === initialTerm) ? initialTerm : '') || firstTermWithPlans || currentResources?.terms[0]?.term || ''
-    );
+    const hasTerm = (t?: string) => !!t && !!currentResources?.terms.some(x => x.term === t);
+    const defaultTerm = (hasTerm(initialTerm) ? initialTerm : '')
+        || currentResources?.terms.find(t => t.lessonPlans.length > 0)?.term
+        || currentResources?.terms[0]?.term || '';
+    const [pickedTerm, setActiveTerm] = useState<string>(defaultTerm);
+    // The screen can be re-opened with a different plan without remounting;
+    // follow the newly requested term then.
+    useEffect(() => { setActiveTerm(defaultTerm); }, [resources, initialTerm]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Never show a blank page: a term that is not in this plan falls back to the first available one.
+    const activeTerm = hasTerm(pickedTerm) ? pickedTerm : defaultTerm;
     const [toastMessage, setToastMessage] = useState('');
     const [isPublishing, setIsPublishing] = useState(false);
 

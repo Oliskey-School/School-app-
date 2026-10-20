@@ -3,7 +3,7 @@ import { api } from '../../lib/api';
 import { isAIAllowedClient, AI_LOCKED_MESSAGE } from '../../lib/ai';
 import { toast } from 'react-hot-toast';
 
-import { SchemeWeek, HistoryEntry, GeneratedHistoryEntry, GeneratedResources } from '../../types';
+import { SchemeWeek, HistoryEntry, GeneratedHistoryEntry, GeneratedResources, TermResources, DetailedNote } from '../../types';
 import { SparklesIcon, TrashIcon, PlusIcon, XCircleIcon, CheckCircleIcon, ExclamationCircleIcon, getFormattedClassName } from '../../constants';
 import { useTeacherClasses } from '../../hooks/useTeacherClasses';
 import { useAutoSync } from '../../hooks/useAutoSync';
@@ -88,11 +88,27 @@ const ModalShell: React.FC<{ title: string; onClose: () => void; children: React
     );
 };
 
-const HistoryModal: React.FC<{ isOpen: boolean; onClose: () => void; history: HistoryEntry[]; onLoad: (entry: HistoryEntry) => void; }> = ({ isOpen, onClose, history, onLoad }) => {
+type ListStatus = 'loading' | 'ready' | 'error';
+
+/** Loading / error body shared by both history dialogs (an empty list is only "empty" once loaded). */
+const ListStatusBody: React.FC<{ status: ListStatus; onRetry: () => void }> = ({ status, onRetry }) => status === 'loading' ? (
+    <div role="status" className="py-8 space-y-2" aria-label="Loading">
+        {[0, 1, 2].map(i => <div key={i} className="h-[72px] rounded-lg bg-gray-100 animate-pulse motion-reduce:animate-none" />)}
+        <p className="sr-only">Loading your saved plans…</p>
+    </div>
+) : (
+    <div role="alert" className="text-center py-8">
+        <p className="font-semibold text-gray-700">Could not load your saved plans</p>
+        <p className="text-sm text-gray-500 mt-1">Check your connection and try again.</p>
+        <button type="button" onClick={onRetry} className="mt-3 min-h-[44px] px-4 text-sm font-semibold bg-gray-800 text-white rounded-lg hover:bg-gray-900">Retry</button>
+    </div>
+);
+
+const HistoryModal: React.FC<{ isOpen: boolean; onClose: () => void; history: HistoryEntry[]; onLoad: (entry: HistoryEntry) => void; status: ListStatus; onRetry: () => void; }> = ({ isOpen, onClose, history, onLoad, status, onRetry }) => {
     if (!isOpen) return null;
     return (
         <ModalShell title="Load Scheme of Work" onClose={onClose}>
-            {history.length > 0 ? history.map((entry, idx) => (
+            {status !== 'ready' ? <ListStatusBody status={status} onRetry={onRetry} /> : history.length > 0 ? history.map((entry, idx) => (
                 <div key={idx} className="p-3 bg-gray-50 rounded-lg flex items-center justify-between gap-3">
                     <div className="min-w-0">
                         <p className="font-bold text-gray-800 truncate">{entry.subject}</p>
@@ -111,11 +127,11 @@ const HistoryModal: React.FC<{ isOpen: boolean; onClose: () => void; history: Hi
     );
 };
 
-const GeneratedHistoryModal: React.FC<{ isOpen: boolean; onClose: () => void; history: GeneratedHistoryEntry[]; onLoad: (entry: GeneratedHistoryEntry) => void; }> = ({ isOpen, onClose, history, onLoad }) => {
+const GeneratedHistoryModal: React.FC<{ isOpen: boolean; onClose: () => void; history: GeneratedHistoryEntry[]; onLoad: (entry: GeneratedHistoryEntry) => void; status: ListStatus; onRetry: () => void; }> = ({ isOpen, onClose, history, onLoad, status, onRetry }) => {
     if (!isOpen) return null;
     return (
         <ModalShell title="Load Generated Plan" onClose={onClose}>
-            {history.length > 0 ? history.map((entry, idx) => {
+            {status !== 'ready' ? <ListStatusBody status={status} onRetry={onRetry} /> : history.length > 0 ? history.map((entry, idx) => {
                 const terms = (entry.resources?.terms || []).filter(t => (t.lessonPlans || []).length > 0).map(t => t.term);
                 return (
                     <div key={idx} className="p-3 bg-gray-50 rounded-lg flex items-center justify-between gap-3">
@@ -143,6 +159,13 @@ const plannerAI: PlannerAIClient = {
         if (!isAIAllowedClient()) throw new PlannerAIError(AI_LOCKED_MESSAGE, 'locked');
         return api.aiChat(body as any);
     },
+};
+
+// `content` is a plain string column on GeneratedResource — the actual
+// payload is JSON stringified into it, discriminated by `content_type`.
+const parseContent = (row: any) => {
+    try { return typeof row.content === 'string' ? JSON.parse(row.content) : row.content; }
+    catch { return null; }
 };
 
 type GenState =
@@ -195,9 +218,21 @@ const LessonPlannerScreen: React.FC<{
     const [term3Scheme, setTerm3Scheme] = useState<SchemeWeek[]>(emptyWeek);
     const [genState, setGenState] = useState<GenState>({ status: 'idle' });
     const [isSaving, setIsSaving] = useState(false);
+    // Saved plans must be known before anything is generated: a new term is
+    // merged into the saved year plan, and merging into "nothing loaded yet"
+    // would overwrite the other saved terms.
+    const [historyStatus, setHistoryStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+    const historyStatusRef = useRef(historyStatus);
+    historyStatusRef.current = historyStatus;
     // Weeks finished by a run that partly failed — Retry only asks for the rest.
     const partialRef = useRef<{ key: string; weeks: GeneratedWeek[] } | null>(null);
-    const cancelRef = useRef(false);
+    // The plan saved by the latest run, for "Open plan" after a partial failure.
+    const lastSavedRef = useRef<GeneratedResources | null>(null);
+    // Every run gets an id. Cancel, a newer run, or leaving the screen moves the
+    // id on, and a run that is no longer current stops touching the screen and
+    // never saves or navigates. (A shared true/false flag was reset by the next
+    // run, which brought a cancelled run back to life.)
+    const runIdRef = useRef(0);
     const isGenerating = genState.status === 'running';
 
     const storageKey = `lesson_planner_draft_${teacherId}`;
@@ -234,19 +269,15 @@ const LessonPlannerScreen: React.FC<{
     }, [selectedSubjectId, selectedClassId, subject, className, term1Scheme, term2Scheme, term3Scheme, activeTerm, storageKey]);
 
     // Stop a running generation from updating a screen that has been left.
-    useEffect(() => () => { cancelRef.current = true; }, []);
+    useEffect(() => () => { runIdRef.current++; }, []);
 
     const effectiveTeacherId = teacherId || '';
 
     const fetchHistory = useCallback(async () => {
+        // A background refresh of an already-loaded list keeps showing it.
+        if (historyStatusRef.current !== 'ready') setHistoryStatus('loading');
         try {
             const data = await api.getGeneratedResources(schoolId || '');
-            // `content` is a plain string column on GeneratedResource — the actual
-            // payload is JSON stringified into it, discriminated by `content_type`.
-            const parseContent = (row: any) => {
-                try { return typeof row.content === 'string' ? JSON.parse(row.content) : row.content; }
-                catch { return null; }
-            };
             const rows = Array.isArray(data) ? data : [];
             setSchemeHistory(rows
                 .filter(row => row.content_type === 'scheme')
@@ -269,10 +300,27 @@ const LessonPlannerScreen: React.FC<{
                     lastUpdated: row.updated_at,
                     resources: normalizeResources(parseContent(row) || { subject: row.subject, className: row.class_name, terms: [] })
                 })));
+            setHistoryStatus('ready');
         } catch (error) {
             console.error("Error fetching history:", error);
+            if (historyStatusRef.current !== 'ready') setHistoryStatus('error');
         }
     }, [effectiveTeacherId, schoolId, currentBranchId]);
+
+    /**
+     * Reads the saved year plan for this subject and class straight from the
+     * server (bypassing the GET cache), right before a new term is merged in.
+     * Throws if it cannot be read — the caller must then not save.
+     */
+    const readSavedPlan = useCallback(async (): Promise<GeneratedResources | null> => {
+        const data = await api.getGeneratedResources(schoolId || '', { fresh: true });
+        const row = (Array.isArray(data) ? data : []).find(r =>
+            r.content_type === 'generated_resources' && r.subject === subject && r.class_name === className);
+        if (!row) return null;
+        const parsed = parseContent(row);
+        if (!parsed) throw new Error('Saved plan could not be read');
+        return normalizeResources(parsed);
+    }, [schoolId, subject, className]);
 
     useEffect(() => { fetchHistory(); }, [fetchHistory]);
     useAutoSync(['generated_resources'], fetchHistory);
@@ -289,10 +337,14 @@ const LessonPlannerScreen: React.FC<{
     );
     const savedTermsForClass = (savedPlan?.resources.terms || []).filter(t => t.lessonPlans.length > 0).map(t => t.term);
 
-    const canGenerate = !isGenerating && !!subject.trim() && !!className.trim() && termWeeks.length > 0;
-    const missingHint = !subject.trim() || !className.trim()
-        ? 'Choose a subject and class to get started.'
-        : termWeeks.length === 0 ? `Add at least one topic for the ${termLabel}.` : '';
+    const canGenerate = !isGenerating && historyStatus === 'ready' && !!subject.trim() && !!className.trim() && termWeeks.length > 0;
+    const missingHint = historyStatus === 'loading'
+        ? 'Loading your saved plans…'
+        : historyStatus === 'error'
+            ? ''
+            : !subject.trim() || !className.trim()
+                ? 'Choose a subject and class to get started.'
+                : termWeeks.length === 0 ? `Add at least one topic for the ${termLabel}.` : '';
 
     const openPlan = useCallback((resources: GeneratedResources, title: string, term?: string) => {
         navigateTo('lessonPlanDetail', title, {
@@ -360,8 +412,25 @@ const LessonPlannerScreen: React.FC<{
         navigateTo('lessonPlanDetail', `AI Plan: ${entry.subject}`, { resources: entry.resources });
     }, [navigateTo]);
 
+    /** Starts a new run and returns a check that is true only while it is still the current one. */
+    const startRun = () => {
+        const id = ++runIdRef.current;
+        return () => runIdRef.current === id;
+    };
+
+    /** Merges a term into the freshly read saved plan and saves it. Throws on any failure. */
+    const mergeAndSave = async (term: TermResources, notes: DetailedNote[], isCurrent: () => boolean) => {
+        const saved = await readSavedPlan();
+        if (!isCurrent()) return null;
+        const merged = mergeTermIntoResources(saved, { subject, className }, term, notes);
+        await saveGenerated(merged);
+        lastSavedRef.current = merged;
+        return merged;
+    };
+
     const handleLocalGenerate = async () => {
         if (!canGenerate) { toast.error(missingHint || 'Please add a topic first.'); return; }
+        const isCurrent = startRun();
         setGenState({ status: 'running', done: 0, total: termWeeks.length });
         try {
             const local = generateLocalCurriculum(subject, className, {
@@ -370,17 +439,18 @@ const LessonPlannerScreen: React.FC<{
                 term3: activeTerm === 'term3' ? term3Scheme : [],
             });
             const term = local.terms.find(t => t.term === termLabel)!;
-            const merged = mergeTermIntoResources(savedPlan?.resources, { subject, className },
+            const merged = await mergeAndSave(
                 { term: term.term, schemeOfWork: term.schemeOfWork, lessonPlans: term.lessonPlans as any, assessments: term.assessments as any },
-                local.detailedNotes);
-            await saveGenerated(merged);
+                local.detailedNotes, isCurrent);
+            if (!merged || !isCurrent()) return;
             fetchHistory();
             setGenState({ status: 'idle' });
             toast.success(`${termLabel} template created from your topics.`);
             openPlan(merged, `Local Plan: ${subject}`, termLabel);
         } catch (error) {
+            if (!isCurrent()) return;
             console.error("Local Generation Error:", error);
-            setGenState({ status: 'error', message: 'Could not save the plan. Check your connection and try again.', canOpen: false });
+            setGenState({ status: 'error', message: 'Could not save the plan. Nothing was changed. Check your connection and try again.', canOpen: false });
         }
     };
 
@@ -388,7 +458,7 @@ const LessonPlannerScreen: React.FC<{
         if (!canGenerate) { toast.error(missingHint || 'Please add a topic first.'); return; }
         const runKey = `${subject}|${className}|${termLabel}`;
         const already = retry && partialRef.current?.key === runKey ? partialRef.current.weeks : [];
-        cancelRef.current = false;
+        const isCurrent = startRun();
         setGenState({ status: 'running', done: already.length, total: termWeeks.length });
 
         try {
@@ -399,9 +469,10 @@ const LessonPlannerScreen: React.FC<{
                 termLabel,
                 scheme: currentScheme,
                 already,
-                onProgress: p => { if (!cancelRef.current) setGenState({ status: 'running', ...p }); },
-                isCancelled: () => cancelRef.current,
+                onProgress: p => { if (isCurrent()) setGenState({ status: 'running', ...p }); },
+                isCancelled: () => !isCurrent(),
             });
+            if (!isCurrent()) return;
 
             partialRef.current = { key: runKey, weeks: weeksFromTerm(result.term, result.notes) };
 
@@ -416,14 +487,16 @@ const LessonPlannerScreen: React.FC<{
                 return;
             }
 
-            const merged = mergeTermIntoResources(savedPlan?.resources, { subject, className }, result.term, result.notes);
+            let merged: GeneratedResources | null;
             try {
-                await saveGenerated(merged);
+                merged = await mergeAndSave(result.term, result.notes, isCurrent);
             } catch (e) {
+                if (!isCurrent()) return;
                 console.error('Saving generated plan failed:', e);
-                setGenState({ status: 'error', message: 'Your plans were generated but could not be saved. Check your connection and try again.', canOpen: false });
+                setGenState({ status: 'error', message: 'Your plans were generated but could not be saved, and your saved plans were left unchanged. Check your connection and try again.', canOpen: false });
                 return;
             }
+            if (!merged || !isCurrent()) return;
             fetchHistory();
 
             if (result.failedWeeks.length > 0) {
@@ -440,17 +513,15 @@ const LessonPlannerScreen: React.FC<{
             toast.success(`${termLabel} lesson plans are ready and saved.`);
             openPlan(merged, `AI Plan: ${subject}`, termLabel);
         } catch (error: any) {
-            if (error instanceof PlannerAIError && error.code === 'cancelled') {
-                setGenState({ status: 'idle' });
-                return;
-            }
+            // A cancelled or superseded run says nothing: the newer state wins.
+            if (!isCurrent()) return;
             console.error("AI Generation Error:", error);
             setGenState({ status: 'error', message: 'Something went wrong while generating. Please try again.', canOpen: false });
         }
     };
 
     const handleCancel = () => {
-        cancelRef.current = true;
+        runIdRef.current++;
         setGenState({ status: 'idle' });
         toast('Generation stopped. Nothing new was saved.');
     };
@@ -459,8 +530,8 @@ const LessonPlannerScreen: React.FC<{
 
     return (
         <div className="flex flex-col h-full bg-gray-100">
-            <main className="flex-grow min-h-0 overflow-y-auto p-4 pb-24 lg:p-6">
-                <div className="mx-auto w-full max-w-6xl grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(300px,360px)] lg:items-start">
+            <main className="flex-grow min-h-0 overflow-y-auto p-4 pb-24 xl:p-6">
+                <div className="mx-auto w-full max-w-6xl grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(300px,360px)] xl:items-start">
                     <div className="min-w-0 space-y-5">
                         <header className="flex items-start gap-3">
                             <SparklesIcon className="h-8 w-8 shrink-0 text-gray-500 mt-0.5" />
@@ -593,12 +664,22 @@ const LessonPlannerScreen: React.FC<{
                                     </div>
                                     <div className="grid grid-cols-2 gap-2">
                                         <button type="button" onClick={() => handleGenerate(true)} className="min-h-[44px] text-sm font-semibold text-white bg-gray-900 rounded-lg hover:bg-black">Retry</button>
-                                        {genState.canOpen && savedPlan ? (
-                                            <button type="button" onClick={() => openPlan(savedPlan.resources, `AI Plan: ${subject}`, termLabel)} className="min-h-[44px] text-sm font-semibold text-purple-700 border border-purple-300 bg-white rounded-lg hover:bg-purple-50">Open plan</button>
+                                        {genState.canOpen && lastSavedRef.current ? (
+                                            <button type="button" onClick={() => openPlan(lastSavedRef.current!, `AI Plan: ${subject}`, termLabel)} className="min-h-[44px] text-sm font-semibold text-purple-700 border border-purple-300 bg-white rounded-lg hover:bg-purple-50">Open plan</button>
                                         ) : (
                                             <button type="button" onClick={() => setGenState({ status: 'idle' })} className="min-h-[44px] text-sm font-semibold text-gray-700 border border-gray-300 bg-white rounded-lg hover:bg-gray-100">Dismiss</button>
                                         )}
                                     </div>
+                                </div>
+                            )}
+
+                            {historyStatus === 'error' && genState.status !== 'running' && (
+                                <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 space-y-3">
+                                    <div className="flex gap-2">
+                                        <ExclamationCircleIcon className="w-5 h-5 shrink-0 text-red-600 mt-0.5" />
+                                        <p className="text-sm text-red-800">Could not load your saved plans. Generating is paused so nothing you already saved gets overwritten.</p>
+                                    </div>
+                                    <button type="button" onClick={fetchHistory} className="w-full min-h-[44px] text-sm font-semibold text-white bg-gray-900 rounded-lg hover:bg-black">Retry</button>
                                 </div>
                             )}
 
@@ -609,15 +690,15 @@ const LessonPlannerScreen: React.FC<{
                                             type="button"
                                             onClick={() => handleGenerate(false)}
                                             disabled={!canGenerate}
-                                            className="w-full flex justify-center items-center gap-2 min-h-[48px] px-4 font-bold text-white bg-gray-900 hover:bg-black rounded-xl shadow-lg disabled:bg-gray-400 disabled:shadow-none transition-all transform active:scale-[0.98]">
-                                            <SparklesIcon className="h-5 w-5" />
+                                            className="w-full flex justify-center items-center gap-2 min-h-[48px] px-3 whitespace-nowrap font-bold text-white bg-gray-900 hover:bg-black rounded-xl shadow-lg disabled:bg-gray-400 disabled:shadow-none transition-all transform active:scale-[0.98]">
+                                            <SparklesIcon className="h-5 w-5 shrink-0" />
                                             <span>Generate AI Resources</span>
                                         </button>
                                         {missingHint && <p className="text-sm text-gray-500">{missingHint}</p>}
                                     </div>
 
                                     <div className="border-t border-gray-100 pt-4 space-y-3">
-                                        <div className="grid grid-cols-2 gap-3">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-3">
                                             <button type="button" onClick={handleSaveScheme} disabled={isSaving || !subject.trim() || !className.trim()} className="w-full min-h-[44px] px-2 text-sm font-medium text-gray-800 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50">
                                                 {isSaving ? 'Saving…' : 'Save Scheme'}
                                             </button>
@@ -642,8 +723,8 @@ const LessonPlannerScreen: React.FC<{
                 </div>
             </main>
 
-            <HistoryModal isOpen={isSchemeHistoryOpen} onClose={() => setIsSchemeHistoryOpen(false)} history={schemeHistory} onLoad={handleLoadFromSchemeHistory} />
-            <GeneratedHistoryModal isOpen={isGeneratedHistoryOpen} onClose={() => setIsGeneratedHistoryOpen(false)} history={generatedHistory} onLoad={handleLoadFromGeneratedHistory} />
+            <HistoryModal isOpen={isSchemeHistoryOpen} onClose={() => setIsSchemeHistoryOpen(false)} history={schemeHistory} onLoad={handleLoadFromSchemeHistory} status={historyStatus} onRetry={fetchHistory} />
+            <GeneratedHistoryModal isOpen={isGeneratedHistoryOpen} onClose={() => setIsGeneratedHistoryOpen(false)} history={generatedHistory} onLoad={handleLoadFromGeneratedHistory} status={historyStatus} onRetry={fetchHistory} />
         </div>
     );
 };
