@@ -20,6 +20,7 @@ import { AIGateway } from './aiGateway.service';
 import { withOliskeyKnowledge } from './aiKnowledge.service';
 import { buildPersonalContext, PersonalContextUser } from './aiPersonalContext.service';
 import { moderateStudentText, isStudentRole } from './aiModeration.service';
+import { DEMO_SCHOOL_ID } from '../config/env';
 
 export const MODEL_WINDOW = 12;
 export const MAX_STORED_MESSAGES = 200;
@@ -35,7 +36,7 @@ export type ConversationOwner = PersonalContextUser & { id: string; school_id: s
 
 const httpError = (status: number, message: string) => Object.assign(new Error(message), { status });
 
-const MODE_INSTRUCTIONS: Record<Exclude<ChatMode, 'standard'>, string> = {
+export const MODE_INSTRUCTIONS: Record<Exclude<ChatMode, 'standard'>, string> = {
     steps: 'Step-by-step mode: reason carefully and show the working as short numbered steps before the final answer, like a good teacher on a whiteboard.',
     research: 'Research mode: answer like a research assistant. You have NO live internet access, so say plainly when a fact could be out of date (prices, officials, recent events) and end with 2-3 reliable places to check (official websites, WAEC/NECO resources, textbooks).',
     places: 'Places mode: answer geography and location questions descriptively (landmarks, distances, regions, travel context, Nigeria-aware). You cannot see live maps, so for directions or current travel times suggest a maps app and focus on teaching the geography.',
@@ -59,8 +60,18 @@ const ownWhere = (owner: ConversationOwner, id?: string) => ({
     school_id: owner.school_id,
 });
 
+/**
+ * Demo accounts are shared by every visitor, so demo chat history lives only
+ * on the visitor's device (lib/aiLocalHistory.ts). The server never stores or
+ * returns it, so an older client cannot write to the shared account either.
+ */
+export const isDemoOwner = (owner: ConversationOwner) =>
+    owner.is_demo === true || (!!DEMO_SCHOOL_ID && owner.school_id === DEMO_SCHOOL_ID);
+const DEMO_NOT_FOUND = () => httpError(404, 'Conversation not found');
+
 export class AiConversationService {
     static async list(owner: ConversationOwner) {
+        if (isDemoOwner(owner)) return [];
         const rows = await prisma.aiConversation.findMany({
             where: ownWhere(owner),
             select: { id: true, title: true, created_at: true, updated_at: true, messages: true },
@@ -79,6 +90,7 @@ export class AiConversationService {
     }
 
     static async get(owner: ConversationOwner, id: string) {
+        if (isDemoOwner(owner)) throw DEMO_NOT_FOUND();
         const row = await prisma.aiConversation.findFirst({
             where: ownWhere(owner, id),
             select: { id: true, title: true, created_at: true, updated_at: true, messages: true },
@@ -88,6 +100,7 @@ export class AiConversationService {
     }
 
     static async rename(owner: ConversationOwner, id: string, title: string) {
+        if (isDemoOwner(owner)) throw DEMO_NOT_FOUND();
         const clean = titleFrom(title);
         const { count } = await prisma.aiConversation.updateMany({ where: ownWhere(owner, id), data: { title: clean } });
         if (count === 0) throw httpError(404, 'Conversation not found');
@@ -95,6 +108,7 @@ export class AiConversationService {
     }
 
     static async remove(owner: ConversationOwner, id: string) {
+        if (isDemoOwner(owner)) throw DEMO_NOT_FOUND();
         const { count } = await prisma.aiConversation.deleteMany({ where: ownWhere(owner, id) });
         if (count === 0) throw httpError(404, 'Conversation not found');
         return { id, deleted: true };
@@ -107,6 +121,7 @@ export class AiConversationService {
      * saves and returns the reply.
      */
     static async send(owner: ConversationOwner, input: { conversationId?: string | null; text?: string; image?: string | null; mode?: string | null; page?: string | null }) {
+        if (isDemoOwner(owner)) throw httpError(403, 'In the demo, chats are kept on this device only. Please refresh the page and try again.');
         const text = String(input.text ?? '').trim();
         const image = typeof input.image === 'string' && input.image.startsWith('data:image/') ? input.image : null;
         if (!text && !image) throw httpError(400, 'Type a message first.');

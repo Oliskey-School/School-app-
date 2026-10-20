@@ -3337,7 +3337,7 @@ class ExpressApiClient {
     // chat + vision — messages may contain multimodal content (text + image_url)
     // `context.personal: true` asks the server to add the signed-in user's own
     // records (built server-side from the session — the flag cannot widen scope).
-    async aiChat(body: { messages: any[]; model?: string; temperature?: number; max_tokens?: number; response_format?: any; thinking?: boolean; context?: { personal?: boolean; page?: string; module?: string } }): Promise<{ text: string; model?: string; usage?: any; raw?: any }> {
+    async aiChat(body: { messages: any[]; model?: string; temperature?: number; max_tokens?: number; response_format?: any; thinking?: boolean; context?: { personal?: boolean; page?: string; module?: string; mode?: AiChatMode } }): Promise<{ text: string; model?: string; usage?: any; raw?: any }> {
         return this.post('/ai/chat', body);
     }
     // AI Assistant chat history — always the signed-in user's own conversations.

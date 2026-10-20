@@ -1,12 +1,13 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
-import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { api } from '../../../lib/api';
 import { DashboardType } from '../../../types';
 import AIMarkdown, { plainMaths } from '../AIMarkdown';
 import AIChatHistoryPanel, { relativeTime } from '../AIChatHistoryPanel';
 
-vi.mock('../../../context/AuthContext', () => ({ useAuth: () => ({ user: { full_name: 'Ada Obi', avatar_url: '' }, role: 'student' }) }));
+const auth = vi.hoisted(() => ({ isDemo: false }));
+vi.mock('../../../context/AuthContext', () => ({ useAuth: () => ({ user: { id: 'u-ada', full_name: 'Ada Obi', avatar_url: '' }, role: 'student', isDemo: auth.isDemo }) }));
 vi.mock('../../../lib/ai', () => ({ isAIAllowedClient: () => true, AI_LOCKED_MESSAGE: 'locked' }));
 vi.mock('../../ui/Header', () => ({ default: ({ title }: any) => <header>{title}</header> }));
 vi.mock('../LiveSession', () => ({ default: () => <div>live</div> }));
@@ -151,5 +152,43 @@ describe('AIChatScreen', () => {
         expect(within(list).getByText(/No live internet/)).toBeInTheDocument();
         fireEvent.click(within(list).getByText('Step by step'));
         expect(screen.getByRole('button', { name: /answer style/i })).toHaveTextContent('Step by step');
+    });
+});
+
+describe('AIChatScreen in the demo', () => {
+    beforeEach(() => {
+        auth.isDemo = true;
+        localStorage.clear();
+        a.aiListConversations = vi.fn();
+        a.aiGetConversation = vi.fn();
+        a.aiDeleteConversation = vi.fn();
+        a.aiSendMessage = vi.fn();
+        a.aiChat = vi.fn().mockResolvedValue({ text: '### Demo answer\n- **88%** present' });
+    });
+    afterEach(() => { auth.isDemo = false; localStorage.clear(); });
+
+    it('keeps history on this device and never calls the history API', async () => {
+        const { unmount } = render(<AIChatScreen onBack={vi.fn()} dashboardType={DashboardType.Student} />);
+        fireEvent.click(screen.getByRole('button', { name: "What's my attendance this term?" }));
+        await waitFor(() => expect(screen.getByText('88%', { selector: 'strong' })).toBeInTheDocument());
+        expect(a.aiChat).toHaveBeenCalledWith(expect.objectContaining({ context: expect.objectContaining({ personal: true, mode: 'standard' }) }));
+        const stored = JSON.parse(localStorage.getItem('oliskey_ai_demo_chats:u-ada:STUDENT') || '[]');
+        expect(stored).toHaveLength(1);
+        expect(stored[0].messages.map((m: any) => m.role)).toEqual(['user', 'assistant']);
+        expect(screen.getByText('Demo chats are saved on this device only')).toBeInTheDocument();
+        unmount();
+
+        // A new visit on the same device shows the saved chat; open and delete it locally.
+        render(<AIChatScreen onBack={vi.fn()} dashboardType={DashboardType.Student} />);
+        const item = (await screen.findAllByText("What's my attendance this term?"))[0];
+        fireEvent.click(item);
+        await waitFor(() => expect(screen.getByText('88%', { selector: 'strong' })).toBeInTheDocument());
+        fireEvent.click(screen.getAllByRole('button', { name: /Delete chat:/ })[0]);
+        fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+        await waitFor(() => expect(JSON.parse(localStorage.getItem('oliskey_ai_demo_chats:u-ada:STUDENT') || '[]')).toHaveLength(0));
+
+        for (const fn of ['aiListConversations', 'aiGetConversation', 'aiDeleteConversation', 'aiSendMessage']) {
+            expect(a[fn], `${fn} must not be called in the demo`).not.toHaveBeenCalled();
+        }
     });
 });

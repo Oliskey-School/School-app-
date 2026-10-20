@@ -11,7 +11,7 @@ import { sendError } from '../utils/httpError';
 import { buildPersonalContext } from '../services/aiPersonalContext.service';
 import { moderateStudentText, isStudentRole } from '../services/aiModeration.service';
 import { lastUserQuestion } from '../services/aiKnowledge.service';
-import { AiConversationService, ConversationOwner } from '../services/aiConversation.service';
+import { AiConversationService, ConversationOwner, MODE_INSTRUCTIONS } from '../services/aiConversation.service';
 
 // Shared error shaping for the NVIDIA proxy — surfaces the upstream status and a
 // short reason without leaking the API key or full internals.
@@ -60,6 +60,12 @@ export const aiChat = async (req: AuthRequest, res: Response) => {
             term: typeof req.body?.context?.term === 'string' ? req.body.context.term.slice(0, 40) : null,
             personalContext,
         });
+        // Answer style chosen in the assistant (demo chats call this endpoint).
+        const mode = req.body?.context?.mode;
+        if (typeof mode === 'string' && Object.prototype.hasOwnProperty.call(MODE_INSTRUCTIONS, mode)) {
+            const firstTurn = body.messages.findIndex((m: any) => m.role !== 'system');
+            body.messages.splice(firstTurn < 0 ? body.messages.length : firstTurn, 0, { role: 'system', content: (MODE_INSTRUCTIONS as any)[mode] });
+        }
         delete (body as any).context;   // a UI hint, not part of the provider payload
 
         const result = await AIGateway.chat(body, String(req.user?.id || ''));

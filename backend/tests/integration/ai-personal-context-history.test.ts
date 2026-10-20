@@ -23,7 +23,8 @@ import { config } from '../../src/config/env';
 import { runAsPlatform } from '../../src/lib/tenantContext';
 import { AIGateway } from '../../src/services/aiGateway.service';
 import { buildPersonalContext, clearPersonalContextCache } from '../../src/services/aiPersonalContext.service';
-import { MODEL_WINDOW } from '../../src/services/aiConversation.service';
+import { MODEL_WINDOW, AiConversationService } from '../../src/services/aiConversation.service';
+import { DEMO_SCHOOL_ID } from '../../src/config/env';
 import { moderateStudentText } from '../../src/services/aiModeration.service';
 
 const SA = 'aich-school-a', SB = 'aich-school-b';
@@ -257,6 +258,35 @@ describe('AI Assistant: personal context scope + chat history', () => {
             expect(systemText(captured[0])).toContain('STUDENT TUTOR MODE');
             expect(systemText(captured[0])).toMatch(/ask the student\s+to try the next step/);
             expect(systemText(captured[1])).not.toContain('STUDENT TUTOR MODE');
+        });
+    });
+
+    // ── Demo: history is device-only, the server never stores it ─────────────
+    describe('demo sessions', () => {
+        const owners = () => [
+            { ...user(U.s1, 'STUDENT', SA, BX), is_demo: true } as any,
+            { ...user(U.s1, 'STUDENT', DEMO_SCHOOL_ID || 'demo-school', BX) } as any,
+        ];
+        it('refuses to save, list, open, rename or delete demo chats', async () => {
+            const count = () => runAsPlatform(() => prisma.aiConversation.count({ where: { user_id: U.s1 } }));
+            const before = await count();
+            for (const owner of owners()) {
+                expect(await AiConversationService.list(owner)).toEqual([]);
+                await expect(AiConversationService.send(owner, { text: 'save me' })).rejects.toMatchObject({ status: 403 });
+                await expect(AiConversationService.get(owner, 'x')).rejects.toMatchObject({ status: 404 });
+                await expect(AiConversationService.rename(owner, 'x', 'y')).rejects.toMatchObject({ status: 404 });
+                await expect(AiConversationService.remove(owner, 'x')).rejects.toMatchObject({ status: 404 });
+            }
+            expect(await count(), 'a demo send must not write a row').toBe(before);
+            expect(captured, 'a refused demo send must not call the model').toHaveLength(0);
+        });
+
+        it('demo chat still works through /api/ai/chat, with the chosen answer style', async () => {
+            const res = await request(app).post('/api/ai/chat').set(as.s1())
+                .send({ messages: [{ role: 'user', content: 'hi' }], context: { personal: true, mode: 'research' } });
+            expect(res.status).toBe(200);
+            expect(systemText(captured[0])).toMatch(/Research mode/);
+            expect(systemText(captured[0])).toContain("THIS USER'S OWN RECORDS");
         });
     });
 

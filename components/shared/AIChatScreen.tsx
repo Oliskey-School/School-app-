@@ -3,7 +3,7 @@ import { toast } from 'react-hot-toast';
 import { History, Plus, X, ImagePlus, Mic, Square, Send, Volume2, ChevronDown, RotateCw, Lock, Video } from 'lucide-react';
 import { THEME_CONFIG, AIIcon, SearchIcon, MicrophoneIcon, SparklesIcon } from '../../constants';
 import { DashboardType } from '../../types';
-import { api, AiChatMode, AiConversationSummary } from '../../lib/api';
+import { api, AiChatMode, AiConversationSummary, AiSendResult } from '../../lib/api';
 import { isAIAllowedClient, AI_LOCKED_MESSAGE } from '../../lib/ai';
 import { useAuth } from '../../context/AuthContext';
 import Header from '../ui/Header';
@@ -12,6 +12,15 @@ import LiveSession from './LiveSession';
 import MediaGenerator from './MediaGenerator';
 import AIMarkdown from './AIMarkdown';
 import AIChatHistoryPanel from './AIChatHistoryPanel';
+import { isDemoMode } from '../../lib/apiHelpers';
+import { listLocal, getLocal, saveLocal, deleteLocal, localHistoryKey } from '../../lib/aiLocalHistory';
+
+/** Same window the server uses for saved chats. */
+const MODEL_WINDOW = 12;
+const titleFromText = (t: string) => {
+    const s = String(t || '').replace(/\s+/g, ' ').trim() || 'Photo question';
+    return s.length > 60 ? `${s.slice(0, 57).trimEnd()}…` : s;
+};
 
 interface ChatMessage {
     role: 'user' | 'assistant';
@@ -80,7 +89,10 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
 
 const AIChatScreen: React.FC<AIChatScreenProps> = ({ onBack, dashboardType }) => {
     const theme = THEME_CONFIG[dashboardType] || THEME_CONFIG[DashboardType.Admin];
-    const { user } = useAuth() as any;
+    const { user, isDemo: authDemo } = useAuth() as any;
+    // Demo accounts are shared by all visitors: their chats stay on this device.
+    const isDemo = !!authDemo || isDemoMode();
+    const localKey = localHistoryKey(String(user?.id || ''), String(dashboardType));
     const firstName = String(user?.full_name || user?.user_metadata?.full_name || '').trim().split(/\s+/)[0] || '';
     const [activeTab, setActiveTab] = useState<Tab>('chat');
 
@@ -114,13 +126,13 @@ const AIChatScreen: React.FC<AIChatScreenProps> = ({ onBack, dashboardType }) =>
     const loadHistory = useCallback(async () => {
         setHistoryStatus('loading');
         try {
-            const list = await api.aiListConversations();
+            const list = isDemo ? listLocal(localKey) : await api.aiListConversations();
             setConversations(Array.isArray(list) ? list : []);
             setHistoryStatus('ready');
         } catch {
             setHistoryStatus('error');
         }
-    }, []);
+    }, [isDemo, localKey]);
 
     useEffect(() => { loadHistory(); }, [loadHistory]);
 
@@ -141,7 +153,8 @@ const AIChatScreen: React.FC<AIChatScreenProps> = ({ onBack, dashboardType }) =>
         setOpening(true);
         setSendError(null);
         try {
-            const c = await api.aiGetConversation(id);
+            const c = isDemo ? getLocal(localKey, id) : await api.aiGetConversation(id);
+            if (!c) throw new Error('Conversation not found');
             setActiveId(c.id);
             setActiveTitle(c.title);
             setMessages(c.messages.map(m => ({ ...m })));
@@ -155,7 +168,7 @@ const AIChatScreen: React.FC<AIChatScreenProps> = ({ onBack, dashboardType }) =>
 
     const deleteConversation = async (id: string) => {
         try {
-            await api.aiDeleteConversation(id);
+            if (isDemo) deleteLocal(localKey, id); else await api.aiDeleteConversation(id);
             setConversations(list => list.filter(c => c.id !== id));
             if (id === activeId) startNewChat();
             toast.success('Chat deleted');
@@ -174,6 +187,24 @@ const AIChatScreen: React.FC<AIChatScreenProps> = ({ onBack, dashboardType }) =>
     }, [historyOpen]);
 
     // ── Sending ───────────────────────────────────────────────────────────
+    // Demo: chat through /api/ai/chat (with the visitor's own demo records) and
+    // keep the conversation on this device only. Nothing is saved server-side.
+    const sendDemo = async (userMsg: ChatMessage, text: string, image: PendingImage): Promise<AiSendResult> => {
+        const history = [...messages, userMsg].slice(-MODEL_WINDOW).map(m => ({ role: m.role, content: m.content }));
+        if (image) history[history.length - 1] = { role: 'user', content: [{ type: 'text', text: userMsg.content }, { type: 'image_url', image_url: { url: image.dataUrl } }] as any };
+        while (history.length > 1 && history[0].role === 'assistant') history.shift();
+        const r = await api.aiChat({
+            messages: history,
+            max_tokens: 1400,
+            ...(mode === 'steps' ? { model: 'deepseek-ai/deepseek-v4-flash' } : { thinking: false }),
+            context: { personal: true, page: 'AI Assistant', module: 'AI Assistant chat', mode },
+        });
+        const reply = { role: 'assistant' as const, content: (r?.text || '').trim() || "Sorry, I couldn't put an answer together. Please try asking another way.", at: new Date().toISOString() };
+        const { imageUrl: _preview, ...stored } = userMsg;
+        const summary = saveLocal(localKey, { id: activeId, title: titleFromText(text), messages: [...messages, stored, reply] });
+        return { conversation: { id: summary.id, title: summary.title, updated_at: summary.updated_at, message_count: summary.message_count }, message: stored, reply };
+    };
+
     const send = async (rawText: string, image: PendingImage = pendingImage) => {
         const text = rawText.trim();
         if ((!text && !image) || isSending) return;
@@ -189,7 +220,9 @@ const AIChatScreen: React.FC<AIChatScreenProps> = ({ onBack, dashboardType }) =>
 
         try {
             const res = await withTimeout(
-                api.aiSendMessage({ conversation_id: activeId, text, image: image?.dataUrl || null, mode, page: 'AI Assistant' }),
+                isDemo
+                    ? sendDemo(optimistic, text, image)
+                    : api.aiSendMessage({ conversation_id: activeId, text, image: image?.dataUrl || null, mode, page: 'AI Assistant' }),
                 SEND_TIMEOUT_MS,
             );
             setMessages(prev => [...prev, { ...res.reply }]);
@@ -523,7 +556,7 @@ const AIChatScreen: React.FC<AIChatScreenProps> = ({ onBack, dashboardType }) =>
                                             <span className="font-medium text-gray-900">{currentMode.label}</span>
                                             <ChevronDown className="w-4 h-4" aria-hidden="true" />
                                         </button>
-                                        <span className="hidden sm:block text-xs text-gray-500 truncate">Saved to your account · only you can see it</span>
+                                        <span className="hidden sm:block text-xs text-gray-500 truncate">{isDemo ? 'Demo chats are saved on this device only' : 'Saved to your account · only you can see it'}</span>
                                         {modeMenuOpen && (
                                             <ul role="listbox" aria-label="Answer style" className="absolute bottom-full left-0 mb-2 w-[min(20rem,calc(100vw-2rem))] bg-white rounded-2xl border border-gray-200 shadow-lg p-1.5 z-20">
                                                 {MODES.map(m => (
