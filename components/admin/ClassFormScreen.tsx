@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useQueryClient } from '@tanstack/react-query';
 import api from '../../lib/api';
 import { XIcon, SUBJECTS_LIST, getFormattedClassName } from '../../constants';
 import { toast } from 'react-hot-toast';
@@ -33,6 +34,7 @@ const ClassFormScreen: React.FC<ClassFormScreenProps> = ({ classToEdit, schoolId
             : []
     );
     const [subjectOptions, setSubjectOptions] = useState<string[]>([]);
+    const queryClient = useQueryClient();
     const [subjectRows, setSubjectRows] = useState<{ id: string; name: string }[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     // Editing an existing class: each subject add/remove is applied straight
@@ -106,7 +108,8 @@ const ClassFormScreen: React.FC<ClassFormScreenProps> = ({ classToEdit, schoolId
             setSubjectOptions(prev => (prev.includes(saved.name) ? prev : [...prev, saved.name]));
             if (a.armIds.includes(classToEdit!.id)) setSubjects(prev => (prev.includes(saved.name) ? prev : [...prev, saved.name]));
             setArms(prev => prev.map(x => (!a.armIds.includes(x.id) || x.subjects.some(s => sameName(s.name, saved.name))) ? x : { ...x, subjects: [...x.subjects, saved] }));
-            forceUpdate();
+            // Refresh the class list without remounting this form (forceUpdate would).
+            queryClient.invalidateQueries({ queryKey: ['classes'] });
             toast.success(`${saved.name} added to ${a.armIds.length === 1 ? (a.arms.find(x => x.id === a.armIds[0])?.label || 'the class') : `${a.armIds.length} classes`}`);
             setAction(null);
         } catch (err: any) {
@@ -139,7 +142,7 @@ const ClassFormScreen: React.FC<ClassFormScreenProps> = ({ classToEdit, schoolId
             await api.removeClassSubject(classToEdit!.id, a.subjectId, a.armIds);
             if (a.armIds.includes(classToEdit!.id)) setSubjects(prev => prev.filter(n => !sameName(n, a.name)));
             setArms(prev => prev.map(x => !a.armIds.includes(x.id) ? x : { ...x, subjects: x.subjects.filter(s => !sameName(s.name, a.name)) }));
-            forceUpdate();
+            queryClient.invalidateQueries({ queryKey: ['classes'] });
             toast.success(`${a.name} removed. Past results are kept.`);
             setAction(null);
         } catch (err: any) {

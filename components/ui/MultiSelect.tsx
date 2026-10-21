@@ -74,6 +74,11 @@ const MultiSelect: React.FC<{
         setFilterText(''); // Reset filter after selection
     };
 
+    const typed = filterText.trim().toLowerCase();
+    const canCreate = !!allowCreate && !!typed
+        && !options.some(o => o.toLowerCase() === typed)
+        && !selected.some(o => o.toLowerCase() === typed);
+
     const filteredOptions = options.filter(opt =>
         opt.toLowerCase().includes(filterText.toLowerCase()) &&
         !selected.includes(opt)
@@ -125,7 +130,7 @@ const MultiSelect: React.FC<{
                     style={{ maxHeight: placement.maxHeight }}
                     className={`absolute z-50 w-full bg-white border border-gray-200 rounded-lg shadow-lg overflow-y-auto overscroll-contain ${placement.up ? 'bottom-full mb-1' : 'mt-1'}`}
                 >
-                    {allowCreate && filterText.trim() && !options.some(o => o.toLowerCase() === filterText.trim().toLowerCase()) && !selected.some(o => o.toLowerCase() === filterText.trim().toLowerCase()) && (
+                    {canCreate && (
                         <div
                             onClick={() => toggleSelection(filterText.trim())}
                             className="px-4 py-2 hover:bg-indigo-50 cursor-pointer text-sm text-indigo-700 font-medium"
@@ -143,7 +148,7 @@ const MultiSelect: React.FC<{
                                 <span>{option}</span>
                             </div>
                         ))
-                    ) : (
+                    ) : canCreate ? null : (
                         <div className="px-4 py-3 text-sm text-gray-500 text-center">
                             {options.length === 0 ? "No options available" : "No matching options"}
                         </div>

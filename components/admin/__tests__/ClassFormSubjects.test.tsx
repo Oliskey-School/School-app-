@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ClassFormScreen from '../ClassFormScreen';
 
 const apiMock = vi.hoisted(() => ({
@@ -18,8 +19,8 @@ vi.mock('react-hot-toast', () => ({ toast: { success: vi.fn(), error: vi.fn() } 
 const ss1a = { id: 'c-a', name: 'SSS 1', grade: 10, section: 'A', subjects: [{ id: 's-eng', name: 'English' }] } as any;
 const ss1b = { id: 'c-b', name: 'SSS 1', grade: 10, section: 'B', subjects: [{ id: 's-eng', name: 'English' }] } as any;
 
-const renderForm = () => render(
-    <ClassFormScreen classToEdit={ss1a} schoolId="sch" currentBranchId="br" handleBack={vi.fn()} forceUpdate={vi.fn()} />
+const renderForm = () => render(<QueryClientProvider client={new QueryClient()}>
+    <ClassFormScreen classToEdit={ss1a} schoolId="sch" currentBranchId="br" handleBack={vi.fn()} forceUpdate={vi.fn()} /></QueryClientProvider>
 );
 
 const pickerInput = () => screen.getByText('Subjects (taught in this class)').parentElement!.querySelector('input') as HTMLInputElement;
