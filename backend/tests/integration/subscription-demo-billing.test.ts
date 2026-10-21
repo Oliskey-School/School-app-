@@ -201,11 +201,11 @@ describe('Demo pricing + real payment activation', () => {
     });
 
     // ── 5. Demo baseline ────────────────────────────────────────────────────
-    it('restoreDemoPlanBaseline puts the demo school back on Basic', async () => {
-        await prisma.school.update({ where: { id: DEMO }, data: { plan_type: 'advanced', subscription_status: 'active' } });
+    it('restoreDemoPlanBaseline puts the demo school back on Advanced', async () => {
+        await prisma.school.update({ where: { id: DEMO }, data: { plan_type: 'basic', subscription_status: 'active' } });
         await restoreDemoPlanBaseline();
         const demo = await prisma.school.findUnique({ where: { id: DEMO }, select: { plan_type: true, subscription_status: true } });
         expect(demo).toEqual(DEMO_PLAN_BASELINE);
-        expect(DEMO_PLAN_BASELINE.plan_type).toBe('basic');
+        expect(DEMO_PLAN_BASELINE.plan_type).toBe('advanced');
     });
 });

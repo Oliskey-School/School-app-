@@ -5,10 +5,10 @@ import { VersionService, RUNNING_VERSION } from './version.service';
 
 /**
  * The plan the shared demo school starts on and is put back on by every reset.
- * Basic = every core feature open, AI locked — so a visitor experiences the
- * "upgrade to Advanced" prompt and unlocks it with fake money in the Demo Checkout.
+ * Advanced = everything open, AI included: the demo shows a visitor exactly what a
+ * paying Advanced school gets (owner decision, 2026-10-21).
  */
-export const DEMO_PLAN_BASELINE = { plan_type: 'basic', subscription_status: 'active' } as const;
+export const DEMO_PLAN_BASELINE = { plan_type: 'advanced', subscription_status: 'active' } as const;
 
 export async function restoreDemoPlanBaseline(): Promise<void> {
     await prisma.school.update({
