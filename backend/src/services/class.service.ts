@@ -1,4 +1,4 @@
-import prisma from '../config/database';
+import prisma, { withTenantTransaction } from '../config/database';
 import { SocketService } from './socket.service';
 
 export class ClassService {
@@ -199,6 +199,160 @@ export class ClassService {
             include: { subjects: { select: { id: true, name: true, code: true } } }
         });
         return cls?.subjects || [];
+    }
+
+    // ── Per-action subject add / remove (Academic Levels → Edit Class) ──────
+    // The admin picks the arms (same grade) the change applies to. Branch
+    // admins are held to their branch by `branchId`; a main admin viewing All
+    // Branches passes undefined and may pick arms in any branch of the school.
+    private static async resolveTargetClasses(db: any, schoolId: string, branchId: string | undefined, anchorId: string, classIds?: string[]) {
+        const branchWhere = branchId && branchId !== 'all' ? { branch_id: branchId } : {};
+        const anchor = await db.class.findFirst({
+            where: { id: anchorId, school_id: schoolId, deleted_at: null, ...branchWhere },
+            select: { id: true, grade: true, branch_id: true }
+        });
+        if (!anchor) throw new Error('Class not found in your school/branch');
+        const ids: string[] = Array.from(new Set((classIds && classIds.length ? classIds : [anchorId]).map(String)));
+        const targets = await db.class.findMany({
+            where: { id: { in: ids }, school_id: schoolId, grade: anchor.grade, deleted_at: null, ...branchWhere },
+            select: { id: true, name: true, section: true, branch_id: true }
+        });
+        if (targets.length !== ids.length) throw new Error('One or more selected classes were not found at this level in your school/branch');
+        return { anchor, targets };
+    }
+
+    // Students actively enrolled in the given classes, with their own subject list.
+    private static async enrolledStudents(db: any, schoolId: string, classIds: string[]) {
+        const enr = await db.studentEnrollment.findMany({
+            where: { school_id: schoolId, class_id: { in: classIds }, status: 'Active' },
+            select: { student_id: true }
+        });
+        const ids = Array.from(new Set(enr.map((e: any) => e.student_id)));
+        if (!ids.length) return [];
+        return db.student.findMany({
+            where: { id: { in: ids }, school_id: schoolId },
+            select: { id: true, assigned_subjects: true }
+        });
+    }
+
+    private static hasSubject(list: string[] | null | undefined, name: string) {
+        const n = name.trim().toLowerCase();
+        return (list || []).some(s => String(s).trim().toLowerCase() === n);
+    }
+
+    /** How many students in the chosen arms keep a custom subject list without this subject. */
+    static async getSubjectAddImpact(schoolId: string, branchId: string | undefined, anchorId: string, classIds: string[] | undefined, subjectName: string) {
+        const name = String(subjectName || '').trim();
+        if (!name) throw new Error('Subject name is required');
+        const { targets } = await this.resolveTargetClasses(prisma, schoolId, branchId, anchorId, classIds);
+        const students = await this.enrolledStudents(prisma, schoolId, targets.map((t: any) => t.id));
+        const custom = students.filter((s: any) => (s.assigned_subjects || []).filter(Boolean).length > 0);
+        return {
+            classes: targets,
+            inheritCount: students.length - custom.length,
+            customCount: custom.filter((s: any) => !this.hasSubject(s.assigned_subjects, name)).length,
+        };
+    }
+
+    static async addSubjectToClasses(
+        scope: { schoolId: string; branchId: string | undefined; userId?: string | null },
+        anchorId: string,
+        input: { subjectId?: string; name?: string; classIds?: string[]; addToCustom?: boolean }
+    ) {
+        const { schoolId, branchId, userId } = scope;
+        const branch = branchId && branchId !== 'all' ? branchId : null;
+        const result = await withTenantTransaction({ schoolId, branchId: branch, userId: userId || null }, async (tx) => {
+            const { anchor, targets } = await this.resolveTargetClasses(tx, schoolId, branchId, anchorId, input.classIds);
+
+            // Resolve the subject: an existing school subject the admin may see,
+            // or a new one created in the class's branch.
+            const visible = branch ? { OR: [{ branch_id: branch }, { branch_id: null }] } : {};
+            let subject: any = null;
+            if (input.subjectId) {
+                subject = await tx.subject.findFirst({ where: { id: input.subjectId, school_id: schoolId, deleted_at: null, ...visible } });
+                if (!subject) throw new Error('Subject not found in your school/branch');
+            } else {
+                const name = String(input.name || '').trim();
+                if (!name) throw new Error('Subject name is required');
+                subject = await tx.subject.findFirst({ where: { school_id: schoolId, deleted_at: null, name: { equals: name, mode: 'insensitive' }, ...visible } })
+                    || await tx.subject.create({ data: { school_id: schoolId, branch_id: anchor.branch_id, name, created_by: userId || null } });
+            }
+
+            for (const t of targets) {
+                await tx.class.update({ where: { id: t.id }, data: { subjects: { connect: { id: subject.id } } } });
+            }
+
+            // Inheriting students (empty list) get it through the class. Custom
+            // lists are only touched when the admin said yes.
+            let customUpdated = 0;
+            if (input.addToCustom) {
+                const students = await this.enrolledStudents(tx, schoolId, targets.map((t: any) => t.id));
+                for (const s of students) {
+                    const list: string[] = (s.assigned_subjects || []).filter(Boolean);
+                    if (list.length === 0 || this.hasSubject(list, subject.name)) continue;
+                    await tx.student.update({ where: { id: s.id }, data: { assigned_subjects: [...list, subject.name] } });
+                    customUpdated++;
+                }
+            }
+
+            await tx.auditLog.create({ data: {
+                school_id: schoolId, branch_id: branch, user_id: userId || null,
+                action: 'class.subject.add', action_type: 'ACADEMIC', entity_type: 'Class', entity_id: anchorId,
+                action_description: `Added ${subject.name} to ${targets.map((t: any) => t.name).join(', ')}`,
+                new_values: { subject_id: subject.id, subject: subject.name, class_ids: targets.map((t: any) => t.id) } as any,
+                metadata: { add_to_custom: !!input.addToCustom, custom_students_updated: customUpdated } as any,
+            } });
+
+            return { subject: { id: subject.id, name: subject.name }, classes: targets, customUpdated };
+        });
+        SocketService.emitToSchool(schoolId, 'class:updated', { action: 'subject_add', classIds: result.classes.map((c: any) => c.id) });
+        return result;
+    }
+
+    /**
+     * Unlink a subject from the chosen arms and take it off those students'
+     * own subject lists. The Subject row and every result, grade and score
+     * recorded for it are left untouched.
+     */
+    static async removeSubjectFromClasses(
+        scope: { schoolId: string; branchId: string | undefined; userId?: string | null },
+        anchorId: string,
+        subjectId: string,
+        classIds?: string[]
+    ) {
+        const { schoolId, branchId, userId } = scope;
+        const branch = branchId && branchId !== 'all' ? branchId : null;
+        const result = await withTenantTransaction({ schoolId, branchId: branch, userId: userId || null }, async (tx) => {
+            const { targets } = await this.resolveTargetClasses(tx, schoolId, branchId, anchorId, classIds);
+            const subject = await tx.subject.findFirst({ where: { id: subjectId, school_id: schoolId } });
+            if (!subject) throw new Error('Subject not found in your school/branch');
+
+            for (const t of targets) {
+                await tx.class.update({ where: { id: t.id }, data: { subjects: { disconnect: { id: subject.id } } } });
+            }
+
+            let studentsUpdated = 0;
+            const n = subject.name.trim().toLowerCase();
+            const students = await this.enrolledStudents(tx, schoolId, targets.map((t: any) => t.id));
+            for (const s of students) {
+                const list: string[] = (s.assigned_subjects || []).filter(Boolean);
+                if (!this.hasSubject(list, subject.name)) continue;
+                await tx.student.update({ where: { id: s.id }, data: { assigned_subjects: list.filter(x => String(x).trim().toLowerCase() !== n) } });
+                studentsUpdated++;
+            }
+
+            await tx.auditLog.create({ data: {
+                school_id: schoolId, branch_id: branch, user_id: userId || null,
+                action: 'class.subject.remove', action_type: 'ACADEMIC', entity_type: 'Class', entity_id: anchorId,
+                action_description: `Removed ${subject.name} from ${targets.map((t: any) => t.name).join(', ')} (past results kept)`,
+                old_values: { subject_id: subject.id, subject: subject.name, class_ids: targets.map((t: any) => t.id) } as any,
+                metadata: { custom_students_updated: studentsUpdated } as any,
+            } });
+
+            return { subject: { id: subject.id, name: subject.name }, classes: targets, studentsUpdated };
+        });
+        SocketService.emitToSchool(schoolId, 'class:updated', { action: 'subject_remove', classIds: result.classes.map((c: any) => c.id) });
+        return result;
     }
 
     static async deleteClass(schoolId: string, branchId: string | undefined, id: string) {

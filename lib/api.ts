@@ -1849,6 +1849,23 @@ class ExpressApiClient {
         return this.get(`/classes/by-grade/${gradeOrId}/${section}/subjects`);
     }
 
+    /** How many students in the chosen arms have a custom subject list without this subject. */
+    async getClassSubjectImpact(classId: string, subject: string, classIds: string[]): Promise<{ customCount: number; inheritCount: number; classes: any[] }> {
+        const q = new URLSearchParams({ subject, class_ids: classIds.join(',') });
+        return this.get(`/classes/${encodeURIComponent(classId)}/subjects/impact?${q.toString()}`);
+    }
+
+    /** Add a subject (existing or new by name) to the chosen arms in one atomic step. */
+    async addClassSubject(classId: string, data: { subject_id?: string; name?: string; class_ids: string[]; add_to_custom: boolean }): Promise<any> {
+        return this.post(`/classes/${encodeURIComponent(classId)}/subjects`, data);
+    }
+
+    /** Remove a subject from the chosen arms. Past results for it are kept. */
+    async removeClassSubject(classId: string, subjectId: string, classIds: string[]): Promise<any> {
+        const q = new URLSearchParams({ class_ids: classIds.join(',') });
+        return this.delete(`/classes/${encodeURIComponent(classId)}/subjects/${encodeURIComponent(subjectId)}?${q.toString()}`);
+    }
+
     async createSubject(data: any): Promise<any> {
         return this.post('/subjects', data);
     }

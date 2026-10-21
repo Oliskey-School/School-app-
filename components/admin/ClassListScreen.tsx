@@ -234,6 +234,12 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId,
                                                             )}
                                                         </div>
                                                         <p className="text-xs text-gray-400 font-medium">{cls.studentCount || 0} Students enrolled</p>
+                                                        {/* The class's subjects — added or removed from Edit Class */}
+                                                        <p className="text-xs text-gray-500 mt-0.5 line-clamp-2" data-testid={`class-subjects-${cls.id}`}>
+                                                            {Array.isArray(cls.subjects) && cls.subjects.length > 0
+                                                                ? cls.subjects.map((s: any) => (typeof s === 'string' ? s : s?.name)).filter(Boolean).join(' · ')
+                                                                : 'No subjects yet'}
+                                                        </p>
                                                     </div>
                                                 </button>
                                                 <div className="flex items-center space-x-1">
