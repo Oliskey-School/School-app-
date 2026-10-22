@@ -129,6 +129,9 @@ const DigitalTwinScreen = lazyWithRetry(() => import('./DigitalTwinScreen'));
 const FacilityRegisterScreen = lazyWithRetry(() => import('./FacilityRegisterScreen'));
 const EquipmentInventoryScreen = lazyWithRetry(() => import('./EquipmentInventoryScreen'));
 const SafetyHealthLogs = lazyWithRetry(() => import('./SafetyHealthLogs'));
+const ReferralSystem = lazyWithRetry(() => import('../shared/ReferralSystem'));
+// Module-level so the view keeps a stable identity across dashboard re-renders.
+const FamilyReferralsStaff = (props: any) => <ReferralSystem {...props} mode="staff" />;
 const ComplianceDashboard = lazyWithRetry(() => import('./ComplianceDashboard'));
 const PrivacyDashboard = lazyWithRetry(() => import('./PrivacyDashboard'));
 const ComplianceChecklist = lazyWithRetry(() => import('./ComplianceChecklist'));
@@ -430,6 +433,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         facilityRegister: FacilityRegisterScreen,
         equipmentInventory: EquipmentInventoryScreen,
         safetyHealthLogs: SafetyHealthLogs,
+        // Staff side of the parent Family Referral screen (reached from Quick Actions).
+        familyReferrals: FamilyReferralsStaff,
         complianceDashboard: ComplianceDashboard,
         privacyDashboard: PrivacyDashboard,
         complianceChecklist: ComplianceChecklist,

@@ -122,7 +122,9 @@ export const getGeneratedResources = async (req: AuthRequest, res: Response) => 
         // req.user.role comes straight from the JWT/Prisma Role enum, which is
         // uppercase ("TEACHER") — comparing against lowercase never matched, so
         // a teacher's own history request always fell through to the 400 below.
-        if ((req.user.role || '').toLowerCase() === 'teacher' && !teacherId) {
+        // A teacher always reads their OWN plans: a ?teacherId= from a teacher is
+        // ignored, so they cannot read a colleague's plans by editing the URL.
+        if ((req.user.role || '').toLowerCase() === 'teacher') {
             const teacher = await prisma.teacher.findUnique({
                 where: { user_id: req.user.id },
                 select: { id: true }
@@ -154,7 +156,7 @@ export const getGeneratedResources = async (req: AuthRequest, res: Response) => 
 export const saveGeneratedResource = async (req: AuthRequest, res: Response) => {
     try {
         const branchId = getEffectiveBranchId(req.user, req.body?.branch_id);
-        const result = await AiService.saveGeneratedResource(req.user.school_id, branchId, req.body);
+        const result = await AiService.saveGeneratedResource(req.user.school_id, branchId, req.body, req.user.id);
         res.status(201).json(result);
     } catch (error: any) {
         sendError(res, error, 'ai.controller.ts');

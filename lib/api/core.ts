@@ -39,6 +39,7 @@ const getAuthToken = async (): Promise<string | null> => {
 type ApiRequestInit = RequestInit & {
     _retryWithoutBranch?: boolean;
     _revalidate?: boolean;
+    _timeoutMs?: number;
 };
 
 /**
@@ -314,7 +315,11 @@ class ApiCore {
 
                 let response;
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+                // 30s by default. A caller whose server work legitimately takes
+                // longer (an AI completion: up to two 45s provider attempts) may
+                // ask for more with _timeoutMs.
+                const timeoutMs = options._timeoutMs ?? 30000;
+                const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
                 try {
                     response = await fetch(url, { 

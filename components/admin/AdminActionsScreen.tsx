@@ -15,7 +15,8 @@ import {
     QrCode,
     ScanLine,
     GraduationCap as GraduationCapIcon,
-    UsersRound as UsersCogIcon
+    UsersRound as UsersCogIcon,
+    HeartHandshake
 } from 'lucide-react';
 
 interface AdminActionsScreenProps {
@@ -56,6 +57,7 @@ const AdminActionsScreen: React.FC<AdminActionsScreenProps> = ({ navigateTo }) =
             items: [
                 { label: "Emergency Alert", icon: <Bell className="w-5 h-5 text-red-600" />, onClick: () => navigateTo('emergencyAlert', 'Emergency Alert'), bg: "bg-red-50" },
                 { label: "Safety Logs", icon: <Shield className="w-5 h-5 text-rose-600" />, onClick: () => navigateTo('safetyHealthLogs', 'Safety & Health'), bg: "bg-rose-50" },
+                { label: "Family Referrals", icon: <HeartHandshake className="w-5 h-5 text-rose-600" />, onClick: () => navigateTo('familyReferrals', 'Family Referrals'), bg: "bg-rose-50" },
             ]
         },
         {

@@ -1696,8 +1696,10 @@ class ExpressApiClient {
     // ============================================
     // GENERATED RESOURCES & AI
     // ============================================
-    async getGeneratedResources(schoolId: string): Promise<any[]> {
-        return this.get(`/ai/generated-resources?schoolId=${schoolId}`);
+    // fresh: skip the short-lived GET cache — the Lesson Planner re-reads the
+    // saved row right before merging a new term into it.
+    async getGeneratedResources(schoolId: string, opts?: { fresh?: boolean }): Promise<any[]> {
+        return this.get(`/ai/generated-resources?schoolId=${schoolId}`, opts?.fresh ? ({ _revalidate: true } as RequestInit) : undefined);
     }
 
     async getResources(schoolId?: string): Promise<any[]> {
@@ -2461,6 +2463,30 @@ class ExpressApiClient {
     async getRelatedResources(idOrSubject: string, excludeId?: string | number): Promise<any[]> {
         const qs = excludeId ? `?exclude=${excludeId}` : '';
         return this.get(`/resources/${idOrSubject}/related${qs}`);
+    }
+
+    // Family referrals: a parent asks the school for support for their own child;
+    // admins and counselors handle them. Scope and confidentiality are enforced
+    // server-side from the session — nothing here sends a school or branch id.
+    async createFamilyReferral(data: {
+        student_id: string;
+        referral_type: string;
+        urgency: string;
+        need_description: string;
+        is_confidential: boolean;
+    }): Promise<any> {
+        return this.post('/referrals', data);
+    }
+    async getMyFamilyReferrals(): Promise<any[]> {
+        const r = await this.get<any>('/referrals/mine');
+        return Array.isArray(r) ? r : r?.data || [];
+    }
+    async getFamilyReferrals(): Promise<any[]> {
+        const r = await this.get<any>('/referrals');
+        return Array.isArray(r) ? r : r?.data || [];
+    }
+    async updateFamilyReferral(id: string, data: { status?: string; staff_note?: string | null }): Promise<any> {
+        return this.patch(`/referrals/${id}`, data);
     }
 
     async createAnonymousReport(data: any): Promise<any> {
@@ -3338,7 +3364,10 @@ class ExpressApiClient {
     // `context.personal: true` asks the server to add the signed-in user's own
     // records (built server-side from the session — the flag cannot widen scope).
     async aiChat(body: { messages: any[]; model?: string; temperature?: number; max_tokens?: number; response_format?: any; thinking?: boolean; context?: { personal?: boolean; page?: string; module?: string; mode?: AiChatMode } }): Promise<{ text: string; model?: string; usage?: any; raw?: any }> {
-        return this.post('/ai/chat', body);
+        // The server may take up to two 45s provider attempts (primary model,
+        // then a fallback) before answering, so the default 30s client timeout
+        // gave up on answers that were still coming.
+        return this.post('/ai/chat', body, { _timeoutMs: 100_000 } as RequestInit);
     }
     // AI Assistant chat history — always the signed-in user's own conversations.
     async aiListConversations(): Promise<AiConversationSummary[]> {
@@ -3348,7 +3377,7 @@ class ExpressApiClient {
         return this.get(`/ai/conversations/${encodeURIComponent(id)}`);
     }
     async aiSendMessage(body: { conversation_id?: string | null; text: string; image?: string | null; mode?: AiChatMode; page?: string }): Promise<AiSendResult> {
-        return this.post('/ai/conversations/send', body);
+        return this.post('/ai/conversations/send', body, { _timeoutMs: 100_000 } as RequestInit);
     }
     async aiRenameConversation(id: string, title: string): Promise<{ id: string; title: string }> {
         return this.patch(`/ai/conversations/${encodeURIComponent(id)}`, { title });

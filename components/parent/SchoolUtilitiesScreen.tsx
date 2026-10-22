@@ -15,7 +15,8 @@ import {
     PhotoIcon,
     FileDocIcon,
     ClockIcon,
-    ExamIcon
+    ExamIcon,
+    HeartIcon
 } from '../../constants';
 
 interface UtilityItem {
@@ -35,7 +36,7 @@ interface SchoolUtilitiesScreenProps {
 
 // Tiles that only make sense for a parent/guardian acting on a child's behalf —
 // hidden when this screen is reused for the student's own dashboard.
-const PARENT_ONLY_UTILITY_IDS = new Set(['appointments', 'pta', 'volunteering', 'permission', 'pickup']);
+const PARENT_ONLY_UTILITY_IDS = new Set(['appointments', 'pta', 'volunteering', 'permission', 'pickup', 'familyReferrals']);
 
 const SchoolUtilitiesScreen: React.FC<SchoolUtilitiesScreenProps> = ({ navigateTo, role = 'parent', students = [] }) => {
 
@@ -143,6 +144,14 @@ const SchoolUtilitiesScreen: React.FC<SchoolUtilitiesScreenProps> = ({ navigateT
             icon: <UserGroupIcon className="h-8 w-8 text-white" />,
             color: 'bg-cyan-700',
             view: 'pickupAuthorization'
+        },
+        {
+            id: 'familyReferrals',
+            label: 'Family Referrals',
+            description: 'Ask the school for support for your child',
+            icon: <HeartIcon className="h-8 w-8 text-white" />,
+            color: 'bg-pink-500',
+            view: 'referralSystem'
         },
     ];
 

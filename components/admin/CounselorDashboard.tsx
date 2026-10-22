@@ -4,6 +4,7 @@ import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { DashboardType } from '../../types';
+import ReferralSystem from '../shared/ReferralSystem';
 import {
     UsersIcon,
     CalendarIcon,
@@ -37,6 +38,7 @@ const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ onLogout, setIs
     const [studentCount, setStudentCount] = useState<number>(0);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [showReferrals, setShowReferrals] = useState(false);
 
     useEffect(() => {
         let cancelled = false;
@@ -136,6 +138,17 @@ const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ onLogout, setIs
 
                 {/* Main Content */}
                 <main className="flex-1 overflow-y-auto p-6">
+                    {showReferrals ? (
+                    <div>
+                        <button
+                            onClick={() => setShowReferrals(false)}
+                            className="min-h-[44px] px-4 py-2 text-sm text-indigo-600 font-medium hover:text-indigo-700"
+                        >
+                            ← Back to dashboard
+                        </button>
+                        <ReferralSystem mode="staff" />
+                    </div>
+                    ) : (<>
                     {error && (
                         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
                             {error}
@@ -224,6 +237,15 @@ const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ onLogout, setIs
                                     </div>
                                     <span className="text-gray-400 group-hover:text-indigo-500">→</span>
                                 </motion.button>
+                                <motion.button whileHover={{ x: 2 }} onClick={() => setShowReferrals(true)} className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-indigo-50 hover:text-indigo-600 transition-colors group">
+                                    <div className="flex items-center">
+                                        <div className="p-2 bg-white rounded-md shadow-sm group-hover:shadow-md transition-shadow">
+                                            <UsersIcon className="h-5 w-5 text-gray-500 group-hover:text-indigo-500" />
+                                        </div>
+                                        <span className="ml-3 font-medium">Family Referrals</span>
+                                    </div>
+                                    <span className="text-gray-400 group-hover:text-indigo-500">→</span>
+                                </motion.button>
                             </div>
 
                             <div className="mt-8">
@@ -237,6 +259,7 @@ const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ onLogout, setIs
                             </div>
                         </div>
                     </div>
+                    </>)}
                 </main>
             </div>
         </div>

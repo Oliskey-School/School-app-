@@ -5,6 +5,7 @@ import { generateToken } from '../middleware/csrf.middleware';
 import { AvatarRepairService } from '../services/avatarRepair.service';
 import prisma from '../config/database';
 import { sendError } from '../utils/httpError';
+import { DEMO_SCHOOL_ID } from '../config/env';
 
 // Matches csrf.middleware.ts's reasoning: nginx serves the SPA and API
 // same-origin in production (see deploy/nginx.conf), so 'lax' is both
@@ -411,7 +412,12 @@ export const getMe = async (req: Request, res: Response) => {
             try { avatar_url = (user?.id && user?.school_id ? await AvatarRepairService.repairUser(user.id, user.school_id) : null) || null; }
             catch { avatar_url = null; }
         }
-        res.json({ ...user, avatar_url, preferred_language, two_factor_enabled, ui_preferences });
+        // The client re-derives "demo session" from this reply on every reload. The
+        // token user did not always carry is_demo, so a reload switched demo mode
+        // off and locked AI ("AI tools are on the Advanced plan"). Membership of the
+        // demo school is the authoritative signal.
+        const is_demo = user?.is_demo === true || (!!DEMO_SCHOOL_ID && user?.school_id === DEMO_SCHOOL_ID);
+        res.json({ ...user, is_demo, avatar_url, preferred_language, two_factor_enabled, ui_preferences });
     } catch (error: any) {
         res.status(401).json({ message: 'Unauthorized' });
     }

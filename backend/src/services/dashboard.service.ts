@@ -2,9 +2,10 @@ import prisma from '../config/database';
 import { StudentService } from './student.service';
 import { Role } from '../../generated/prisma-client';
 import { summarizeFees, computeWorkload, buildAttendanceTrend, sortBySubject } from '../utils/analyticsMetrics';
+import { confidentialReferralAuditFilter } from './audit.service';
 
 export class DashboardService {
-    static async getStats(schoolId: string, teacherId?: string, branchId?: string) {
+    static async getStats(schoolId: string, teacherId?: string, branchId?: string, canSeeConfidential = false) {
         console.log(`📊 [DashboardService] Fetching stats for schoolId: ${schoolId}, teacherId: ${teacherId}, branchId: ${branchId}`);
 
         try {
@@ -397,7 +398,7 @@ export class DashboardService {
                     orderBy: { start_time: 'asc' }
                 } as any),
                 prisma.auditLog.findMany({
-                    where: baseWhere,
+                    where: { ...baseWhere, AND: [confidentialReferralAuditFilter(canSeeConfidential) ?? {}] },
                     orderBy: { created_at: 'desc' },
                     include: { user: true },
                     take: 5
@@ -605,10 +606,12 @@ export class DashboardService {
         }
     }
 
-    static async getAuditLogs(schoolId: string, limit: number = 50, branchId?: string) {
+    static async getAuditLogs(schoolId: string, limit: number = 50, branchId?: string, canSeeConfidential = false) {
         try {
             const baseWhere: any = { school_id: schoolId };
             if (branchId && branchId !== 'all') baseWhere.branch_id = branchId;
+            const confidential = confidentialReferralAuditFilter(canSeeConfidential);
+            if (confidential) baseWhere.AND = [confidential];
 
             const logs = await prisma.auditLog.findMany({
                 where: baseWhere,
