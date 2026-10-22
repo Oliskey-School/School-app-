@@ -44,6 +44,10 @@ const ClassFormScreen: React.FC<ClassFormScreenProps> = ({ classToEdit, schoolId
     const [actionBusy, setActionBusy] = useState(false);
     // Departments in use at this level (e.g. Science / Arts); empty = not used.
     const [departments, setDepartments] = useState<string[]>([]);
+    // True once BOTH the level's arms and departments have settled. Until then a
+    // subject pick would skip the arm/department questions and silently apply to
+    // this arm for every department (seen on slow connections).
+    const [levelLoaded, setLevelLoaded] = useState(false);
 
     const selfArm = (): Arm | null => classToEdit ? {
         id: classToEdit.id,
@@ -55,7 +59,8 @@ const ClassFormScreen: React.FC<ClassFormScreenProps> = ({ classToEdit, schoolId
     useEffect(() => {
         if (!classToEdit) return;
         let alive = true;
-        api.getClasses(schoolId, currentBranchId || undefined).then((all: any[]) => {
+        setLevelLoaded(false);
+        const armsReq = api.getClasses(schoolId, currentBranchId || undefined).then((all: any[]) => {
             if (!alive) return;
             const same: Arm[] = (Array.isArray(all) ? all : [])
                 .filter(c => Number(c.grade) === Number(classToEdit.grade) && c.id && !String(c.id).startsWith('std-'))
@@ -67,9 +72,10 @@ const ClassFormScreen: React.FC<ClassFormScreenProps> = ({ classToEdit, schoolId
             if (!same.some(a => a.id === classToEdit.id)) same.unshift(selfArm()!);
             setArms(same);
         }).catch(() => { /* falls back to this class only */ });
-        api.getClassLevelDepartments(classToEdit.id)
+        const deptReq = api.getClassLevelDepartments(classToEdit.id)
             .then(list => { if (alive) setDepartments(Array.isArray(list) ? list : []); })
             .catch(() => { /* no department picker */ });
+        Promise.allSettled([armsReq, deptReq]).then(() => { if (alive) setLevelLoaded(true); });
         return () => { alive = false; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [classToEdit?.id, schoolId, currentBranchId]);
@@ -160,6 +166,7 @@ const ClassFormScreen: React.FC<ClassFormScreenProps> = ({ classToEdit, schoolId
     const handleSubjectsChange: React.Dispatch<React.SetStateAction<string[]>> = (next) => {
         const list = typeof next === 'function' ? next(subjects) : next;
         if (!classToEdit) { setSubjects(list); return; }
+        if (!levelLoaded) { toast.error("Still loading this level's arms — try again in a moment."); return; }
         const added = list.find(n => !subjects.includes(n));
         const removed = subjects.find(n => !list.includes(n));
         const all = allArms();

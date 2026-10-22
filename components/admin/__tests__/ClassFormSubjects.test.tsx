@@ -135,4 +135,14 @@ describe('Edit Class → subject add/remove prompts', () => {
         await waitFor(() => expect(apiMock.updateClass).toHaveBeenCalled());
         expect(apiMock.updateClass.mock.calls[0][1]).not.toHaveProperty('subjects');
     });
+
+    it('does not add a subject before the level has loaded (slow network)', async () => {
+        apiMock.getClasses.mockReturnValue(new Promise(() => {}));
+        apiMock.getClassLevelDepartments.mockReturnValue(new Promise(() => {}));
+        renderForm();
+        await openPickerAndChoose('Biology');
+        await new Promise(r => setTimeout(r, 50));
+        expect(apiMock.addClassSubject).not.toHaveBeenCalled();
+        expect(screen.queryByText('Add Biology')).toBeNull();
+    });
 });
