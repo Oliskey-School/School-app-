@@ -87,6 +87,13 @@ export interface ChatBody {
     top_p?: number;
     response_format?: any;
     stream?: false;
+    /**
+     * false = answer directly, without the model's hidden "thinking" pass.
+     * The default chat model reasons before it writes, and that reasoning is
+     * billed against max_tokens: a structured request (the Lesson Planner's
+     * JSON) used the whole 2,048-token budget thinking and returned nothing.
+     */
+    thinking?: boolean;
 }
 
 // NVIDIA models are always "publisher/name" (e.g. meta/llama-3.3-70b-instruct).
@@ -163,6 +170,7 @@ export class NvidiaAIService {
                 top_p: body.top_p ?? 1,
                 stream: false,
                 ...(body.response_format ? { response_format: body.response_format } : {}),
+                ...(body.thinking === false ? { chat_template_kwargs: { enable_thinking: false } } : {}),
             };
             try {
                 const res = await fetch(`${config.nvidiaBaseUrl}/chat/completions`, {
