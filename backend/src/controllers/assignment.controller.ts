@@ -4,6 +4,7 @@ import { AssignmentService } from '../services/assignment.service';
 import prisma from '../config/database';
 import { getEffectiveBranchId } from '../utils/branchScope';
 import { sendError } from '../utils/httpError';
+import { departmentAllows, normalizeSubjectName } from '../utils/subjectMatch';
 
 const ADMIN_ROLES = ['admin', 'proprietor', 'superadmin', 'super_admin'];
 function isAdminRole(req: AuthRequest): boolean {
@@ -16,6 +17,8 @@ export const getAssignments = async (req: AuthRequest, res: Response) => {
         let classId = req.query.classId as string || req.query.class_id as string;
         // Students only ever see work for subjects they actually take (see below).
         let subjects: string[] | undefined;
+        // Department subjects of the student's class that are NOT for their department.
+        let hiddenSubjects: string[] = [];
 
         // 1. Role-based filtering
         if (req.user.role === 'TEACHER') {
@@ -37,6 +40,7 @@ export const getAssignments = async (req: AuthRequest, res: Response) => {
                 select: {
                     id: true,
                     assigned_subjects: true,
+                    department: true,
                     enrollments: {
                         where: { is_primary: true },
                         select: { class_id: true }
@@ -67,6 +71,20 @@ export const getAssignments = async (req: AuthRequest, res: Response) => {
                 console.warn(`⚠️ [Backend] No class enrollment found for student ${req.user.id}`);
                 return res.json([]);
             }
+
+            // Inheriting the class list: hide work for the class's department
+            // subjects that belong to another department.
+            if (assigned.length === 0) {
+                const rows = await prisma.classSubjectDepartment.findMany({
+                    where: { school_id: req.user.school_id, class_id: classId },
+                    select: { subject_id: true, department: true }
+                });
+                const otherDept = rows.filter(r => !departmentAllows(r.department, (student as any)?.department));
+                if (otherDept.length) {
+                    const subs = await prisma.subject.findMany({ where: { school_id: req.user.school_id, id: { in: otherDept.map(r => r.subject_id) } }, select: { name: true } });
+                    hiddenSubjects = subs.map(x => x.name);
+                }
+            }
         }
 
         const className = req.query.className as string || req.query.class_name as string;
@@ -80,7 +98,9 @@ export const getAssignments = async (req: AuthRequest, res: Response) => {
             className,
             subjects
         );
-        res.json(result);
+        res.json(hiddenSubjects.length
+            ? (result as any[]).filter((a: any) => !hiddenSubjects.some(h => normalizeSubjectName(h) === normalizeSubjectName(a.subject)))
+            : result);
     } catch (error: any) {
         console.error('[AssignmentController] getAssignments error:', error);
         sendError(res, error, 'assignment.controller.ts');

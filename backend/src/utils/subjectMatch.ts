@@ -1,1 +1,1 @@
-export { normalizeSubjectName, subjectNamesMatch, subjectAllowed } from '../../../shared/utils/subjectMatch';
+export { normalizeSubjectName, subjectNamesMatch, subjectAllowed, normalizeDepartment, departmentAllows } from '../../../shared/utils/subjectMatch';

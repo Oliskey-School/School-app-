@@ -9,6 +9,7 @@ import { api } from '../../lib/api';
 import { getMyTeacherProfileCached } from '../../lib/queryClient';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard';
+import { departmentAllows } from '../../shared/utils/subjectMatch';
 
 
 
@@ -432,9 +433,19 @@ const ClassGradebookScreen: React.FC<{
             // Per-student subject assignment: every class member stays VISIBLE,
             // but a student whose personal subject list excludes this subject is
             // locked ("not offering") instead of silently missing from the sheet.
+            // A subject limited to one department in this class is only offered
+            // to that department's students (those inheriting the class list).
+            const subjectDepartment = await (async () => {
+                const sameSubject = (x: any) => String(x?.name || '').toLowerCase() === String(subject).toLowerCase();
+                const known = Array.isArray((clsObj as any).subjects) ? (clsObj as any).subjects.find(sameSubject) : null;
+                if (known && 'department' in known) return known.department || null;
+                if (!clsObj.id || String(clsObj.id).startsWith('std-')) return null;
+                const subs = await api.getClassSubjects(clsObj.id).catch(() => []);
+                return (Array.isArray(subs) ? subs.find(sameSubject) : null)?.department || null;
+            })();
             const offersSelected = (s: any) => {
                 const assigned: string[] = Array.isArray(s.assigned_subjects) ? s.assigned_subjects.filter(Boolean) : [];
-                if (assigned.length === 0) return true;
+                if (assigned.length === 0) return departmentAllows(subjectDepartment, s.department);
                 return assigned.some(n => String(n).toLowerCase() === String(subject).toLowerCase());
             };
 

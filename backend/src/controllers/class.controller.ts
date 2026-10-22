@@ -176,3 +176,64 @@ export const rotateClassQr = async (req: AuthRequest, res: Response) => {
         sendError(res, error, 'class.controller.ts');
     }
 };
+
+// ── Class subject add / remove, applied to the arms the admin picked ────────
+const parseIds = (v: any): string[] | undefined => {
+    if (Array.isArray(v)) return v.map(String).filter(Boolean);
+    if (typeof v === 'string' && v.trim()) return v.split(',').map(s => s.trim()).filter(Boolean);
+    return undefined;
+};
+
+/** GET /classes/:id/subjects/impact?subject=Name&class_ids=a,b */
+export const getClassSubjectImpact = async (req: AuthRequest, res: Response) => {
+    try {
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can manage class subjects' });
+        const branchId = getEffectiveBranchId(req.user, req.query.branch_id as string);
+        const result = await ClassService.getSubjectAddImpact(req.user.school_id, branchId, String(req.params.id), parseIds(req.query.class_ids), String(req.query.subject || ''), (req.query.department as string) || null);
+        res.json(result);
+    } catch (error: any) {
+        sendError(res, error, 'class.controller.ts');
+    }
+};
+
+/** POST /classes/:id/subjects  { subject_id? | name?, class_ids?, add_to_custom? } */
+export const addClassSubject = async (req: AuthRequest, res: Response) => {
+    try {
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can manage class subjects' });
+        const branchId = getEffectiveBranchId(req.user, req.body?.branch_id);
+        const result = await ClassService.addSubjectToClasses(
+            { schoolId: req.user.school_id, branchId, userId: req.user.id },
+            String(req.params.id),
+            { subjectId: req.body?.subject_id, name: req.body?.name, classIds: parseIds(req.body?.class_ids), addToCustom: req.body?.add_to_custom === true, department: req.body?.department ?? null }
+        );
+        res.status(201).json(result);
+    } catch (error: any) {
+        sendError(res, error, 'class.controller.ts');
+    }
+};
+
+/** DELETE /classes/:id/subjects/:subjectId?class_ids=a,b — past results are kept */
+export const removeClassSubject = async (req: AuthRequest, res: Response) => {
+    try {
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can manage class subjects' });
+        const branchId = getEffectiveBranchId(req.user, req.query.branch_id as string);
+        const result = await ClassService.removeSubjectFromClasses(
+            { schoolId: req.user.school_id, branchId, userId: req.user.id },
+            String(req.params.id), String(req.params.subjectId), parseIds(req.query.class_ids)
+        );
+        res.json(result);
+    } catch (error: any) {
+        sendError(res, error, 'class.controller.ts');
+    }
+};
+
+/** GET /classes/:id/departments — departments in use at this class's level (empty = none). */
+export const getClassLevelDepartments = async (req: AuthRequest, res: Response) => {
+    try {
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can manage class subjects' });
+        const branchId = getEffectiveBranchId(req.user, req.query.branch_id as string);
+        res.json(await ClassService.getLevelDepartments(req.user.school_id, branchId, String(req.params.id)));
+    } catch (error: any) {
+        sendError(res, error, 'class.controller.ts');
+    }
+};
