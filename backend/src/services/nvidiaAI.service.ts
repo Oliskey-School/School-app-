@@ -66,13 +66,19 @@ const authHeaders = (extra: Record<string, string> = {}) => ({
 // Media models (image / audio) live on the genai host. Some server networks
 // can't reach it, and raw fetch throws an opaque "fetch failed". Wrap those
 // calls so the app shows a clear, actionable message instead.
+// A bounded wait: when the host is unreachable the connection used to hang for
+// minutes and the Creative Studio spinner never ended.
+const GENAI_TIMEOUT_MS = 60_000;
 const genaiFetch = async (url: string, init: RequestInit): Promise<Response> => {
     try {
-        return await fetch(url, init);
+        return await fetch(url, { ...init, signal: AbortSignal.timeout(GENAI_TIMEOUT_MS) });
     } catch (e: any) {
+        const timedOut = e?.name === 'TimeoutError' || e?.name === 'AbortError';
         throw Object.assign(
-            new Error("This AI media service (image/voice) can't be reached from the server's network. Text chat, vision and embeddings work; image and voice need access to ai.api.nvidia.com."),
-            { status: 502, detail: e?.message }
+            new Error(timedOut
+                ? 'Image and voice creation took too long to respond. Please try again in a moment.'
+                : "Image and voice creation isn't available right now (the AI media service can't be reached). Text chat still works."),
+            { status: timedOut ? 504 : 502, detail: e?.message }
         );
     }
 };

@@ -81,6 +81,7 @@ const LiveSession: React.FC<LiveSessionProps> = ({ onClose }) => {
                     { role: 'user', content: userContent },
                 ],
                 max_tokens: 160,
+                thinking: false, // short spoken replies: answer directly
             });
 
             const reply = (res.text || '').trim() || "I didn't catch that — could you say it again?";

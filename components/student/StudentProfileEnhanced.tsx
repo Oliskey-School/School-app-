@@ -25,6 +25,9 @@ import DataUsageSettings from '../shared/DataUsageSettings';
 import { getAIClient, AI_MODEL_NAME, SchemaType as Type } from '../../lib/ai';
 import { fetchAcademicPerformance, fetchStudentStats, fetchUpcomingEvents, fetchStudentActivities, fetchStudentDocuments } from '../../lib/database';
 import { useUserIdentity } from '../../lib/hooks/useUserIdentity';
+import { useAuth } from '../../context/AuthContext';
+import { DashboardType } from '../../types';
+import { readDailyCache, writeDailyCache } from '../../lib/aiDailyCache';
 
 // ... (existing imports)
 
@@ -71,6 +74,8 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
     // AI Focus State
     const [learningFocus, setLearningFocus] = useState<any>(null);
     const [focusLoading, setFocusLoading] = useState(false);
+    const [focusError, setFocusError] = useState<string | null>(null);
+    const { role: viewerRole } = useAuth();
 
     useEffect(() => {
         if (initialStudent) {
@@ -86,27 +91,41 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
         }
     }, [initialStudent]);
 
-    const generateLearningFocus = useCallback(async (studentData: any, averageScore: number) => {
+    // "Today's Learning Focus" is generated at most once per student per day
+    // (it used to cost a model call on every profile open) and fails visibly
+    // with Retry instead of silently disappearing.
+    const focusArgsRef = React.useRef<{ studentData: any; averageScore: number } | null>(null);
+    const generateLearningFocus = useCallback(async (studentData: any, averageScore: number, force = false) => {
+        focusArgsRef.current = { studentData, averageScore };
+        const cacheId = studentData?.id;
+        if (!force && cacheId) {
+            const cached = readDailyCache<any[]>('learning_focus', cacheId);
+            if (Array.isArray(cached) && cached.length) { setLearningFocus(cached); setFocusError(null); return; }
+        }
         setFocusLoading(true);
+        setFocusError(null);
         try {
             const ai = getAIClient();
 
             const prompt = `Analyze this student's performance and suggest 2 key learning focus areas for today.
-            Student: ${studentData.first_name}
-            Grade: ${studentData.class_name || '10'}
+            Student: ${studentData.first_name || studentData.full_name || 'the student'}
+            Class: ${studentData.class_name || 'not recorded'}
             Performance: Average ${averageScore}%
-            
+
             Return JSON with:
             - title (string) e.g. "Quadratic Equations"
             - subject (string) e.g. "Math"
             - reason (string) e.g. "Score: 65%" or "Upcoming Test"
             - color (string) one of: pink, teal, violet, orange
-            
+
             Limit to 2 items.`;
 
-            const response = await ai.models.generateContent({
+            const response: any = await ai.models.generateContent({
                 model: AI_MODEL_NAME,
                 contents: prompt,
+                // When the student is looking at their own profile, the server
+                // adds their own records (built from the session, not this call).
+                ...(viewerRole === DashboardType.Student ? { context: { personal: true } } : {}),
                 config: {
                     responseMimeType: "application/json",
                     responseSchema: {
@@ -129,22 +148,23 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                     }
                 }
             });
+            if (response?.blocked) { setFocusError(null); return; } // plan-locked: show nothing, as before
+            if (response?.error) throw response.error;
 
             const data = JSON.parse(response.text);
-            if (data.focus_areas) {
+            if (Array.isArray(data?.focus_areas) && data.focus_areas.length) {
                 setLearningFocus(data.focus_areas);
+                if (cacheId) writeDailyCache('learning_focus', cacheId, data.focus_areas);
+            } else {
+                throw new Error('No focus areas returned');
             }
         } catch (e: any) {
-            // Suppress API key errors or JSON parse errors to avoid console noise for the user
-            if (e?.message?.includes('API key') || e instanceof SyntaxError) {
-                console.log("AI Focus unavailable (API Key/Network)");
-            } else {
-                console.error("AI Focus Error:", e);
-            }
+            console.warn("AI Focus unavailable:", e?.message || e);
+            setFocusError("Today's learning focus couldn't be prepared right now.");
         } finally {
             setFocusLoading(false);
         }
-    }, []);
+    }, [viewerRole]);
 
     const fetchProfileData = useCallback(async (id: string | number) => {
         try {
@@ -656,6 +676,23 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                                                     </div>
                                                 </div>
                                             </div>
+                                        </div>
+                                    )}
+
+                                    {!learningFocus && focusError && (
+                                        <div className="flex flex-wrap items-center justify-between gap-3 bg-white border border-slate-200 rounded-xl p-4 mb-6" role="status">
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <Target className="w-5 h-5 text-slate-400 flex-shrink-0" aria-hidden="true" />
+                                                <p className="text-sm text-slate-600">{focusError}</p>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => focusArgsRef.current && generateLearningFocus(focusArgsRef.current.studentData, focusArgsRef.current.averageScore, true)}
+                                                disabled={focusLoading}
+                                                className="min-h-11 px-4 rounded-lg text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 disabled:opacity-60"
+                                            >
+                                                {focusLoading ? 'Trying…' : 'Retry'}
+                                            </button>
                                         </div>
                                     )}
 

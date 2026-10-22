@@ -3361,11 +3361,29 @@ class ExpressApiClient {
         return this.get('/ai/status');
     }
     // chat + vision — messages may contain multimodal content (text + image_url)
-    async aiChat(body: { messages: any[]; model?: string; temperature?: number; max_tokens?: number; response_format?: any }): Promise<{ text: string; model?: string; usage?: any; raw?: any }> {
+    // `context.personal: true` asks the server to add the signed-in user's own
+    // records (built server-side from the session — the flag cannot widen scope).
+    async aiChat(body: { messages: any[]; model?: string; temperature?: number; max_tokens?: number; response_format?: any; thinking?: boolean; context?: { personal?: boolean; page?: string; module?: string; mode?: AiChatMode } }): Promise<{ text: string; model?: string; usage?: any; raw?: any }> {
         // The server may take up to two 45s provider attempts (primary model,
         // then a fallback) before answering, so the default 30s client timeout
         // gave up on answers that were still coming.
         return this.post('/ai/chat', body, { _timeoutMs: 100_000 } as RequestInit);
+    }
+    // AI Assistant chat history — always the signed-in user's own conversations.
+    async aiListConversations(): Promise<AiConversationSummary[]> {
+        return this.get('/ai/conversations');
+    }
+    async aiGetConversation(id: string): Promise<AiConversationDetail> {
+        return this.get(`/ai/conversations/${encodeURIComponent(id)}`);
+    }
+    async aiSendMessage(body: { conversation_id?: string | null; text: string; image?: string | null; mode?: AiChatMode; page?: string }): Promise<AiSendResult> {
+        return this.post('/ai/conversations/send', body, { _timeoutMs: 100_000 } as RequestInit);
+    }
+    async aiRenameConversation(id: string, title: string): Promise<{ id: string; title: string }> {
+        return this.patch(`/ai/conversations/${encodeURIComponent(id)}`, { title });
+    }
+    async aiDeleteConversation(id: string): Promise<{ id: string; deleted: boolean }> {
+        return this.delete(`/ai/conversations/${encodeURIComponent(id)}`);
     }
     async aiEmbeddings(input: string | string[], model?: string, input_type?: 'query' | 'passage'): Promise<{ model: string; embeddings: number[][]; usage?: any }> {
         return this.post('/ai/embeddings', { input, model, input_type });
@@ -3968,3 +3986,14 @@ class ExpressApiClient {
 export const api = new ExpressApiClient();
 export const HybridApiClient = ExpressApiClient;
 export default api;
+
+// ── AI Assistant chat history types ─────────────────────────────────────────
+export type AiChatMode = 'standard' | 'steps' | 'research' | 'places';
+export interface AiStoredMessage { role: 'user' | 'assistant'; content: string; at: string; image?: boolean }
+export interface AiConversationSummary { id: string; title: string; created_at: string; updated_at: string; message_count: number; preview: string }
+export interface AiConversationDetail { id: string; title: string; created_at: string; updated_at: string; messages: AiStoredMessage[] }
+export interface AiSendResult {
+    conversation: { id: string; title: string; updated_at: string; message_count: number };
+    message: AiStoredMessage;
+    reply: AiStoredMessage;
+}
