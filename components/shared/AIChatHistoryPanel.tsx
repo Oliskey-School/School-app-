@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, MessageSquare, RotateCw } from 'lucide-react';
+import { Plus, Trash2, MessageSquare, RotateCw, Pencil } from 'lucide-react';
 import type { AiConversationSummary } from '../../lib/api';
 
 /** "Just now", "5 min ago", "Yesterday", "3 Oct". */
@@ -23,6 +23,7 @@ interface Props {
     onSelect: (id: string) => void;
     onNew: () => void;
     onDelete: (id: string) => Promise<void> | void;
+    onRename: (id: string, title: string) => Promise<void> | void;
     onRetry: () => void;
 }
 
@@ -30,9 +31,20 @@ interface Props {
  * The saved-chats list. Used as a side panel on large screens and inside a
  * drawer on phones and tablets (the parent decides where it sits).
  */
-const AIChatHistoryPanel: React.FC<Props> = ({ conversations, activeId, status, activeClass, onSelect, onNew, onDelete, onRetry }) => {
+const AIChatHistoryPanel: React.FC<Props> = ({ conversations, activeId, status, activeClass, onSelect, onNew, onDelete, onRename, onRetry }) => {
     const [confirmId, setConfirmId] = useState<string | null>(null);
     const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [editId, setEditId] = useState<string | null>(null);
+    const [draft, setDraft] = useState('');
+    const [savingId, setSavingId] = useState<string | null>(null);
+
+    const startRename = (c: AiConversationSummary) => { setConfirmId(null); setEditId(c.id); setDraft(c.title); };
+    const saveRename = async (c: AiConversationSummary) => {
+        const title = draft.replace(/\s+/g, ' ').trim();
+        if (!title || title === c.title) { setEditId(null); return; }
+        setSavingId(c.id);
+        try { await onRename(c.id, title); setEditId(null); } finally { setSavingId(null); }
+    };
 
     const confirmDelete = async (id: string) => {
         setDeletingId(id);
@@ -85,7 +97,27 @@ const AIChatHistoryPanel: React.FC<Props> = ({ conversations, activeId, status, 
                             const confirming = confirmId === c.id;
                             return (
                                 <li key={c.id} className={`group relative flex items-stretch rounded-xl ${active ? activeClass : 'hover:bg-gray-50'}`}>
-                                    {confirming ? (
+                                    {editId === c.id ? (
+                                        <form
+                                            className="flex flex-1 items-center gap-1 px-2 py-1.5"
+                                            onSubmit={e => { e.preventDefault(); saveRename(c); }}
+                                        >
+                                            <label htmlFor={`rename-${c.id}`} className="sr-only">Chat name</label>
+                                            <input
+                                                id={`rename-${c.id}`}
+                                                autoFocus
+                                                value={draft}
+                                                maxLength={60}
+                                                onChange={e => setDraft(e.target.value)}
+                                                onKeyDown={e => { if (e.key === 'Escape') { e.preventDefault(); setEditId(null); } }}
+                                                className="flex-1 min-w-0 h-11 rounded-lg bg-white border border-gray-200 px-3 text-base sm:text-sm text-gray-900 outline-none focus:ring-2 focus:ring-blue-500"
+                                            />
+                                            <button type="button" onClick={() => setEditId(null)} className="min-h-11 px-2 rounded-lg text-sm text-gray-700 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">Cancel</button>
+                                            <button type="submit" disabled={savingId === c.id || !draft.trim()} className="min-h-11 px-3 rounded-lg text-sm font-semibold text-gray-900 bg-gray-100 hover:bg-gray-200 disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
+                                                {savingId === c.id ? 'Saving…' : 'Save'}
+                                            </button>
+                                        </form>
+                                    ) : confirming ? (
                                         <div className="flex flex-1 items-center justify-between gap-2 px-3 py-2">
                                             <span className="text-sm text-gray-800 truncate">Delete this chat?</span>
                                             <div className="flex items-center gap-1 flex-shrink-0">
@@ -112,6 +144,14 @@ const AIChatHistoryPanel: React.FC<Props> = ({ conversations, activeId, status, 
                                                 <span className="block text-xs text-gray-500 truncate mt-0.5">
                                                     {relativeTime(c.updated_at)}{c.preview ? ` · ${c.preview}` : ''}
                                                 </span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => startRename(c)}
+                                                aria-label={`Rename chat: ${c.title}`}
+                                                className="flex-shrink-0 w-11 flex items-center justify-center rounded-xl text-gray-400 hover:text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                                            >
+                                                <Pencil className="w-4 h-4" aria-hidden="true" />
                                             </button>
                                             <button
                                                 type="button"

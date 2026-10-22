@@ -72,6 +72,9 @@ function uniqueBy<T>(rows: T[], key: (r: T) => string): T[] {
     return rows.filter(r => { const k = key(r); if (seen.has(k)) return false; seen.add(k); return true; });
 }
 
+/** "First" → "First term"; "First Term" stays as it is. */
+const termLabel = (t: string | null | undefined) => { const v = String(t ?? '').trim(); return /\bterm$/i.test(v) ? v : `${v} term`; };
+
 const clip = (s: string | null | undefined, n = 60) => {
     const t = String(s ?? '').replace(/\s+/g, ' ').trim();
     return t.length > n ? `${t.slice(0, n - 1)}…` : t;
@@ -199,10 +202,10 @@ async function forStudent(user: PersonalContextUser, schoolId: string): Promise<
         ? `- Today's timetable (${today.dayName}): ${lessons.map(l => `${l.start_time}–${l.end_time} ${clip(l.subject, 30)}`).join('; ')}.`
         : `- Today's timetable (${today.dayName}): no published lessons.`);
     lines.push(results
-        ? `- Latest results (${results.term} term, ${results.session}): average ${results.avg}%. ${results.subjects.slice(0, 12).map(s => `${clip(s.subject, 28)} ${s.score}`).join(', ')}.`
+        ? `- Latest results (${termLabel(results.term)}, ${results.session}): average ${results.avg}%. ${results.subjects.slice(0, 12).map(s => `${clip(s.subject, 28)} ${s.score}`).join(', ')}.`
         : '- Results: none recorded yet.');
     if (report) {
-        lines.push(`- Latest published report card: ${report.term} term ${report.session}, average ${report.average_score != null ? Math.round(Number(report.average_score)) + '%' : 'n/a'}${report.position_in_class ? `, position ${report.position_in_class}${report.total_students_in_class ? ` of ${report.total_students_in_class}` : ''}` : ''}.`);
+        lines.push(`- Latest published report card: ${termLabel(report.term)} ${report.session}, average ${report.average_score != null ? Math.round(Number(report.average_score)) + '%' : 'n/a'}${report.position_in_class ? `, position ${report.position_in_class}${report.total_students_in_class ? ` of ${report.total_students_in_class}` : ''}` : ''}.`);
     }
     lines.push(due.length
         ? `- Assignments still to hand in: ${due.map(a => `"${clip(a.title, 40)}" (${clip(a.subject, 24)}) due ${shortDate(a.due_date)}`).join('; ')}.`
@@ -247,7 +250,7 @@ async function forParent(user: PersonalContextUser, schoolId: string): Promise<s
         const parts = [
             `attendance ${att.label}: ${summariseAttendance(att.rows, child.id)}`,
             results
-                ? `latest results (${results.term} term ${results.session}) average ${results.avg}%, weakest ${results.subjects.slice(0, 2).map(s => `${clip(s.subject, 24)} ${s.score}`).join(' and ')}, strongest ${results.subjects.slice(-2).reverse().map(s => `${clip(s.subject, 24)} ${s.score}`).join(' and ')}`
+                ? `latest results (${termLabel(results.term)} ${results.session}) average ${results.avg}%, weakest ${results.subjects.slice(0, 2).map(s => `${clip(s.subject, 24)} ${s.score}`).join(' and ')}, strongest ${results.subjects.slice(-2).reverse().map(s => `${clip(s.subject, 24)} ${s.score}`).join(' and ')}`
                 : 'no results recorded yet',
             `${due.length} assignment(s) still to hand in`,
             owed > 0 ? `unpaid fees ${naira(owed)}` : 'no unpaid fees',

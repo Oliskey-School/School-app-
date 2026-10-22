@@ -93,7 +93,7 @@ const Header: React.FC<HeaderProps> = ({ title, avatarUrl, bgColor, onLogout, on
             </motion.button>
           )}
           {onBack && (
-            <motion.button whileTap={{ scale: 0.9 }} onClick={onBack} className="p-1.5 sm:p-2 -ml-2 rounded-full hover:bg-white/10 flex-shrink-0" aria-label="Go back">
+            <motion.button whileTap={{ scale: 0.9 }} onClick={onBack} className="relative p-1.5 sm:p-2 -ml-2 rounded-full hover:bg-white/10 flex-shrink-0 before:absolute before:-inset-1 sm:before:inset-0 before:content-['']" aria-label="Go back">
               <ChevronLeftIcon className="h-6 w-6 sm:h-7 sm:w-7 text-white" />
             </motion.button>
           )}

@@ -60,6 +60,18 @@ export function saveLocal(key: string, conv: { id?: string | null; title: string
     return { id: next.id, title: next.title, created_at: next.created_at, updated_at: now, message_count: messages.length, preview: previewOf(messages) };
 }
 
+/** Rename a device-only demo chat. Returns the saved title, or null if it no longer exists. */
+export function renameChat(key: string, id: string, title: string): string | null {
+    const clean = String(title || '').replace(/\s+/g, ' ').trim().slice(0, 60);
+    if (!clean) return null;
+    const all = readAll(key);
+    const conv = all.find(c => c.id === id);
+    if (!conv) return null;
+    conv.title = clean;
+    writeAll(key, all);
+    return clean;
+}
+
 export function deleteLocal(key: string, id: string) {
     writeAll(key, readAll(key).filter(c => c.id !== id));
 }

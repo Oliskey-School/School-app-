@@ -46,7 +46,23 @@ describe('plainMaths', () => {
 });
 
 describe('AIChatHistoryPanel', () => {
-    const base = { activeId: null, activeClass: 'bg-orange-100', onSelect: vi.fn(), onNew: vi.fn(), onDelete: vi.fn(), onRetry: vi.fn() };
+    const base = { activeId: null, activeClass: 'bg-orange-100', onSelect: vi.fn(), onNew: vi.fn(), onDelete: vi.fn(), onRename: vi.fn(), onRetry: vi.fn() };
+
+    it('renames inline: Save calls onRename, Escape cancels', async () => {
+        const onRename = vi.fn().mockResolvedValue(undefined);
+        render(<AIChatHistoryPanel {...base} onRename={onRename} status="ready" conversations={[conv('c1', 'My attendance')]} />);
+        const renameBtn = screen.getByRole('button', { name: 'Rename chat: My attendance' });
+        expect(renameBtn.className).toContain('w-11');
+        fireEvent.click(renameBtn);
+        const input = screen.getByLabelText('Chat name');
+        fireEvent.keyDown(input, { key: 'Escape' });
+        expect(onRename).not.toHaveBeenCalled();
+        expect(screen.queryByLabelText('Chat name')).not.toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: 'Rename chat: My attendance' }));
+        fireEvent.change(screen.getByLabelText('Chat name'), { target: { value: '  Term 1 attendance  ' } });
+        fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+        await waitFor(() => expect(onRename).toHaveBeenCalledWith('c1', 'Term 1 attendance'));
+    });
 
     it('lists chats and opens one', () => {
         const onSelect = vi.fn();
@@ -126,6 +142,17 @@ describe('AIChatScreen', () => {
         expect(a.aiGetConversation).toHaveBeenCalledWith('old');
     });
 
+    it('renames a saved chat on the account (real user)', async () => {
+        a.aiRenameConversation = vi.fn().mockResolvedValue({ id: 'old', title: 'Renamed chat' });
+        render(<AIChatScreen onBack={vi.fn()} dashboardType={DashboardType.Student} />);
+        await screen.findAllByText('Earlier chat');
+        fireEvent.click(screen.getAllByRole('button', { name: 'Rename chat: Earlier chat' })[0]);
+        fireEvent.change(screen.getByLabelText('Chat name'), { target: { value: 'Renamed chat' } });
+        fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+        await waitFor(() => expect(screen.getAllByText('Renamed chat').length).toBeGreaterThan(0));
+        expect(a.aiRenameConversation).toHaveBeenCalledWith('old', 'Renamed chat');
+    });
+
     it('a failed send keeps the message and offers Retry (no endless spinner)', async () => {
         a.aiSendMessage = vi.fn()
             .mockRejectedValueOnce(new Error('AI temporarily unavailable'))
@@ -162,6 +189,7 @@ describe('AIChatScreen in the demo', () => {
         a.aiListConversations = vi.fn();
         a.aiGetConversation = vi.fn();
         a.aiDeleteConversation = vi.fn();
+        a.aiRenameConversation = vi.fn();
         a.aiSendMessage = vi.fn();
         a.aiChat = vi.fn().mockResolvedValue({ text: '### Demo answer\n- **88%** present' });
     });
@@ -183,11 +211,16 @@ describe('AIChatScreen in the demo', () => {
         const item = (await screen.findAllByText("What's my attendance this term?"))[0];
         fireEvent.click(item);
         await waitFor(() => expect(screen.getByText('88%', { selector: 'strong' })).toBeInTheDocument());
+        // Rename stays on the device too.
+        fireEvent.click(screen.getAllByRole('button', { name: /Rename chat:/ })[0]);
+        fireEvent.change(screen.getByLabelText('Chat name'), { target: { value: 'My demo chat' } });
+        fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+        await waitFor(() => expect(JSON.parse(localStorage.getItem('oliskey_ai_demo_chats:u-ada:STUDENT') || '[]')[0].title).toBe('My demo chat'));
         fireEvent.click(screen.getAllByRole('button', { name: /Delete chat:/ })[0]);
         fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
         await waitFor(() => expect(JSON.parse(localStorage.getItem('oliskey_ai_demo_chats:u-ada:STUDENT') || '[]')).toHaveLength(0));
 
-        for (const fn of ['aiListConversations', 'aiGetConversation', 'aiDeleteConversation', 'aiSendMessage']) {
+        for (const fn of ['aiListConversations', 'aiGetConversation', 'aiDeleteConversation', 'aiRenameConversation', 'aiSendMessage']) {
             expect(a[fn], `${fn} must not be called in the demo`).not.toHaveBeenCalled();
         }
     });

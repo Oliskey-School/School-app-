@@ -185,6 +185,20 @@ describe('AI Assistant: personal context scope + chat history', () => {
             for (const t of [branch, school]) expect(t).not.toContain(M.sBName);
         });
 
+        it('labels terms without doubling "term" and tells the model to answer from the records', async () => {
+            const row = await runAsPlatform(() => prisma.academicPerformance.create({ data: { student_id: ids.s1, school_id: SA, branch_id: BX, subject: 'Physics', score: 66, term: 'Second Term', session: '2026/2027', created_at: new Date(Date.now() + 60_000) } as any }));
+            try {
+                const text = await buildPersonalContext(user(U.s1, 'STUDENT', SA, BX));
+                expect(text).toContain('Latest results (Second Term, 2026/2027)');
+                expect(text).not.toMatch(/term term/i);
+            } finally {
+                await runAsPlatform(() => prisma.academicPerformance.delete({ where: { id: row.id } }));
+            }
+            const sys = (await import('../../src/services/aiKnowledge.service')).buildSystemMessages('x', { role: 'STUDENT' }).map(m => m.content).join('\n');
+            expect(sys).toContain('answer questions about those');
+            expect(sys).toContain('Never tell the user to "see the AI Assistant page"');
+        });
+
         it('a School B user never sees School A data', async () => {
             const text = await buildPersonalContext(user(U.sB, 'STUDENT', SB, BB));
             expect(text).toContain(M.sBSubject);

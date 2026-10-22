@@ -13,7 +13,7 @@ import MediaGenerator from './MediaGenerator';
 import AIMarkdown from './AIMarkdown';
 import AIChatHistoryPanel from './AIChatHistoryPanel';
 import { isDemoMode } from '../../lib/apiHelpers';
-import { listLocal, getLocal, saveLocal, deleteLocal, localHistoryKey } from '../../lib/aiLocalHistory';
+import { listLocal, getLocal, saveLocal, deleteLocal, renameChat, localHistoryKey } from '../../lib/aiLocalHistory';
 
 /** Same window the server uses for saved chats. */
 const MODEL_WINDOW = 12;
@@ -163,6 +163,17 @@ const AIChatScreen: React.FC<AIChatScreenProps> = ({ onBack, dashboardType }) =>
             loadHistory();
         } finally {
             setOpening(false);
+        }
+    };
+
+    const renameConversation = async (id: string, title: string) => {
+        try {
+            const saved = isDemo ? renameChat(localKey, id, title) : (await api.aiRenameConversation(id, title)).title;
+            if (!saved) throw new Error('Conversation not found');
+            setConversations(list => list.map(c => (c.id === id ? { ...c, title: saved } : c)));
+            if (id === activeId) setActiveTitle(saved);
+        } catch {
+            toast.error('That chat could not be renamed. Please try again.');
         }
     };
 
@@ -341,7 +352,7 @@ const AIChatScreen: React.FC<AIChatScreenProps> = ({ onBack, dashboardType }) =>
     const historyPanel = (
         <AIChatHistoryPanel
             conversations={conversations} activeId={activeId} status={historyStatus} activeClass={theme.activeNav}
-            onSelect={openConversation} onNew={startNewChat} onDelete={deleteConversation} onRetry={loadHistory}
+            onSelect={openConversation} onNew={startNewChat} onDelete={deleteConversation} onRename={renameConversation} onRetry={loadHistory}
         />
     );
 
