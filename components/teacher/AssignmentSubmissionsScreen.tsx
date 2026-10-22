@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
-import { subjectAllowed } from '../../shared/utils/subjectMatch';
+import { subjectAllowed, departmentAllows, normalizeSubjectName } from '../../shared/utils/subjectMatch';
 import { Submission, Assignment, Student } from '../../types';
 import { CheckCircleIcon, ClockIcon, MailIcon, TrashIcon } from '../../constants';
 import { useAutoSync } from '../../hooks/useAutoSync';
@@ -138,7 +138,19 @@ const AssignmentSubmissionsScreen: React.FC<AssignmentSubmissionsScreenProps> = 
             // students still show for any subject rather than being hidden.
             const subjectName = (assignment as any).subject;
             if (subjectName) {
-                classStudents = classStudents.filter((s: any) => subjectAllowed(subjectName, s.assigned_subjects || s.assignedSubjects || []));
+                // A subject limited to one department in this class only reaches
+                // that department's students (those inheriting the class list).
+                let subjectDepartment: string | null = null;
+                if (classId) {
+                    const subs = await api.getClassSubjects(classId).catch(() => []);
+                    const hit = (Array.isArray(subs) ? subs : []).find((x: any) => normalizeSubjectName(x?.name) === normalizeSubjectName(subjectName));
+                    subjectDepartment = hit?.department || null;
+                }
+                classStudents = classStudents.filter((s: any) => {
+                    const own = s.assigned_subjects || s.assignedSubjects || [];
+                    if ((own || []).filter(Boolean).length === 0) return departmentAllows(subjectDepartment, s.department);
+                    return subjectAllowed(subjectName, own);
+                });
             }
 
             setAllClassStudents(classStudents);

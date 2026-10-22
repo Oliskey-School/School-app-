@@ -6,6 +6,7 @@ import crypto from 'crypto';
 import { Role } from '../../generated/prisma-client';
 import { SocketService } from './socket.service';
 import { AcademicService } from './academic.service';
+import { departmentAllows } from '../utils/subjectMatch';
 
 // Every scalar Student column — used by getAllStudents' `select` so it
 // returns exactly what `include: { user: true }` used to return for the
@@ -1621,7 +1622,7 @@ export class StudentService {
         // admin's choice always shows.
         const studentRec = await prisma.student.findFirst({
             where: { id: studentId, school_id: schoolId },
-            select: { assigned_subjects: true } as any
+            select: { assigned_subjects: true, department: true } as any
         }) as any;
         const assigned: string[] = (studentRec?.assigned_subjects || []).filter(Boolean);
         if (assigned.length > 0) {
@@ -1653,14 +1654,29 @@ export class StudentService {
 
         const subjectMap = new Map<string, any>();
 
-        // 2. Collect subjects from every class this caller may actually see
+        // 2. Collect subjects from every class this caller may actually see.
+        // A subject limited to a department in that class (ClassSubjectDepartment)
+        // only counts when it is the student's own department.
+        const deptRows = visibleClasses.length
+            ? await prisma.classSubjectDepartment.findMany({
+                where: { school_id: schoolId, class_id: { in: visibleClasses.map(c => c.id) } },
+                select: { class_id: true, subject_id: true, department: true }
+            })
+            : [];
+        const deptOf = new Map(deptRows.map(r => [`${r.class_id}:${r.subject_id}`, r.department]));
+        let classHasSubjects = false;
         visibleClasses.forEach(klass => {
             (klass as any).subjects?.forEach((subject: any) => {
-                subjectMap.set(subject.id, subject);
+                classHasSubjects = true;
+                if (departmentAllows(deptOf.get(`${klass.id}:${subject.id}`), studentRec?.department)) {
+                    subjectMap.set(subject.id, subject);
+                }
             });
         });
 
-        if (subjectMap.size > 0) {
+        // The class list decides once a class has subjects, even if the
+        // department filter leaves none — never fall back to the grade list.
+        if (subjectMap.size > 0 || classHasSubjects) {
             return Array.from(subjectMap.values());
         }
 

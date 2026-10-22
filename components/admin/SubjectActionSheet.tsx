@@ -10,6 +10,8 @@ export type SubjectAction = {
     arms: Arm[];          // arms of this level the admin may pick from
     armIds: string[];     // arms picked
     customCount: number;  // students with a custom subject list (add only)
+    departments?: string[];      // departments in use at this level; empty = hide the picker
+    department?: string | null;  // null = all departments
 };
 
 /**
@@ -21,11 +23,12 @@ const SubjectActionSheet: React.FC<{
     action: SubjectAction;
     busy: boolean;
     onArms: (ids: string[]) => void;
+    onDepartment?: (department: string | null) => void;
     onNext: () => void;
     onCustom: (addToCustom: boolean) => void;
     onConfirmRemove: () => void;
     onCancel: () => void;
-}> = ({ action, busy, onArms, onNext, onCustom, onConfirmRemove, onCancel }) => {
+}> = ({ action, busy, onArms, onDepartment, onNext, onCustom, onConfirmRemove, onCancel }) => {
     const allIds = action.arms.map(a => a.id);
     const allPicked = allIds.length > 0 && allIds.every(id => action.armIds.includes(id));
     const toggle = (id: string) => onArms(action.armIds.includes(id) ? action.armIds.filter(x => x !== id) : [...action.armIds, id]);
@@ -57,6 +60,21 @@ const SubjectActionSheet: React.FC<{
                                 </label>
                             ))}
                         </div>
+                        {action.mode === 'add' && (action.departments || []).length > 0 && (
+                            <div>
+                                <label htmlFor="subject-department" className="block text-sm font-medium text-gray-700 mb-1">Which department?</label>
+                                <select
+                                    id="subject-department"
+                                    value={action.department || ''}
+                                    onChange={e => onDepartment?.(e.target.value || null)}
+                                    className="w-full min-h-[44px] p-3 bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                >
+                                    <option value="">All departments</option>
+                                    {(action.departments || []).map(d => <option key={d} value={d}>{d}</option>)}
+                                </select>
+                                {action.department && <p className="mt-1 text-xs text-gray-500">Only {action.department} students in these classes will take {action.name}.</p>}
+                            </div>
+                        )}
                         {action.mode === 'remove' && <p className="text-xs text-gray-500">Past results, grades and scores for {action.name} are kept.</p>}
                         <div className="grid grid-cols-2 gap-3">
                             <button type="button" onClick={onCancel} disabled={busy} className="py-3 bg-gray-100 text-gray-700 rounded-2xl font-bold hover:bg-gray-200 transition-colors disabled:opacity-50">Cancel</button>
@@ -72,7 +90,7 @@ const SubjectActionSheet: React.FC<{
                         <div>
                             <h2 id="subject-action-title" className="text-xl font-bold text-gray-900">Students with their own subjects</h2>
                             <p className="text-sm text-gray-500">
-                                {action.customCount} {action.customCount === 1 ? 'student has' : 'students have'} a custom subject list. Also add {action.name} to {action.customCount === 1 ? 'that student' : `those ${action.customCount} students`}? Their other subjects stay as they are.
+                                {action.customCount} {action.department ? `${action.department} ` : ''}{action.customCount === 1 ? 'student has' : 'students have'} a custom subject list. Also add {action.name} to {action.customCount === 1 ? 'that student' : `those ${action.customCount} students`}? Their other subjects stay as they are.
                             </p>
                         </div>
                         <div className="grid grid-cols-2 gap-3">

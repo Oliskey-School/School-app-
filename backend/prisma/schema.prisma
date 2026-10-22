@@ -1285,6 +1285,24 @@ model Subject {
   @@index([school_id, branch_id], map: "idx_Subject_school_branch")
 }
 
+// Department restriction on a class subject. A row means the subject is
+// taught in that class only to students whose Student.department matches
+// (case-insensitive, trimmed). No row = every student in the class. The
+// class<->subject link itself stays the implicit "ClassToSubject" relation.
+model ClassSubjectDepartment {
+  id         String   @id @default(uuid())
+  school_id  String
+  branch_id  String?
+  class_id   String
+  subject_id String
+  department String
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@unique([class_id, subject_id], map: "ClassSubjectDepartment_class_subject_key")
+  @@index([school_id, branch_id], map: "idx_ClassSubjectDepartment_school_branch")
+}
+
 model ExamBody {
   id            String             @id @default(uuid())
   school_id     String

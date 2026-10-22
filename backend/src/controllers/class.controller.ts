@@ -189,7 +189,7 @@ export const getClassSubjectImpact = async (req: AuthRequest, res: Response) => 
     try {
         if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can manage class subjects' });
         const branchId = getEffectiveBranchId(req.user, req.query.branch_id as string);
-        const result = await ClassService.getSubjectAddImpact(req.user.school_id, branchId, String(req.params.id), parseIds(req.query.class_ids), String(req.query.subject || ''));
+        const result = await ClassService.getSubjectAddImpact(req.user.school_id, branchId, String(req.params.id), parseIds(req.query.class_ids), String(req.query.subject || ''), (req.query.department as string) || null);
         res.json(result);
     } catch (error: any) {
         sendError(res, error, 'class.controller.ts');
@@ -204,7 +204,7 @@ export const addClassSubject = async (req: AuthRequest, res: Response) => {
         const result = await ClassService.addSubjectToClasses(
             { schoolId: req.user.school_id, branchId, userId: req.user.id },
             String(req.params.id),
-            { subjectId: req.body?.subject_id, name: req.body?.name, classIds: parseIds(req.body?.class_ids), addToCustom: req.body?.add_to_custom === true }
+            { subjectId: req.body?.subject_id, name: req.body?.name, classIds: parseIds(req.body?.class_ids), addToCustom: req.body?.add_to_custom === true, department: req.body?.department ?? null }
         );
         res.status(201).json(result);
     } catch (error: any) {
@@ -222,6 +222,17 @@ export const removeClassSubject = async (req: AuthRequest, res: Response) => {
             String(req.params.id), String(req.params.subjectId), parseIds(req.query.class_ids)
         );
         res.json(result);
+    } catch (error: any) {
+        sendError(res, error, 'class.controller.ts');
+    }
+};
+
+/** GET /classes/:id/departments — departments in use at this class's level (empty = none). */
+export const getClassLevelDepartments = async (req: AuthRequest, res: Response) => {
+    try {
+        if (!isAdmin(req)) return res.status(403).json({ message: 'Only admins can manage class subjects' });
+        const branchId = getEffectiveBranchId(req.user, req.query.branch_id as string);
+        res.json(await ClassService.getLevelDepartments(req.user.school_id, branchId, String(req.params.id)));
     } catch (error: any) {
         sendError(res, error, 'class.controller.ts');
     }

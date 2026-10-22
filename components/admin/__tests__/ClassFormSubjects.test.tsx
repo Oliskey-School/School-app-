@@ -8,6 +8,7 @@ const apiMock = vi.hoisted(() => ({
     getSubjects: vi.fn(),
     getClasses: vi.fn(),
     getClassSubjectImpact: vi.fn(),
+    getClassLevelDepartments: vi.fn(),
     addClassSubject: vi.fn(),
     removeClassSubject: vi.fn(),
     updateClass: vi.fn(),
@@ -37,6 +38,7 @@ describe('Edit Class → subject add/remove prompts', () => {
         apiMock.getClasses.mockResolvedValue([ss1a, ss1b, { id: 'c-j', grade: 7, section: 'A', subjects: [] }]);
         apiMock.addClassSubject.mockResolvedValue({ subject: { id: 's-bio', name: 'Biology' } });
         apiMock.removeClassSubject.mockResolvedValue({});
+        apiMock.getClassLevelDepartments.mockResolvedValue([]);
     });
 
     it('asks which arms (with Select all), then asks about custom-list students, then saves', async () => {
@@ -46,8 +48,10 @@ describe('Edit Class → subject add/remove prompts', () => {
         await act(async () => { await Promise.resolve(); });
         await openPickerAndChoose('Biology');
 
-        // Arm picker: only this level's arms, current one ticked
+        // Arm picker: only this level's arms, current one ticked; no department
+        // picker when the school does not use departments
         expect(await screen.findByText('Add Biology')).toBeTruthy();
+        expect(screen.queryByLabelText('Which department?')).toBeNull();
         const selectAll = screen.getByLabelText('Select all') as HTMLInputElement;
         expect(selectAll.checked).toBe(false);
         expect(screen.queryByText(/JSS 1/)).toBeNull();
@@ -56,10 +60,10 @@ describe('Edit Class → subject add/remove prompts', () => {
 
         // Custom-list prompt with the count
         expect(await screen.findByText(/3 students have a custom subject list/)).toBeTruthy();
-        expect(apiMock.getClassSubjectImpact).toHaveBeenCalledWith('c-a', 'Biology', ['c-a', 'c-b']);
+        expect(apiMock.getClassSubjectImpact).toHaveBeenCalledWith('c-a', 'Biology', ['c-a', 'c-b'], null);
         fireEvent.click(screen.getByText('Yes, add it'));
 
-        await waitFor(() => expect(apiMock.addClassSubject).toHaveBeenCalledWith('c-a', { subject_id: 's-bio', class_ids: ['c-a', 'c-b'], add_to_custom: true }));
+        await waitFor(() => expect(apiMock.addClassSubject).toHaveBeenCalledWith('c-a', { subject_id: 's-bio', class_ids: ['c-a', 'c-b'], add_to_custom: true, department: null }));
         await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     });
 
@@ -70,7 +74,7 @@ describe('Edit Class → subject add/remove prompts', () => {
         await act(async () => { await Promise.resolve(); });
         await openPickerAndChoose('Biology');
         fireEvent.click(await screen.findByText('Continue'));
-        await waitFor(() => expect(apiMock.addClassSubject).toHaveBeenCalledWith('c-a', { subject_id: 's-bio', class_ids: ['c-a'], add_to_custom: false }));
+        await waitFor(() => expect(apiMock.addClassSubject).toHaveBeenCalledWith('c-a', { subject_id: 's-bio', class_ids: ['c-a'], add_to_custom: false, department: null }));
 
         apiMock.getClassSubjectImpact.mockResolvedValueOnce({ customCount: 1, inheritCount: 5, classes: [] });
         apiMock.addClassSubject.mockClear();
@@ -80,7 +84,7 @@ describe('Edit Class → subject add/remove prompts', () => {
         fireEvent.click(await screen.findByText('Continue'));
         expect(await screen.findByText(/1 student has a custom subject list/)).toBeTruthy();
         fireEvent.click(screen.getByText('No'));
-        await waitFor(() => expect(apiMock.addClassSubject).toHaveBeenCalledWith('c-a', { name: 'Robotics', class_ids: ['c-a'], add_to_custom: false }));
+        await waitFor(() => expect(apiMock.addClassSubject).toHaveBeenCalledWith('c-a', { name: 'Robotics', class_ids: ['c-a'], add_to_custom: false, department: null }));
     });
 
     it('remove asks for confirmation, says past results are kept, and Cancel changes nothing', async () => {
@@ -101,6 +105,27 @@ describe('Edit Class → subject add/remove prompts', () => {
         fireEvent.click(within(await screen.findByRole('dialog')).getByText('Remove', { selector: 'button' }));
         await waitFor(() => expect(apiMock.removeClassSubject).toHaveBeenCalledWith('c-a', 's-eng', ['c-a']));
         await waitFor(() => expect(screen.queryByText('English')).toBeNull());
+    });
+
+    it('offers "Which department?" when the level uses departments and limits the add (and the custom-list ask) to it', async () => {
+        apiMock.getClassLevelDepartments.mockResolvedValue(['Arts', 'Science']);
+        apiMock.getClasses.mockResolvedValue([ss1a]); // single arm: the sheet still opens for the department
+        apiMock.getClassSubjectImpact.mockResolvedValue({ customCount: 2, inheritCount: 4, classes: [] });
+        renderForm();
+        await waitFor(() => expect(apiMock.getClassLevelDepartments).toHaveBeenCalledWith('c-a'));
+        await act(async () => { await Promise.resolve(); });
+        await openPickerAndChoose('Biology');
+
+        const select = await screen.findByLabelText('Which department?') as HTMLSelectElement;
+        expect(Array.from(select.options).map(o => o.textContent)).toEqual(['All departments', 'Arts', 'Science']);
+        fireEvent.change(select, { target: { value: 'Science' } });
+        expect(screen.getByText(/Only Science students/)).toBeTruthy();
+        fireEvent.click(screen.getByText('Continue'));
+
+        expect(await screen.findByText(/2 Science students have a custom subject list/)).toBeTruthy();
+        expect(apiMock.getClassSubjectImpact).toHaveBeenCalledWith('c-a', 'Biology', ['c-a'], 'Science');
+        fireEvent.click(screen.getByText('Yes, add it'));
+        await waitFor(() => expect(apiMock.addClassSubject).toHaveBeenCalledWith('c-a', { subject_id: 's-bio', class_ids: ['c-a'], add_to_custom: true, department: 'Science' }));
     });
 
     it('Update on an existing class no longer resends the subject list', async () => {

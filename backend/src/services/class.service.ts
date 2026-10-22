@@ -1,5 +1,6 @@
 import prisma, { withTenantTransaction } from '../config/database';
 import { SocketService } from './socket.service';
+import { departmentAllows, normalizeDepartment } from '../utils/subjectMatch';
 
 export class ClassService {
     static async getClasses(schoolId: string, branchId: string | undefined, teacherId?: string) {
@@ -94,8 +95,10 @@ export class ClassService {
                 }));
             }
 
+            const depts = await this.departmentMap(prisma, schoolId, classes.map((c: any) => c.id));
             return classes.map((cls: any) => ({
                 ...cls,
+                subjects: this.withDepartments(cls.id, cls.subjects, depts),
                 student_count: cls._count.enrollments,
                 studentCount: cls._count.enrollments
             }));
@@ -198,7 +201,41 @@ export class ClassService {
             where: { id: classId, school_id: schoolId },
             include: { subjects: { select: { id: true, name: true, code: true } } }
         });
-        return cls?.subjects || [];
+        if (!cls) return [];
+        return this.withDepartments(cls.id, cls.subjects, await this.departmentMap(prisma, schoolId, [cls.id]));
+    }
+
+    /** "<class_id>:<subject_id>" -> department, for subjects limited to one department in a class. */
+    static async departmentMap(db: any, schoolId: string, classIds: string[]): Promise<Map<string, string>> {
+        if (!classIds.length) return new Map();
+        const rows = await db.classSubjectDepartment.findMany({
+            where: { school_id: schoolId, class_id: { in: classIds } },
+            select: { class_id: true, subject_id: true, department: true }
+        });
+        return new Map(rows.map((r: any) => [`${r.class_id}:${r.subject_id}`, r.department]));
+    }
+
+    private static withDepartments(classId: string, subjects: any[] | undefined, depts: Map<string, string>) {
+        return (subjects || []).map((s: any) => ({ ...s, department: depts.get(`${classId}:${s.id}`) || null }));
+    }
+
+    /**
+     * Departments in use at this class's level: from its arms (Class.department)
+     * and their enrolled students (Student.department). Empty = the school does
+     * not split this level by department, so the picker is hidden.
+     */
+    static async getLevelDepartments(schoolId: string, branchId: string | undefined, anchorId: string) {
+        const branchWhere = branchId && branchId !== 'all' ? { branch_id: branchId } : {};
+        const anchor = await prisma.class.findFirst({ where: { id: anchorId, school_id: schoolId, deleted_at: null, ...branchWhere }, select: { grade: true } });
+        if (!anchor) throw new Error('Class not found in your school/branch');
+        const arms = await prisma.class.findMany({ where: { school_id: schoolId, grade: anchor.grade, deleted_at: null, ...branchWhere }, select: { id: true, department: true } });
+        const students = await this.enrolledStudents(prisma, schoolId, arms.map((a: any) => a.id));
+        const byKey = new Map<string, string>();
+        for (const d of [...arms.map((a: any) => a.department), ...students.map((st: any) => st.department)]) {
+            const k = normalizeDepartment(d);
+            if (k && !byKey.has(k)) byKey.set(k, String(d).trim());
+        }
+        return Array.from(byKey.values()).sort((a, b) => a.localeCompare(b));
     }
 
     // ── Per-action subject add / remove (Academic Levels → Edit Class) ──────
@@ -231,8 +268,13 @@ export class ClassService {
         if (!ids.length) return [];
         return db.student.findMany({
             where: { id: { in: ids }, school_id: schoolId },
-            select: { id: true, assigned_subjects: true }
+            select: { id: true, assigned_subjects: true, department: true }
         });
+    }
+
+    private static cleanDepartment(d: unknown): string | null {
+        const v = String(d ?? '').trim();
+        return v && v.toLowerCase() !== 'all' ? v : null;
     }
 
     private static hasSubject(list: string[] | null | undefined, name: string) {
@@ -241,11 +283,14 @@ export class ClassService {
     }
 
     /** How many students in the chosen arms keep a custom subject list without this subject. */
-    static async getSubjectAddImpact(schoolId: string, branchId: string | undefined, anchorId: string, classIds: string[] | undefined, subjectName: string) {
+    static async getSubjectAddImpact(schoolId: string, branchId: string | undefined, anchorId: string, classIds: string[] | undefined, subjectName: string, department?: string | null) {
         const name = String(subjectName || '').trim();
         if (!name) throw new Error('Subject name is required');
         const { targets } = await this.resolveTargetClasses(prisma, schoolId, branchId, anchorId, classIds);
-        const students = await this.enrolledStudents(prisma, schoolId, targets.map((t: any) => t.id));
+        const dept = this.cleanDepartment(department);
+        // A department subject only concerns that department's students.
+        const students = (await this.enrolledStudents(prisma, schoolId, targets.map((t: any) => t.id)))
+            .filter((s: any) => departmentAllows(dept, s.department));
         const custom = students.filter((s: any) => (s.assigned_subjects || []).filter(Boolean).length > 0);
         return {
             classes: targets,
@@ -257,10 +302,11 @@ export class ClassService {
     static async addSubjectToClasses(
         scope: { schoolId: string; branchId: string | undefined; userId?: string | null },
         anchorId: string,
-        input: { subjectId?: string; name?: string; classIds?: string[]; addToCustom?: boolean }
+        input: { subjectId?: string; name?: string; classIds?: string[]; addToCustom?: boolean; department?: string | null }
     ) {
         const { schoolId, branchId, userId } = scope;
         const branch = branchId && branchId !== 'all' ? branchId : null;
+        const dept = this.cleanDepartment(input.department);
         const result = await withTenantTransaction({ schoolId, branchId: branch, userId: userId || null }, async (tx) => {
             const { anchor, targets } = await this.resolveTargetClasses(tx, schoolId, branchId, anchorId, input.classIds);
 
@@ -280,13 +326,26 @@ export class ClassService {
 
             for (const t of targets) {
                 await tx.class.update({ where: { id: t.id }, data: { subjects: { connect: { id: subject.id } } } });
+                // Department: one row limits the subject to that department in
+                // this class; "All departments" clears any earlier limit.
+                if (dept) {
+                    await tx.classSubjectDepartment.upsert({
+                        where: { class_id_subject_id: { class_id: t.id, subject_id: subject.id } },
+                        create: { school_id: schoolId, branch_id: t.branch_id, class_id: t.id, subject_id: subject.id, department: dept },
+                        update: { department: dept },
+                    });
+                } else {
+                    await tx.classSubjectDepartment.deleteMany({ where: { school_id: schoolId, class_id: t.id, subject_id: subject.id } });
+                }
             }
 
             // Inheriting students (empty list) get it through the class. Custom
-            // lists are only touched when the admin said yes.
+            // lists are only touched when the admin said yes, and only for the
+            // subject's department.
             let customUpdated = 0;
             if (input.addToCustom) {
-                const students = await this.enrolledStudents(tx, schoolId, targets.map((t: any) => t.id));
+                const students = (await this.enrolledStudents(tx, schoolId, targets.map((t: any) => t.id)))
+                    .filter((s: any) => departmentAllows(dept, s.department));
                 for (const s of students) {
                     const list: string[] = (s.assigned_subjects || []).filter(Boolean);
                     if (list.length === 0 || this.hasSubject(list, subject.name)) continue;
@@ -298,12 +357,12 @@ export class ClassService {
             await tx.auditLog.create({ data: {
                 school_id: schoolId, branch_id: branch, user_id: userId || null,
                 action: 'class.subject.add', action_type: 'ACADEMIC', entity_type: 'Class', entity_id: anchorId,
-                action_description: `Added ${subject.name} to ${targets.map((t: any) => t.name).join(', ')}`,
-                new_values: { subject_id: subject.id, subject: subject.name, class_ids: targets.map((t: any) => t.id) } as any,
+                action_description: `Added ${subject.name} to ${targets.map((t: any) => t.name).join(', ')}${dept ? ` (${dept} department only)` : ''}`,
+                new_values: { subject_id: subject.id, subject: subject.name, class_ids: targets.map((t: any) => t.id), department: dept } as any,
                 metadata: { add_to_custom: !!input.addToCustom, custom_students_updated: customUpdated } as any,
             } });
 
-            return { subject: { id: subject.id, name: subject.name }, classes: targets, customUpdated };
+            return { subject: { id: subject.id, name: subject.name }, classes: targets, customUpdated, department: dept };
         });
         SocketService.emitToSchool(schoolId, 'class:updated', { action: 'subject_add', classIds: result.classes.map((c: any) => c.id) });
         return result;
@@ -330,6 +389,7 @@ export class ClassService {
             for (const t of targets) {
                 await tx.class.update({ where: { id: t.id }, data: { subjects: { disconnect: { id: subject.id } } } });
             }
+            await tx.classSubjectDepartment.deleteMany({ where: { school_id: schoolId, subject_id: subject.id, class_id: { in: targets.map((t: any) => t.id) } } });
 
             let studentsUpdated = 0;
             const n = subject.name.trim().toLowerCase();

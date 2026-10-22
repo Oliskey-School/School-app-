@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { subjectAllowed, subjectNamesMatch } from '../../src/utils/subjectMatch';
+import { subjectAllowed, subjectNamesMatch, departmentAllows } from '../../src/utils/subjectMatch';
 
 describe('subject name matching (student subject lists vs teacher subjects)', () => {
     it('matches the same subject regardless of case and punctuation', () => {
@@ -21,5 +21,18 @@ describe('subject name matching (student subject lists vs teacher subjects)', ()
         expect(subjectAllowed('Mathematics', null)).toBe(true);
         expect(subjectAllowed('Mathematics', ['General Mathematics', 'Biology'])).toBe(true);
         expect(subjectAllowed('Physics', ['General Mathematics', 'Biology'])).toBe(false);
+    });
+});
+
+describe('departmentAllows', () => {
+    it('no department on the subject = every student', () => {
+        expect(departmentAllows(null, 'Arts')).toBe(true);
+        expect(departmentAllows('', null)).toBe(true);
+        expect(departmentAllows('  ', 'Science')).toBe(true);
+    });
+    it('matches trimmed and case-insensitive; a student without a department is excluded', () => {
+        expect(departmentAllows('Science', ' science ')).toBe(true);
+        expect(departmentAllows('Science', 'Arts')).toBe(false);
+        expect(departmentAllows('Science', null)).toBe(false);
     });
 });

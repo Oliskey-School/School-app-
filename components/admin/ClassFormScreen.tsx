@@ -42,6 +42,8 @@ const ClassFormScreen: React.FC<ClassFormScreenProps> = ({ classToEdit, schoolId
     const [arms, setArms] = useState<Arm[]>([]);
     const [action, setAction] = useState<SubjectAction | null>(null);
     const [actionBusy, setActionBusy] = useState(false);
+    // Departments in use at this level (e.g. Science / Arts); empty = not used.
+    const [departments, setDepartments] = useState<string[]>([]);
 
     const selfArm = (): Arm | null => classToEdit ? {
         id: classToEdit.id,
@@ -65,6 +67,9 @@ const ClassFormScreen: React.FC<ClassFormScreenProps> = ({ classToEdit, schoolId
             if (!same.some(a => a.id === classToEdit.id)) same.unshift(selfArm()!);
             setArms(same);
         }).catch(() => { /* falls back to this class only */ });
+        api.getClassLevelDepartments(classToEdit.id)
+            .then(list => { if (alive) setDepartments(Array.isArray(list) ? list : []); })
+            .catch(() => { /* no department picker */ });
         return () => { alive = false; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [classToEdit?.id, schoolId, currentBranchId]);
@@ -101,7 +106,7 @@ const ClassFormScreen: React.FC<ClassFormScreenProps> = ({ classToEdit, schoolId
         try {
             const res = await api.addClassSubject(classToEdit!.id, {
                 ...(a.subjectId ? { subject_id: a.subjectId } : { name: a.name }),
-                class_ids: a.armIds, add_to_custom: addToCustom,
+                class_ids: a.armIds, add_to_custom: addToCustom, department: a.department || null,
             });
             const saved = res?.subject?.id ? { id: res.subject.id, name: res.subject.name } : { id: a.subjectId || '', name: a.name };
             if (saved.id && !subjectRows.some(r => r.id === saved.id)) setSubjectRows(prev => [...prev, saved]);
@@ -122,7 +127,7 @@ const ClassFormScreen: React.FC<ClassFormScreenProps> = ({ classToEdit, schoolId
         setActionBusy(true);
         let customCount = 0;
         try {
-            const impact = await api.getClassSubjectImpact(classToEdit!.id, a.name, a.armIds);
+            const impact = await api.getClassSubjectImpact(classToEdit!.id, a.name, a.armIds, a.department || null);
             customCount = impact?.customCount || 0;
         } catch (err: any) {
             setActionBusy(false);
@@ -160,9 +165,9 @@ const ClassFormScreen: React.FC<ClassFormScreenProps> = ({ classToEdit, schoolId
         const all = allArms();
         if (added) {
             const subjectId = subjectRows.find(r => sameName(r.name, added))?.id;
-            const start: SubjectAction = { mode: 'add', name: added, subjectId, step: 'arms', arms: all, armIds: [classToEdit.id], customCount: 0 };
-            // One arm only: nothing to pick, go straight to the custom-list check.
-            if (all.length > 1) setAction(start);
+            const start: SubjectAction = { mode: 'add', name: added, subjectId, step: 'arms', arms: all, armIds: [classToEdit.id], customCount: 0, departments, department: null };
+            // One arm and no departments: nothing to pick, go straight to the custom-list check.
+            if (all.length > 1 || departments.length > 0) setAction(start);
             else checkCustom(start);
         } else if (removed) {
             const subjectId = all.flatMap(a => a.subjects).find(s => s.id && sameName(s.name, removed))?.id
@@ -315,6 +320,7 @@ const ClassFormScreen: React.FC<ClassFormScreenProps> = ({ classToEdit, schoolId
                     action={action}
                     busy={actionBusy}
                     onArms={ids => setAction({ ...action, armIds: ids })}
+                    onDepartment={d => setAction({ ...action, department: d })}
                     onNext={() => (action.mode === 'add' ? checkCustom(action) : applyRemove(action))}
                     onCustom={yes => applyAdd(action, yes)}
                     onConfirmRemove={() => applyRemove(action)}

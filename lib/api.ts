@@ -1850,14 +1850,20 @@ class ExpressApiClient {
     }
 
     /** How many students in the chosen arms have a custom subject list without this subject. */
-    async getClassSubjectImpact(classId: string, subject: string, classIds: string[]): Promise<{ customCount: number; inheritCount: number; classes: any[] }> {
+    async getClassSubjectImpact(classId: string, subject: string, classIds: string[], department?: string | null): Promise<{ customCount: number; inheritCount: number; classes: any[] }> {
         const q = new URLSearchParams({ subject, class_ids: classIds.join(',') });
+        if (department) q.append('department', department);
         return this.get(`/classes/${encodeURIComponent(classId)}/subjects/impact?${q.toString()}`);
     }
 
     /** Add a subject (existing or new by name) to the chosen arms in one atomic step. */
-    async addClassSubject(classId: string, data: { subject_id?: string; name?: string; class_ids: string[]; add_to_custom: boolean }): Promise<any> {
+    async addClassSubject(classId: string, data: { subject_id?: string; name?: string; class_ids: string[]; add_to_custom: boolean; department?: string | null }): Promise<any> {
         return this.post(`/classes/${encodeURIComponent(classId)}/subjects`, data);
+    }
+
+    /** Departments in use at this class's level (empty when the school doesn't use them). */
+    async getClassLevelDepartments(classId: string): Promise<string[]> {
+        return this.get(`/classes/${encodeURIComponent(classId)}/departments`);
     }
 
     /** Remove a subject from the chosen arms. Past results for it are kept. */

@@ -25,3 +25,18 @@ export function subjectAllowed(subject: unknown, allowed: unknown[] | null | und
     if (list.length === 0) return true;
     return list.some(s => subjectNamesMatch(s, subject));
 }
+
+/** Department names are free text ("Science", " science "): compare trimmed, case-insensitive. */
+export function normalizeDepartment(dept: unknown): string {
+    return String(dept ?? '').trim().toLowerCase();
+}
+
+/**
+ * A class subject limited to a department (Class Subject Department row) is
+ * only for students of that department. No department = every student.
+ */
+export function departmentAllows(subjectDepartment: unknown, studentDepartment: unknown): boolean {
+    const d = normalizeDepartment(subjectDepartment);
+    if (!d) return true;
+    return d === normalizeDepartment(studentDepartment);
+}
