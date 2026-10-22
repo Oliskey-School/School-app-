@@ -3,6 +3,9 @@ import { motion } from 'framer-motion';
 import { HomeIcon, BellIcon, UserIcon as ProfileIcon, DocumentTextIcon, PhoneIcon, PlayIcon, AnalyticsIcon, MegaphoneIcon, SettingsIcon, MessagesIcon, ElearningIcon, SparklesIcon, UserGroupIcon, GameControllerIcon, ChartBarIcon, ClockIcon, LogoutIcon, ReportIcon, CheckCircleIcon, BuildingLibraryIcon, StudentsIcon, ClipboardListIcon, ExamIcon, EnterResultsIcon, ShieldCheckIcon, SUBJECT_COLORS, getFormattedClassName } from '../../constants';
 import { useTeacherClasses } from '../../hooks/useTeacherClasses';
 
+// Shown when a school has not uploaded its own logo.
+const DEFAULT_APP_ICON = '/icons/app-icon-192.png';
+
 // ⚠️ PERMANENT, OWNER-LOCKED NAV SETS ⚠️
 // The item list (count, labels, order) in EVERY *Sidebar component below —
 // Admin, Teacher, Parent, Student (and any other role added later) — is fixed
@@ -50,13 +53,7 @@ export const StudentSidebar = ({ activeScreen, setActiveScreen, onLogout, school
     return (
         <div className="h-full flex flex-col bg-white border-r border-gray-200">
             <div className="p-6 flex items-center space-x-3 border-b border-gray-100">
-                {logoUrl ? (
-                    <img src={logoUrl} alt="Logo" className="w-8 h-8 rounded-lg object-contain" />
-                ) : (
-                    <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center">
-                        <span className="text-white font-bold text-lg">{schoolName ? schoolName.charAt(0) : 'S'}</span>
-                    </div>
-                )}
+                <img src={logoUrl || DEFAULT_APP_ICON} alt={schoolName ? `${schoolName} logo` : 'Oliskey logo'} className="w-8 h-8 rounded-lg object-contain" />
                 <span className="text-xl font-bold text-gray-800 truncate" title={schoolName}>{schoolName || 'Oliskey Demo School'}</span>
             </div>
 
@@ -98,13 +95,7 @@ export const AdminSidebar = ({ activeScreen, setActiveScreen, onLogout, schoolNa
     return (
         <div className="h-full flex flex-col bg-white border-r border-gray-200">
             <div className="p-6 flex items-center space-x-3 border-b border-gray-100">
-                {logoUrl ? (
-                    <img src={logoUrl} alt="Logo" className="w-8 h-8 rounded-lg object-contain" />
-                ) : (
-                    <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-                        <span className="text-white font-bold text-lg">{schoolName ? schoolName.charAt(0) : 'A'}</span>
-                    </div>
-                )}
+                <img src={logoUrl || DEFAULT_APP_ICON} alt={schoolName ? `${schoolName} logo` : 'Oliskey logo'} className="w-8 h-8 rounded-lg object-contain" />
                 <span className="text-lg font-bold text-gray-800 truncate" title={schoolName}>{schoolName || 'Oliskey School'}</span>
             </div>
 
@@ -157,13 +148,7 @@ export const TeacherSidebar = ({ activeScreen, setActiveScreen, onLogout, school
     return (
         <div className="h-full flex flex-col bg-white border-r border-gray-200">
             <div className="p-6 flex items-center space-x-3 border-b border-gray-100">
-                {logoUrl ? (
-                    <img src={logoUrl} alt="Logo" className="w-8 h-8 rounded-lg object-contain" />
-                ) : (
-                    <div className="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center">
-                        <span className="text-white font-bold text-lg">{schoolName ? schoolName.charAt(0) : 'T'}</span>
-                    </div>
-                )}
+                <img src={logoUrl || DEFAULT_APP_ICON} alt={schoolName ? `${schoolName} logo` : 'Oliskey logo'} className="w-8 h-8 rounded-lg object-contain" />
                 <span className="text-xl font-bold text-gray-800 truncate" title={schoolName}>{schoolName || 'Oliskey School'}</span>
             </div>
 
@@ -211,13 +196,7 @@ export const ParentSidebar = ({ activeScreen, setActiveScreen, onLogout, schoolN
     return (
         <div className="h-full flex flex-col bg-white border-r border-gray-200">
             <div className="p-6 flex items-center space-x-3 border-b border-gray-100">
-                {logoUrl ? (
-                    <img src={logoUrl} alt="Logo" className="w-8 h-8 rounded-lg object-contain" />
-                ) : (
-                    <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
-                        <span className="text-white font-bold text-lg">{schoolName ? schoolName.charAt(0) : 'P'}</span>
-                    </div>
-                )}
+                <img src={logoUrl || DEFAULT_APP_ICON} alt={schoolName ? `${schoolName} logo` : 'Oliskey logo'} className="w-8 h-8 rounded-lg object-contain" />
                 <span className="text-xl font-bold text-gray-800 truncate" title={schoolName}>{schoolName || 'Oliskey Demo School'}</span>
             </div>
 
@@ -263,13 +242,7 @@ export const InspectorSidebar = ({ activeScreen, setActiveScreen, onLogout, scho
     return (
         <div className="h-full flex flex-col bg-white border-r border-gray-200">
             <div className="p-6 flex items-center space-x-3 border-b border-gray-100">
-                {logoUrl ? (
-                    <img src={logoUrl} alt="Logo" className="w-8 h-8 rounded-lg object-contain" />
-                ) : (
-                    <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-                        <span className="text-white font-bold text-lg">{schoolName ? schoolName.charAt(0) : 'I'}</span>
-                    </div>
-                )}
+                <img src={logoUrl || DEFAULT_APP_ICON} alt={schoolName ? `${schoolName} logo` : 'Oliskey logo'} className="w-8 h-8 rounded-lg object-contain" />
                 <span className="text-xl font-bold text-gray-800 truncate" title={schoolName}>{schoolName || 'School Administration'}</span>
             </div>
 

@@ -50,7 +50,13 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" 
 </svg>`;
 
 const out = 'public/oliskey-school-app-social-card.png';
-const buf = await sharp(Buffer.from(svg)).png({ compressionLevel: 9 }).toBuffer();
+// The app icon on the right, so shared links carry the brand mark.
+// Run scripts/generate-icons.js first.
+const ICON = 290;
+const icon = await sharp('public/icons/app-icon-512.png').resize(ICON, ICON).toBuffer();
+const buf = await sharp(Buffer.from(svg))
+    .composite([{ input: icon, left: W - ICON - 60, top: Math.round((H - ICON) / 2) }])
+    .png({ compressionLevel: 9, palette: true, quality: 90, effort: 10 }).toBuffer();
 writeFileSync(out, buf);
 const meta = await sharp(buf).metadata();
 console.log(`wrote ${out} — ${meta.width}x${meta.height}, ${buf.length} bytes`);
