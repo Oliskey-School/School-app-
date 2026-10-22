@@ -51,3 +51,17 @@ a row covers today AND the next 90 days, or that the code auto-extends it."
 
 **Principle:** Seed data with an expiry is a time bomb; audits must check
 coverage against the current date, not just row existence.
+
+### Observation 3: Session-start skills skipped during a long multi-agent run
+**Status:** OPEN
+**Date:** 2026-10-08
+**Session context:** Long coordinator session dispatching builder/verifier agents for UI, AI and security work.
+**Skill:** task-observer, disciplined-engineering, using-superpowers (activation)
+**Type:** open-source
+**Phase/Area:** Session Start Protocol / subagent briefs
+
+**Issue:** The global config requires invoking task-observer, disciplined-engineering and using-superpowers at session start. The coordinator never did, and subagent briefs never told agents to use skills. The user corrected this twice and also complained about token use.
+
+**Suggested improvement:** Add a "subagent brief" rule: every dispatched agent's prompt must name the skills to invoke (verification-before-completion, systematic-debugging, a token-reduction skill, the code-graph query tool) and ask for a concise report.
+
+**Principle:** Skills activated only in the coordinator do not reach subagents. Skill use has to be written into every delegation brief, or it silently stops at the first hand-off.
