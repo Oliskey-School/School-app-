@@ -112,8 +112,24 @@ export default defineConfig(async ({ mode }) => {
       ]),
       VitePWA({
         registerType: 'prompt',
+        // The service worker is PRODUCTION-only on purpose.
+        //
+        // `registerType: 'prompt'` means a new worker never activates by
+        // itself — it waits for the user to accept the update prompt
+        // (components/shared/UpdatePrompt.tsx). That is right in production,
+        // where a surprise reload mid-task would lose work. In development it
+        // meant the worker kept serving its precached copy of the CSS
+        // (`globPatterns` includes `**/*.css`) while Vite served freshly built
+        // JS, so a style change could appear to have no effect at all: the new
+        // class name reached the element, the rule for it did not, and the
+        // element silently fell back to the browser default. A grid rebuilt
+        // that way renders as a single column no matter what the source says.
+        //
+        // Keep this false. If the dev worker is ever needed to debug offline
+        // behaviour, re-enable it temporarily and unregister it afterwards
+        // (DevTools → Application → Service Workers), rather than leaving it on.
         devOptions: {
-          enabled: true,
+          enabled: false,
           type: 'module',
         },
         workbox: {
